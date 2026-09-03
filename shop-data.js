@@ -40,6 +40,7 @@ export const SEED_ORDERS = [
 export function photoId(id, n) { return 'prod-photo-' + id + '-' + n; }
 export const PRODUCT_IMAGES = {
   nfc1: ['images/nfc-review-black-lifestyle.png', 'images/nfc-review-black-stack.png'],
+  nfc2: ['images/nfc-review-white-stack.png'],
   nfc3: ['images/keychain-google-review-lifestyle.png', 'images/keychain-google-review-white.png'],
   nfc4: ['images/nfc-display-stand.png'],
   nfc5: ['images/nfc-display-stand.png'],
