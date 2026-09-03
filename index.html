@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="images/logo.png">
+<title>Spot Shop — One storefront, every category you sell.</title>
+<meta name="description" content="Spot Shop — one storefront, every category you sell.">
+<meta property="og:title" content="Spot Shop">
+<meta property="og:description" content="One storefront, every category you sell.">
+<meta property="og:image" content="images/og-share.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Spot Shop">
+<meta name="twitter:description" content="One storefront, every category you sell.">
+<meta name="twitter:image" content="images/og-share.png">
 <script src="./support.js"></script>
 </head>
 <body>
@@ -15,6 +26,7 @@
   *{box-sizing:border-box}
   body{margin:0;background:#F7F3ED;color:#22201D;font-family:'Work Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
+  a.link{transition:color 0.15s ease}
   a.link:hover{color:var(--accent)}
   image-slot{display:block}
   button{font-family:inherit}
@@ -45,9 +57,23 @@
           <a href="#products" class="link" style="white-space:nowrap" onClick="{{ c.onClick }}">{{ c.label }}</a>
         </sc-for>
         <button onClick="{{ toggleWishPanel }}" style="border:none;background:none;color:#22201D;font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0">Wishlist{{ wishBadge }}</button>
+        <div style="display:flex;align-items:center;gap:14px;padding-left:4px;border-left:1px solid #DDD6CC">
+          <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          </a>
+          <a href="https://facebook.com/wheretospot" target="_blank" rel="noopener" aria-label="Facebook" class="link" style="display:flex">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 22v-8h2.7l.5-3.2h-3.2V9c0-.9.3-1.5 1.7-1.5h1.6V4.6c-.3 0-1.3-.1-2.4-.1-2.5 0-4.1 1.5-4.1 4.2v2.1H7.5V13h2.8v9h3.2z"/></svg>
+          </a>
+          <a href="https://tiktok.com/@wheretospot" target="_blank" rel="noopener" aria-label="TikTok" class="link" style="display:flex">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.6a3 3 0 1 1-2.2-2.9V9.5a6.1 6.1 0 1 0 5.2 6V9.1a7.6 7.6 0 0 0 4.5 1.5V7.4A4.8 4.8 0 0 1 16.5 2z"/></svg>
+          </a>
+          <a href="mailto:shop@wheretospot.com" aria-label="Email" class="link" style="display:flex">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m4 6 8 6 8-6"/></svg>
+          </a>
+        </div>
       </div>
       <button class="mobile-nav-btn" onClick="{{ toggleMobileMenu }}" style="border:1px solid #DDD6CC;background:#fff;width:40px;height:40px;border-radius:10px;font-size:17px;cursor:pointer;align-items:center;justify-content:center">☰</button>
-      <button onClick="{{ toggleCart }}" style="position:relative;border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">
+      <button onClick="{{ toggleCart }}" style="position:relative;border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:border-color 0.15s ease" style-hover="{{ cartBtnHover }}">
         Cart
         <sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}">
           <span style="background:var(--accent);color:#fff;border-radius:999px;font-size:11.5px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px">{{ cartCount }}</span>
@@ -60,6 +86,20 @@
           <a href="#products" class="link" style="white-space:nowrap" onClick="{{ c.onClick }}">{{ c.label }}</a>
         </sc-for>
         <button onClick="{{ toggleWishPanel }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">Wishlist{{ wishBadge }}</button>
+        <div style="display:flex;align-items:center;gap:16px;padding-top:6px">
+          <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          </a>
+          <a href="https://facebook.com/wheretospot" target="_blank" rel="noopener" aria-label="Facebook" class="link" style="display:flex">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 22v-8h2.7l.5-3.2h-3.2V9c0-.9.3-1.5 1.7-1.5h1.6V4.6c-.3 0-1.3-.1-2.4-.1-2.5 0-4.1 1.5-4.1 4.2v2.1H7.5V13h2.8v9h3.2z"/></svg>
+          </a>
+          <a href="https://tiktok.com/@wheretospot" target="_blank" rel="noopener" aria-label="TikTok" class="link" style="display:flex">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.6a3 3 0 1 1-2.2-2.9V9.5a6.1 6.1 0 1 0 5.2 6V9.1a7.6 7.6 0 0 0 4.5 1.5V7.4A4.8 4.8 0 0 1 16.5 2z"/></svg>
+          </a>
+          <a href="mailto:shop@wheretospot.com" aria-label="Email" class="link" style="display:flex">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m4 6 8 6 8-6"/></svg>
+          </a>
+        </div>
       </div>
     </sc-if>
   </nav>
@@ -70,7 +110,7 @@
       <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(42px,6.5vw,76px);line-height:1.02;letter-spacing:-0.01em;margin:0">One storefront.<br>Every category you sell.</h1>
       <p style="margin:26px 0 0;max-width:46ch;font-size:17px;line-height:1.6;color:#6B6660">Exhibition stands, cosmetics, pet products, summer school kits, gifting — stocked, priced and shipped from a single premium shop, whatever the audience.</p>
       <div style="margin-top:36px;display:flex;gap:14px;flex-wrap:wrap">
-        <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600">Shop all categories</a>
+        <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600;transition:transform 0.15s ease,box-shadow 0.15s ease" style-hover="{{ ctaHover }}">Shop all categories</a>
       </div>
     </div>
     <image-slot id="hero-shot" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
@@ -79,7 +119,7 @@
   <section id="categories" style="max-width:1280px;margin:0 auto;padding:0 28px 80px">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px">
       <sc-for list="{{ catCards }}" as="c" hint-placeholder-count="5">
-        <a href="#products" onClick="{{ c.onClick }}" style="display:flex;flex-direction:column;gap:14px;border:1px solid #DDD6CC;border-radius:20px;padding:18px;background:#fff">
+        <a href="#products" onClick="{{ c.onClick }}" style="display:flex;flex-direction:column;gap:14px;border:1px solid #DDD6CC;border-radius:20px;padding:18px;background:#fff;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
           <image-slot id="{{ c.imgId }}" shape="rounded" radius="14" placeholder="{{ c.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
           <div>
             <div style="font-weight:600;font-size:16px">{{ c.label }}</div>
@@ -145,7 +185,7 @@
     <sc-if value="{{ showProducts }}" hint-placeholder-val="{{ false }}">
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px">
         <sc-for list="{{ productCards }}" as="p" hint-placeholder-count="9">
-          <div style="border:1px solid #DDD6CC;border-radius:18px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative">
+          <div style="border:1px solid #DDD6CC;border-radius:18px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
             <sc-if value="{{ p.label }}" hint-placeholder-val="{{ null }}">
               <span style="position:absolute;top:10px;left:10px;z-index:1;background:{{ p.badgeBg }};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.03em">{{ p.label }}</span>
             </sc-if>
@@ -165,14 +205,14 @@
                   <span style="font-size:13px;color:#6B6660;text-decoration:line-through">{{ p.origPriceFmt }}</span>
                 </sc-if>
               </span>
-              <button onClick="{{ p.onAdd }}" style="background:#22201D;color:#fff;border:none;padding:9px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer">Add to cart</button>
+              <button onClick="{{ p.onAdd }}" style="background:#22201D;color:#fff;border:none;padding:9px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity 0.15s ease" style-hover="{{ darkBtnHover }}">Add to cart</button>
             </div>
           </div>
         </sc-for>
       </div>
       <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}">
         <div style="text-align:center;margin-top:32px">
-          <button onClick="{{ loadMore }}" style="border:1px solid #DDD6CC;background:#fff;padding:12px 26px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer">Load more</button>
+          <button onClick="{{ loadMore }}" style="border:1px solid #DDD6CC;background:#fff;padding:12px 26px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;transition:border-color 0.15s ease" style-hover="{{ cartBtnHover }}">Load more</button>
         </div>
       </sc-if>
     </sc-if>
@@ -203,14 +243,13 @@
   </section>
 
   <footer style="border-top:1px solid #DDD6CC;background:#fff">
-    <div style="text-align:center;font-size:11px;color:#B0AA9E;padding:6px 0">deploy test v1</div>
     <div style="max-width:1280px;margin:0 auto;padding:48px 28px;display:flex;flex-wrap:wrap;gap:32px;justify-content:space-between">
       <div>
         <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:22px">Spot Shop</div>
         <div style="font-size:13px;color:#6B6660;margin-top:8px">shop.wheretospot.com</div>
       </div>
       <div style="display:flex;gap:36px;flex-wrap:wrap;font-size:13.5px;color:#6B6660">
-        <button onClick="{{ openTrack }}" style="border:none;background:none;color:#6B6660;font-size:13.5px;cursor:pointer;padding:0;font-family:inherit">Track your order / order history</button>
+        <button onClick="{{ openTrack }}" style="border:none;background:none;color:#6B6660;font-size:13.5px;cursor:pointer;padding:0;font-family:inherit;white-space:nowrap">Track your order / order history</button>
         <a href="shop-admin.dc.html" class="link">Admin dashboard</a>
         <a href="shop-product.dc.html?id=co2" class="link">Sample product page</a>
       </div>
@@ -357,9 +396,12 @@
               <div style="color:#A13F3F;font-size:12px;margin-top:5px">Code not recognized — check it and try again, or leave it blank.</div>
             </sc-if>
           </label>
+          <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
+            <div style="color:#4C6B4F;font-size:12.5px;background:#EFF3EE;border-radius:10px;padding:10px 13px">Promo {{ appliedPromo.code }} applied (-{{ appliedPromo.pct }}%)</div>
+          </sc-if>
           <div style="font-size:13px;font-weight:600">Payment method
             <div style="display:flex;gap:10px;margin-top:8px">
-              <label style="flex:1;border:1px solid {{ cardBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCard }}" onChange="{{ setPaymentCard }}"/>Card on delivery</label>
+              <label style="flex:1;border:1px solid #DDD6CC;border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:not-allowed;display:flex;align-items:center;gap:8px;opacity:0.55;background:#F7F3ED"><input type="radio" name="payment" disabled="{{ true }}" style="pointer-events:none"/>Bank or Credit <span style="font-size:11px;color:#6B6660;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">— Coming soon</span></label>
               <label style="flex:1;border:1px solid {{ codBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCod }}" onChange="{{ setPaymentCod }}"/>Cash on delivery</label>
             </div>
           </div>
@@ -418,7 +460,7 @@ class Component extends DCLogic {
     { key: 'pets', label: 'Pet Products', desc: 'Everyday gear for pets', placeholder: 'pet product photo' },
     { key: 'school', label: 'Summer School Kits', desc: 'Activity kits for camps & programs', placeholder: 'summer school kit photo' },
     { key: 'gift', label: 'Premium & Gift', desc: 'Curated gifting collections', placeholder: 'gift box photo' },
-    { key: 'nfc', label: 'NFC Cards', desc: 'Tap-to-review cards for Google reviews', placeholder: 'NFC review card photo' }
+    { key: 'nfc', label: 'NFC Solutions', desc: 'Tap-to-review cards for Google reviews', placeholder: 'NFC review card photo' }
   ];
 
   catLabel(key) { const c = this.categories.find(c => c.key === key); return c ? c.label : key; }
@@ -594,6 +636,10 @@ class Component extends DCLogic {
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
     return {
       accent, freeShip, freeShipFmt: fmt(freeShip),
+      ctaHover: { transform: 'translateY(-1px)', boxShadow: '0 8px 20px -6px ' + accent + '99' },
+      cardHover: { transform: 'translateY(-3px)', boxShadow: '0 14px 28px -14px rgba(20,18,16,0.28)', borderColor: '#C9C0B2' },
+      cartBtnHover: { borderColor: accent },
+      darkBtnHover: { opacity: 0.85 },
       navCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCat(c.key) })),
       catCards: this.categories.map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, onClick: this.setCat(c.key) })),
       filterTabs,
@@ -617,7 +663,7 @@ class Component extends DCLogic {
       productCards: filtered.slice(0, s.visibleCount).map(p => {
         const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
         const isWished = s.wishlist.includes(p.id);
-        return { ...p, price: salePrice, priceFmt: fmt(salePrice), origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0', defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.PRODUCT_IMAGES[p.id][0] : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart({ id: p.id, name: p.name, price: salePrice, cat: p.cat }), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
+        return { ...p, price: salePrice, priceFmt: fmt(salePrice), origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.PRODUCT_IMAGES[p.id][0] : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart({ id: p.id, name: p.name, price: salePrice, cat: p.cat }), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,
@@ -637,7 +683,7 @@ class Component extends DCLogic {
       referralCode: s.referralCode, setReferralCode: this.setReferralCode, referralError: s.referralError,
       isCard: s.form.payment === 'card', isCod: s.form.payment === 'cod', setPaymentCard: this.setPayment('card'), setPaymentCod: this.setPayment('cod'),
       cardBorder: s.form.payment === 'card' ? accent : '#DDD6CC', codBorder: s.form.payment === 'cod' ? accent : '#DDD6CC',
-      paymentLabel: s.form.payment === 'card' ? 'card' : 'cash',
+      paymentLabel: s.form.payment === 'card' ? 'bank/credit' : 'cash',
       promo: s.promo,
       leadForm: s.leadForm, setLeadName: this.setLeadField('name'), setLeadContact: this.setLeadField('contact'), setLeadCat: this.setLeadField('cat'),
       submitLead: this.submitLead, leadSent: s.leadSent, leadFormVisible: !s.leadSent,

@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="images/logo.png">
+<title>Spot Shop — One storefront, every category you sell.</title>
+<meta name="description" content="Spot Shop — one storefront, every category you sell.">
+<meta property="og:title" content="Spot Shop">
+<meta property="og:description" content="One storefront, every category you sell.">
+<meta property="og:image" content="images/og-share.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Spot Shop">
+<meta name="twitter:description" content="One storefront, every category you sell.">
+<meta name="twitter:image" content="images/og-share.png">
 <script src="./support.js"></script>
 </head>
 <body>
@@ -89,9 +100,9 @@
 
       <div style="display:flex;align-items:center;gap:14px;margin-top:30px">
         <div style="display:flex;align-items:center;border:1px solid #DDD6CC;border-radius:999px">
-          <button onClick="{{ decQty }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer">–</button>
+          <button onClick="{{ decQty }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;border-radius:999px 0 0 999px;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">–</button>
           <span style="min-width:28px;text-align:center;font-weight:600">{{ qty }}</span>
-          <button onClick="{{ incQty }}" disabled="{{ atStockLimit }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;opacity:{{ incQtyOpacity }}">+</button>
+          <button onClick="{{ incQty }}" disabled="{{ atStockLimit }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;opacity:{{ incQtyOpacity }};border-radius:0 999px 999px 0;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">+</button>
         </div>
         <button onClick="{{ addToCart }}" disabled="{{ outOfStock }}" style="flex:1;background:#fff;color:{{ accent }};border:2px solid {{ addBtnBg }};padding:13px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">{{ addBtnLabel }}</button>
         <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ addBtnBg }};color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">Buy now</button>
@@ -115,7 +126,7 @@
     <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:26px;margin:0 0 20px">You may also like</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px">
       <sc-for list="{{ related }}" as="r" hint-placeholder-count="3">
-        <a href="{{ r.href }}" style="border:1px solid #DDD6CC;border-radius:16px;overflow:hidden;background:#fff;display:block">
+        <a href="{{ r.href }}" style="border:1px solid #DDD6CC;border-radius:16px;overflow:hidden;background:#fff;display:block;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
           <image-slot id="{{ r.imgId }}" shape="rect" placeholder="{{ r.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
           <div style="padding:14px">
             <div style="font-weight:600;font-size:14.5px">{{ r.name }}</div>
@@ -167,7 +178,7 @@
       <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:22px;margin:0 0 16px">Recently viewed</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
         <sc-for list="{{ recentOthers }}" as="rv" hint-placeholder-count="3">
-          <a href="{{ rv.href }}" style="border:1px solid #DDD6CC;border-radius:14px;overflow:hidden;background:#fff;display:block">
+          <a href="{{ rv.href }}" style="border:1px solid #DDD6CC;border-radius:14px;overflow:hidden;background:#fff;display:block;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
             <image-slot id="{{ rv.imgId }}" shape="rect" placeholder="{{ rv.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
             <div style="padding:10px 12px"><div style="font-weight:600;font-size:13px">{{ rv.name }}</div></div>
           </a>
@@ -216,7 +227,7 @@ class Component extends DCLogic {
     reviewForm: { name: '', text: '', rating: 5 }, reviewSent: false
   };
 
-  catLabels = { stands: 'Exhibition Stands', cosmetics: 'Cosmetics', pets: 'Pet Products', school: 'Summer School Kits', gift: 'Premium & Gift', nfc: 'NFC Cards' };
+  catLabels = { stands: 'Exhibition Stands', cosmetics: 'Cosmetics', pets: 'Pet Products', school: 'Summer School Kits', gift: 'Premium & Gift', nfc: 'NFC Solutions' };
 
   async componentDidMount() {
     const mod = await import('./shop-data.js');
@@ -228,6 +239,7 @@ class Component extends DCLogic {
     const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
     const recent = mod.pushRecent(product.id);
     this.setState({ product, related, inventory: inv, wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent });
+    this.updateShareMeta(product, mod);
     window.addEventListener('scroll', this.onScroll, { passive: true });
   }
   componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); }
@@ -242,6 +254,20 @@ class Component extends DCLogic {
     this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 1800);
   };
 
+  updateShareMeta = (product, mod) => {
+    const img = (mod.PRODUCT_IMAGES[product.id] && mod.PRODUCT_IMAGES[product.id][0]) || 'images/og-share.png';
+    const abs = new URL(img, document.baseURI).href;
+    const title = product.name + ' — Spot Shop';
+    document.title = title;
+    const set = (sel, attr, val) => { const el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
+    set('meta[name="description"]', 'content', product.desc || '');
+    set('meta[property="og:title"]', 'content', title);
+    set('meta[property="og:description"]', 'content', product.desc || '');
+    set('meta[property="og:image"]', 'content', abs);
+    set('meta[name="twitter:title"]', 'content', title);
+    set('meta[name="twitter:description"]', 'content', product.desc || '');
+    set('meta[name="twitter:image"]', 'content', abs);
+  };
   incQty = () => this.setState(s => ({ qty: s.product ? Math.min(s.qty + 1, Math.max(1, s.product.stock)) : s.qty + 1 }));
   decQty = () => this.setState(s => ({ qty: Math.max(1, s.qty - 1) }));
   addToCart = () => {
@@ -311,6 +337,8 @@ class Component extends DCLogic {
     const recentOthers = this.state.recent.filter(id => id !== p.id).map(id => this.state.inventory.find(x => x.id === id)).filter(Boolean).slice(0, 4);
     return {
       accent,
+      cardHover: { transform: 'translateY(-3px)', boxShadow: '0 14px 28px -14px rgba(20,18,16,0.28)', borderColor: '#C9C0B2' },
+      qtyBtnHover: { background: '#F1EDE5' },
       product: { ...p, catLabel: this.catLabels[p.cat] || p.cat, priceFmt: fmt(p.price) },
       catHref: 'index.html',
       mainImgId: photoId(0),

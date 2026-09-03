@@ -13,23 +13,15 @@ const RECENT_KEY = 'spotshop_recent_v1';
 const ADMIN_AUTH_KEY = 'spotshop_admin_auth_v1';
 
 export const SEED_PRODUCTS = [
-  { id: 'st1', sku: 'STD-3030', name: 'Modular Expo Stand 3×3', cat: 'stands', vendor: 'Where To Spot Fabrication', price: 1450, cost: 870, stock: 6, discountPct: 0, label: '', status: 'Active', sub: 'Reusable aluminum frame', desc: 'A reusable aluminum-frame stand for a 3×3m footprint, with tool-free assembly and interchangeable graphic panels.', placeholder: 'expo stand product photo' },
-  { id: 'st2', sku: 'STD-BLW1', name: 'Backlit Display Wall', cat: 'stands', vendor: 'Where To Spot Fabrication', price: 2100, cost: 1260, stock: 3, discountPct: 0, label: 'New', status: 'Active', sub: 'LED-backlit fabric graphic', desc: 'An LED-backlit fabric graphic wall that ships in a single road case and assembles without tools.', placeholder: 'backlit display photo' },
-  { id: 'st3', sku: 'STD-RBS2', name: 'Roll-Up Banner Stand', cat: 'stands', vendor: 'Where To Spot Fabrication', price: 120, cost: 54, stock: 42, discountPct: 0, label: '', status: 'Active', sub: 'Portable, retractable', desc: 'A retractable banner stand that packs into a carry bag under 3kg, suited for single-day events.', placeholder: 'banner stand photo' },
-  { id: 'co1', sku: 'COS-FND1', name: 'Matte Silk Foundation', cat: 'cosmetics', vendor: 'Lumen Beauty Co.', price: 38, cost: 12, stock: 58, discountPct: 0, label: '', status: 'Active', sub: 'Buildable, 12-hr wear', desc: 'A buildable matte foundation formulated for 12-hour wear without touch-ups.', placeholder: 'foundation bottle photo' },
-  { id: 'co2', sku: 'COS-MSK2', name: 'Rose Clay Face Mask', cat: 'cosmetics', vendor: 'Lumen Beauty Co.', price: 24, cost: 7, stock: 4, discountPct: 20, label: 'Sale', status: 'Active', sub: 'Deep pore cleanse', desc: 'A clay mask with rose extract and kaolin clay that draws out impurities without stripping moisture.', placeholder: 'face mask jar photo' },
-  { id: 'co3', sku: 'COS-SER3', name: 'Vitamin C Serum', cat: 'cosmetics', vendor: 'Lumen Beauty Co.', price: 32, cost: 9, stock: 31, discountPct: 0, label: 'Bestseller', status: 'Active', sub: 'Brightening, daily use', desc: 'A daily brightening serum with stabilized vitamin C, suited for use under makeup or alone.', placeholder: 'serum bottle photo' },
-  { id: 'pe1', sku: 'PET-BED1', name: 'Orthopedic Pet Bed', cat: 'pets', vendor: 'Wagwell Supply', price: 65, cost: 28, stock: 12, discountPct: 0, label: '', status: 'Active', sub: 'Memory-foam support', desc: 'A memory-foam bed that supports joints, with a removable, washable cover.', placeholder: 'pet bed photo' },
-  { id: 'pe2', sku: 'PET-FED2', name: 'Stainless Feeding Set', cat: 'pets', vendor: 'Wagwell Supply', price: 22, cost: 9, stock: 0, discountPct: 0, label: '', status: 'Draft', sub: 'Non-slip, dishwasher-safe', desc: 'A stainless steel feeding set with a non-slip silicone base, dishwasher-safe.', placeholder: 'pet feeding bowls photo' },
-  { id: 'pe3', sku: 'PET-HAR3', name: 'Adventure Harness', cat: 'pets', vendor: 'Wagwell Supply', price: 29, cost: 11, stock: 27, discountPct: 15, label: 'Sale', status: 'Active', sub: 'Reflective, adjustable', desc: 'An adjustable harness with reflective stitching for low-light walks, sized for most breeds.', placeholder: 'pet harness photo' },
-  { id: 'sc1', sku: 'SCH-BPK1', name: 'Explorer Backpack Kit', cat: 'school', vendor: 'Camp Supply Collective', price: 45, cost: 19, stock: 19, discountPct: 0, label: '', status: 'Active', sub: 'Backpack + supplies bundle', desc: 'A backpack bundled with the basic supplies a camp packing list asks for.', placeholder: 'backpack kit photo' },
-  { id: 'sc2', sku: 'SCH-STM2', name: 'STEM Activity Box', cat: 'school', vendor: 'Camp Supply Collective', price: 34, cost: 15, stock: 2, discountPct: 0, label: '', status: 'Active', sub: '6 hands-on experiments', desc: 'A box of six hands-on science experiments with instructions for group activity leaders.', placeholder: 'activity box photo' },
-  { id: 'sc3', sku: 'SCH-BTL3', name: 'Bottle & Lunch Set', cat: 'school', vendor: 'Camp Supply Collective', price: 19, cost: 7, stock: 60, discountPct: 0, label: '', status: 'Active', sub: 'BPA-free, matching set', desc: 'A BPA-free bottle and lunch container set in a matching print, sized for day camps.', placeholder: 'bottle and lunch set photo' },
-  { id: 'gi1', sku: 'GFT-BOX1', name: 'Signature Gift Box', cat: 'gift', vendor: 'Atelier Gifting', price: 75, cost: 31, stock: 15, discountPct: 0, label: '', status: 'Active', sub: 'Curated 5-piece set', desc: 'A curated five-piece gift set, packaged in signature branded packaging ready to give.', placeholder: 'gift box photo' },
-  { id: 'gi2', sku: 'GFT-DSK2', name: 'Engraved Desk Set', cat: 'gift', vendor: 'Atelier Gifting', price: 58, cost: 22, stock: 9, discountPct: 0, label: '', status: 'Draft', sub: 'Pen, tray, nameplate', desc: 'A desk set with pen, tray and nameplate, available with custom engraving on request.', placeholder: 'desk set photo' },
-  { id: 'gi3', sku: 'GFT-CND3', name: 'Candle & Ceramics Duo', cat: 'gift', vendor: 'Atelier Gifting', price: 42, cost: 17, stock: 22, discountPct: 10, label: 'Sale', status: 'Active', sub: 'Hand-poured, matte finish', desc: 'A hand-poured candle paired with a matte ceramic vessel, sold as a set.', placeholder: 'candle and ceramics photo' },
-  { id: 'nfc1', sku: 'NFC-GRB1', name: 'Google Review NFC Card — Black', cat: 'nfc', vendor: 'Grevo.io', price: 300, cost: 90, stock: 40, discountPct: 33.34, label: '3+1 Free', status: 'Active', sub: 'Tap-to-review NFC card, no app needed', desc: 'A tap-enabled NFC card that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in white.', placeholder: 'black NFC google review card photo' },
-  { id: 'nfc2', sku: 'NFC-GRW1', name: 'Google Review NFC Card — White', cat: 'nfc', vendor: 'Grevo.io', price: 300, cost: 90, stock: 40, discountPct: 33.34, label: '3+1 Free', status: 'Active', sub: 'Tap-to-review NFC card, no app needed', desc: 'A tap-enabled NFC card that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in black.', placeholder: 'white NFC google review card photo' }
+  { id: 'co4', sku: 'COS-TVB1', name: 'Tangerine Vita C Bright Brightening Serum', cat: 'cosmetics', vendor: 'The Face Shop', price: 1650, cost: 700, stock: 20, discountPct: 0, label: '', status: 'Active', sub: 'Clean beauty, tangerine vitamin C', desc: 'A brightening serum from The Face Shop\u2019s Clean Beauty line, formulated with tangerine vitamin C.', placeholder: 'The Face Shop Tangerine Vita C Bright serum bottle and box photo' },
+  { id: 'co5', sku: 'COS-BJC1', name: 'Birch Juice Moisturizing Cleanser', cat: 'cosmetics', vendor: 'Round Lab', price: 1400, cost: 600, stock: 20, discountPct: 0, label: '', status: 'Active', sub: '150ml, hydrating ampoule cleanser', desc: 'A hydrating cleanser from Round Lab\u2019s Birch Juice line, made to replenish moisture and recharge tired skin.', placeholder: 'Round Lab Birch Juice Moisturizing Cleanser tube and box photo' },
+  { id: 'co6', sku: 'COS-RWE1', name: 'Rice Water Bright Vegan Eye Cream', cat: 'cosmetics', vendor: 'The Face Shop', price: 1500, cost: 650, stock: 20, discountPct: 0, label: '', status: 'Active', sub: '20ml, vegan, fermented rice extract', desc: 'A vegan eye cream from The Face Shop\u2019s Rice Water Bright line. Rice extract fermented for 30 days, with hyaluronic acid and niacinamide, to brighten the under-eye area.', placeholder: 'The Face Shop Rice Water Bright Vegan Eye Cream tube and box photo' },
+  { id: 'co7', sku: 'COS-RWP1', name: 'Rice Water Bright Enzyme Powder Wash', cat: 'cosmetics', vendor: 'The Face Shop', price: 1850, cost: 800, stock: 20, discountPct: 0, label: '', status: 'Active', sub: '55g, gentle enzyme cleanser', desc: 'An enzyme powder wash from The Face Shop\u2019s Rice Water Bright line, for a gentle deep clean.', placeholder: 'The Face Shop Rice Water Bright Enzyme Powder Wash bottle and box photo' },
+  { id: 'nfc1', sku: 'NFC-GRB1', name: 'Google Review NFC Card — Black', cat: 'nfc', vendor: 'Grevo.io', price: 200, cost: 90, stock: 40, discountPct: 0, label: '3+1 Free', status: 'Active', sub: 'Tap-to-review NFC card, no app needed', desc: 'A tap-enabled NFC card that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in white.', placeholder: 'black NFC google review card photo' },
+  { id: 'nfc2', sku: 'NFC-GRW1', name: 'Google Review NFC Card — White', cat: 'nfc', vendor: 'Grevo.io', price: 300, cost: 90, stock: 40, discountPct: 33.34, label: '3+1 Free', status: 'Active', sub: 'Tap-to-review NFC card, no app needed', desc: 'A tap-enabled NFC card that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in black.', placeholder: 'white NFC google review card photo' },
+  { id: 'nfc3', sku: 'NFC-GRK1', name: 'Google Review NFC Keychain', cat: 'nfc', vendor: 'Grevo.io', price: 250, cost: 75, stock: 40, discountPct: 0, label: '', status: 'Active', sub: 'Tap-to-review NFC keychain, no app needed', desc: 'A tap-enabled NFC keychain that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed.', placeholder: 'black NFC google review keychain photo' },
+  { id: 'nfc4', sku: 'NFC-DSL1', name: 'Display Stand NFC + QR Code — 12×18cm', cat: 'nfc', vendor: 'Grevo.io', price: 340, cost: 130, stock: 30, discountPct: 0, label: '', status: 'Active', sub: 'Countertop stand, tap or scan for reviews', desc: 'A freestanding countertop display with NFC tap and QR scan, sending customers straight to your Google review page. Also available in 10×15cm.', placeholder: 'orange and black NFC QR display stand photo, 12x18cm' },
+  { id: 'nfc5', sku: 'NFC-DSS1', name: 'Display Stand NFC + QR Code — 10×15cm', cat: 'nfc', vendor: 'Grevo.io', price: 299, cost: 115, stock: 30, discountPct: 0, label: '', status: 'Active', sub: 'Countertop stand, tap or scan for reviews', desc: 'A freestanding countertop display with NFC tap and QR scan, sending customers straight to your Google review page. Also available in 12×18cm.', placeholder: 'orange and black NFC QR display stand photo, 10x15cm' }
 ];
 
 const DAY = 86400000;
@@ -47,7 +39,14 @@ export const SEED_ORDERS = [
 
 export function photoId(id, n) { return 'prod-photo-' + id + '-' + n; }
 export const PRODUCT_IMAGES = {
-  nfc1: ['images/nfc-review-black-lifestyle.png', 'images/nfc-review-black-stack.png']
+  nfc1: ['images/nfc-review-black-lifestyle.png', 'images/nfc-review-black-stack.png'],
+  nfc3: ['images/keychain-google-review-lifestyle.png', 'images/keychain-google-review-white.png'],
+  nfc4: ['images/nfc-display-stand.png'],
+  nfc5: ['images/nfc-display-stand.png'],
+  co4: ['images/faceshop-tangerine-vitac-serum.png'],
+  co5: ['images/roundlab-birch-juice-cleanser.png'],
+  co6: ['images/faceshop-rice-water-eye-cream.png'],
+  co7: ['images/faceshop-rice-water-powder-wash.png']
 };
 export function salePrice(p) { return p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price; }
 
@@ -72,12 +71,21 @@ export function fmtPrice(n, code) {
   return cur.symbol + ' ' + (cur.code === 'EGP' ? Math.round(val).toLocaleString('en-EG') : val.toFixed(2));
 }
 
+const DELETED_KEY = 'spotshop_deleted_ids_v1';
+function loadDeletedIds() {
+  try { const raw = localStorage.getItem(DELETED_KEY); if (raw) return new Set(JSON.parse(raw)); } catch {}
+  return new Set();
+}
+function saveDeletedIds(set) {
+  try { localStorage.setItem(DELETED_KEY, JSON.stringify([...set])); } catch {}
+}
 export function loadInventory() {
   let stored = null;
   try { const raw = localStorage.getItem(INV_KEY); if (raw) stored = JSON.parse(raw); } catch {}
-  if (!stored) return SEED_PRODUCTS.map(p => ({ ...p }));
+  const deleted = loadDeletedIds();
+  if (!stored) return SEED_PRODUCTS.filter(p => !deleted.has(p.id)).map(p => ({ ...p }));
   const existingIds = new Set(stored.map(p => p.id));
-  const missing = SEED_PRODUCTS.filter(p => !existingIds.has(p.id)).map(p => ({ ...p }));
+  const missing = SEED_PRODUCTS.filter(p => !existingIds.has(p.id) && !deleted.has(p.id)).map(p => ({ ...p }));
   if (missing.length) {
     const merged = [...stored, ...missing];
     saveInventory(merged);
@@ -87,6 +95,16 @@ export function loadInventory() {
 }
 export function saveInventory(list) {
   try { localStorage.setItem(INV_KEY, JSON.stringify(list)); } catch {}
+}
+export function markDeleted(id) {
+  const deleted = loadDeletedIds();
+  deleted.add(id);
+  saveDeletedIds(deleted);
+}
+export function unmarkDeleted(id) {
+  const deleted = loadDeletedIds();
+  deleted.delete(id);
+  saveDeletedIds(deleted);
 }
 
 export function loadCart() {
@@ -148,11 +166,6 @@ export function toggleWishlist(id) {
 
 // Reviews
 export const SEED_REVIEWS = [
-  { id: 'rv1', productId: 'co2', name: 'Hana M.', rating: 5, text: 'Cleared up my skin within a week, smells great too.', date: 'Aug 12' },
-  { id: 'rv2', productId: 'co2', name: 'Youssef R.', rating: 4, text: 'Good mask, wish the jar was bigger.', date: 'Aug 20' },
-  { id: 'rv3', productId: 'co3', name: 'Mira K.', rating: 5, text: 'Noticeable brightening after two weeks of daily use.', date: 'Aug 15' },
-  { id: 'rv4', productId: 'gi3', name: 'Adam T.', rating: 5, text: 'Beautiful gift set, arrived well packaged.', date: 'Aug 22' },
-  { id: 'rv5', productId: 'st1', name: 'Expo Partners LLC', rating: 4, text: 'Sturdy frame, assembly took about 20 minutes solo.', date: 'Aug 18' }
 ];
 export function loadReviews() {
   try { const raw = localStorage.getItem(REVIEW_KEY); if (raw) return JSON.parse(raw); } catch {}

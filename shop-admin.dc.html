@@ -1274,7 +1274,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  cats = { stands: 'Exhibition Stands', cosmetics: 'Cosmetics', pets: 'Pet Products', school: 'Summer School Kits', gift: 'Premium & Gift', nfc: 'NFC Cards' };
+  cats = { stands: 'Exhibition Stands', cosmetics: 'Cosmetics', pets: 'Pet Products', school: 'Summer School Kits', gift: 'Premium & Gift', nfc: 'NFC Solutions' };
   i18n = {
     en: {
       overview: 'Overview', inventory: 'Inventory', orders: 'Orders', leads: 'Leads', customers: 'Customers',
@@ -1884,15 +1884,17 @@ class Component extends DCLogic {
   removeProduct = (id) => () => {
     const p = this.state.inventory.find(x => x.id === id);
     if (p && !window.confirm('Remove "' + p.name + '" from inventory?')) return;
+    if (this._sd) this._sd.markDeleted(id);
     this.setState(s => ({ inventory: this._saveInv(s.inventory.filter(x => x.id !== id)), selected: s.selected.filter(x => x !== id) }));
-    this.showToast('Product removed', p ? () => this.setState(s2 => ({ inventory: this._saveInv([...s2.inventory, p]) })) : null);
+    this.showToast('Product removed', p ? () => { if (this._sd) this._sd.unmarkDeleted(id); this.setState(s2 => ({ inventory: this._saveInv([...s2.inventory, p]) })); } : null);
   };
   removeSelected = () => {
     const n = this.state.selected.length;
     if (!window.confirm('Remove ' + n + ' selected product' + (n === 1 ? '' : 's') + ' from inventory?')) return;
     const removed = this.state.inventory.filter(p => this.state.selected.includes(p.id));
+    if (this._sd) removed.forEach(p => this._sd.markDeleted(p.id));
     this.setState(s => ({ inventory: this._saveInv(s.inventory.filter(p => !s.selected.includes(p.id))), selected: [] }));
-    this.showToast('Products removed', removed.length ? () => this.setState(s2 => ({ inventory: this._saveInv([...s2.inventory, ...removed]) })) : null);
+    this.showToast('Products removed', removed.length ? () => { if (this._sd) removed.forEach(p => this._sd.unmarkDeleted(p.id)); this.setState(s2 => ({ inventory: this._saveInv([...s2.inventory, ...removed]) })); } : null);
   };
   toggleSelect = (id) => () => this.setState(s => ({ selected: s.selected.includes(id) ? s.selected.filter(x => x !== id) : [...s.selected, id] }));
   toggleSelectAll = (ids) => () => this.setState(s => ({ selected: s.selected.length === ids.length ? [] : ids }));
@@ -2557,8 +2559,9 @@ class Component extends DCLogic {
           reviews: (s.reviews || []).filter(r => r.productId === p.id).map(r => ({ ...r, onDelete: this.deleteReview(r.id) })),
           onDeleteProduct: () => {
             if (window.confirm('Remove "' + p.name + '" from inventory?')) {
+              if (this._sd) this._sd.markDeleted(p.id);
               this.setState(s2 => ({ inventory: this._saveInv(s2.inventory.filter(x => x.id !== p.id)), selected: s2.selected.filter(x => x !== p.id), productModalId: null }));
-              this.showToast('Product removed', () => this.setState(s2 => ({ inventory: this._saveInv([...s2.inventory, p]) })));
+              this.showToast('Product removed', () => { if (this._sd) this._sd.unmarkDeleted(p.id); this.setState(s2 => ({ inventory: this._saveInv([...s2.inventory, p]) })); });
             }
           }
         };
