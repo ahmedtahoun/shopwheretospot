@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#F7F3ED;color:#22201D;font-family:'Work Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  a.link:hover{color:var(--accent)}
+  image-slot{display:block}
+  button{font-family:inherit}
+  ::selection{background:#A8552F;color:#fff}
+  .desktop-nav{display:flex}
+  .mobile-nav-btn{display:none}
+  @media (max-width: 1040px){
+    .desktop-nav{display:none}
+    .mobile-nav-btn{display:flex}
+  }
+  @media (max-width: 760px){
+    .hero-grid{grid-template-columns:1fr !important}
+  }
+  .skeleton{background:linear-gradient(90deg,#EFEAE3 25%,#E4DED4 37%,#EFEAE3 63%);background-size:400% 100%;animation:sk 1.4s ease infinite}
+  @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
+</style>
+<script src="image-slot.js"></script>
+</helmet>
+<div style="--accent:{{ accent }};min-height:100vh;position:relative">
+
+  <div style="background:#22201D;color:#F7F3ED;text-align:center;font-size:13px;padding:9px 16px;letter-spacing:0.02em">Free shipping on orders over {{ freeShipFmt }} · all categories</div>
+
+  <nav style="position:sticky;top:0;z-index:70;background:rgba(247,243,237,0.92);backdrop-filter:blur(10px);border-bottom:1px solid #DDD6CC">
+    <div style="max-width:1280px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+      <a href="#top" style="flex:none;white-space:nowrap;font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;letter-spacing:0.01em">Spot Shop</a>
+      <div class="desktop-nav" style="align-items:center;gap:18px;font-size:13.5px;font-weight:500;color:#6B6660;flex-wrap:wrap;flex:1;justify-content:flex-end;min-width:0">
+        <sc-for list="{{ navCats }}" as="c" hint-placeholder-count="5">
+          <a href="#products" class="link" style="white-space:nowrap" onClick="{{ c.onClick }}">{{ c.label }}</a>
+        </sc-for>
+        <button onClick="{{ toggleWishPanel }}" style="border:none;background:none;color:#22201D;font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0">Wishlist{{ wishBadge }}</button>
+      </div>
+      <button class="mobile-nav-btn" onClick="{{ toggleMobileMenu }}" style="border:1px solid #DDD6CC;background:#fff;width:40px;height:40px;border-radius:10px;font-size:17px;cursor:pointer;align-items:center;justify-content:center">☰</button>
+      <button onClick="{{ toggleCart }}" style="position:relative;border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">
+        Cart
+        <sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}">
+          <span style="background:var(--accent);color:#fff;border-radius:999px;font-size:11.5px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px">{{ cartCount }}</span>
+        </sc-if>
+      </button>
+    </div>
+    <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="border-top:1px solid #DDD6CC;padding:14px 24px 20px;display:flex;flex-direction:column;gap:12px;font-size:14.5px;font-weight:500">
+        <sc-for list="{{ navCats }}" as="c" hint-placeholder-count="5">
+          <a href="#products" class="link" style="white-space:nowrap" onClick="{{ c.onClick }}">{{ c.label }}</a>
+        </sc-for>
+        <button onClick="{{ toggleWishPanel }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">Wishlist{{ wishBadge }}</button>
+      </div>
+    </sc-if>
+  </nav>
+
+  <header id="top" style="max-width:1280px;margin:0 auto;padding:clamp(56px,9vw,110px) 28px clamp(40px,6vw,70px);display:grid;grid-template-columns:1.1fr 0.9fr;gap:48px;align-items:center" class="hero-grid">
+    <div>
+      <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:22px">shop.wheretospot.com</div>
+      <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(42px,6.5vw,76px);line-height:1.02;letter-spacing:-0.01em;margin:0">One storefront.<br>Every category you sell.</h1>
+      <p style="margin:26px 0 0;max-width:46ch;font-size:17px;line-height:1.6;color:#6B6660">Exhibition stands, cosmetics, pet products, summer school kits, gifting — stocked, priced and shipped from a single premium shop, whatever the audience.</p>
+      <div style="margin-top:36px;display:flex;gap:14px;flex-wrap:wrap">
+        <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600">Shop all categories</a>
+      </div>
+    </div>
+    <image-slot id="hero-shot" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
+  </header>
+
+  <section id="categories" style="max-width:1280px;margin:0 auto;padding:0 28px 80px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px">
+      <sc-for list="{{ catCards }}" as="c" hint-placeholder-count="5">
+        <a href="#products" onClick="{{ c.onClick }}" style="display:flex;flex-direction:column;gap:14px;border:1px solid #DDD6CC;border-radius:20px;padding:18px;background:#fff">
+          <image-slot id="{{ c.imgId }}" shape="rounded" radius="14" placeholder="{{ c.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
+          <div>
+            <div style="font-weight:600;font-size:16px">{{ c.label }}</div>
+            <div style="font-size:13px;color:#6B6660;margin-top:4px;line-height:1.4">{{ c.desc }}</div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="products" style="max-width:1280px;margin:0 auto;padding:20px 28px 100px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+      <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0">Products</h2>
+      <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search products…" style="border:1px solid #DDD6CC;background:#fff;font-size:13.5px;font-family:inherit;padding:11px 16px;border-radius:999px;width:220px"/>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <sc-for list="{{ filterTabs }}" as="ft" hint-placeholder-count="6">
+        <button onClick="{{ ft.onClick }}" style="border:1px solid {{ ft.border }};background:{{ ft.bg }};color:{{ ft.fg }};padding:9px 16px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer">{{ ft.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:28px;padding:14px 18px;background:#fff;border:1px solid #DDD6CC;border-radius:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+        <input type="checkbox" checked="{{ inStockOnly }}" onChange="{{ toggleInStockOnly }}"/>In stock only
+      </label>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <span style="color:#6B6660">Price</span>
+        <input type="number" value="{{ priceMin }}" onChange="{{ setPriceMin }}" placeholder="Min" style="width:70px;border:1px solid #DDD6CC;padding:7px 9px;border-radius:8px;font-family:inherit;font-size:13px"/>
+        <span style="color:#6B6660">–</span>
+        <input type="number" value="{{ priceMax }}" onChange="{{ setPriceMax }}" placeholder="Max" style="width:70px;border:1px solid #DDD6CC;padding:7px 9px;border-radius:8px;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-left:auto">
+        <span style="color:#6B6660">Sort</span>
+        <select value="{{ sortKey }}" onChange="{{ setSortKey }}" style="border:1px solid #DDD6CC;padding:8px 10px;border-radius:8px;font-family:inherit;font-size:13px;background:#fff">
+          <option value="popular">Popularity</option>
+          <option value="new">Newest</option>
+          <option value="price_asc">Price: low to high</option>
+          <option value="price_desc">Price: high to low</option>
+        </select>
+      </div>
+    </div>
+
+    <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px">
+        <sc-for list="{{ skeletonCards }}" as="sk" hint-placeholder-count="9">
+          <div style="border:1px solid #DDD6CC;border-radius:18px;overflow:hidden;background:#fff">
+            <div class="skeleton" style="width:100%;aspect-ratio:1/1"></div>
+            <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+              <div class="skeleton" style="height:11px;width:40%;border-radius:4px"></div>
+              <div class="skeleton" style="height:15px;width:80%;border-radius:4px"></div>
+              <div class="skeleton" style="height:13px;width:60%;border-radius:4px"></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showEmptyState }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:70px 20px;color:#6B6660">
+        <div style="font-family:'Instrument Serif',serif;font-size:22px;color:#22201D;margin-bottom:8px">No products match</div>
+        <p style="margin:0;font-size:14px">Try clearing your search, category or price filters.</p>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showProducts }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px">
+        <sc-for list="{{ productCards }}" as="p" hint-placeholder-count="9">
+          <div style="border:1px solid #DDD6CC;border-radius:18px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative">
+            <sc-if value="{{ p.label }}" hint-placeholder-val="{{ null }}">
+              <span style="position:absolute;top:10px;left:10px;z-index:1;background:{{ p.badgeBg }};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.03em">{{ p.label }}</span>
+            </sc-if>
+            <button onClick="{{ p.onToggleWish }}" title="Save to wishlist" style="position:absolute;top:10px;right:10px;z-index:1;border:none;background:rgba(255,255,255,0.9);color:{{ p.wishColor }};width:32px;height:32px;border-radius:999px;font-size:14px;cursor:pointer">♥</button>
+            <a href="{{ p.href }}" style="display:flex;flex-direction:column;flex:1">
+              <image-slot id="{{ p.imgId }}" src="{{ p.defaultImg }}" shape="rect" placeholder="{{ p.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
+              <div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent)">{{ p.catLabel }}</div>
+                <div style="font-weight:600;font-size:15.5px;line-height:1.3">{{ p.name }}</div>
+                <div style="font-size:13px;color:#6B6660">{{ p.sub }}</div>
+              </div>
+            </a>
+            <div style="padding:10px 16px 18px;margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="display:flex;align-items:baseline;gap:8px">
+                <span style="font-weight:700;font-size:16px">{{ p.priceFmt }}</span>
+                <sc-if value="{{ p.hasDiscount }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:13px;color:#6B6660;text-decoration:line-through">{{ p.origPriceFmt }}</span>
+                </sc-if>
+              </span>
+              <button onClick="{{ p.onAdd }}" style="background:#22201D;color:#fff;border:none;padding:9px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer">Add to cart</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;margin-top:32px">
+          <button onClick="{{ loadMore }}" style="border:1px solid #DDD6CC;background:#fff;padding:12px 26px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer">Load more</button>
+        </div>
+      </sc-if>
+    </sc-if>
+  </section>
+
+  <section style="max-width:1280px;margin:0 auto;padding:0 28px 60px">
+    <div style="background:#22201D;color:#F7F3ED;border-radius:24px;padding:clamp(28px,5vw,48px);display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between">
+      <div style="max-width:38ch">
+        <div style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(22px,3vw,28px)">Bulk or corporate order?</div>
+        <p style="margin:10px 0 0;font-size:14px;color:#C9C3B8;line-height:1.6">Leave your details and our team will follow up with pricing.</p>
+      </div>
+      <sc-if value="{{ leadSent }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:14px;font-weight:600;color:#fff">Thanks — we'll be in touch shortly ✓</div>
+      </sc-if>
+      <sc-if value="{{ leadFormVisible }}" hint-placeholder-val="{{ true }}">
+        <form onSubmit="{{ submitLead }}" style="display:flex;flex-wrap:wrap;gap:10px;flex:1;min-width:280px;max-width:560px">
+          <input required="{{ true }}" value="{{ leadForm.name }}" onChange="{{ setLeadName }}" placeholder="Your name" style="flex:1;min-width:130px;padding:12px 14px;border:1px solid #4A4640;border-radius:999px;font-size:14px;background:#2E2B27;color:#fff"/>
+          <input required="{{ true }}" value="{{ leadForm.contact }}" onChange="{{ setLeadContact }}" placeholder="Email or phone" style="flex:1;min-width:150px;padding:12px 14px;border:1px solid #4A4640;border-radius:999px;font-size:14px;background:#2E2B27;color:#fff"/>
+          <select value="{{ leadForm.cat }}" onChange="{{ setLeadCat }}" style="padding:12px 14px;border:1px solid #4A4640;border-radius:999px;font-size:14px;background:#2E2B27;color:#fff">
+            <sc-for list="{{ leadCatOptions }}" as="co" hint-placeholder-count="5">
+              <option value="{{ co.value }}">{{ co.label }}</option>
+            </sc-for>
+          </select>
+          <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Send</button>
+        </form>
+      </sc-if>
+    </div>
+  </section>
+
+  <footer style="border-top:1px solid #DDD6CC;background:#fff">
+    <div style="max-width:1280px;margin:0 auto;padding:48px 28px;display:flex;flex-wrap:wrap;gap:32px;justify-content:space-between">
+      <div>
+        <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:22px">Spot Shop</div>
+        <div style="font-size:13px;color:#6B6660;margin-top:8px">shop.wheretospot.com</div>
+      </div>
+      <div style="display:flex;gap:36px;flex-wrap:wrap;font-size:13.5px;color:#6B6660">
+        <button onClick="{{ openTrack }}" style="border:none;background:none;color:#6B6660;font-size:13.5px;cursor:pointer;padding:0;font-family:inherit">Track your order / order history</button>
+        <a href="shop-admin.dc.html" class="link">Admin dashboard</a>
+        <a href="shop-product.dc.html?id=co2" class="link">Sample product page</a>
+      </div>
+    </div>
+  </footer>
+
+  <sc-if value="{{ trackOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeTrack }}" style="position:fixed;inset:0;background:rgba(20,18,16,0.4);z-index:90"></div>
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:16px;padding:28px;width:min(420px,90vw);z-index:91;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-weight:700;font-size:17px">Track your order</div>
+        <button onClick="{{ closeTrack }}" style="border:none;background:none;font-size:18px;cursor:pointer;color:#6B6660">✕</button>
+      </div>
+      <form onSubmit="{{ submitTrack }}" style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:13px;font-weight:600">Order ID (leave blank to see all orders)<input value="{{ trackId }}" onChange="{{ setTrackId }}" placeholder="e.g. 2451" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+        <label style="font-size:13px;font-weight:600">Email used at checkout<input required="{{ true }}" type="email" value="{{ trackEmail }}" onChange="{{ setTrackEmail }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+        <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Look up</button>
+      </form>
+      <sc-if value="{{ trackNotFound }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:14px;font-size:13.5px;color:#A13F3F">No matching order found — check the ID and email.</div>
+      </sc-if>
+      <sc-if value="{{ trackOrder }}" hint-placeholder-val="{{ null }}">
+        <div style="margin-top:16px;border-top:1px solid #EFEAE3;padding-top:14px;display:flex;flex-direction:column;gap:8px;font-size:13.5px">
+          <div style="display:flex;justify-content:space-between"><span>Order {{ trackOrder.id }}</span><span style="font-weight:700">{{ trackOrder.status }}</span></div>
+          <sc-for list="{{ trackOrder.itemRows }}" as="it" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;color:#6B6660"><span>{{ it.name }} × {{ it.qty }}</span><span>{{ it.lineTotalFmt }}</span></div>
+          </sc-for>
+          <div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #EFEAE3;padding-top:8px"><span>Total</span><span>{{ trackOrder.totalFmt }}</span></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ trackHistoryList.length }}" hint-placeholder-val="{{ 0 }}">
+        <div style="margin-top:16px;border-top:1px solid #EFEAE3;padding-top:14px;display:flex;flex-direction:column;gap:10px;font-size:13.5px;max-height:240px;overflow:auto">
+          <sc-for list="{{ trackHistoryList }}" as="ho" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between"><span>{{ ho.id }} · {{ ho.date }}</span><span style="font-weight:700">{{ ho.statusLabel }} · {{ ho.totalFmt }}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ wishPanelOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeWishPanel }}" style="position:fixed;inset:0;background:rgba(20,18,16,0.4);z-index:90"></div>
+    <div style="position:fixed;top:0;right:0;bottom:0;width:min(400px,100vw);background:#fff;z-index:91;box-shadow:-20px 0 60px rgba(0,0,0,0.15);display:flex;flex-direction:column">
+      <div style="padding:22px 24px;border-bottom:1px solid #DDD6CC;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:700;font-size:17px">Wishlist</div>
+        <button onClick="{{ closeWishPanel }}" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6B6660">✕</button>
+      </div>
+      <div style="flex:1;overflow:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+        <sc-if value="{{ wishEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="color:#6B6660;font-size:14px;padding:40px 0;text-align:center">Nothing saved yet — tap the heart on a product to add it here.</div>
+        </sc-if>
+        <sc-for list="{{ wishItems }}" as="w" hint-placeholder-count="0">
+          <div style="display:flex;gap:12px;align-items:center;border-bottom:1px solid #EFEAE3;padding-bottom:14px">
+            <image-slot id="{{ w.imgId }}" shape="rounded" radius="10" placeholder="item" style="width:60px;height:60px;flex:none"></image-slot>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:600">{{ w.name }}</div>
+              <div style="font-size:12.5px;color:#6B6660;margin-top:2px">{{ w.priceFmt }}</div>
+            </div>
+            <button onClick="{{ w.onAdd }}" style="border:none;background:#22201D;color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer">Add to cart</button>
+            <button onClick="{{ w.onRemove }}" style="border:none;background:none;color:#6B6660;font-size:15px;cursor:pointer">✕</button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ cartOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeCart }}" style="position:fixed;inset:0;background:rgba(20,18,16,0.4);z-index:90"></div>
+    <div style="position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:#fff;z-index:91;box-shadow:-20px 0 60px rgba(0,0,0,0.15);display:flex;flex-direction:column">
+      <div style="padding:22px 24px;border-bottom:1px solid #DDD6CC;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700;font-size:17px">{{ cartTitle }}</div>
+          <button onClick="{{ closeCart }}" style="border:none;background:none;color:#6B6660;font-size:12.5px;cursor:pointer;padding:0;margin-top:2px;text-decoration:underline">← Continue shopping</button>
+        </div>
+        <button onClick="{{ closeCart }}" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6B6660">✕</button>
+      </div>
+
+      <sc-if value="{{ isStepCart }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ stockWarning }}" hint-placeholder-val="{{ '' }}">
+          <div style="margin:14px 24px 0;background:#F6E3D6;color:#A8552F;padding:10px 14px;border-radius:10px;font-size:12.5px">Adjusted for available stock: {{ stockWarning }}</div>
+        </sc-if>
+        <div style="flex:1;overflow:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+          <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="color:#6B6660;font-size:14px;padding:60px 0;text-align:center">
+              <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:20px;color:#22201D;margin-bottom:6px">Your cart is empty</div>
+              <p style="margin:0">Browse the shop and add something you like.</p>
+            </div>
+          </sc-if>
+          <sc-for list="{{ cartItems }}" as="i" hint-placeholder-count="0">
+            <div style="display:flex;gap:12px;align-items:center;border-bottom:1px solid #EFEAE3;padding-bottom:14px">
+              <image-slot id="{{ i.imgId }}" shape="rounded" radius="10" placeholder="item" style="width:60px;height:60px;flex:none"></image-slot>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:600">{{ i.name }}</div>
+                <div style="font-size:12.5px;color:#6B6660;margin-top:2px">{{ i.priceFmt }} · qty</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+                  <button onClick="{{ i.onDec }}" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">–</button>
+                  <span style="font-size:13px;min-width:16px;text-align:center">{{ i.qty }}</span>
+                  <button onClick="{{ i.onInc }}" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">+</button>
+                  <button onClick="{{ i.onRemove }}" style="margin-left:auto;font-size:12px;color:#6B6660;background:none;border:none;cursor:pointer;text-decoration:underline">remove</button>
+                </div>
+              </div>
+              <div style="font-weight:700;font-size:14px">{{ i.lineTotalFmt }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:20px 24px;border-top:1px solid #DDD6CC">
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <input value="{{ promoInput }}" onChange="{{ setPromoInput }}" placeholder="Promo code" style="flex:1;border:1px solid #DDD6CC;padding:10px 13px;border-radius:10px;font-size:13.5px;font-family:inherit"/>
+            <button onClick="{{ applyPromoCode }}" style="border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Apply</button>
+          </div>
+          <sc-if value="{{ promoError }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12.5px;color:#A13F3F;margin-bottom:10px">Invalid promo code.</div>
+          </sc-if>
+          <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
+            <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4C6B4F;margin-bottom:6px"><span>Promo {{ appliedPromo.code }} (-{{ appliedPromo.pct }}%)</span><span>-{{ promoDiscountFmt }}</span></div>
+          </sc-if>
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:14px"><span>Subtotal</span><span>{{ cartTotalFmt }}</span></div>
+          <button onClick="{{ goInfo }}" disabled="{{ cartEmpty }}" style="width:100%;background:var(--accent);color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ checkoutBtnOpacity }}">Continue to checkout</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isStepInfo }}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ submitInfo }}" style="flex:1;overflow:auto;padding:22px 24px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:13px;color:#6B6660">Order total: <strong style="color:#22201D">{{ cartTotalFmt }}</strong> — enter your details to place the order.</div>
+          <div style="display:flex;border:1px solid #DDD6CC;border-radius:999px;padding:3px">
+            <button type="button" onClick="{{ setGuestMode }}" style="flex:1;border:none;background:{{ guestBg }};color:{{ guestFg }};padding:9px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer">Checkout as guest</button>
+            <button type="button" onClick="{{ setSaveInfoMode }}" style="flex:1;border:none;background:{{ saveInfoBg }};color:{{ saveInfoFg }};padding:9px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer">Save my info</button>
+          </div>
+          <label style="font-size:13px;font-weight:600">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+          <label style="font-size:13px;font-weight:600">Email<input required="{{ true }}" type="email" value="{{ form.email }}" onChange="{{ setEmail }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+          <label style="font-size:13px;font-weight:600">Phone<input value="{{ form.phone }}" onChange="{{ setPhone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+          <label style="font-size:13px;font-weight:600">Shipping address<textarea value="{{ form.address }}" onChange="{{ setAddress }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:70px;font-family:inherit"></textarea></label>
+          <label style="font-size:13px;font-weight:600">Governorate
+            <select value="{{ form.city }}" onChange="{{ setCity }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
+              <sc-for list="{{ cityOptions }}" as="ci" hint-placeholder-count="5">
+                <option value="{{ ci }}">{{ ci }}</option>
+              </sc-for>
+            </select>
+          </label>
+          <label style="font-size:13px;font-weight:600">Country<input value="{{ form.country }}" disabled="{{ true }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;background:#F7F3ED;color:#6B6660"/></label>
+          <label style="font-size:13px;font-weight:600">Referral code <span style="color:#8A8478;font-weight:500">(optional)</span>
+            <input value="{{ referralCode }}" onChange="{{ setReferralCode }}" placeholder="Got a code from a rep?" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/>
+            <sc-if value="{{ referralError }}" hint-placeholder-val="{{ false }}">
+              <div style="color:#A13F3F;font-size:12px;margin-top:5px">Code not recognized — check it and try again, or leave it blank.</div>
+            </sc-if>
+          </label>
+          <div style="font-size:13px;font-weight:600">Payment method
+            <div style="display:flex;gap:10px;margin-top:8px">
+              <label style="flex:1;border:1px solid {{ cardBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCard }}" onChange="{{ setPaymentCard }}"/>Card on delivery</label>
+              <label style="flex:1;border:1px solid {{ codBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCod }}" onChange="{{ setPaymentCod }}"/>Cash on delivery</label>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:auto;padding-top:10px">
+            <button type="button" onClick="{{ backToCart }}" style="flex:1;background:#fff;border:1px solid #DDD6CC;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Back</button>
+            <button type="submit" style="flex:2;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Place order</button>
+          </div>
+        </form>
+      </sc-if>
+
+      <sc-if value="{{ isStepSuccess }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow:auto;padding:32px 26px;display:flex;flex-direction:column;gap:16px;text-align:center;align-items:center;justify-content:center">
+          <div style="width:56px;height:56px;border-radius:50%;background:#6B8F71;color:#fff;display:grid;place-items:center;font-size:26px">✓</div>
+          <div style="font-weight:700;font-size:18px">Order received</div>
+          <p style="font-size:14px;color:#6B6660;margin:0;max-width:30ch">Thanks {{ form.name }} — a confirmation is on its way to {{ form.email }}. Pay by {{ paymentLabel }} on delivery.</p>
+          <div style="border:1px dashed var(--accent);border-radius:14px;padding:14px 22px;margin-top:6px">
+            <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your promo code for next time</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:26px;color:var(--accent);margin-top:4px">{{ promo }}</div>
+          </div>
+          <button onClick="{{ newOrder }}" style="margin-top:10px;background:#22201D;color:#fff;border:none;padding:13px 26px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Continue shopping</button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ '' }}">
+    <div style="position:fixed;bottom:26px;right:26px;background:#22201D;color:#fff;padding:12px 20px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:100">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}, &quot;freeShippingThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:75,&quot;min&quot;:0,&quot;max&quot;:500,&quot;step&quot;:5,&quot;unit&quot;:&quot;$&quot;,&quot;section&quot;:&quot;Store settings&quot;}}">
+class Component extends DCLogic {
+  state = {
+    activeCat: 'all',
+    inventory: [],
+    search: '',
+    cart: [],
+    cartOpen: false,
+    checkoutStep: 'cart',
+    form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' },
+    referralCode: '', referralError: false,
+    promo: '',
+    leadForm: { name: '', contact: '', cat: 'stands' },
+    leadSent: false,
+    trackOpen: false, trackId: '', trackEmail: '', trackResult: null, trackHistory: [],
+    mobileMenuOpen: false, wishPanelOpen: false, wishlist: [],
+    sortKey: 'popular', inStockOnly: false, priceMin: '', priceMax: '',
+    isLoading: true, toast: '',
+    promoInput: '', appliedPromo: null, promoError: false,
+    checkoutMode: 'guest', stockWarning: '', visibleCount: 9
+  };
+
+  categories = [
+    { key: 'stands', label: 'Exhibition Stands', desc: 'Modular booths & displays for events', placeholder: 'exhibition stand photo' },
+    { key: 'cosmetics', label: 'Cosmetics', desc: 'Clean-formula skincare & beauty', placeholder: 'cosmetics product photo' },
+    { key: 'pets', label: 'Pet Products', desc: 'Everyday gear for pets', placeholder: 'pet product photo' },
+    { key: 'school', label: 'Summer School Kits', desc: 'Activity kits for camps & programs', placeholder: 'summer school kit photo' },
+    { key: 'gift', label: 'Premium & Gift', desc: 'Curated gifting collections', placeholder: 'gift box photo' },
+    { key: 'nfc', label: 'NFC Cards', desc: 'Tap-to-review cards for Google reviews', placeholder: 'NFC review card photo' }
+  ];
+
+  catLabel(key) { const c = this.categories.find(c => c.key === key); return c ? c.label : key; }
+
+  async componentDidMount() {
+    const mod = await import('./shop-data.js');
+    this._sd = mod;
+    const inventory = mod.loadInventory();
+    const cart = mod.loadCart();
+    const orders = mod.loadOrders();
+    const params = new URLSearchParams(location.search);
+    const cartOpen = params.get('cart') === '1' || params.get('checkout') === '1';
+    const checkoutStep = params.get('checkout') === '1' && cart.length ? 'info' : this.state.checkoutStep;
+    let form = this.state.form;
+    let checkoutMode = this.state.checkoutMode;
+    try {
+      const saved = JSON.parse(localStorage.getItem('spotshop_saved_contact') || 'null');
+      if (saved) { form = { ...form, ...saved }; checkoutMode = 'save'; }
+    } catch {}
+    this.setState({ inventory, cart, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9 });
+  }
+
+  showToast = (msg) => {
+    clearTimeout(this._toastTimer);
+    this.setState({ toast: msg });
+    this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 1800);
+  };
+
+  setCat = (key) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeCat: key }); };
+  setSearch = (e) => this.setState({ search: e.target.value });
+  toggleCart = () => this.setState(s => ({ cartOpen: !s.cartOpen }));
+  closeCart = () => this.setState({ cartOpen: false });
+  toggleMobileMenu = () => this.setState(s => ({ mobileMenuOpen: !s.mobileMenuOpen }));
+  toggleWishPanel = () => this.setState(s => ({ wishPanelOpen: !s.wishPanelOpen }));
+  closeWishPanel = () => this.setState({ wishPanelOpen: false });
+  toggleWish = (id) => (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!this._sd) return;
+    const wishlist = this._sd.toggleWishlist(id);
+    this.setState({ wishlist });
+    this.showToast(wishlist.includes(id) ? 'Saved to wishlist' : 'Removed from wishlist');
+  };
+  loadMore = () => this.setState(s => ({ visibleCount: s.visibleCount + 9 }));
+  setSortKey = (e) => this.setState({ sortKey: e.target.value, visibleCount: 9 });
+  toggleInStockOnly = (e) => this.setState({ inStockOnly: e.target.checked });
+  setPriceMin = (e) => this.setState({ priceMin: e.target.value });
+  setPriceMax = (e) => this.setState({ priceMax: e.target.value });
+  setPromoInput = (e) => this.setState({ promoInput: e.target.value, promoError: false });
+  applyPromoCode = () => {
+    if (!this._sd) return;
+    const result = this._sd.validatePromo(this.state.promoInput);
+    if (result) { this.setState({ appliedPromo: result, promoError: false }); this.showToast('Promo applied'); }
+    else this.setState({ promoError: true, appliedPromo: null });
+  };
+  setGuestMode = () => this.setState({ checkoutMode: 'guest' });
+  setSaveInfoMode = () => this.setState({ checkoutMode: 'save' });
+  _persistCart = (cart) => { if (this._sd) this._sd.saveCart(cart); return cart; };
+  addToCart = (p) => () => this.setState(s => {
+    const existing = s.cart.find(i => i.id === p.id);
+    const cart = existing ? s.cart.map(i => i.id === p.id ? { ...i, qty: i.qty + 1 } : i) : [...s.cart, { ...p, qty: 1 }];
+    return { cart: this._persistCart(cart), cartOpen: true, checkoutStep: 'cart' };
+  });
+  incItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i)) }));
+  decItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.id === id ? { ...i, qty: Math.max(1, i.qty - 1) } : i)) }));
+  removeItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.filter(i => i.id !== id)) }));
+  goInfo = () => {
+    if (!this.state.cart.length || !this._sd) return;
+    const fresh = this._sd.loadInventory();
+    const shortages = this.state.cart.map(i => {
+      const p = fresh.find(x => x.id === i.id);
+      return p && p.stock < i.qty ? { name: i.name, available: p.stock } : null;
+    }).filter(Boolean);
+    if (shortages.length) {
+      const cart = this.state.cart.map(i => { const p = fresh.find(x => x.id === i.id); return p ? { ...i, qty: Math.min(i.qty, p.stock) } : i; }).filter(i => i.qty > 0);
+      this._persistCart(cart);
+      this.setState({ cart, inventory: fresh, stockWarning: shortages.map(s => s.name + ' (only ' + s.available + ' left)').join(', ') });
+      return;
+    }
+    this.setState({ checkoutStep: 'info', stockWarning: '' });
+  };
+  backToCart = () => this.setState({ checkoutStep: 'cart' });
+  setField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [field]: v } })); };
+  setReferralCode = (e) => this.setState({ referralCode: e.target.value, referralError: false });
+  setPayment = (val) => () => this.setState(s => ({ form: { ...s.form, payment: val } }));
+  submitInfo = (e) => {
+    e.preventDefault();
+    const code = 'SPOT' + Math.floor(1000 + Math.random() * 9000);
+    const s = this.state;
+    const reps = this._sd ? this._sd.loadSalesReps() : [];
+    const refCode = (s.referralCode || '').trim();
+    const matchedRep = refCode ? reps.find(r => r.code === refCode) : null;
+    if (refCode && !matchedRep) { this.setState({ referralError: true }); return; }
+    const subtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const total = s.appliedPromo ? Math.round(subtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : subtotal;
+    const cat = s.cart.length ? s.cart[0].cat : 'gift';
+    let inventory = s.inventory;
+    if (this._sd) {
+      this._sd.addOrder({
+        id: '#' + Math.floor(2000 + Math.random() * 8000),
+        customer: s.form.name || 'Guest', cat, total, repId: matchedRep ? matchedRep.id : null,
+        email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city, country: s.form.country, paymentMethod: s.form.payment,
+        items: s.cart.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        ts: Date.now(),
+        status: 'Paid'
+      });
+      inventory = s.inventory.map(p => {
+        const item = s.cart.find(i => i.id === p.id);
+        return item ? { ...p, stock: Math.max(0, p.stock - item.qty) } : p;
+      });
+      this._sd.saveInventory(inventory);
+      if (s.checkoutMode === 'save') { try { localStorage.setItem('spotshop_saved_contact', JSON.stringify(s.form)); } catch {} }
+    }
+    this.setState({ checkoutStep: 'success', promo: code, inventory });
+  };
+  newOrder = () => { this._persistCart([]); this.setState({ cart: [], checkoutStep: 'cart', cartOpen: false, appliedPromo: null, promoInput: '', referralCode: '', referralError: false, form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' } }); };
+  setLeadField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ leadForm: { ...s.leadForm, [field]: v } })); };
+  submitLead = (e) => {
+    e.preventDefault();
+    const s = this.state;
+    if (this._sd) this._sd.addLead({ id: 'lead' + Date.now(), name: s.leadForm.name, contact: s.leadForm.contact, cat: s.leadForm.cat, status: 'New' });
+    this.setState({ leadSent: true, leadForm: { name: '', contact: '', cat: 'stands' } });
+  };
+  openTrack = () => this.setState({ trackOpen: true, trackResult: null });
+  closeTrack = () => this.setState({ trackOpen: false });
+  setTrackId = (e) => this.setState({ trackId: e.target.value });
+  setTrackEmail = (e) => this.setState({ trackEmail: e.target.value });
+  submitTrack = (e) => {
+    e.preventDefault();
+    if (!this._sd) return;
+    const orders = this._sd.loadOrders();
+    const emailNorm = this.state.trackEmail.trim().toLowerCase();
+    const idNorm = this.state.trackId.trim().replace('#', '').toLowerCase();
+    if (!idNorm) {
+      const history = orders.filter(o => (o.email || '').toLowerCase() === emailNorm);
+      this.setState({ trackResult: null, trackHistory: history });
+      return;
+    }
+    const found = orders.find(o => o.id.replace('#', '').toLowerCase() === idNorm && (o.email || '').toLowerCase() === emailNorm);
+    this.setState({ trackResult: found || 'notfound', trackHistory: [] });
+  };
+
+  renderVals() {
+    const accent = this.props.accentColor ?? '#A8552F';
+    const freeShip = this.props.freeShippingThreshold ?? 75;
+    const s = this.state;
+    const term = s.search.trim().toLowerCase();
+    const active = s.inventory.filter(p => p.status === 'Active');
+    let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!term || p.name.toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
+    if (s.inStockOnly) filtered = filtered.filter(p => p.stock > 0);
+    const min = s.priceMin !== '' ? Number(s.priceMin) : null;
+    const max = s.priceMax !== '' ? Number(s.priceMax) : null;
+    if (min !== null) filtered = filtered.filter(p => (p.discountPct ? p.price * (1 - p.discountPct / 100) : p.price) >= min);
+    if (max !== null) filtered = filtered.filter(p => (p.discountPct ? p.price * (1 - p.discountPct / 100) : p.price) <= max);
+    const popularity = {};
+    (s.orders || []).forEach(o => (o.items || []).forEach(i => { popularity[i.id] = (popularity[i.id] || 0) + i.qty; }));
+    if (s.sortKey === 'price_asc') filtered = [...filtered].sort((a, b) => a.price - b.price);
+    else if (s.sortKey === 'price_desc') filtered = [...filtered].sort((a, b) => b.price - a.price);
+    else if (s.sortKey === 'new') filtered = [...filtered].sort((a, b) => (b.id > a.id ? 1 : -1));
+    else filtered = [...filtered].sort((a, b) => (popularity[b.id] || 0) - (popularity[a.id] || 0));
+    const cartSubtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const cartTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
+    const cartCount = s.cart.reduce((sum, i) => sum + i.qty, 0);
+
+    const tabDefs = [{ key: 'all', label: 'All' }, ...this.categories.map(c => ({ key: c.key, label: c.label }))];
+    const filterTabs = tabDefs.map(t => ({
+      key: t.key, label: t.label, onClick: this.setCat(t.key),
+      border: s.activeCat === t.key ? accent : '#DDD6CC',
+      bg: s.activeCat === t.key ? accent : '#fff',
+      fg: s.activeCat === t.key ? '#fff' : '#22201D'
+    }));
+
+    const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
+    return {
+      accent, freeShip, freeShipFmt: fmt(freeShip),
+      navCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCat(c.key) })),
+      catCards: this.categories.map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, onClick: this.setCat(c.key) })),
+      filterTabs,
+      search: s.search, onSearch: this.setSearch,
+      isLoading: s.isLoading, skeletonCards: Array.from({ length: 6 }),
+      showEmptyState: !s.isLoading && filtered.length === 0,
+      showProducts: !s.isLoading && filtered.length > 0,
+      hasMore: filtered.length > s.visibleCount, loadMore: this.loadMore,
+      sortKey: s.sortKey, setSortKey: this.setSortKey,
+      inStockOnly: s.inStockOnly, toggleInStockOnly: this.toggleInStockOnly,
+      priceMin: s.priceMin, setPriceMin: this.setPriceMin, priceMax: s.priceMax, setPriceMax: this.setPriceMax,
+      toast: s.toast,
+      mobileMenuOpen: s.mobileMenuOpen, toggleMobileMenu: this.toggleMobileMenu,
+      toggleWishPanel: this.toggleWishPanel, closeWishPanel: this.closeWishPanel, wishPanelOpen: s.wishPanelOpen,
+      wishBadge: s.wishlist.length ? ' (' + s.wishlist.length + ')' : '',
+      wishEmpty: s.wishlist.length === 0,
+      wishItems: s.wishlist.map(id => active.find(p => p.id === id)).filter(Boolean).map(p => {
+        const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
+        return { ...p, priceFmt: fmt(salePrice), imgId: 'prod-photo-' + p.id + '-0', onAdd: this.addToCart({ id: p.id, name: p.name, price: salePrice, cat: p.cat }), onRemove: this.toggleWish(p.id) };
+      }),
+      productCards: filtered.slice(0, s.visibleCount).map(p => {
+        const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
+        const isWished = s.wishlist.includes(p.id);
+        return { ...p, price: salePrice, priceFmt: fmt(salePrice), origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0', defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.PRODUCT_IMAGES[p.id][0] : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart({ id: p.id, name: p.name, price: salePrice, cat: p.cat }), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
+      }),
+      cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
+      cartCount: cartCount || null,
+      cartTitle: s.checkoutStep === 'success' ? 'Order placed' : s.checkoutStep === 'info' ? 'Checkout' : 'Your cart',
+      isStepCart: s.checkoutStep === 'cart', isStepInfo: s.checkoutStep === 'info', isStepSuccess: s.checkoutStep === 'success',
+      cartEmpty: s.cart.length === 0,
+      cartItems: s.cart.map(i => ({ ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', lineTotal: i.price * i.qty, lineTotalFmt: fmt(i.price * i.qty), onInc: this.incItem(i.id), onDec: this.decItem(i.id), onRemove: this.removeItem(i.id) })),
+      cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
+      promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
+      appliedPromo: s.appliedPromo, promoDiscountFmt: s.appliedPromo ? fmt(cartSubtotal - cartTotal) : '',
+      goInfo: this.goInfo, backToCart: this.backToCart, submitInfo: this.submitInfo, newOrder: this.newOrder,
+      guestBg: s.checkoutMode === 'guest' ? accent : 'transparent', guestFg: s.checkoutMode === 'guest' ? '#fff' : '#22201D',
+      saveInfoBg: s.checkoutMode === 'save' ? accent : 'transparent', saveInfoFg: s.checkoutMode === 'save' ? '#fff' : '#22201D',
+      setGuestMode: this.setGuestMode, setSaveInfoMode: this.setSaveInfoMode,
+      form: s.form, setName: this.setField('name'), setEmail: this.setField('email'), setPhone: this.setField('phone'), setAddress: this.setField('address'),
+      setCity: this.setField('city'), cityOptions: this._sd ? this._sd.EGYPT_CITIES : ['Cairo'],
+      referralCode: s.referralCode, setReferralCode: this.setReferralCode, referralError: s.referralError,
+      isCard: s.form.payment === 'card', isCod: s.form.payment === 'cod', setPaymentCard: this.setPayment('card'), setPaymentCod: this.setPayment('cod'),
+      cardBorder: s.form.payment === 'card' ? accent : '#DDD6CC', codBorder: s.form.payment === 'cod' ? accent : '#DDD6CC',
+      paymentLabel: s.form.payment === 'card' ? 'card' : 'cash',
+      promo: s.promo,
+      leadForm: s.leadForm, setLeadName: this.setLeadField('name'), setLeadContact: this.setLeadField('contact'), setLeadCat: this.setLeadField('cat'),
+      submitLead: this.submitLead, leadSent: s.leadSent, leadFormVisible: !s.leadSent,
+      leadCatOptions: this.categories.map(c => ({ value: c.key, label: c.label })),
+      trackOpen: s.trackOpen, openTrack: this.openTrack, closeTrack: this.closeTrack,
+      trackId: s.trackId, setTrackId: this.setTrackId, trackEmail: s.trackEmail, setTrackEmail: this.setTrackEmail, submitTrack: this.submitTrack,
+      trackNotFound: s.trackResult === 'notfound',
+      trackOrder: (s.trackResult && s.trackResult !== 'notfound') ? { ...s.trackResult, totalFmt: fmt(s.trackResult.total), itemRows: (s.trackResult.items || []).map(i => ({ ...i, lineTotalFmt: fmt(i.price * i.qty) })) } : null,
+      trackHistoryList: (s.trackHistory || []).map(o => ({ ...o, totalFmt: fmt(o.total), statusLabel: o.status }))
+    };
+  }
+}
+</script>
+</body>
+</html>

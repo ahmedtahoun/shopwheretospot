@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#F7F3ED;color:#22201D;font-family:'Work Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  a.link:hover{color:var(--accent)}
+  image-slot{display:block}
+  button{font-family:inherit}
+  @media (max-width: 760px){
+    .pdp-grid{grid-template-columns:1fr !important}
+  }
+</style>
+<script src="image-slot.js"></script>
+</helmet>
+<div style="--accent:{{ accent }};min-height:100vh">
+  <nav style="border-bottom:1px solid #DDD6CC;background:#fff">
+    <div style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between">
+      <a href="index.html" style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px">Spot Shop</a>
+      <a href="index.html" class="link" style="font-size:13.5px;font-weight:600;color:#6B6660">← Back to shop</a>
+    </div>
+  </nav>
+
+  <sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:600px;margin:0 auto;padding:90px 28px;text-align:center">
+      <div style="font-family:'Instrument Serif',serif;font-size:26px;margin-bottom:10px">Product not found</div>
+      <p style="color:#6B6660;font-size:14px;margin:0 0 20px">This product may have been removed or the link is incorrect.</p>
+      <a href="index.html" style="background:var(--accent);color:#fff;padding:13px 24px;border-radius:999px;font-size:14px;font-weight:600">Back to shop</a>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasProduct }}" hint-placeholder-val="{{ true }}">
+  <div style="max-width:1200px;margin:0 auto;padding:20px 28px 0">
+    <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:#6B6660;flex-wrap:wrap">
+      <a href="index.html" class="link">Home</a><span>/</span>
+      <a href="{{ catHref }}" class="link">{{ product.catLabel }}</a><span>/</span>
+      <span style="color:#22201D;font-weight:600">{{ product.name }}</span>
+    </div>
+  </div>
+
+  <div style="max-width:1200px;margin:0 auto;padding:clamp(24px,5vw,48px) 28px clamp(36px,6vw,64px);display:grid;grid-template-columns:1fr 1fr;gap:56px" class="pdp-grid">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div onClick="{{ openLightbox }}" style="cursor:zoom-in;width:100%;aspect-ratio:1/1;position:relative;overflow:hidden;border-radius:20px;background:#fff">
+        <image-slot id="{{ mainImgId }}" src="{{ mainImg }}" shape="rounded" radius="20" placeholder="{{ product.placeholder }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <sc-for list="{{ thumbs }}" as="th" hint-placeholder-count="3">
+          <div onClick="{{ th.onOpen }}" style="cursor:zoom-in;width:100%;aspect-ratio:1/1;position:relative;overflow:hidden;border-radius:12px;background:#fff">
+            <image-slot id="{{ th.id }}" src="{{ th.src }}" shape="rounded" radius="12" placeholder="{{ th.placeholder }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent)">{{ product.catLabel }}</div>
+        <button onClick="{{ toggleWish }}" title="Save to wishlist" style="border:1px solid {{ wishBorder }};background:{{ wishBg }};color:{{ wishFg }};width:38px;height:38px;border-radius:999px;font-size:16px;cursor:pointer;flex:none">♥</button>
+      </div>
+      <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(30px,4vw,44px);margin:10px 0 0">{{ product.name }}</h1>
+      <sc-if value="{{ product.label }}" hint-placeholder-val="{{ null }}">
+        <span style="display:inline-block;margin-top:12px;background:{{ badgeBg }};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.03em">{{ product.label }}</span>
+      </sc-if>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+        <span style="color:var(--accent);font-size:15px;letter-spacing:2px">{{ starsFmt }}</span>
+        <sc-if value="{{ hasReviews }}" hint-placeholder-val="{{ false }}">
+          <a href="#reviews" class="link" style="font-size:12.5px;color:#6B6660">{{ ratingAvg }} ({{ ratingCount }} reviews)</a>
+        </sc-if>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px">
+        <div style="font-size:22px;font-weight:700">{{ priceFmt }}</div>
+        <sc-if value="{{ hasDiscount }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:16px;color:#6B6660;text-decoration:line-through">{{ product.priceFmt }}</div>
+        </sc-if>
+      </div>
+      <p style="font-size:15px;line-height:1.7;color:#6B6660;margin:20px 0 0;max-width:46ch">{{ product.desc }}</p>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-top:30px">
+        <div style="display:flex;align-items:center;border:1px solid #DDD6CC;border-radius:999px">
+          <button onClick="{{ decQty }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer">–</button>
+          <span style="min-width:28px;text-align:center;font-weight:600">{{ qty }}</span>
+          <button onClick="{{ incQty }}" disabled="{{ atStockLimit }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;opacity:{{ incQtyOpacity }}">+</button>
+        </div>
+        <button onClick="{{ addToCart }}" disabled="{{ outOfStock }}" style="flex:1;background:#fff;color:{{ accent }};border:2px solid {{ addBtnBg }};padding:13px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">{{ addBtnLabel }}</button>
+        <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ addBtnBg }};color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">Buy now</button>
+      </div>
+      <sc-if value="{{ stockNote }}" hint-placeholder-val="{{ '' }}">
+        <div style="font-size:12.5px;color:#A8552F;margin-top:8px">{{ stockNote }}</div>
+      </sc-if>
+      <sc-if value="{{ added }}" hint-placeholder-val="{{ false }}">
+        <a href="index.html?cart=1" class="link" style="display:inline-block;margin-top:14px;font-size:13.5px;font-weight:600;color:var(--accent);text-decoration:underline">View cart →</a>
+      </sc-if>
+
+      <ul style="margin:36px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:13.5px;color:#6B6660;border-top:1px solid #DDD6CC;padding-top:24px">
+        <li>Ships in 2–5 business days</li>
+        <li>Bulk / corporate pricing available on request</li>
+        <li>30-day return window</li>
+      </ul>
+    </div>
+  </div>
+
+  <section style="max-width:1200px;margin:0 auto;padding:20px 28px 90px">
+    <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:26px;margin:0 0 20px">You may also like</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px">
+      <sc-for list="{{ related }}" as="r" hint-placeholder-count="3">
+        <a href="{{ r.href }}" style="border:1px solid #DDD6CC;border-radius:16px;overflow:hidden;background:#fff;display:block">
+          <image-slot id="{{ r.imgId }}" shape="rect" placeholder="{{ r.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
+          <div style="padding:14px">
+            <div style="font-weight:600;font-size:14.5px">{{ r.name }}</div>
+            <div style="font-weight:700;font-size:14px;margin-top:6px">{{ r.priceFmt }}</div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="reviews" style="max-width:1200px;margin:0 auto;padding:0 28px 90px;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:flex-start" class="pdp-grid">
+    <div>
+      <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:24px;margin:0 0 16px">Reviews {{ reviewsHeaderCount }}</h2>
+      <sc-if value="{{ hasReviews }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <sc-for list="{{ reviews }}" as="rv" hint-placeholder-count="2">
+            <div style="border-bottom:1px solid #EFEAE3;padding-bottom:14px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600;font-size:14px">{{ rv.name }}</span><span style="font-size:11.5px;color:#6B6660">{{ rv.date }}</span></div>
+              <div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-top:2px">{{ rv.starsFmt }}</div>
+              <p style="margin:6px 0 0;font-size:13.5px;color:#6B6660;line-height:1.6">{{ rv.text }}</p>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noReviews }}" hint-placeholder-val="{{ false }}">
+        <div style="color:#6B6660;font-size:14px">No reviews yet — be the first to share your experience.</div>
+      </sc-if>
+    </div>
+    <div style="background:#fff;border:1px solid #DDD6CC;border-radius:16px;padding:22px">
+      <div style="font-weight:600;font-size:15px;margin-bottom:14px">Write a review</div>
+      <form onSubmit="{{ submitReview }}" style="display:flex;flex-direction:column;gap:12px">
+        <input required="{{ true }}" value="{{ reviewForm.name }}" onChange="{{ setReviewName }}" placeholder="Your name" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit"/>
+        <div style="display:flex;gap:6px;align-items:center">
+          <sc-for list="{{ starOptions }}" as="so" hint-placeholder-count="5">
+            <button type="button" onClick="{{ so.onClick }}" style="border:none;background:none;font-size:22px;color:{{ so.color }};cursor:pointer;padding:0">★</button>
+          </sc-for>
+        </div>
+        <textarea required="{{ true }}" value="{{ reviewForm.text }}" onChange="{{ setReviewText }}" placeholder="Share what you liked or didn't" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit;min-height:80px"></textarea>
+        <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Submit review</button>
+        <sc-if value="{{ reviewSent }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12.5px;color:#4C6B4F;font-weight:600">Thanks for your review ✓</div>
+        </sc-if>
+      </form>
+    </div>
+  </section>
+
+  <sc-if value="{{ recentOthersCount }}" hint-placeholder-val="{{ 0 }}">
+    <section style="max-width:1200px;margin:0 auto;padding:0 28px 60px">
+      <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:22px;margin:0 0 16px">Recently viewed</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
+        <sc-for list="{{ recentOthers }}" as="rv" hint-placeholder-count="3">
+          <a href="{{ rv.href }}" style="border:1px solid #DDD6CC;border-radius:14px;overflow:hidden;background:#fff;display:block">
+            <image-slot id="{{ rv.imgId }}" shape="rect" placeholder="{{ rv.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
+            <div style="padding:10px 12px"><div style="font-weight:600;font-size:13px">{{ rv.name }}</div></div>
+          </a>
+        </sc-for>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ lightboxOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeLightbox }}" style="position:fixed;inset:0;background:rgba(20,18,16,0.85);z-index:95;display:grid;place-items:center;cursor:zoom-out">
+      <button onClick="{{ closeLightbox }}" aria-label="Close" style="position:absolute;top:20px;right:20px;border:none;background:rgba(255,255,255,0.15);color:#fff;width:40px;height:40px;border-radius:999px;font-size:18px;cursor:pointer;z-index:1">✕</button>
+      <div style="width:min(70vw,640px);aspect-ratio:1/1;position:relative;overflow:hidden;border-radius:16px;background:#fff">
+        <image-slot id="{{ lightboxImgId }}" src="{{ lightboxImg }}" shape="rounded" radius="16" placeholder="{{ product.placeholder }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+      </div>
+      <sc-if value="{{ galleryHasMultiple }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onPrevImg }}" aria-label="Previous image" style="position:absolute;left:20px;top:50%;transform:translateY(-50%);border:none;background:rgba(255,255,255,0.15);color:#fff;width:44px;height:44px;border-radius:999px;font-size:20px;cursor:pointer;z-index:1">‹</button>
+        <button onClick="{{ onNextImg }}" aria-label="Next image" style="position:absolute;right:20px;top:50%;transform:translateY(-50%);border:none;background:rgba(255,255,255,0.15);color:#fff;width:44px;height:44px;border-radius:999px;font-size:20px;cursor:pointer;z-index:1">›</button>
+        <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(0,0,0,0.35);padding:4px 12px;border-radius:999px">{{ lightboxCounter }}</div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showStickyBar }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #DDD6CC;box-shadow:0 -10px 30px rgba(0,0,0,0.08);padding:12px 20px;z-index:80;display:flex;align-items:center;gap:14px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ product.name }}</div>
+        <div style="font-weight:700;font-size:14px">{{ priceFmt }}</div>
+      </div>
+      <button onClick="{{ buyNow }}" style="background:{{ addBtnBg }};color:#fff;border:none;padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Buy now</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ '' }}">
+    <div style="position:fixed;bottom:26px;right:26px;background:#22201D;color:#fff;padding:12px 20px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:100">{{ toast }}</div>
+  </sc-if>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}}">
+class Component extends DCLogic {
+  state = {
+    qty: 1, added: false, product: null, related: [], inventory: [],
+    wishlist: [], reviews: [], recent: [], toast: '',
+    lightboxOpen: false, lightboxIndex: 0, showStickyBar: false,
+    reviewForm: { name: '', text: '', rating: 5 }, reviewSent: false
+  };
+
+  catLabels = { stands: 'Exhibition Stands', cosmetics: 'Cosmetics', pets: 'Pet Products', school: 'Summer School Kits', gift: 'Premium & Gift', nfc: 'NFC Cards' };
+
+  async componentDidMount() {
+    const mod = await import('./shop-data.js');
+    this._sd = mod;
+    const inv = mod.loadInventory();
+    const id = new URLSearchParams(location.search).get('id');
+    const product = id ? inv.find(p => p.id === id) : inv.find(p => p.status === 'Active');
+    if (!product) { this.setState({ notFound: true }); return; }
+    const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
+    const recent = mod.pushRecent(product.id);
+    this.setState({ product, related, inventory: inv, wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent });
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+  }
+  componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); }
+  onScroll = () => {
+    const show = window.scrollY > 420;
+    if (show !== this.state.showStickyBar) this.setState({ showStickyBar: show });
+  };
+
+  showToast = (msg) => {
+    clearTimeout(this._toastTimer);
+    this.setState({ toast: msg });
+    this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 1800);
+  };
+
+  incQty = () => this.setState(s => ({ qty: s.product ? Math.min(s.qty + 1, Math.max(1, s.product.stock)) : s.qty + 1 }));
+  decQty = () => this.setState(s => ({ qty: Math.max(1, s.qty - 1) }));
+  addToCart = () => {
+    const p = this.state.product;
+    if (!p || !this._sd) return;
+    const salePrice = this._sd.salePrice(p);
+    const cart = this._sd.loadCart();
+    const existing = cart.find(i => i.id === p.id);
+    const next = existing
+      ? cart.map(i => i.id === p.id ? { ...i, qty: i.qty + this.state.qty } : i)
+      : [...cart, { id: p.id, name: p.name, price: salePrice, cat: p.cat, qty: this.state.qty }];
+    this._sd.saveCart(next);
+    this.setState({ added: true });
+    this.showToast('Added to cart ✓');
+    setTimeout(() => this.setState({ added: false }), 2400);
+  };
+  toggleWish = () => {
+    if (!this._sd || !this.state.product) return;
+    const wishlist = this._sd.toggleWishlist(this.state.product.id);
+    this.setState({ wishlist });
+    this.showToast(wishlist.includes(this.state.product.id) ? 'Saved to wishlist' : 'Removed from wishlist');
+  };
+  openLightbox = () => this.setState({ lightboxOpen: true, lightboxIndex: 0 });
+  openLightboxAt = (i) => () => this.setState({ lightboxOpen: true, lightboxIndex: i });
+  closeLightbox = () => this.setState({ lightboxOpen: false });
+  _galleryImgs = () => {
+    const p = this.state.product;
+    return (this._sd && p && this._sd.PRODUCT_IMAGES[p.id]) || [];
+  };
+  prevImg = (e) => {
+    if (e) e.stopPropagation();
+    const imgs = this._galleryImgs();
+    if (!imgs.length) return;
+    this.setState(s => ({ lightboxIndex: (s.lightboxIndex - 1 + imgs.length) % imgs.length }));
+  };
+  nextImg = (e) => {
+    if (e) e.stopPropagation();
+    const imgs = this._galleryImgs();
+    if (!imgs.length) return;
+    this.setState(s => ({ lightboxIndex: (s.lightboxIndex + 1) % imgs.length }));
+  };
+  buyNow = () => {
+    this.addToCart();
+    location.href = 'index.html?checkout=1';
+  };
+  setReviewField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ reviewForm: { ...s.reviewForm, [field]: v } })); };
+  setReviewRating = (n) => () => this.setState(s => ({ reviewForm: { ...s.reviewForm, rating: n } }));
+  submitReview = (e) => {
+    e.preventDefault();
+    if (!this._sd || !this.state.product) return;
+    const { name, text, rating } = this.state.reviewForm;
+    const reviews = this._sd.addReview(this.state.product.id, { name, text, rating });
+    this.setState({ reviews, reviewSent: true, reviewForm: { name: '', text: '', rating: 5 } });
+  };
+
+  stars(rating) { const r = Math.round(rating); return '★★★★★☆☆☆☆☆'.slice(5 - r, 10 - r); }
+
+  renderVals() {
+    const accent = this.props.accentColor ?? '#A8552F';
+    const p = this.state.product;
+    if (!p) return { accent, notFound: this.state.notFound, hasProduct: false, product: { name: '', catLabel: '', placeholder: '', desc: '' }, thumbs: [], related: [], recentOthers: [], recentOthersCount: 0, reviews: [], qty: 1 };
+    const salePrice = this._sd ? this._sd.salePrice(p) : p.price;
+    const photoId = (n) => 'prod-photo-' + p.id + '-' + n;
+    const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
+    const stats = this._sd ? this._sd.ratingStats(p.id, this.state.reviews) : { avg: 0, count: 0 };
+    const isWished = this.state.wishlist.includes(p.id);
+    const recentOthers = this.state.recent.filter(id => id !== p.id).map(id => this.state.inventory.find(x => x.id === id)).filter(Boolean).slice(0, 4);
+    return {
+      accent,
+      product: { ...p, catLabel: this.catLabels[p.cat] || p.cat, priceFmt: fmt(p.price) },
+      catHref: 'index.html',
+      mainImgId: photoId(0),
+      mainImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id][0]) || '',
+      thumbs: (() => {
+        const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || [];
+        if (imgs.length) return imgs.slice(1).map((src, i) => ({ id: photoId(i + 1), placeholder: 'angle ' + (i + 2), src, onOpen: this.openLightboxAt(i + 1) }));
+        return [1, 2, 3].map(n => ({ id: photoId(n), placeholder: 'angle ' + (n + 1), src: '', onOpen: this.openLightboxAt(0) }));
+      })(),
+      price: salePrice, priceFmt: fmt(salePrice), hasDiscount: !!p.discountPct, badgeBg: p.discountPct ? '#A8552F' : '#22201D',
+      related: this.state.related.map(r => { const rp = this._sd ? this._sd.salePrice(r) : r.price; return { ...r, price: rp, priceFmt: fmt(rp), imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id }; }),
+      qty: this.state.qty, incQty: this.incQty, decQty: this.decQty, addToCart: this.addToCart,
+      added: this.state.added,
+      addBtnLabel: this.state.added ? 'Added ✓' : p.stock === 0 ? 'Out of stock' : 'Add to cart',
+      addBtnBg: this.state.added ? '#6B8F71' : accent,
+      atStockLimit: this.state.qty >= p.stock, incQtyOpacity: this.state.qty >= p.stock ? 0.4 : 1,
+      outOfStock: p.stock === 0, addBtnOpacity: p.stock === 0 ? 0.5 : 1,
+      stockNote: p.stock > 0 && p.stock <= 5 ? 'Only ' + p.stock + ' left' : '',
+      toast: this.state.toast,
+      toggleWish: this.toggleWish, wishBorder: isWished ? accent : '#DDD6CC', wishBg: isWished ? accent : '#fff', wishFg: isWished ? '#fff' : '#22201D',
+      starsFmt: this.stars(stats.avg || 0), hasReviews: stats.count > 0, noReviews: stats.count === 0, ratingAvg: stats.avg, ratingCount: stats.count,
+      reviewsHeaderCount: stats.count ? '(' + stats.count + ')' : '',
+      reviews: this._sd ? this._sd.reviewsFor(p.id, this.state.reviews).map(r => ({ ...r, starsFmt: this.stars(r.rating) })) : [],
+      reviewForm: this.state.reviewForm, setReviewName: this.setReviewField('name'), setReviewText: this.setReviewField('text'),
+      starOptions: [1, 2, 3, 4, 5].map(n => ({ n, onClick: this.setReviewRating(n), color: n <= this.state.reviewForm.rating ? accent : '#DDD6CC' })),
+      submitReview: this.submitReview, reviewSent: this.state.reviewSent,
+      recentOthers: recentOthers.map(r => ({ ...r, imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id })),
+      recentOthersCount: recentOthers.length,
+      lightboxOpen: this.state.lightboxOpen, openLightbox: this.openLightbox, closeLightbox: this.closeLightbox,
+      buyNow: this.buyNow, onPrevImg: this.prevImg, onNextImg: this.nextImg,
+      lightboxImgId: p.id + '-lightbox-' + this.state.lightboxIndex,
+      galleryHasMultiple: (() => { const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || []; return imgs.length > 1; })(),
+      lightboxImg: (() => {
+        const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || [];
+        return imgs.length ? imgs[Math.min(this.state.lightboxIndex, imgs.length - 1)] : '';
+      })(),
+      lightboxCounter: (() => {
+        const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || [];
+        return imgs.length > 1 ? (Math.min(this.state.lightboxIndex, imgs.length - 1) + 1) + ' / ' + imgs.length : '';
+      })(),
+      showStickyBar: this.state.showStickyBar, hasProduct: true, notFound: false
+    };
+  }
+}
+
+</script>
+</body>
+</html>
