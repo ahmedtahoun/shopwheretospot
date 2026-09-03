@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/viorowzb/shop.wheretospot.com/
+    - /bin/cp -R * $DEPLOYPATH
