@@ -462,20 +462,27 @@
   // ---------- team ----------
   async function pageTeam() {
     await loadTeam();
-    $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', '<button class="btn primary" id="addU">+ Add team member</button>') +
-      '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Referral code</th><th>Status</th><th>Last sign-in</th></tr></thead><tbody>' +
+    $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', '<button class="btn" id="testMail">Send test alert to me</button><button class="btn primary" id="addU">+ Add team member</button>') +
+      '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Referral code</th><th>Order alerts</th><th>Status</th><th>Last sign-in</th></tr></thead><tbody>' +
       S.team.map((u) => '<tr class="click" data-id="' + u.id + '"><td><b>' + esc(u.name) + '</b>' + (u.id === S.user.id ? ' <span class="pill">You</span>' : '') + '<div class="small muted">' + esc(u.email) + (u.phone ? ' · ' + esc(u.phone) : '') + '</div></td>' +
         '<td><b>' + esc(u.role) + '</b><div class="small muted">' + esc(ROLE_INFO[u.role]) + '</div></td><td>' + (u.ref_code ? '<code>' + esc(u.ref_code) + '</code>' : '—') + '</td>' +
+        '<td>' + (u.notify ? '<span class="pill info">✉ Email</span>' : '<span class="muted">Off</span>') + '</td>' +
         '<td>' + (u.active ? '<span class="pill good">✓ Active</span>' : '<span class="pill bad">✕ Disabled</span>') + '</td><td class="small muted">' + dateTime(u.last_login) + '</td></tr>').join('') +
       '</tbody></table></div>' +
       '<p class="muted small" style="margin-top:14px">Referral codes: when a customer enters a team member’s code at checkout, the order is credited to them in “Sales by team member” on the dashboard.</p>';
     $('#addU').onclick = () => userDrawer(null);
+    $('#testMail').onclick = async (e) => {
+      e.target.disabled = true;
+      try { const r = await api('mail_test', { method: 'POST' }); toast('Test sent to ' + r.to + ' via ' + r.via); }
+      catch (err) { toast(err.message, true); }
+      e.target.disabled = false;
+    };
     $$('tr[data-id]').forEach((tr) => tr.onclick = () => userDrawer(S.team.find((u) => u.id === +tr.dataset.id)));
   }
 
   function userDrawer(u) {
     const isNew = !u;
-    u = u || { name: '', email: '', phone: '', role: 'staff', ref_code: '', active: 1 };
+    u = u || { name: '', email: '', phone: '', role: 'staff', ref_code: '', active: 1, notify: 0 };
     const body = '<form id="uf" class="stack">' +
       '<div class="grid2"><label class="field">Name<input type="text" name="name" required value="' + esc(u.name) + '"></label>' +
       '<label class="field">Phone<input type="tel" name="phone" value="' + esc(u.phone) + '"></label></div>' +
@@ -484,6 +491,7 @@
       '<label class="field">Referral code <span class="hint">Optional, for sales reps (e.g. AHMED10)</span><input type="text" name="ref_code" value="' + esc(u.ref_code || '') + '"></label>' +
       '<label class="field">' + (isNew ? 'Password' : 'New password') + ' <span class="hint">' + (isNew ? 'At least 8 characters — share it with them privately' : 'Leave blank to keep the current one') + '</span>' +
       '<input type="password" name="password" ' + (isNew ? 'required minlength="8"' : '') + ' autocomplete="new-password"></label>' +
+      '<label class="row" style="font-weight:600"><input type="checkbox" name="notify" ' + (u.notify ? 'checked' : '') + '> Email me new orders and enquiries</label>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="active" ' + (u.active ? 'checked' : '') + '> Can sign in</label></form>';
     openDrawer(isNew ? 'Add team member' : u.name, body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="uf" type="submit">Save</button>');
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));

@@ -15,6 +15,13 @@ $config = [
     'shipping_fee' => 75,
     'free_shipping_threshold' => 1500,
     'promo_codes' => ['WELCOME10' => 10, 'SPOT20' => 20],
+    // Email alerts (see api/mailer.php). Team members choose to receive them in Dashboard → Team.
+    'site_url' => 'https://shop.wheretospot.com',
+    'mail_from' => 'no-reply@wheretospot.com',
+    'mail_from_name' => 'Where To Spot Shop',
+    'reply_to' => 'info@wheretospot.com',
+    'alert_emails' => [],   // extra addresses that always get alerts
+    'smtp' => null,         // e.g. ['host' => 'mail.wheretospot.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {
     $config = array_merge($config, (array) require __DIR__ . '/config.local.php');
@@ -141,6 +148,8 @@ function migrate(PDO $pdo): void
     CREATE INDEX IF NOT EXISTS idx_images_product ON product_images(product_id);
     CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
     ");
+    $userCols = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('notify', $userCols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN notify INTEGER NOT NULL DEFAULT 0');
     if ((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
         seed_catalog($pdo);
     }
@@ -176,6 +185,8 @@ function seed_catalog(PDO $pdo): void
         foreach (($p['images'] ?? []) as $n => $path) $img->execute([$p['id'], $path, $n]);
     }
 }
+
+require __DIR__ . '/mailer.php';
 
 // ---------- HTTP helpers ----------
 

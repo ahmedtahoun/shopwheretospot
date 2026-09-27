@@ -29,7 +29,7 @@ try {
         if (too_many_attempts('setup', 10, 900)) fail('Too many attempts. Wait 15 minutes.', 429);
         $b = body();
         if (!hash_equals(setup_key(), str_in($b['key'] ?? '', 64))) { record_attempt('setup'); fail('Setup key is wrong.', 403); }
-        $id = save_user(['name' => $b['name'] ?? '', 'email' => $b['email'] ?? '', 'password' => $b['password'] ?? '', 'role' => 'owner', 'active' => 1], null);
+        $id = save_user(['name' => $b['name'] ?? '', 'email' => $b['email'] ?? '', 'password' => $b['password'] ?? '', 'role' => 'owner', 'active' => 1, 'notify' => 1], null);
         @unlink(cfg('data_dir') . '/SETUP_KEY.txt');
         session_regenerate_id(true);
         $_SESSION['uid'] = $id;
@@ -336,7 +336,7 @@ try {
         require_perm('dashboard');
         // Everyone can see names (for assigning leads); only owners get the full list.
         $u = current_user();
-        $cols = in_array('team', $u['perms'], true) ? 'id, name, email, phone, role, ref_code, active, created_at, last_login' : 'id, name, role';
+        $cols = in_array('team', $u['perms'], true) ? 'id, name, email, phone, role, ref_code, active, notify, created_at, last_login' : 'id, name, role';
         json_out(['team' => db()->query("SELECT $cols FROM users ORDER BY active DESC, name")->fetchAll()]);
 
     case 'team_save':
@@ -349,6 +349,15 @@ try {
         $newId = save_user($b, $id ?: null);
         log_activity($u, $id ? 'Updated team member' : 'Added team member', str_in($b['name'] ?? '', 120));
         json_out(['id' => $newId]);
+
+    case 'mail_test':
+        $u = require_perm('team');
+        $ok = send_mail([$u['email']], 'Test alert from your shop',
+            email_shell('Email alerts are working', '<p>New orders and enquiries will arrive like this. If this landed in spam, mark it “Not spam” and see the setup notes about SMTP/SPF.</p>'),
+            "Email alerts are working.\n");
+        $via = cfg('smtp') ? 'your mailbox (SMTP)' : 'the server’s built-in mail';
+        if (!$ok) fail('Could not send the test email via ' . $via . '. Check the SMTP settings in api/config.local.php.', 502);
+        json_out(['ok' => true, 'to' => $u['email'], 'via' => $via]);
 
     case 'activity':
         require_perm('activity');
@@ -391,15 +400,15 @@ function save_user(array $b, ?int $id): int
     $dupe->execute([$email, $ref, $id ?: 0]);
     if ($dupe->fetchColumn()) fail('That email or referral code is already used by another team member.');
     if ($id) {
-        $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ?, role = ?, ref_code = ?, active = ? WHERE id = ?')
-            ->execute([$name, $email, str_in($b['phone'] ?? '', 40), $role, $ref, empty($b['active']) ? 0 : 1, $id]);
+        $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ?, role = ?, ref_code = ?, active = ?, notify = ? WHERE id = ?')
+            ->execute([$name, $email, str_in($b['phone'] ?? '', 40), $role, $ref, empty($b['active']) ? 0 : 1, empty($b['notify']) ? 0 : 1, $id]);
         if ($pw !== '') $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([password_hash($pw, PASSWORD_DEFAULT), $id]);
         $owners = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'owner' AND active = 1")->fetchColumn();
         if ($owners === 0) fail('At least one active owner is required.');
         return $id;
     }
-    $pdo->prepare('INSERT INTO users (name, email, phone, password_hash, role, ref_code, active) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        ->execute([$name, $email, str_in($b['phone'] ?? '', 40), password_hash($pw, PASSWORD_DEFAULT), $role, $ref, isset($b['active']) && !$b['active'] ? 0 : 1]);
+    $pdo->prepare('INSERT INTO users (name, email, phone, password_hash, role, ref_code, active, notify) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        ->execute([$name, $email, str_in($b['phone'] ?? '', 40), password_hash($pw, PASSWORD_DEFAULT), $role, $ref, isset($b['active']) && !$b['active'] ? 0 : 1, empty($b['notify']) ? 0 : 1]);
     return (int) $pdo->lastInsertId();
 }
 

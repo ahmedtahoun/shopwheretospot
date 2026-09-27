@@ -1,5 +1,5 @@
 Options -Indexes
 # Only the two entry points are reachable; bootstrap, config and seed data are not.
-<FilesMatch "^(bootstrap\.php|config\.local\.php|seed-products\.json)$">
+<FilesMatch "^(bootstrap\.php|mailer\.php|config\.local(\.example)?\.php|seed-products\.json)$">
   Require all denied
 </FilesMatch>

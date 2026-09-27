@@ -91,6 +91,12 @@ try {
         $pdo->commit();
         record_attempt('order');
         log_activity(null, 'New order', order_number($id) . ' · ' . $name . ' · EGP ' . number_format($total));
+        $repName = null;
+        if ($repId) { $st = $pdo->prepare('SELECT name FROM users WHERE id = ?'); $st->execute([$repId]); $repName = $st->fetchColumn(); }
+        notify_new_order(order_number($id), [
+            'name' => $name, 'email' => $email, 'phone' => $phone, 'address' => $address, 'city' => $city,
+            'subtotal' => $subtotal, 'discount' => $discount, 'promo' => $promo, 'shipping' => $shipping, 'total' => $total, 'rep' => $repName,
+        ], $lines);
         json_out(['number' => order_number($id), 'total' => $total, 'shipping' => $shipping, 'discount' => $discount]);
     }
 
@@ -103,6 +109,7 @@ try {
             ->execute([$name, $contact, str_in($b['cat'] ?? '', 40), str_in($b['source'] ?? 'Website', 80)]);
         record_attempt('lead');
         log_activity(null, 'New lead', $name);
+        notify_new_lead(['name' => $name, 'contact' => $contact, 'cat' => str_in($b['cat'] ?? '', 40)]);
         json_out(['ok' => true]);
     }
 
