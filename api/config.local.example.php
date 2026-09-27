@@ -10,6 +10,15 @@ return [
         'user' => 'orders@wheretospot.com',
         'pass' => 'the-mailbox-password',
     ],
+    // Bosta shipping. Create the key in Bosta → Settings → API Integration with "Read/Write" access
+    // ("Full access" is only needed to cancel shipments from the dashboard).
+    'bosta' => [
+        'api_key' => 'paste-your-bosta-api-key-here',
+        'business_location_id' => '',   // optional: default pickup location id (leave empty to use Bosta's default)
+        'default_size' => 'SMALL',      // SMALL, MEDIUM or LARGE
+        'awb_size' => 'A6',             // waybill paper: A6 (label printer) or A4
+        'awb_lang' => 'ar',             // ar or en
+    ],
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],
 ];

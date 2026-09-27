@@ -22,6 +22,17 @@ try {
         json_out(['categories' => $cats, 'products' => $products]);
     }
 
+    // Cities Bosta delivers to (?action=areas) or the areas of one city (?action=areas&city=ID).
+    if ($action === 'areas' && $method === 'GET') {
+        $cities = bosta_areas();
+        header('Cache-Control: public, max-age=3600');
+        if (!empty($_GET['city'])) {
+            foreach ($cities as $c) if ($c['id'] === $_GET['city']) json_out(['districts' => array_map(function ($d) { return ['id' => $d['id'], 'name' => $d['name'], 'ar' => $d['ar']]; }, $c['districts'])]);
+            fail('City not found', 404);
+        }
+        json_out(['cities' => array_map(function ($c) { return ['id' => $c['id'], 'name' => $c['name'], 'ar' => $c['ar']]; }, $cities)]);
+    }
+
     if ($method !== 'POST') fail('Not found', 404);
     $b = body();
 
@@ -39,6 +50,16 @@ try {
         $phone = str_in($b['phone'] ?? '', 40);
         $address = str_in($b['address'] ?? '', 500);
         $city = str_in($b['city'] ?? '', 60);
+        $cityId = str_in($b['city_id'] ?? '', 40);
+        $districtId = str_in($b['district_id'] ?? '', 40);
+        $district = '';
+        if ($cityId && $districtId) {
+            try {
+                $area = bosta_find_area($cityId, $districtId);
+                if ($area) { $city = $area['city']['name']; $district = $area['district']['name']; }
+                else { $cityId = $districtId = ''; }
+            } catch (Throwable $e) { $cityId = $districtId = ''; } // area list unavailable: the team picks it later
+        }
         if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Please enter your name and a valid email.');
         if ($phone === '') fail('Please enter a phone number so we can confirm your order.');
         $items = is_array($b['items'] ?? null) ? $b['items'] : [];
@@ -82,9 +103,9 @@ try {
             if (!$repId) { $pdo->rollBack(); fail('Referral code not recognised — check it or leave it blank.'); }
         }
 
-        $pdo->prepare('INSERT INTO orders (customer, email, phone, address, city, items, subtotal, discount, shipping, total, promo, payment, rep_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$name, $email, $phone, $address, $city, json_encode($lines, JSON_UNESCAPED_UNICODE), $subtotal, $discount, $shipping, $total, $promo, 'cod', $repId]);
+        $pdo->prepare('INSERT INTO orders (customer, email, phone, address, city, city_id, district_id, district, items, subtotal, discount, shipping, total, promo, payment, rep_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$name, $email, $phone, $address, $city, $cityId ?: null, $districtId ?: null, $district, json_encode($lines, JSON_UNESCAPED_UNICODE), $subtotal, $discount, $shipping, $total, $promo, 'cod', $repId]);
         $id = (int) $pdo->lastInsertId();
         $dec = $pdo->prepare("UPDATE products SET stock = MAX(0, stock - ?), updated_at = datetime('now') WHERE id = ? AND cat != 'services'");
         foreach ($lines as $l) $dec->execute([$l['qty'], $l['id']]);
@@ -94,7 +115,7 @@ try {
         $repName = null;
         if ($repId) { $st = $pdo->prepare('SELECT name FROM users WHERE id = ?'); $st->execute([$repId]); $repName = $st->fetchColumn(); }
         notify_new_order(order_number($id), [
-            'name' => $name, 'email' => $email, 'phone' => $phone, 'address' => $address, 'city' => $city,
+            'name' => $name, 'email' => $email, 'phone' => $phone, 'address' => $address, 'city' => $district ? $district . ', ' . $city : $city,
             'subtotal' => $subtotal, 'discount' => $discount, 'promo' => $promo, 'shipping' => $shipping, 'total' => $total, 'rep' => $repName,
         ], $lines);
         json_out(['number' => order_number($id), 'total' => $total, 'shipping' => $shipping, 'discount' => $discount]);

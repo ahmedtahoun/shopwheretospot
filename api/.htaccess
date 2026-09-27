@@ -1,5 +1,15 @@
 Options -Indexes
 # Only the two entry points are reachable; bootstrap, config and seed data are not.
-<FilesMatch "^(bootstrap\.php|mailer\.php|config\.local(\.example)?\.php|seed-products\.json)$">
+<FilesMatch "^(bootstrap\.php|mailer\.php|bosta\.php|config\.local(\.example)?\.php|seed-products\.json)$">
   Require all denied
 </FilesMatch>
+
+# Pass the Authorization header through to PHP (needed for the Bosta webhook on some servers).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>

@@ -21,11 +21,15 @@ $config = [
     'mail_from_name' => 'Where To Spot Shop',
     'reply_to' => 'info@wheretospot.com',
     'alert_emails' => [],   // extra addresses that always get alerts
-    'smtp' => null,         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
+    'smtp' => null,
+    'bosta' => [],          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {
     $config = array_merge($config, (array) require __DIR__ . '/config.local.php');
 }
+
+// Errors whose message is safe to show to the team (Bosta replies, validation). Database errors are never shown.
+class ShopError extends RuntimeException {}
 
 const ROLES = [
     'owner' => ['dashboard', 'products', 'orders', 'leads', 'team', 'activity'],
@@ -150,6 +154,13 @@ function migrate(PDO $pdo): void
     ");
     $userCols = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('notify', $userCols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN notify INTEGER NOT NULL DEFAULT 0');
+    $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    $add = ['city_id' => 'TEXT', 'district_id' => 'TEXT', 'district' => "TEXT DEFAULT ''", 'bosta_id' => 'TEXT', 'tracking_number' => 'TEXT',
+        'bosta_state' => 'INTEGER', 'bosta_note' => "TEXT DEFAULT ''", 'bosta_cod' => 'REAL', 'bosta_updated_at' => 'TEXT'];
+    foreach ($add as $col => $type) {
+        if (!in_array($col, $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type");
+    }
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_tracking ON orders(tracking_number)');
     if ((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
         seed_catalog($pdo);
     }
@@ -187,6 +198,7 @@ function seed_catalog(PDO $pdo): void
 }
 
 require __DIR__ . '/mailer.php';
+require __DIR__ . '/bosta.php';
 
 // ---------- HTTP helpers ----------
 
@@ -322,6 +334,38 @@ function sale_price(array $p): float
 {
     $d = (float) $p['discount_pct'];
     return $d ? round((float) $p['price'] * (1 - $d / 100), 2) : (float) $p['price'];
+}
+
+// Change an order's status. Cancelling or returning puts stock back; reopening takes it again.
+function set_order_status(int $id, string $status, ?string $notes = null): array
+{
+    $pdo = db();
+    $st = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
+    $st->execute([$id]);
+    $o = $st->fetch();
+    if (!$o) throw new ShopError('Order not found.');
+    if (!in_array($status, ORDER_STATUSES, true)) $status = $o['status'];
+    $own = !$pdo->inTransaction();
+    if ($own) $pdo->beginTransaction();
+    $wasOpen = !in_array($o['status'], ['Cancelled', 'Returned'], true);
+    $isOpen = !in_array($status, ['Cancelled', 'Returned'], true);
+    if ($wasOpen !== $isOpen) {
+        $sign = $isOpen ? -1 : 1;
+        $adj = $pdo->prepare("UPDATE products SET stock = MAX(0, stock + ?) WHERE id = ? AND cat != 'services'");
+        foreach (json_decode($o['items'], true) ?: [] as $it) $adj->execute([$sign * (int) $it['qty'], $it['id']]);
+    }
+    $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
+        ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);
+    if ($own) $pdo->commit();
+    if ($status !== $o['status']) log_activity(current_user_quiet(), 'Order ' . $status, order_number($id));
+    return $o;
+}
+
+// The signed-in team member if there is one, without failing (webhooks have no session).
+function current_user_quiet(): ?array
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) return null;
+    return current_user();
 }
 
 function order_number(int $id): string

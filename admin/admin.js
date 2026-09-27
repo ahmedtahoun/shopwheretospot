@@ -231,42 +231,162 @@
   function short(v) { return v >= 1000 ? (v / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'k' : String(v); }
 
   // ---------- orders ----------
+  const BOSTA_TONE = (code) => code == null ? '' : code === 45 ? 'good' : [46, 47, 48, 49, 100, 101, 103].includes(code) ? 'bad' : [10, 11, 20].includes(code) ? 'warn' : 'info';
+  const bostaPill = (o) => o.tracking ? '<span class="pill ' + BOSTA_TONE(o.bostaState) + '">🚚 ' + esc(o.bostaLabel || 'Created') + '</span><div class="small muted">#' + esc(o.tracking) + '</div>' : '<span class="muted small">—</span>';
+  const trackUrl = (t) => 'https://bosta.co/tracking-shipments?shipment-number=' + encodeURIComponent(t);
+  async function bostaInfo() { if (!S.bosta) S.bosta = await api('bosta_info').catch(() => ({ enabled: false })); return S.bosta; }
+  async function bostaAreas() { if (!S.bostaAreas) S.bostaAreas = (await api('bosta_areas')).cities; return S.bostaAreas; }
+
   async function pageOrders() {
     const status = S.orderStatus || '';
     const q = S.orderQ || '';
-    const d = await api('orders', { query: '&status=' + encodeURIComponent(status) + '&q=' + encodeURIComponent(q) });
+    const [d, bosta] = await Promise.all([api('orders', { query: '&status=' + encodeURIComponent(status) + '&q=' + encodeURIComponent(q) }), bostaInfo()]);
+    S.orders = d.orders;
+    S.sel = new Set();
     const tabs = [''].concat(S.meta.orderStatuses);
     $('#main').innerHTML = header('Orders', d.orders.length + ' shown', '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>') +
       '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
       '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, phone, email or WTS-…" value="' + esc(q) + '" style="max-width:300px"></div>' +
-      (d.orders.length ? '<div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Status</th><th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
-        d.orders.map((o, i) => '<tr class="click" data-i="' + i + '"><td><b>' + esc(o.number) + '</b></td><td>' + esc(o.customer) + '<div class="small muted">' + esc(o.phone) + ' · ' + esc(o.city) + '</div></td>' +
+      (bosta.enabled ? '<div class="row card" id="bulk" style="display:none;margin-bottom:14px;padding:12px 16px"><b id="selCount"></b><span class="spacer"></span>' +
+        '<button class="btn primary sm" id="bulkShip">🚚 Create Bosta shipments</button><button class="btn sm" id="bulkAwb">🖨 Print waybills</button></div>' : '') +
+      (d.orders.length ? '<div class="table-wrap"><table><thead><tr>' + (bosta.enabled ? '<th style="width:34px"><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
+        '<th>Order</th><th>Customer</th><th>Items</th><th>Status</th>' + (bosta.enabled ? '<th>Bosta</th>' : '') + '<th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
+        d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (bosta.enabled ? '<td data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
+          '<td><b>' + esc(o.number) + '</b></td><td>' + esc(o.customer) + '<div class="small muted">' + esc(o.phone) + ' · ' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
           '<td class="small">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td><td>' + pill(ORDER_TONE, o.status) + (o.rep ? '<div class="small muted">via ' + esc(o.rep) + '</div>' : '') + '</td>' +
+          (bosta.enabled ? '<td>' + bostaPill(o) + '</td>' : '') +
           '<td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b></td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
     let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.orderQ = e.target.value; pageOrders().then(() => { const el = $('#q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }, 350); };
-    $$('tr[data-i]').forEach((tr) => tr.onclick = () => orderDrawer(d.orders[+tr.dataset.i]));
+    $$('tr[data-i]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-nosel]')) return; orderDrawer(d.orders[+tr.dataset.i]); });
+    if (!bosta.enabled) return;
+    const sync = () => {
+      S.sel = new Set($$('.sel').filter((c) => c.checked).map((c) => +c.dataset.id));
+      $('#bulk').style.display = S.sel.size ? 'flex' : 'none';
+      $('#selCount').textContent = S.sel.size + ' selected';
+    };
+    $$('.sel').forEach((c) => c.onchange = sync);
+    const all = $('#selAll'); if (all) all.onchange = () => { $$('.sel').forEach((c) => { c.checked = all.checked; }); sync(); };
+    $('#bulkAwb').onclick = () => window.open(API + '?action=bosta_awb&ids=' + [...S.sel].join(','), '_blank');
+    $('#bulkShip').onclick = () => bulkShip([...S.sel]);
   }
 
-  function orderDrawer(o) {
+  async function bulkShip(ids) {
+    const bosta = await bostaInfo();
+    const todo = S.orders.filter((o) => ids.includes(o.id) && !o.tracking);
+    const skipped = ids.length - todo.length;
+    const locOpts = (bosta.locations || []).map((l) => '<option value="' + esc(l.id) + '"' + ((bosta.defaultLocation ? l.id === bosta.defaultLocation : l.isDefault) ? ' selected' : '') + '>' + esc(l.name + (l.city ? ' — ' + l.city : '')) + '</option>').join('');
+    openDrawer('Create ' + todo.length + ' Bosta shipment' + (todo.length === 1 ? '' : 's'),
+      '<div class="stack"><p class="muted" style="margin:0">Each order uses the customer’s saved area and address, and collects its full order total in cash. Orders without an area will be skipped — open them to choose one.' +
+      (skipped ? ' ' + skipped + ' already shipped order(s) are left out.' : '') + '</p>' +
+      '<div class="grid2"><label class="field">Package size<select id="bSize">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
+      '<label class="field">Pick up from<select id="bLoc">' + locOpts + '</select></label></div>' +
+      '<div class="list">' + todo.map((o) => '<div class="li"><span><b>' + esc(o.number) + '</b> ' + esc(o.customer) + ' <span class="small muted">' + esc([o.district, o.city].filter(Boolean).join(', ') || 'no area') + '</span></span><b>' + egp(o.total) + '</b></div>').join('') + '</div>' +
+      '<div id="bRes"></div></div>',
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="bGo"' + (todo.length ? '' : ' disabled') + '>Create shipments</button>');
+    $('#bGo').onclick = async () => {
+      $('#bGo').disabled = true; $('#bGo').textContent = 'Creating…';
+      try {
+        const r = await api('bosta_create', { method: 'POST', body: { ids: todo.map((o) => o.id), size: $('#bSize').value, location_id: $('#bLoc').value } });
+        const ok = r.results.filter((x) => x.tracking);
+        $('#bRes').innerHTML = '<div class="card list">' + r.results.map((x) => '<div class="li"><b>' + esc(x.number) + '</b><span class="' + (x.error ? '' : 'muted') + '" style="' + (x.error ? 'color:var(--bad)' : '') + '">' + (x.error ? '✕ ' + esc(x.error) : '✓ #' + esc(x.tracking)) + '</span></div>').join('') + '</div>' +
+          (ok.length ? '<p><a class="btn" target="_blank" href="' + API + '?action=bosta_awb&ids=' + ok.map((x) => x.id).join(',') + '">🖨 Print ' + ok.length + ' waybill' + (ok.length === 1 ? '' : 's') + '</a></p>' : '');
+        $('#bGo').textContent = 'Done';
+        toast(ok.length + ' shipment' + (ok.length === 1 ? '' : 's') + ' created');
+        const drawer = document.getElementById('drawer'); drawer.remove();
+        await pageOrders(); document.body.appendChild(drawer);
+      } catch (err) { toast(err.message, true); $('#bGo').disabled = false; $('#bGo').textContent = 'Create shipments'; }
+    };
+  }
+
+  function bostaSection(o, bosta) {
+    if (!bosta.enabled) return '<div class="card small muted">🚚 Bosta shipping isn’t connected yet — add your Bosta API key in <code>api/config.local.php</code>.</div>';
+    const physical = o.items.some((it) => it.cat !== 'services');
+    if (o.tracking) {
+      return '<div class="card stack"><h2 style="margin:0">🚚 Bosta shipment<span class="spacer"></span><span class="pill ' + BOSTA_TONE(o.bostaState) + '">' + esc(o.bostaLabel || 'Created') + '</span></h2>' +
+        '<div>Tracking number <b>' + esc(o.tracking) + '</b>' + (o.bostaCod != null ? ' · collect ' + egp(o.bostaCod) : '') + '</div>' +
+        (o.bostaNote ? '<div class="small" style="color:var(--bad)">' + esc(o.bostaNote) + '</div>' : '') +
+        '<div class="small muted">Updated ' + dateTime(o.bostaUpdatedAt) + ' · status changes arrive automatically</div>' +
+        '<div class="row"><a class="btn sm primary" target="_blank" href="' + API + '?action=bosta_awb&ids=' + o.id + '">🖨 Print waybill</a>' +
+        '<button class="btn sm" id="bRefresh">↻ Refresh status</button><a class="btn sm" target="_blank" rel="noopener" href="' + trackUrl(o.tracking) + '">Track on Bosta ↗</a>' +
+        '<span class="spacer"></span>' + ([10, 11, 20].includes(o.bostaState) ? '<button class="btn sm danger" id="bCancel">Cancel shipment</button>' : '') + '</div></div>';
+    }
+    if (!physical) return '<div class="card small muted">🚚 Nothing to ship — this order only has marketing plans.</div>';
+    if (o.status === 'Cancelled') return '<div class="card small muted">🚚 Cancelled orders can’t be shipped.</div>';
+    const locOpts = (bosta.locations || []).map((l) => '<option value="' + esc(l.id) + '"' + ((bosta.defaultLocation ? l.id === bosta.defaultLocation : l.isDefault) ? ' selected' : '') + '>' + esc(l.name + (l.city ? ' — ' + l.city : '')) + '</option>').join('');
+    return '<form id="bf" class="card stack"><h2 style="margin:0">🚚 Ship with Bosta</h2>' +
+      '<div class="grid2"><label class="field">Governorate<select name="city_id" id="bCity"><option value="">Loading…</option></select></label>' +
+      '<label class="field">Area<select name="district_id" id="bDist" required><option value="">Choose governorate first</option></select></label></div>' +
+      '<label class="field">Street address <span class="hint">More than 5 characters</span><input type="text" name="address" required minlength="6" value="' + esc(o.address) + '"></label>' +
+      '<div class="grid3"><label class="field">Building<input type="text" name="building"></label><label class="field">Floor<input type="text" name="floor"></label><label class="field">Apartment<input type="text" name="apartment"></label></div>' +
+      '<label class="field">Nearby landmark<input type="text" name="landmark"></label>' +
+      '<div class="grid3"><label class="field">Package size<select name="size">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
+      '<label class="field">Cash to collect (EGP)<input type="number" name="cod" min="0" max="30000" step="0.01" value="' + esc(o.total) + '"></label>' +
+      '<label class="field">Pick up from<select name="location_id">' + locOpts + '</select></label></div>' +
+      (bosta.locationsError ? '<div class="small" style="color:var(--bad)">' + esc(bosta.locationsError) + '</div>' : '') +
+      '<label class="field">Notes for the courier<input type="text" name="notes" placeholder="e.g. Call before arriving"></label>' +
+      '<div><button class="btn primary" type="submit" id="bCreate">Create Bosta shipment</button></div></form>';
+  }
+
+  async function orderDrawer(o) {
+    const bosta = await bostaInfo();
     const body = '<div class="stack">' +
       '<div class="card"><div class="grid2"><div><div class="small muted">Customer</div><b>' + esc(o.customer) + '</b><div>' + esc(o.email) + '</div><div><a href="tel:' + esc(o.phone) + '">' + esc(o.phone) + '</a> · <a href="https://wa.me/' + esc(o.phone.replace(/\D/g, '').replace(/^0/, '20')) + '" target="_blank" rel="noopener">WhatsApp</a></div></div>' +
-      '<div><div class="small muted">Deliver to</div>' + esc(o.address || '—') + '<div>' + esc(o.city) + '</div><div class="small muted" style="margin-top:6px">Placed ' + dateTime(o.createdAt) + ' · ' + (o.payment === 'cod' ? 'Cash on delivery' : esc(o.payment)) + '</div></div></div></div>' +
+      '<div><div class="small muted">Deliver to</div>' + esc(o.address || '—') + '<div>' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div><div class="small muted" style="margin-top:6px">Placed ' + dateTime(o.createdAt) + ' · ' + (o.payment === 'cod' ? 'Cash on delivery' : esc(o.payment)) + '</div></div></div></div>' +
       '<div class="card"><div class="list">' + o.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + '</span><span>' + egp(it.qty * it.price) + '</span></div>').join('') +
       '<div class="li muted"><span>Subtotal</span><span>' + egp(o.subtotal) + '</span></div>' +
       (o.discount ? '<div class="li muted"><span>Promo ' + esc(o.promo) + '</span><span>−' + egp(o.discount) + '</span></div>' : '') +
       '<div class="li muted"><span>Delivery</span><span>' + (o.shipping ? egp(o.shipping) : 'Free') + '</span></div>' +
       '<div class="li"><b>Total</b><b>' + egp(o.total) + '</b></div></div></div>' +
+      bostaSection(o, bosta) +
       '<form id="of" class="stack"><label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
-      '<span class="hint">Cancelling or returning puts the items back in stock.</span></label>' +
-      '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone, courier tracking number…">' + esc(o.notes) + '</textarea></label></form></div>';
+      '<span class="hint">Cancelling or returning puts the items back in stock.' + (o.tracking ? ' Bosta updates move this to Shipped, Delivered or Returned automatically.' : '') + '</span></label>' +
+      '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone">' + esc(o.notes) + '</textarea></label></form></div>';
     openDrawer('Order ' + o.number, body, '<span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" form="of" type="submit">Save</button>');
-    $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
+    const reopen = async () => { await pageOrders(); const fresh = S.orders.find((x) => x.id === o.id); if (fresh) orderDrawer(fresh); };
     $('#of').onsubmit = async (e) => {
       e.preventDefault();
       try { await api('order_update', { method: 'POST', body: Object.assign({ id: o.id }, formData(e.target)) }); closeDrawer(); toast('Order updated'); pageOrders(); }
       catch (err) { toast(err.message, true); }
+    };
+    const refresh = $('#bRefresh');
+    if (refresh) refresh.onclick = async () => {
+      refresh.disabled = true;
+      try { const r = await api('bosta_refresh', { method: 'POST', body: { id: o.id } }); toast('Bosta: ' + r.label); reopen(); }
+      catch (err) { toast(err.message, true); refresh.disabled = false; }
+    };
+    const cancel = $('#bCancel');
+    if (cancel) cancel.onclick = async () => {
+      if (!confirm('Cancel Bosta shipment ' + o.tracking + '? The courier won’t pick it up.')) return;
+      try { await api('bosta_cancel', { method: 'POST', body: { id: o.id } }); toast('Shipment cancelled'); reopen(); }
+      catch (err) { toast(err.message, true); }
+    };
+    const bf = $('#bf');
+    if (!bf) return;
+    const citySel = $('#bCity'), distSel = $('#bDist');
+    const fillDistricts = (cities) => {
+      const c = cities.find((x) => x.id === citySel.value);
+      distSel.innerHTML = '<option value="">' + (c ? 'Choose area' : 'Choose governorate first') + '</option>' +
+        (c ? c.districts.map((d) => '<option value="' + esc(d.id) + '"' + (d.id === o.districtId ? ' selected' : '') + '>' + esc(d.name + (d.ar ? ' · ' + d.ar : '')) + '</option>').join('') : '');
+    };
+    try {
+      const cities = await bostaAreas();
+      const match = cities.find((c) => c.id === o.cityId) || cities.find((c) => c.name.toLowerCase() === String(o.city || '').toLowerCase());
+      citySel.innerHTML = '<option value="">Choose governorate</option>' + cities.map((c) => '<option value="' + esc(c.id) + '"' + (match && c.id === match.id ? ' selected' : '') + '>' + esc(c.name + (c.ar ? ' · ' + c.ar : '')) + '</option>').join('');
+      fillDistricts(cities);
+      citySel.onchange = () => fillDistricts(cities);
+    } catch (err) { citySel.innerHTML = '<option value="">Couldn’t load Bosta areas</option>'; toast(err.message, true); }
+    bf.onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = $('#bCreate'); btn.disabled = true; btn.textContent = 'Creating…';
+      try {
+        const r = await api('bosta_create', { method: 'POST', body: Object.assign({ id: o.id }, formData(bf)) });
+        const res = r.results[0];
+        if (res.error) throw new Error(res.error);
+        toast('Shipment created · #' + res.tracking);
+        reopen();
+      } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = 'Create Bosta shipment'; }
     };
   }
 

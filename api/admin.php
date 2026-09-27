@@ -280,20 +280,87 @@ try {
         $st->execute([$id]);
         $o = $st->fetch();
         if (!$o) fail('Order not found.', 404);
-        $status = in_array($b['status'] ?? '', ORDER_STATUSES, true) ? $b['status'] : $o['status'];
-        $pdo->beginTransaction();
-        // Put stock back when an order is cancelled or returned, and take it again if reopened.
-        $wasOpen = !in_array($o['status'], ['Cancelled', 'Returned'], true);
-        $isOpen = !in_array($status, ['Cancelled', 'Returned'], true);
-        if ($wasOpen !== $isOpen) {
-            $sign = $isOpen ? -1 : 1;
-            $adj = $pdo->prepare("UPDATE products SET stock = MAX(0, stock + ?) WHERE id = ? AND cat != 'services'");
-            foreach (json_decode($o['items'], true) ?: [] as $it) $adj->execute([$sign * (int) $it['qty'], $it['id']]);
+        set_order_status($id, (string) ($b['status'] ?? $o['status']), str_in($b['notes'] ?? $o['notes'], 2000));
+        json_out(['ok' => true]);
+
+    // ---------- Bosta shipping ----------
+
+    case 'bosta_info':
+        require_perm('orders');
+        if (!bosta_enabled()) json_out(['enabled' => false]);
+        $locations = [];
+        $locError = null;
+        try { $locations = bosta_locations(); } catch (Throwable $e) { $locError = $e->getMessage(); }
+        json_out(['enabled' => true, 'locations' => $locations, 'locationsError' => $locError,
+            'defaultLocation' => bosta_cfg('business_location_id', ''), 'defaultSize' => bosta_cfg('default_size', 'SMALL')]);
+
+    case 'bosta_areas':
+        require_perm('orders');
+        json_out(['cities' => bosta_areas()]);
+
+    case 'bosta_create':
+        $u = require_perm('orders');
+        $b = body();
+        $ids = array_map('intval', (array) ($b['ids'] ?? [$b['id'] ?? 0]));
+        $results = [];
+        foreach ($ids as $id) {
+            $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+            $st->execute([$id]);
+            $o = $st->fetch();
+            if (!$o) { $results[] = ['id' => $id, 'error' => 'Order not found.']; continue; }
+            try {
+                if ($o['status'] === 'Cancelled') throw new RuntimeException('Order is cancelled.');
+                $opts = count($ids) === 1 ? $b : ['size' => $b['size'] ?? '', 'location_id' => $b['location_id'] ?? ''];
+                $r = bosta_create_for_order($o, $opts);
+                db()->prepare("UPDATE orders SET bosta_id = ?, tracking_number = ?, bosta_state = ?, bosta_cod = ?, city_id = ?, district_id = ?, district = ?,
+                    address = ?, bosta_note = '', bosta_updated_at = datetime('now') WHERE id = ?")
+                    ->execute([$r['bosta_id'], $r['tracking_number'], $r['state'], $r['cod'], $r['city_id'], $r['district_id'], $r['district'],
+                        count($ids) === 1 && !empty($b['address']) ? str_in($b['address'], 500) : $o['address'], $id]);
+                if ($o['status'] === 'Pending') set_order_status($id, 'Confirmed');
+                log_activity($u, 'Bosta shipment created', order_number($id) . ' · ' . $r['tracking_number']);
+                $results[] = ['id' => $id, 'number' => order_number($id), 'tracking' => $r['tracking_number']];
+            } catch (Throwable $e) {
+                $results[] = ['id' => $id, 'number' => order_number($id), 'error' => $e->getMessage()];
+            }
         }
-        $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
-            ->execute([$status, str_in($b['notes'] ?? $o['notes'], 2000), $id]);
-        $pdo->commit();
-        if ($status !== $o['status']) log_activity($u, 'Order ' . $status, order_number($id));
+        json_out(['results' => $results]);
+
+    case 'bosta_refresh':
+        require_perm('orders');
+        $st = db()->prepare('SELECT id, tracking_number FROM orders WHERE id = ?');
+        $st->execute([(int) (body()['id'] ?? 0)]);
+        $o = $st->fetch();
+        if (!$o || !$o['tracking_number']) fail('This order has no Bosta shipment.', 404);
+        $d = bosta_view($o['tracking_number']);
+        $code = (int) ($d['state']['code'] ?? 0);
+        if ($code) bosta_apply_state((int) $o['id'], $code, (string) ($d['state']['exception']['reason'] ?? ($d['exceptionReason'] ?? '')));
+        json_out(['state' => $code, 'label' => bosta_state_label($code)]);
+
+    case 'bosta_awb':
+        require_perm('orders');
+        $ids = array_map('intval', explode(',', (string) ($_GET['ids'] ?? '')));
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $st = db()->prepare("SELECT tracking_number FROM orders WHERE id IN ($in) AND tracking_number IS NOT NULL AND tracking_number != ''");
+        $st->execute($ids);
+        $tracks = $st->fetchAll(PDO::FETCH_COLUMN);
+        if (!$tracks) fail('None of these orders has a Bosta shipment yet.', 404);
+        if (count($tracks) > 50) fail('Print up to 50 waybills at a time.');
+        $pdf = bosta_awb_pdf($tracks);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="bosta-waybills.pdf"');
+        header('Cache-Control: no-store');
+        echo $pdf;
+        exit;
+
+    case 'bosta_cancel':
+        $u = require_perm('orders');
+        $st = db()->prepare('SELECT id, tracking_number FROM orders WHERE id = ?');
+        $st->execute([(int) (body()['id'] ?? 0)]);
+        $o = $st->fetch();
+        if (!$o || !$o['tracking_number']) fail('This order has no Bosta shipment.', 404);
+        bosta_terminate($o['tracking_number']);
+        db()->prepare("UPDATE orders SET bosta_state = 48, bosta_updated_at = datetime('now') WHERE id = ?")->execute([$o['id']]);
+        log_activity($u, 'Bosta shipment cancelled', order_number((int) $o['id']) . ' · ' . $o['tracking_number']);
         json_out(['ok' => true]);
 
     // ---------- leads ----------
@@ -366,6 +433,8 @@ try {
     default:
         fail('Not found', 404);
     }
+} catch (ShopError $e) {
+    fail($e->getMessage(), 502);
 } catch (Throwable $e) {
     try { if (db()->inTransaction()) db()->rollBack(); } catch (Throwable $ignored) {}
     error_log('[shop admin] ' . $e->getMessage());
@@ -382,6 +451,10 @@ function order_out(array $o): array
         'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'shipping' => (float) $o['shipping'],
         'total' => (float) $o['total'], 'promo' => $o['promo'], 'payment' => $o['payment'], 'status' => $o['status'],
         'notes' => $o['notes'], 'rep' => $o['rep_name'] ?? null, 'createdAt' => $o['created_at'],
+        'cityId' => $o['city_id'], 'districtId' => $o['district_id'], 'district' => $o['district'],
+        'tracking' => $o['tracking_number'], 'bostaState' => $o['bosta_state'] === null ? null : (int) $o['bosta_state'],
+        'bostaLabel' => bosta_state_label($o['bosta_state'] === null ? null : (int) $o['bosta_state']), 'bostaNote' => $o['bosta_note'],
+        'bostaCod' => $o['bosta_cod'] === null ? null : (float) $o['bosta_cod'], 'bostaUpdatedAt' => $o['bosta_updated_at'],
     ];
 }
 
