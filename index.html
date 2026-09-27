@@ -346,7 +346,7 @@
         <button onClick="{{ closeTrack }}" style="border:none;background:none;font-size:18px;cursor:pointer;color:#6B6660">✕</button>
       </div>
       <form onSubmit="{{ submitTrack }}" style="display:flex;flex-direction:column;gap:12px">
-        <label style="font-size:13px;font-weight:600">Order ID (leave blank to see all orders)<input value="{{ trackId }}" onChange="{{ setTrackId }}" placeholder="e.g. 2451" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+        <label style="font-size:13px;font-weight:600">Order ID (leave blank to see all orders)<input value="{{ trackId }}" onChange="{{ setTrackId }}" placeholder="e.g. WTS-1001" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
         <label style="font-size:13px;font-weight:600">Email used at checkout<input required="{{ true }}" type="email" value="{{ trackEmail }}" onChange="{{ setTrackEmail }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
         <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Look up</button>
       </form>
@@ -464,7 +464,7 @@
           </div>
           <label style="font-size:13px;font-weight:600">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
           <label style="font-size:13px;font-weight:600">Email<input required="{{ true }}" type="email" value="{{ form.email }}" onChange="{{ setEmail }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
-          <label style="font-size:13px;font-weight:600">Phone<input value="{{ form.phone }}" onChange="{{ setPhone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+          <label style="font-size:13px;font-weight:600">Phone (for delivery confirmation)<input required="{{ true }}" type="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
           <label style="font-size:13px;font-weight:600">Shipping address<textarea value="{{ form.address }}" onChange="{{ setAddress }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:70px;font-family:inherit"></textarea></label>
           <label style="font-size:13px;font-weight:600">Governorate
             <select value="{{ form.city }}" onChange="{{ setCity }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
@@ -493,9 +493,12 @@
             <input type="checkbox" required="{{ true }}" style="margin-top:3px"/>
             <span>I agree to the <a href="terms.html" target="_blank" style="text-decoration:underline">Terms</a>, <a href="refund-policy.html" target="_blank" style="text-decoration:underline">Refund & Cancellation</a>, <a href="shipping-policy.html" target="_blank" style="text-decoration:underline">Delivery</a> and <a href="privacy-policy.html" target="_blank" style="text-decoration:underline">Privacy</a> policies.</span>
           </label>
+          <sc-if value="{{ orderError }}" hint-placeholder-val="{{ '' }}">
+            <div style="color:#A13F3F;font-size:13px;background:#F7E1E1;border-radius:10px;padding:10px 13px">{{ orderError }}</div>
+          </sc-if>
           <div style="display:flex;gap:10px;margin-top:auto;padding-top:10px">
             <button type="button" onClick="{{ backToCart }}" style="flex:1;background:#fff;border:1px solid #DDD6CC;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Back</button>
-            <button type="submit" style="flex:2;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Place order</button>
+            <button type="submit" style="flex:2;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer" disabled="{{ placing }}">{{ placeLabel }}</button>
           </div>
         </form>
       </sc-if>
@@ -504,10 +507,10 @@
         <div style="flex:1;overflow:auto;padding:32px 26px;display:flex;flex-direction:column;gap:16px;text-align:center;align-items:center;justify-content:center">
           <div style="width:56px;height:56px;border-radius:50%;background:#6B8F71;color:#fff;display:grid;place-items:center;font-size:26px">✓</div>
           <div style="font-weight:700;font-size:18px">Order received</div>
-          <p style="font-size:14px;color:#6B6660;margin:0;max-width:30ch">Thanks {{ form.name }} — a confirmation is on its way to {{ form.email }}. Pay by {{ paymentLabel }} on delivery. Questions? info@wheretospot.com · +20 127 766 0666</p>
+          <p style="font-size:14px;color:#6B6660;margin:0;max-width:32ch">Thanks {{ form.name }} — we'll call or WhatsApp you on {{ form.phone }} to confirm. Pay {{ orderTotalFmt }} by {{ paymentLabel }} on delivery. Questions? info@wheretospot.com · +20 127 766 0666</p>
           <div style="border:1px dashed var(--accent);border-radius:14px;padding:14px 22px;margin-top:6px">
-            <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your promo code for next time</div>
-            <div style="font-family:'Instrument Serif',serif;font-size:26px;color:var(--accent);margin-top:4px">{{ promo }}</div>
+            <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your order number</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:26px;color:var(--accent);margin-top:4px">{{ orderNumber }}</div>
           </div>
           <button onClick="{{ newOrder }}" style="margin-top:10px;background:#22201D;color:#fff;border:none;padding:13px 26px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Continue shopping</button>
         </div>
@@ -573,7 +576,11 @@ class Component extends DCLogic {
   async componentDidMount() {
     const mod = await import('./shop-data.js');
     this._sd = mod;
-    const inventory = mod.loadInventory();
+    const live = await mod.fetchCatalog();
+    const inventory = live || mod.loadInventory();
+    if (mod.CATEGORIES) {
+      this.categories = mod.CATEGORIES.filter(c => c.key !== 'services').map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.label + ' photo' }));
+    }
     const cart = mod.loadCart();
     const orders = mod.loadOrders();
     const params = new URLSearchParams(location.search);
@@ -616,11 +623,12 @@ class Component extends DCLogic {
   setPriceMin = (e) => this.setState({ priceMin: e.target.value });
   setPriceMax = (e) => this.setState({ priceMax: e.target.value });
   setPromoInput = (e) => this.setState({ promoInput: e.target.value, promoError: false });
-  applyPromoCode = () => {
-    if (!this._sd) return;
-    const result = this._sd.validatePromo(this.state.promoInput);
-    if (result) { this.setState({ appliedPromo: result, promoError: false }); this.showToast('Promo applied'); }
-    else this.setState({ promoError: true, appliedPromo: null });
+  applyPromoCode = async () => {
+    if (!this._sd || !this.state.promoInput.trim()) return;
+    try {
+      const result = await this._sd.postJSON('promo', { code: this.state.promoInput });
+      this.setState({ appliedPromo: result, promoError: false }); this.showToast('Promo applied');
+    } catch (e) { this.setState({ promoError: true, appliedPromo: null }); }
   };
   setGuestMode = () => this.setState({ checkoutMode: 'guest' });
   setSaveInfoMode = () => this.setState({ checkoutMode: 'save' });
@@ -635,7 +643,7 @@ class Component extends DCLogic {
   removeItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.filter(i => i.id !== id)) }));
   goInfo = () => {
     if (!this.state.cart.length || !this._sd) return;
-    const fresh = this._sd.loadInventory();
+    const fresh = this.state.inventory;
     const shortages = this.state.cart.map(i => {
       const p = fresh.find(x => x.id === i.id);
       return p && p.stock < i.qty ? { name: i.name, available: p.stock } : null;
@@ -652,64 +660,53 @@ class Component extends DCLogic {
   setField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [field]: v } })); };
   setReferralCode = (e) => this.setState({ referralCode: e.target.value, referralError: false });
   setPayment = (val) => () => this.setState(s => ({ form: { ...s.form, payment: val } }));
-  submitInfo = (e) => {
+  submitInfo = async (e) => {
     e.preventDefault();
-    const code = 'SPOT' + Math.floor(1000 + Math.random() * 9000);
     const s = this.state;
-    const reps = this._sd ? this._sd.loadSalesReps() : [];
-    const refCode = (s.referralCode || '').trim();
-    const matchedRep = refCode ? reps.find(r => r.code === refCode) : null;
-    if (refCode && !matchedRep) { this.setState({ referralError: true }); return; }
-    const subtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    const itemsTotal = s.appliedPromo ? Math.round(subtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : subtotal;
-    const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
-    const total = itemsTotal + shipping;
-    const cat = s.cart.length ? s.cart[0].cat : 'gift';
-    let inventory = s.inventory;
-    if (this._sd) {
-      this._sd.addOrder({
-        id: '#' + Math.floor(2000 + Math.random() * 8000),
-        customer: s.form.name || 'Guest', cat, total, shipping, repId: matchedRep ? matchedRep.id : null,
-        email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city, country: s.form.country, paymentMethod: s.form.payment,
-        items: s.cart.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        ts: Date.now(),
-        status: 'Pending'
+    if (!this._sd || s.placing) return;
+    this.setState({ placing: true, orderError: '', referralError: false });
+    try {
+      const res = await this._sd.postJSON('order', {
+        name: s.form.name, email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city,
+        items: s.cart.map(i => ({ id: i.id, qty: i.qty })),
+        promo: s.appliedPromo ? s.appliedPromo.code : '', ref: (s.referralCode || '').trim()
       });
-      inventory = s.inventory.map(p => {
-        const item = s.cart.find(i => i.id === p.id);
-        return item ? { ...p, stock: Math.max(0, p.stock - item.qty) } : p;
-      });
-      this._sd.saveInventory(inventory);
       if (s.checkoutMode === 'save') { try { localStorage.setItem('spotshop_saved_contact', JSON.stringify(s.form)); } catch {} }
+      const inventory = s.inventory.map(p => {
+        const item = s.cart.find(i => i.id === p.id);
+        return item && p.cat !== 'services' ? { ...p, stock: Math.max(0, p.stock - item.qty) } : p;
+      });
+      this._persistCart([]);
+      this.setState({ checkoutStep: 'success', orderNumber: res.number, orderTotal: res.total, inventory, placing: false });
+    } catch (err) {
+      const msg = err.message || '';
+      this.setState({ placing: false, orderError: msg, referralError: /referral/i.test(msg) });
     }
-    this.setState({ checkoutStep: 'success', promo: code, inventory });
   };
-  newOrder = () => { this._persistCart([]); this.setState({ cart: [], checkoutStep: 'cart', cartOpen: false, appliedPromo: null, promoInput: '', referralCode: '', referralError: false, form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' } }); };
+  newOrder = () => { this._persistCart([]); this.setState({ cart: [], checkoutStep: 'cart', cartOpen: false, orderError: '', appliedPromo: null, promoInput: '', referralCode: '', referralError: false, form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' } }); };
   setLeadField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ leadForm: { ...s.leadForm, [field]: v } })); };
-  submitLead = (e) => {
+  submitLead = async (e) => {
     e.preventDefault();
     const s = this.state;
-    if (this._sd) this._sd.addLead({ id: 'lead' + Date.now(), name: s.leadForm.name, contact: s.leadForm.contact, cat: s.leadForm.cat, status: 'New' });
-    this.setState({ leadSent: true, leadForm: { name: '', contact: '', cat: 'nfc' } });
+    if (!this._sd) return;
+    try {
+      await this._sd.postJSON('lead', { name: s.leadForm.name, contact: s.leadForm.contact, cat: s.leadForm.cat, source: 'Shop — bulk inquiry' });
+      this.setState({ leadSent: true, leadForm: { name: '', contact: '', cat: 'nfc' } });
+    } catch (err) { this.showToast(err.message); }
   };
   openTrack = () => this.setState({ trackOpen: true, trackResult: null });
   closeTrack = () => this.setState({ trackOpen: false });
   setTrackId = (e) => this.setState({ trackId: e.target.value });
   setTrackEmail = (e) => this.setState({ trackEmail: e.target.value });
-  submitTrack = (e) => {
+  submitTrack = async (e) => {
     e.preventDefault();
     if (!this._sd) return;
-    const orders = this._sd.loadOrders();
-    const emailNorm = this.state.trackEmail.trim().toLowerCase();
-    const idNorm = this.state.trackId.trim().replace('#', '').toLowerCase();
-    if (!idNorm) {
-      const history = orders.filter(o => (o.email || '').toLowerCase() === emailNorm);
-      this.setState({ trackResult: null, trackHistory: history });
-      return;
-    }
-    const found = orders.find(o => o.id.replace('#', '').toLowerCase() === idNorm && (o.email || '').toLowerCase() === emailNorm);
-    this.setState({ trackResult: found || 'notfound', trackHistory: [] });
+    try {
+      const res = await this._sd.postJSON('track', { email: this.state.trackEmail.trim(), number: this.state.trackId.trim().replace('#', '') });
+      const orders = res.orders.map(o => ({ ...o, id: o.number }));
+      if (!this.state.trackId.trim()) this.setState({ trackResult: null, trackHistory: orders });
+      else this.setState({ trackResult: orders[0] || 'notfound', trackHistory: [] });
+    } catch (err) { this.showToast(err.message); }
   };
 
   renderVals() {
@@ -804,7 +801,8 @@ class Component extends DCLogic {
       isCard: s.form.payment === 'card', isCod: s.form.payment === 'cod', setPaymentCard: this.setPayment('card'), setPaymentCod: this.setPayment('cod'),
       cardBorder: s.form.payment === 'card' ? accent : '#DDD6CC', codBorder: s.form.payment === 'cod' ? accent : '#DDD6CC',
       paymentLabel: s.form.payment === 'card' ? 'bank/credit' : 'cash',
-      promo: s.promo,
+      orderNumber: s.orderNumber || '', orderTotalFmt: fmt(s.orderTotal || 0),
+      orderError: s.orderError || '', placing: !!s.placing, placeLabel: s.placing ? 'Placing order…' : 'Place order',
       leadForm: s.leadForm, setLeadName: this.setLeadField('name'), setLeadContact: this.setLeadField('contact'), setLeadCat: this.setLeadField('cat'),
       submitLead: this.submitLead, leadSent: s.leadSent, leadFormVisible: !s.leadSent,
       leadCatOptions: [...cats.map(c => ({ value: c.key, label: c.label })), { value: 'services', label: 'Marketing & custom work' }],

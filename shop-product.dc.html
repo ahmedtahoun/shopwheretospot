@@ -244,7 +244,8 @@ class Component extends DCLogic {
   async componentDidMount() {
     const mod = await import('./shop-data.js');
     this._sd = mod;
-    const inv = mod.loadInventory();
+    const inv = (await mod.fetchCatalog()) || mod.loadInventory();
+    if (mod.CATEGORIES) this.catLabels = Object.fromEntries(mod.CATEGORIES.map(c => [c.key, c.label]));
     const id = new URLSearchParams(location.search).get('id');
     const product = id ? inv.find(p => p.id === id) : inv.find(p => p.status === 'Active');
     if (!product) { this.setState({ notFound: true }); return; }

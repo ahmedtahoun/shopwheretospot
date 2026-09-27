@@ -1,0 +1,6 @@
+.DS_Store
+data/*
+!data/.htaccess
+uploads/products/*
+!uploads/products/.gitkeep
+api/config.local.php

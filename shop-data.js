@@ -275,15 +275,6 @@ export function saveSupplierLedger(list) {
   try { localStorage.setItem(SUPPLIER_LEDGER_KEY, JSON.stringify(list)); } catch {}
 }
 
-// Admin passcode gate (demo-level, not real auth)
-export const ADMIN_PASSCODE = 'spot2026';
-export function isAdminAuthed() {
-  try { return sessionStorage.getItem(ADMIN_AUTH_KEY) === '1'; } catch { return false; }
-}
-export function setAdminAuthed(v) {
-  try { v ? sessionStorage.setItem(ADMIN_AUTH_KEY, '1') : sessionStorage.removeItem(ADMIN_AUTH_KEY); } catch {}
-}
-
 // Sales team: reps, commission %, per-rep login code, monthly payouts (demo-level, not real auth)
 const SALES_KEY = 'spotshop_sales_reps_v1';
 const SALES_AUTH_KEY = 'spotshop_sales_auth_v1';
@@ -344,4 +335,37 @@ export function buildBackup() {
     salesReps: loadSalesReps(), payouts: loadPayouts(), reviews: loadReviews(),
     reconciliation: loadReconciliation(), suppliers: loadSuppliers(), supplierLedger: loadSupplierLedger()
   };
+}
+
+// ---------- server API (api/public.php) ----------
+// The live catalog, orders, leads and order tracking come from the server so the whole team
+// and every customer see the same data. The seed data above is only a fallback for local previews.
+const API = 'api/public.php';
+export let CATEGORIES = null;
+
+export async function fetchCatalog() {
+  try {
+    const res = await fetch(API + '?action=catalog', { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error('catalog ' + res.status);
+    const data = await res.json();
+    CATEGORIES = data.categories;
+    Object.keys(PRODUCT_IMAGES).forEach(k => delete PRODUCT_IMAGES[k]);
+    data.products.forEach(p => { PRODUCT_IMAGES[p.id] = p.images; });
+    return data.products;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function postJSON(action, body) {
+  let res;
+  try {
+    res = await fetch(API + '?action=' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error('Could not reach the shop. Check your connection and try again.');
+  }
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again or contact us.');
+  return data;
 }

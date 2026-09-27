@@ -1,0 +1,251 @@
+[
+ {
+  "id": "co4",
+  "sku": "COS-TVB1",
+  "name": "Tangerine Vita C Bright Brightening Serum",
+  "cat": "cosmetics",
+  "vendor": "The Face Shop",
+  "price": 1650,
+  "cost": 700,
+  "stock": 20,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "Clean beauty, tangerine vitamin C",
+  "desc": "A brightening serum from The Face Shop’s Clean Beauty line, formulated with tangerine vitamin C.",
+  "placeholder": "The Face Shop Tangerine Vita C Bright serum bottle and box photo",
+  "images": [
+   "images/faceshop-tangerine-vitac-serum.png"
+  ]
+ },
+ {
+  "id": "co5",
+  "sku": "COS-BJC1",
+  "name": "Birch Juice Moisturizing Cleanser",
+  "cat": "cosmetics",
+  "vendor": "Round Lab",
+  "price": 1400,
+  "cost": 600,
+  "stock": 20,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "150ml, hydrating ampoule cleanser",
+  "desc": "A hydrating cleanser from Round Lab’s Birch Juice line, made to replenish moisture and recharge tired skin.",
+  "placeholder": "Round Lab Birch Juice Moisturizing Cleanser tube and box photo",
+  "images": [
+   "images/roundlab-birch-juice-cleanser.png"
+  ]
+ },
+ {
+  "id": "co6",
+  "sku": "COS-RWE1",
+  "name": "Rice Water Bright Vegan Eye Cream",
+  "cat": "cosmetics",
+  "vendor": "The Face Shop",
+  "price": 1500,
+  "cost": 650,
+  "stock": 20,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "20ml, vegan, fermented rice extract",
+  "desc": "A vegan eye cream from The Face Shop’s Rice Water Bright line. Rice extract fermented for 30 days, with hyaluronic acid and niacinamide, to brighten the under-eye area.",
+  "placeholder": "The Face Shop Rice Water Bright Vegan Eye Cream tube and box photo",
+  "images": [
+   "images/faceshop-rice-water-eye-cream.png"
+  ]
+ },
+ {
+  "id": "co7",
+  "sku": "COS-RWP1",
+  "name": "Rice Water Bright Enzyme Powder Wash",
+  "cat": "cosmetics",
+  "vendor": "The Face Shop",
+  "price": 1850,
+  "cost": 800,
+  "stock": 20,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "55g, gentle enzyme cleanser",
+  "desc": "An enzyme powder wash from The Face Shop’s Rice Water Bright line, for a gentle deep clean.",
+  "placeholder": "The Face Shop Rice Water Bright Enzyme Powder Wash bottle and box photo",
+  "images": [
+   "images/faceshop-rice-water-powder-wash.png"
+  ]
+ },
+ {
+  "id": "plan1",
+  "sku": "SRV-START",
+  "name": "Starter Lead Generation Plan",
+  "cat": "services",
+  "vendor": "Where To Spot",
+  "price": 299,
+  "cost": 0,
+  "stock": 999,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "period": "month",
+  "sub": "20–40 leads / month · billed monthly",
+  "desc": "For small businesses starting with lead generation: targeted ad campaign setup, a lead capture page and monthly optimization.",
+  "features": [
+   "20–40 leads per month (estimate)",
+   "Targeted ad campaign setup",
+   "Lead capture page",
+   "Monthly optimization & report"
+  ],
+  "placeholder": "Starter plan",
+  "images": []
+ },
+ {
+  "id": "plan2",
+  "sku": "SRV-GROW",
+  "name": "Growth Lead Generation Plan",
+  "cat": "services",
+  "vendor": "Where To Spot",
+  "price": 699,
+  "cost": 0,
+  "stock": 999,
+  "discountPct": 0,
+  "label": "Most popular",
+  "status": "Active",
+  "period": "month",
+  "sub": "50–120 leads / month · billed monthly",
+  "desc": "For businesses ready to generate consistent leads every month: high-converting funnel, ads management, weekly optimization and conversion tracking.",
+  "features": [
+   "Everything in Starter",
+   "50–120 leads per month (estimate)",
+   "High-converting funnel",
+   "Ads management",
+   "Weekly optimization",
+   "Conversion tracking"
+  ],
+  "placeholder": "Growth plan",
+  "images": []
+ },
+ {
+  "id": "plan3",
+  "sku": "SRV-SCALE",
+  "name": "Scale Lead Generation Plan",
+  "cat": "services",
+  "vendor": "Where To Spot",
+  "price": 1499,
+  "cost": 0,
+  "stock": 999,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "period": "month",
+  "sub": "150+ leads / month · billed monthly",
+  "desc": "For businesses ready to scale: advanced funnel system, automation & CRM setup, daily optimization and strategy calls.",
+  "features": [
+   "Everything in Growth",
+   "150+ leads per month (estimate)",
+   "Advanced funnel system",
+   "Automation & CRM setup",
+   "Daily optimization",
+   "Strategy calls"
+  ],
+  "placeholder": "Scale plan",
+  "images": []
+ },
+ {
+  "id": "nfc1",
+  "sku": "NFC-GRB1",
+  "name": "Google Review NFC Card — Black",
+  "cat": "nfc",
+  "vendor": "Grevo.io",
+  "price": 200,
+  "cost": 90,
+  "stock": 40,
+  "discountPct": 0,
+  "label": "3+1 Free",
+  "status": "Active",
+  "sub": "Tap-to-review NFC card, no app needed",
+  "desc": "A tap-enabled NFC card that opens your Google review page instantly — customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in white.",
+  "placeholder": "black NFC google review card photo",
+  "images": [
+   "images/nfc-review-black-lifestyle.png",
+   "images/nfc-review-black-stack.png"
+  ]
+ },
+ {
+  "id": "nfc2",
+  "sku": "NFC-GRW1",
+  "name": "Google Review NFC Card — White",
+  "cat": "nfc",
+  "vendor": "Grevo.io",
+  "price": 300,
+  "cost": 90,
+  "stock": 40,
+  "discountPct": 33.34,
+  "label": "3+1 Free",
+  "status": "Active",
+  "sub": "Tap-to-review NFC card, no app needed",
+  "desc": "A tap-enabled NFC card that opens your Google review page instantly — customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in black.",
+  "placeholder": "white NFC google review card photo",
+  "images": [
+   "images/nfc-review-white-stack.png"
+  ]
+ },
+ {
+  "id": "nfc3",
+  "sku": "NFC-GRK1",
+  "name": "Google Review NFC Keychain",
+  "cat": "nfc",
+  "vendor": "Grevo.io",
+  "price": 250,
+  "cost": 75,
+  "stock": 40,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "Tap-to-review NFC keychain, no app needed",
+  "desc": "A tap-enabled NFC keychain that opens your Google review page instantly — customers just tap their phone, no app or typing needed.",
+  "placeholder": "black NFC google review keychain photo",
+  "images": [
+   "images/keychain-google-review-lifestyle.png",
+   "images/keychain-google-review-white.png"
+  ]
+ },
+ {
+  "id": "nfc4",
+  "sku": "NFC-DSL1",
+  "name": "Display Stand NFC + QR Code — 12×18cm",
+  "cat": "nfc",
+  "vendor": "Grevo.io",
+  "price": 340,
+  "cost": 130,
+  "stock": 30,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "Countertop stand, tap or scan for reviews",
+  "desc": "A freestanding countertop display with NFC tap and QR scan, sending customers straight to your Google review page. Also available in 10×15cm.",
+  "placeholder": "orange and black NFC QR display stand photo, 12x18cm",
+  "images": [
+   "images/nfc-display-stand.png"
+  ]
+ },
+ {
+  "id": "nfc5",
+  "sku": "NFC-DSS1",
+  "name": "Display Stand NFC + QR Code — 10×15cm",
+  "cat": "nfc",
+  "vendor": "Grevo.io",
+  "price": 299,
+  "cost": 115,
+  "stock": 30,
+  "discountPct": 0,
+  "label": "",
+  "status": "Active",
+  "sub": "Countertop stand, tap or scan for reviews",
+  "desc": "A freestanding countertop display with NFC tap and QR scan, sending customers straight to your Google review page. Also available in 12×18cm.",
+  "placeholder": "orange and black NFC QR display stand photo, 10x15cm",
+  "images": [
+   "images/nfc-display-stand.png"
+  ]
+ }
+]
