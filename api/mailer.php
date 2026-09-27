@@ -32,7 +32,7 @@ function send_mail(array $to, string $subject, string $html, string $text): bool
         }
         return mail(implode(', ', $to), $encSubject, $body, implode("\r\n", $headers), '-f' . $fromEmail);
     } catch (Throwable $e) {
-        error_log('[shop mail] ' . $e->getMessage());
+        error_log('[shop mail] to ' . implode(', ', $to) . ': ' . $e->getMessage());
         return false;
     }
 }
@@ -139,7 +139,7 @@ function notify_new_order(string $number, array $o, array $lines): void
         . $o['name'] . "\n" . $o['phone'] . ' · ' . $o['email'] . "\n" . $o['address'] . ', ' . $o['city'] . "\n\n"
         . $textItems . "\nDelivery: " . ($o['shipping'] ? $egp($o['shipping']) : 'Free') . "\nTotal: " . $egp($o['total']) . " (cash on delivery)\n\n"
         . 'WhatsApp: ' . wa_link($o['phone']) . "\nDashboard: $admin\n";
-    send_mail($to, 'New order ' . $number . ' · ' . $egp($o['total']) . ' · ' . $o['name'], $html, $text);
+    foreach (array_unique($to) as $r) send_mail([$r], 'New order ' . $number . ' · ' . $egp($o['total']) . ' · ' . $o['name'], $html, $text);
 }
 
 function notify_new_lead(array $l): void
@@ -155,5 +155,5 @@ function notify_new_lead(array $l): void
         . '<p style="margin:0 0 16px;color:#6B6660">Interested in: ' . h($l['cat'] ?: '—') . '</p>'
         . '<p>' . $action . btn($admin, 'Open leads', '#22201D') . '</p>');
     $text = "New enquiry\n\n" . $l['name'] . "\n" . $contact . "\nInterested in: " . $l['cat'] . "\n\nDashboard: $admin\n";
-    send_mail($to, 'New enquiry · ' . $l['name'], $html, $text);
+    foreach (array_unique($to) as $r) send_mail([$r], 'New enquiry · ' . $l['name'], $html, $text);
 }

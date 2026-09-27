@@ -27,7 +27,7 @@ try {
         $cities = bosta_areas();
         header('Cache-Control: public, max-age=3600');
         if (!empty($_GET['city'])) {
-            foreach ($cities as $c) if ($c['id'] === $_GET['city']) json_out(['districts' => array_map(function ($d) { return ['id' => $d['id'], 'name' => $d['name'], 'ar' => $d['ar']]; }, $c['districts'])]);
+            foreach ($cities as $c) if ($c['id'] === $_GET['city']) json_out(['zones' => bosta_zones($c)]);
             fail('City not found', 404);
         }
         json_out(['cities' => array_map(function ($c) { return ['id' => $c['id'], 'name' => $c['name'], 'ar' => $c['ar']]; }, $cities)]);

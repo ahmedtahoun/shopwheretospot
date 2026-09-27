@@ -129,7 +129,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px">
       <sc-for list="{{ catCards }}" as="c" hint-placeholder-count="5">
         <a href="#products" onClick="{{ c.onClick }}" style="display:flex;flex-direction:column;gap:14px;border:1px solid #DDD6CC;border-radius:20px;padding:18px;background:#fff;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
-          <image-slot id="{{ c.imgId }}" shape="rounded" radius="14" placeholder="{{ c.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
+          <image-slot id="{{ c.imgId }}" src="{{ c.img }}" shape="rounded" radius="14" placeholder="{{ c.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
           <div>
             <div style="font-weight:600;font-size:16px">{{ c.label }}</div>
             <div style="font-size:13px;color:#6B6660;margin-top:4px;line-height:1.4">{{ c.desc }}</div>
@@ -474,9 +474,18 @@
             </select>
           </label>
           <sc-if value="{{ hasAreas }}" hint-placeholder-val="{{ false }}">
-            <label style="font-size:13px;font-weight:600">Area / district
-              <select required="{{ true }}" value="{{ form.districtId }}" onChange="{{ setDistrict }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
-                <option value="">{{ districtPlaceholder }}</option>
+            <label style="font-size:13px;font-weight:600">Area
+              <select required="{{ true }}" value="{{ form.zoneId }}" onChange="{{ setZone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
+                <option value="">{{ zonePlaceholder }}</option>
+                <sc-for list="{{ zoneOptions }}" as="zo" hint-placeholder-count="5">
+                  <option value="{{ zo.value }}">{{ zo.label }}</option>
+                </sc-for>
+              </select>
+            </label>
+          </sc-if>
+          <sc-if value="{{ showNeighbourhood }}" hint-placeholder-val="{{ false }}">
+            <label style="font-size:13px;font-weight:600">Neighbourhood <span style="color:#8A8478;font-weight:500">(optional)</span>
+              <select value="{{ form.districtId }}" onChange="{{ setDistrict }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
                 <sc-for list="{{ districtOptions }}" as="di" hint-placeholder-count="5">
                   <option value="{{ di.value }}">{{ di.label }}</option>
                 </sc-for>
@@ -675,29 +684,40 @@ class Component extends DCLogic {
       const r = await fetch('api/public.php?action=areas');
       if (!r.ok) return;
       const d = await r.json();
-      this._districts = {};
       this.setState(s => {
         const match = d.cities.find(c => c.id === s.form.cityId) || d.cities.find(c => c.name === s.form.city);
-        return { areaCities: d.cities, form: { ...s.form, cityId: match ? match.id : '', city: match ? match.name : '', districtId: match ? s.form.districtId : '' } };
-      }, () => { if (this.state.form.cityId) this.loadDistricts(this.state.form.cityId); });
+        return { areaCities: d.cities, form: { ...s.form, cityId: match ? match.id : '', city: match ? match.name : '', zoneId: match ? s.form.zoneId : '', districtId: match ? s.form.districtId : '' } };
+      }, () => { if (this.state.form.cityId) this.loadZones(this.state.form.cityId); });
     } catch (e) { /* keep the plain governorate list */ }
   };
-  loadDistricts = async (cityId) => {
-    if (this._districts && this._districts[cityId]) { this.setState({ areaDistricts: this._districts[cityId] }); return; }
-    this.setState({ areaDistricts: null });
+  loadZones = async (cityId) => {
+    this._zones = this._zones || {};
+    if (this._zones[cityId]) { this.setState({ areaZones: this._zones[cityId] }); return; }
+    this.setState({ areaZones: null });
     try {
       const r = await fetch('api/public.php?action=areas&city=' + encodeURIComponent(cityId));
       const d = await r.json();
-      this._districts[cityId] = d.districts || [];
-      if (this.state.form.cityId === cityId) this.setState({ areaDistricts: this._districts[cityId] });
-    } catch (e) { this.setState({ areaDistricts: [] }); }
+      this._zones[cityId] = d.zones || [];
+    } catch (e) { this._zones[cityId] = []; }
+    if (this.state.form.cityId !== cityId) return;
+    // Keep a saved area if it still exists in this city.
+    this.setState(s => {
+      const zones = this._zones[cityId];
+      const z = zones.find(x => x.id === s.form.zoneId) || zones.find(x => x.districts.some(d => d.id === s.form.districtId));
+      return { areaZones: zones, form: { ...s.form, zoneId: z ? z.id : '', districtId: z ? (z.districts.some(d => d.id === s.form.districtId) ? s.form.districtId : z.main) : '' } };
+    });
   };
   setCity = (e) => {
     const v = e.target.value;
     if (!this.state.areaCities) { this.setState(s => ({ form: { ...s.form, city: v } })); return; }
     const c = this.state.areaCities.find(x => x.id === v);
-    this.setState(s => ({ form: { ...s.form, cityId: v, city: c ? c.name : '', districtId: '' } }));
-    if (v) this.loadDistricts(v);
+    this.setState(s => ({ form: { ...s.form, cityId: v, city: c ? c.name : '', zoneId: '', districtId: '' } }));
+    if (v) this.loadZones(v);
+  };
+  setZone = (e) => {
+    const v = e.target.value;
+    const z = (this.state.areaZones || []).find(x => x.id === v);
+    this.setState(s => ({ form: { ...s.form, zoneId: v, districtId: z ? z.main : '' } }));
   };
   setDistrict = (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, districtId: v } })); };
   setReferralCode = (e) => this.setState({ referralCode: e.target.value, referralError: false });
@@ -772,6 +792,7 @@ class Component extends DCLogic {
     else if (s.sortKey === 'price_desc') filtered = [...filtered].sort((a, b) => b.price - a.price);
     else if (s.sortKey === 'new') filtered = [...filtered].sort((a, b) => (b.id > a.id ? 1 : -1));
     else filtered = [...filtered].sort((a, b) => (popularity[b.id] || 0) - (popularity[a.id] || 0));
+    const currentZone = (s.areaZones || []).find(z => z.id === s.form.zoneId) || null;
     const cartSubtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
     const cartItemsTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
     const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
@@ -795,7 +816,10 @@ class Component extends DCLogic {
       darkBtnHover: { opacity: 0.85 },
       navCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCat(c.key) })),
       mobileNavCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCatMobile(c.key) })),
-      catCards: cats.map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, onClick: this.setCat(c.key) })),
+      catCards: cats.map(c => {
+        const first = active.find(p => p.cat === c.key && this._sd && (this._sd.PRODUCT_IMAGES[p.id] || []).length);
+        return { key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, img: first ? this._sd.PRODUCT_IMAGES[first.id][0] : '', onClick: this.setCat(c.key) };
+      }),
       filterTabs,
       planCards: plans.map(p => ({
         ...p, shortName: p.name.replace(' Lead Generation Plan', ''), priceFmt: fmt(p.price), features: p.features || [],
@@ -839,14 +863,19 @@ class Component extends DCLogic {
       saveInfoBg: s.checkoutMode === 'save' ? accent : 'transparent', saveInfoFg: s.checkoutMode === 'save' ? '#fff' : '#22201D',
       setGuestMode: this.setGuestMode, setSaveInfoMode: this.setSaveInfoMode,
       form: s.form, setName: this.setField('name'), setEmail: this.setField('email'), setPhone: this.setField('phone'), setAddress: this.setField('address'),
-      setCity: this.setCity, setDistrict: this.setDistrict,
+      setCity: this.setCity, setZone: this.setZone, setDistrict: this.setDistrict,
       hasAreas: !!s.areaCities,
       citySelectValue: s.areaCities ? (s.form.cityId || '') : s.form.city,
       cityOptions: s.areaCities
         ? [{ value: '', label: 'Choose your governorate' }, ...s.areaCities.map(c => ({ value: c.id, label: c.name + (c.ar ? ' · ' + c.ar : '') }))]
         : (this._sd ? this._sd.EGYPT_CITIES : ['Cairo']).map(c => ({ value: c, label: c })),
-      districtOptions: (s.areaDistricts || []).map(d => ({ value: d.id, label: d.name + (d.ar ? ' · ' + d.ar : '') })),
-      districtPlaceholder: !s.form.cityId ? 'Choose a governorate first' : (s.areaDistricts ? 'Choose your area' : 'Loading areas…'),
+      zoneOptions: (s.areaZones || []).map(z => ({ value: z.id, label: z.name + (z.ar ? ' · ' + z.ar : '') })),
+      zonePlaceholder: !s.form.cityId ? 'Choose a governorate first' : (s.areaZones ? 'Choose your area' : 'Loading areas…'),
+      showNeighbourhood: !!(currentZone && currentZone.districts.length > 1),
+      districtOptions: currentZone ? [
+        { value: currentZone.main, label: 'Not sure / anywhere in ' + currentZone.name },
+        ...currentZone.districts.filter(d => d.id !== currentZone.main).map(d => ({ value: d.id, label: d.name + (d.ar ? ' · ' + d.ar : '') }))
+      ] : [],
       referralCode: s.referralCode, setReferralCode: this.setReferralCode, referralError: s.referralError,
       isCard: s.form.payment === 'card', isCod: s.form.payment === 'cod', setPaymentCard: this.setPayment('card'), setPaymentCod: this.setPayment('cod'),
       cardBorder: s.form.payment === 'card' ? accent : '#DDD6CC', codBorder: s.form.payment === 'cod' ? accent : '#DDD6CC',

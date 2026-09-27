@@ -296,7 +296,9 @@ try {
 
     case 'bosta_areas':
         require_perm('orders');
-        json_out(['cities' => bosta_areas()]);
+        json_out(['cities' => array_map(function ($c) {
+            return ['id' => $c['id'], 'name' => $c['name'], 'ar' => $c['ar'], 'zones' => bosta_zones($c)];
+        }, bosta_areas())]);
 
     case 'bosta_create':
         $u = require_perm('orders');
@@ -419,12 +421,15 @@ try {
 
     case 'mail_test':
         $u = require_perm('team');
+        $st = db()->prepare('SELECT notify FROM users WHERE id = ?');
+        $st->execute([$u['id']]);
+        $subscribed = (bool) $st->fetchColumn();
         $ok = send_mail([$u['email']], 'Test alert from your shop',
             email_shell('Email alerts are working', '<p>New orders and enquiries will arrive like this. If this landed in spam, mark it “Not spam” and see the setup notes about SMTP/SPF.</p>'),
             "Email alerts are working.\n");
         $via = cfg('smtp') ? 'your mailbox (SMTP)' : 'the server’s built-in mail';
         if (!$ok) fail('Could not send the test email via ' . $via . '. Check the SMTP settings in api/config.local.php.', 502);
-        json_out(['ok' => true, 'to' => $u['email'], 'via' => $via]);
+        json_out(['ok' => true, 'to' => $u['email'], 'via' => $via, 'subscribed' => $subscribed]);
 
     case 'activity':
         require_perm('activity');

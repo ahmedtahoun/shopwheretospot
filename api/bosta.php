@@ -76,14 +76,15 @@ function bosta_cache(string $name, int $ttl, callable $load)
 // Cities and districts Bosta delivers to. Public endpoint, cached for a day.
 function bosta_areas(): array
 {
-    return bosta_cache('areas', 86400, function () {
+    return bosta_cache('areas-v2', 86400, function () {
         $res = bosta_request('GET', '/cities/getAllDistricts?countryId=' . BOSTA_EGYPT, null, false);
         $out = [];
         foreach ($res['data'] as $c) {
             $districts = [];
             foreach ($c['districts'] as $d) {
                 if (empty($d['dropOffAvailability'])) continue;
-                $districts[] = ['id' => $d['districtId'], 'name' => $d['districtName'], 'ar' => $d['districtOtherName'] ?? '', 'zoneId' => $d['zoneId'] ?? ''];
+                $districts[] = ['id' => $d['districtId'], 'name' => $d['districtName'], 'ar' => $d['districtOtherName'] ?? '',
+                    'zoneId' => $d['zoneId'] ?? '', 'zone' => $d['zoneName'] ?? '', 'zoneAr' => $d['zoneOtherName'] ?? ''];
             }
             if (!$districts) continue;
             usort($districts, function ($a, $b) { return strcasecmp($a['name'], $b['name']); });
@@ -95,6 +96,28 @@ function bosta_areas(): array
         });
         return $out;
     });
+}
+
+// Group a city's districts under Bosta zones ("Nasr City", "New Cairo"…) so customers pick a familiar
+// area first. 'main' is the district to use when the customer doesn't choose a neighbourhood.
+function bosta_zones(array $city): array
+{
+    $zones = [];
+    foreach ($city['districts'] as $d) {
+        $key = $d['zoneId'] ?: $d['id'];
+        if (!isset($zones[$key])) $zones[$key] = ['id' => $key, 'name' => $d['zone'] ?: $d['name'], 'ar' => $d['zoneAr'] ?: $d['ar'], 'districts' => []];
+        $zones[$key]['districts'][] = ['id' => $d['id'], 'name' => $d['name'], 'ar' => $d['ar']];
+    }
+    foreach ($zones as &$z) {
+        $main = $z['districts'][0]['id'];
+        foreach ($z['districts'] as $d) {
+            if (strcasecmp($d['name'], $z['name']) === 0) { $main = $d['id']; break; }
+        }
+        $z['main'] = $main;
+    }
+    unset($z);
+    usort($zones, function ($a, $b) { return strcasecmp($a['name'], $b['name']); });
+    return $zones;
 }
 
 function bosta_find_area(string $cityId, string $districtId): ?array

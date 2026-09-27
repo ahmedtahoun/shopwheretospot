@@ -316,8 +316,9 @@
     if (o.status === 'Cancelled') return '<div class="card small muted">🚚 Cancelled orders can’t be shipped.</div>';
     const locOpts = (bosta.locations || []).map((l) => '<option value="' + esc(l.id) + '"' + ((bosta.defaultLocation ? l.id === bosta.defaultLocation : l.isDefault) ? ' selected' : '') + '>' + esc(l.name + (l.city ? ' — ' + l.city : '')) + '</option>').join('');
     return '<form id="bf" class="card stack"><h2 style="margin:0">🚚 Ship with Bosta</h2>' +
-      '<div class="grid2"><label class="field">Governorate<select name="city_id" id="bCity"><option value="">Loading…</option></select></label>' +
-      '<label class="field">Area<select name="district_id" id="bDist" required><option value="">Choose governorate first</option></select></label></div>' +
+      '<div class="grid3"><label class="field">Governorate<select name="city_id" id="bCity"><option value="">Loading…</option></select></label>' +
+      '<label class="field">Area<select id="bZone" required><option value="">Choose governorate first</option></select></label>' +
+      '<label class="field">Neighbourhood<select name="district_id" id="bDist" required><option value="">—</option></select></label></div>' +
       '<label class="field">Street address <span class="hint">More than 5 characters</span><input type="text" name="address" required minlength="6" value="' + esc(o.address) + '"></label>' +
       '<div class="grid3"><label class="field">Building<input type="text" name="building"></label><label class="field">Floor<input type="text" name="floor"></label><label class="field">Apartment<input type="text" name="apartment"></label></div>' +
       '<label class="field">Nearby landmark<input type="text" name="landmark"></label>' +
@@ -364,19 +365,30 @@
     };
     const bf = $('#bf');
     if (!bf) return;
-    const citySel = $('#bCity'), distSel = $('#bDist');
-    const fillDistricts = (cities) => {
+    const citySel = $('#bCity'), zoneSel = $('#bZone'), distSel = $('#bDist');
+    const opt = (v, label, sel) => '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(label) + '</option>';
+    let cities = [];
+    const fillDistricts = () => {
       const c = cities.find((x) => x.id === citySel.value);
-      distSel.innerHTML = '<option value="">' + (c ? 'Choose area' : 'Choose governorate first') + '</option>' +
-        (c ? c.districts.map((d) => '<option value="' + esc(d.id) + '"' + (d.id === o.districtId ? ' selected' : '') + '>' + esc(d.name + (d.ar ? ' · ' + d.ar : '')) + '</option>').join('') : '');
+      const z = c && c.zones.find((x) => x.id === zoneSel.value);
+      distSel.innerHTML = z ? opt(z.main, 'General / not sure (' + z.name + ')', z.main === o.districtId) +
+        z.districts.filter((d) => d.id !== z.main).map((d) => opt(d.id, d.name + (d.ar ? ' · ' + d.ar : ''), d.id === o.districtId)).join('') : opt('', '—');
+    };
+    const fillZones = () => {
+      const c = cities.find((x) => x.id === citySel.value);
+      const current = c && c.zones.find((z) => z.districts.some((d) => d.id === o.districtId));
+      zoneSel.innerHTML = opt('', c ? 'Choose area' : 'Choose governorate first') +
+        (c ? c.zones.map((z) => opt(z.id, z.name + (z.ar ? ' · ' + z.ar : ''), current && current.id === z.id)).join('') : '');
+      fillDistricts();
     };
     try {
-      const cities = await bostaAreas();
+      cities = await bostaAreas();
       const match = cities.find((c) => c.id === o.cityId) || cities.find((c) => c.name.toLowerCase() === String(o.city || '').toLowerCase());
-      citySel.innerHTML = '<option value="">Choose governorate</option>' + cities.map((c) => '<option value="' + esc(c.id) + '"' + (match && c.id === match.id ? ' selected' : '') + '>' + esc(c.name + (c.ar ? ' · ' + c.ar : '')) + '</option>').join('');
-      fillDistricts(cities);
-      citySel.onchange = () => fillDistricts(cities);
-    } catch (err) { citySel.innerHTML = '<option value="">Couldn’t load Bosta areas</option>'; toast(err.message, true); }
+      citySel.innerHTML = opt('', 'Choose governorate') + cities.map((c) => opt(c.id, c.name + (c.ar ? ' · ' + c.ar : ''), match && c.id === match.id)).join('');
+      fillZones();
+      citySel.onchange = fillZones;
+      zoneSel.onchange = fillDistricts;
+    } catch (err) { citySel.innerHTML = opt('', 'Couldn’t load Bosta areas'); toast(err.message, true); }
     bf.onsubmit = async (e) => {
       e.preventDefault();
       const btn = $('#bCreate'); btn.disabled = true; btn.textContent = 'Creating…';
@@ -593,7 +605,11 @@
     $('#addU').onclick = () => userDrawer(null);
     $('#testMail').onclick = async (e) => {
       e.target.disabled = true;
-      try { const r = await api('mail_test', { method: 'POST' }); toast('Test sent to ' + r.to + ' via ' + r.via); }
+      try {
+        const r = await api('mail_test', { method: 'POST' });
+        toast(r.subscribed ? 'Test sent to ' + r.to + ' via ' + r.via
+          : 'Test sent to ' + r.to + ' — but you are NOT subscribed to order alerts. Edit your row and tick “Email me new orders”.', !r.subscribed);
+      }
       catch (err) { toast(err.message, true); }
       e.target.disabled = false;
     };
