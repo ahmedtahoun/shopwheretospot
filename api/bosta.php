@@ -120,6 +120,156 @@ function bosta_zones(array $city): array
     return $zones;
 }
 
+// ---------- area search (checkout "type your area" box) ----------
+
+// Normalise Arabic/English spelling so "مدينة نصر", "مدينه نصر" and "Nasr city" all match Bosta's names.
+function area_norm(string $s): string
+{
+    $s = mb_strtolower($s, 'UTF-8');
+    $s = preg_replace('/[\x{064B}-\x{065F}\x{0670}\x{0640}]/u', '', $s); // tashkeel, tatweel
+    // Hamza forms are dropped entirely: Bosta itself writes "حداءق" where people type "حدائق".
+    $s = strtr($s, ['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ٱ' => 'ا', 'ة' => 'ه', 'ى' => 'ي', 'ؤ' => 'و', 'ئ' => '', 'ء' => '',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']);
+    $s = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $s);
+    return trim(preg_replace('/\s+/u', ' ', $s));
+}
+
+// Everyday names customers type that differ from Bosta's official ones.
+const AREA_ALIASES = [
+    'tagamoa' => 'التجمع', 'tagamo3' => 'التجمع', 'tagamo' => 'التجمع', 'tagamou' => 'التجمع', 'fifth' => '5th',
+    'heliopolis' => 'مصر الجديده', 'masr el gedida' => 'مصر الجديده', 'mohandeseen' => 'المهندسين', 'mohandessin' => 'المهندسين',
+    'mohandseen' => 'المهندسين', 'downtown' => 'وسط البلد', 'wust el balad' => 'وسط البلد', 'zayed' => 'الشيخ زايد',
+    'agami' => 'العجمي', 'agamy' => 'العجمي', 'alex' => 'الاسكندريه', 'alexandria' => 'الاسكندريه', 'october' => 'اكتوبر', 'hadayek' => 'حدائق', 'kobba' => 'القبه', 'qobba' => 'القبه',
+];
+
+function area_alias(string $s): string
+{
+    $n = ' ' . area_norm($s) . ' ';
+    foreach (AREA_ALIASES as $from => $to) $n = str_replace(' ' . $from . ' ', ' ' . $to . ' ', $n);
+    return trim($n);
+}
+
+function area_compact(string $s): string
+{
+    // Drop Arabic/English articles so "el maadi", "elmaadi", "maadi", "المعادي" and "معادي" line up.
+    $words = array_filter(explode(' ', area_norm($s)), function ($w) { return !in_array($w, ['el', 'al', 'ال'], true); });
+    $words = array_map(function ($w) { return preg_replace('/^(el|al|ال)(?=\p{L}{3})/u', '', $w); }, $words);
+    return implode('', $words);
+}
+
+// Flat, pre-normalised index of every deliverable district, cached with the area list.
+function area_index(): array
+{
+    static $idx = null;
+    if ($idx !== null) return $idx;
+    $file = cfg('data_dir') . '/bosta-area-index.json';
+    $areasFile = cfg('data_dir') . '/bosta-areas-v2.json';
+    $areas = bosta_areas();
+    if (is_file($file) && is_file($areasFile) && filemtime($file) >= filemtime($areasFile)) {
+        $idx = json_decode((string) file_get_contents($file), true);
+        if ($idx) return $idx;
+    }
+    $idx = [];
+    foreach ($areas as $c) {
+        foreach (bosta_zones($c) as $z) {
+            foreach ($z['districts'] as $d) {
+                $idx[] = [
+                    'cityId' => $c['id'], 'city' => $c['name'], 'cityAr' => $c['ar'],
+                    'zoneId' => $z['id'], 'zone' => $z['name'], 'zoneAr' => $z['ar'], 'zoneMain' => $d['id'] === $z['main'], 'zoneSize' => count($z['districts']),
+                    'id' => $d['id'], 'name' => $d['name'], 'ar' => $d['ar'],
+                    'k' => [area_compact($d['name']), area_compact($d['ar']), area_compact($z['name']), area_compact($z['ar']), area_compact($c['name']), area_compact($c['ar'])],
+                ];
+            }
+        }
+    }
+    @file_put_contents($file, json_encode($idx, JSON_UNESCAPED_UNICODE));
+    return $idx;
+}
+
+function area_result(array $e, bool $wholeZone): array
+{
+    if ($wholeZone && $e['zoneSize'] > 1) {
+        return ['districtId' => $e['id'], 'cityId' => $e['cityId'], 'zoneId' => $e['zoneId'],
+            'title' => $e['zone'], 'titleAr' => $e['zoneAr'], 'sub' => $e['city'] . ' · any neighbourhood', 'subAr' => $e['cityAr']];
+    }
+    $same = strcasecmp($e['name'], $e['zone']) === 0;
+    return ['districtId' => $e['id'], 'cityId' => $e['cityId'], 'zoneId' => $e['zoneId'],
+        'title' => $e['name'], 'titleAr' => $e['ar'],
+        'sub' => ($same ? '' : $e['zone'] . ', ') . $e['city'], 'subAr' => ($same ? '' : $e['zoneAr'] . '، ') . $e['cityAr']];
+}
+
+// Typed search: best matches first, whole areas ("Nasr City · any neighbourhood") before single neighbourhoods.
+function area_search(string $q, int $limit = 8): array
+{
+    $q = area_alias($q);
+    $words = array_values(array_filter(array_map('area_compact', explode(' ', area_norm($q)))));
+    $full = area_compact($q);
+    if (mb_strlen($full) < 2) return [];
+    $scored = [];
+    foreach (area_index() as $e) {
+        [$dEn, $dAr, $zEn, $zAr, $cEn, $cAr] = $e['k'];
+        $hay = $dEn . ' ' . $dAr . ' ' . $zEn . ' ' . $zAr . ' ' . $cEn . ' ' . $cAr;
+        foreach ($words as $w) if (mb_strpos($hay, $w) === false) continue 2; // every typed word must match somewhere
+        $score = 0;
+        foreach ([[$dEn, $dAr, 100], [$zEn, $zAr, 80]] as [$en, $ar, $base]) {
+            foreach ([$en, $ar] as $k) {
+                if ($k === '') continue;
+                if ($k === $full) $score = max($score, $base + 30);
+                elseif (mb_strpos($k, $full) === 0) $score = max($score, $base + 15);
+                elseif (mb_strpos($k, $full) !== false) $score = max($score, $base);
+            }
+        }
+        if (!$score) $score = 20; // matched via city or across fields
+        $zoneHit = $zEn === $full || $zAr === $full || mb_strpos($zEn, $full) === 0 || mb_strpos($zAr, $full) === 0;
+        if ($zoneHit && $e['zoneMain']) $scored[] = [$score + 40, area_result($e, true)];
+        if (!($zoneHit && $e['zoneSize'] > 1 && !$e['zoneMain'] && $score < 100) || count($words) > 1) {
+            $scored[] = [$score - mb_strlen($dEn) / 100, area_result($e, false)];
+        }
+    }
+    usort($scored, function ($a, $b) { return $b[0] <=> $a[0]; });
+    $out = [];
+    foreach ($scored as [, $r]) {
+        $key = $r['districtId'] . '|' . $r['title'];
+        if (isset($out[$key])) continue;
+        $out[$key] = $r;
+        if (count($out) >= $limit) break;
+    }
+    return array_values($out);
+}
+
+// Suggestions from the street address the customer typed: find area names mentioned in it.
+function area_suggest(string $text, int $limit = 4): array
+{
+    $t = ' ' . implode(' ', array_map('area_compact', explode(' ', area_alias($text)))) . ' ';
+    $tc = str_replace(' ', '', $t);
+    if (mb_strlen($tc) < 4) return [];
+    $cities = [];
+    foreach (area_index() as $e) {
+        foreach ([$e['k'][4], $e['k'][5]] as $k) if (mb_strlen($k) >= 4 && mb_strpos($tc, $k) !== false) $cities[$e['cityId']] = true;
+    }
+    $scored = [];
+    foreach (area_index() as $e) {
+        if ($cities && !isset($cities[$e['cityId']])) continue;
+        [$dEn, $dAr, $zEn, $zAr] = $e['k'];
+        $hit = function ($k) use ($tc) { return mb_strlen($k) >= 4 && mb_strpos($tc, $k) !== false; };
+        $zoneLen = max($hit($zEn) ? mb_strlen($zEn) : 0, $hit($zAr) ? mb_strlen($zAr) : 0);
+        $distLen = max($hit($dEn) ? mb_strlen($dEn) : 0, $hit($dAr) ? mb_strlen($dAr) : 0);
+        // A neighbourhood counts most when its area is mentioned too ("Beverly Hills, Sheikh Zayed");
+        // a whole area beats a stray neighbourhood name inside a street name ("Abbas El Akkad, Nasr City").
+        if ($distLen && ($distLen !== $zoneLen || $e['zoneSize'] === 1)) {
+            $scored[] = [$distLen + ($zoneLen ? 8 : 0) + ($cities ? 5 : 0), area_result($e, false)];
+        }
+        if ($zoneLen && $e['zoneMain']) $scored[] = [$zoneLen + 6 + ($cities ? 5 : 0), area_result($e, true)];
+    }
+    usort($scored, function ($a, $b) { return $b[0] <=> $a[0]; });
+    $out = [];
+    foreach ($scored as [, $r]) {
+        $out[$r['districtId'] . '|' . $r['title']] = $r;
+        if (count($out) >= $limit) break;
+    }
+    return array_values($out);
+}
+
 function bosta_find_area(string $cityId, string $districtId): ?array
 {
     foreach (bosta_areas() as $c) {

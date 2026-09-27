@@ -316,6 +316,9 @@
     if (o.status === 'Cancelled') return '<div class="card small muted">🚚 Cancelled orders can’t be shipped.</div>';
     const locOpts = (bosta.locations || []).map((l) => '<option value="' + esc(l.id) + '"' + ((bosta.defaultLocation ? l.id === bosta.defaultLocation : l.isDefault) ? ' selected' : '') + '>' + esc(l.name + (l.city ? ' — ' + l.city : '')) + '</option>').join('');
     return '<form id="bf" class="card stack"><h2 style="margin:0">🚚 Ship with Bosta</h2>' +
+      '<div class="field" style="position:relative">Find area <span class="hint">Type in English or Arabic, e.g. Nasr City / مدينة نصر</span>' +
+      '<input type="search" id="bSearch" autocomplete="off" placeholder="🔍 Search Bosta areas"><div id="bResults" class="card" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:5;padding:0;max-height:260px;overflow:auto"></div>' +
+      '<div id="bSuggest" class="row small" style="margin-top:4px"></div></div>' +
       '<div class="grid3"><label class="field">Governorate<select name="city_id" id="bCity"><option value="">Loading…</option></select></label>' +
       '<label class="field">Area<select id="bZone" required><option value="">Choose governorate first</option></select></label>' +
       '<label class="field">Neighbourhood<select name="district_id" id="bDist" required><option value="">—</option></select></label></div>' +
@@ -389,6 +392,37 @@
       citySel.onchange = fillZones;
       zoneSel.onchange = fillDistricts;
     } catch (err) { citySel.innerHTML = opt('', 'Couldn’t load Bosta areas'); toast(err.message, true); }
+    // Area search + suggestions from the saved address (same engine as the shop checkout).
+    const pickArea = (r) => {
+      citySel.value = r.cityId; fillZones();
+      zoneSel.value = r.zoneId; fillDistricts();
+      distSel.value = r.districtId;
+      $('#bResults').style.display = 'none'; $('#bSearch').value = '';
+    };
+    const resultRow = (r, i) => '<button type="button" data-r="' + i + '" style="display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--line-2);background:#fff;padding:9px 12px;cursor:pointer">' +
+      '<b>' + esc(r.title) + '</b> <span class="muted">' + esc(r.titleAr) + '</span><div class="small muted">' + esc(r.sub) + '</div></button>';
+    let sq;
+    $('#bSearch').oninput = (e) => {
+      clearTimeout(sq);
+      const q = e.target.value.trim(), box = $('#bResults');
+      if (q.length < 2) { box.style.display = 'none'; return; }
+      sq = setTimeout(async () => {
+        const res = await fetch('../api/public.php?action=area_search&q=' + encodeURIComponent(q)).then((r) => r.json()).catch(() => ({ results: [] }));
+        const list = res.results || [];
+        box.innerHTML = list.length ? list.map(resultRow).join('') : '<div class="small muted" style="padding:10px 12px">No match</div>';
+        box.style.display = 'block';
+        $$('[data-r]', box).forEach((b) => b.onclick = () => pickArea(list[+b.dataset.r]));
+      }, 250);
+    };
+    if (!o.districtId && o.address) {
+      fetch('../api/public.php?action=area_suggest&text=' + encodeURIComponent(o.address + ' ' + (o.city || ''))).then((r) => r.json()).then((res) => {
+        const list = res.results || [];
+        if (!list.length) return;
+        $('#bSuggest').innerHTML = '<span class="muted">✨ From the address:</span>' + list.map((r, i) => '<button type="button" class="btn sm" data-s="' + i + '">' + esc(r.title + ' — ' + r.sub.replace(' · any neighbourhood', '')) + '</button>').join('');
+        $$('[data-s]', $('#bSuggest')).forEach((b) => b.onclick = () => pickArea(list[+b.dataset.s]));
+      }).catch(() => {});
+    }
+
     bf.onsubmit = async (e) => {
       e.preventDefault();
       const btn = $('#bCreate'); btn.disabled = true; btn.textContent = 'Creating…';

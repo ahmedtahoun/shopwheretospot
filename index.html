@@ -465,32 +465,74 @@
           <label style="font-size:13px;font-weight:600">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
           <label style="font-size:13px;font-weight:600">Email<input required="{{ true }}" type="email" value="{{ form.email }}" onChange="{{ setEmail }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
           <label style="font-size:13px;font-weight:600">Phone (for delivery confirmation)<input required="{{ true }}" type="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
-          <label style="font-size:13px;font-weight:600">Street address (street, building, floor, apartment)<textarea required="{{ true }}" value="{{ form.address }}" onChange="{{ setAddress }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:70px;font-family:inherit"></textarea></label>
-          <label style="font-size:13px;font-weight:600">Governorate
-            <select value="{{ citySelectValue }}" onChange="{{ setCity }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
-              <sc-for list="{{ cityOptions }}" as="ci" hint-placeholder-count="5">
-                <option value="{{ ci.value }}">{{ ci.label }}</option>
-              </sc-for>
-            </select>
-          </label>
-          <sc-if value="{{ hasAreas }}" hint-placeholder-val="{{ false }}">
-            <label style="font-size:13px;font-weight:600">Area
-              <select required="{{ true }}" value="{{ form.zoneId }}" onChange="{{ setZone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
-                <option value="">{{ zonePlaceholder }}</option>
-                <sc-for list="{{ zoneOptions }}" as="zo" hint-placeholder-count="5">
-                  <option value="{{ zo.value }}">{{ zo.label }}</option>
-                </sc-for>
-              </select>
-            </label>
+          <label style="font-size:13px;font-weight:600">Street address (street, building, floor, apartment)<textarea required="{{ true }}" value="{{ form.address }}" onChange="{{ onAddress }}" placeholder="e.g. 12 Abbas El Akkad St, building 4, floor 2" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:70px;font-family:inherit"></textarea></label>
+          <sc-if value="{{ areaSearchMode }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:13px;font-weight:600">Delivery area <span style="color:#8A8478;font-weight:500">— so the courier finds you</span></div>
+              <sc-if value="{{ areaPicked }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1.5px solid var(--accent);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center;background:#FBF3EE">
+                  <span aria-hidden="true">📍</span>
+                  <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">{{ areaPickedTitle }}</div><div style="font-size:12.5px;color:#6B6660">{{ areaPickedSub }}</div></div>
+                  <button type="button" onClick="{{ changeArea }}" style="border:1px solid #DDD6CC;background:#fff;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer">Change</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ areaNotPicked }}" hint-placeholder-val="{{ true }}">
+                <input value="{{ areaQuery }}" onChange="{{ onAreaQuery }}" placeholder="🔍  Type your area — e.g. Nasr City or مدينة نصر" aria-label="Search your delivery area" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;margin-top:0"/>
+                <sc-if value="{{ hasSuggestions }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:12px;font-weight:600;color:var(--accent)">✨ Suggested from your address</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ areaSuggestions }}" as="sg" hint-placeholder-count="2">
+                      <button type="button" onClick="{{ sg.onPick }}" style="border:1px dashed var(--accent);background:#fff;color:#22201D;border-radius:999px;padding:7px 12px;font-size:12.5px;cursor:pointer;text-align:left">+ {{ sg.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ hasAreaResults }}" hint-placeholder-val="{{ false }}">
+                  <div style="border:1px solid #DDD6CC;border-radius:12px;max-height:280px;overflow:auto;background:#fff">
+                    <sc-for list="{{ areaResults }}" as="ar" hint-placeholder-count="4">
+                      <button type="button" onClick="{{ ar.onPick }}" style="display:block;width:100%;text-align:left;border:none;border-bottom:1px solid #EFEAE3;background:#fff;padding:10px 13px;cursor:pointer">
+                        <div style="font-size:14px;font-weight:600;display:flex;justify-content:space-between;gap:10px"><span>{{ ar.title }}</span><span dir="rtl" style="font-weight:500;color:#6B6660">{{ ar.titleAr }}</span></div>
+                        <div style="font-size:12px;color:#8A8478;margin-top:2px">{{ ar.sub }}</div>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ areaNoResults }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:12.5px;color:#6B6660">No match — try another spelling, or choose from the list.</div>
+                </sc-if>
+                <button type="button" onClick="{{ openBrowse }}" style="align-self:flex-start;border:none;background:none;color:var(--accent);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline">Or choose from the list of governorates →</button>
+              </sc-if>
+            </div>
           </sc-if>
-          <sc-if value="{{ showNeighbourhood }}" hint-placeholder-val="{{ false }}">
-            <label style="font-size:13px;font-weight:600">Neighbourhood <span style="color:#8A8478;font-weight:500">(optional)</span>
-              <select value="{{ form.districtId }}" onChange="{{ setDistrict }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
-                <sc-for list="{{ districtOptions }}" as="di" hint-placeholder-count="5">
-                  <option value="{{ di.value }}">{{ di.label }}</option>
+          <sc-if value="{{ showAreaSelects }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ hasAreas }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ closeBrowse }}" style="align-self:flex-start;border:none;background:none;color:var(--accent);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline">← Search your area instead</button>
+            </sc-if>
+            <label style="font-size:13px;font-weight:600">Governorate
+              <select value="{{ citySelectValue }}" onChange="{{ setCity }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
+                <sc-for list="{{ cityOptions }}" as="ci" hint-placeholder-count="5">
+                  <option value="{{ ci.value }}">{{ ci.label }}</option>
                 </sc-for>
               </select>
             </label>
+            <sc-if value="{{ hasAreas }}" hint-placeholder-val="{{ false }}">
+              <label style="font-size:13px;font-weight:600">Area
+                <select required="{{ true }}" value="{{ form.zoneId }}" onChange="{{ setZone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
+                  <option value="">{{ zonePlaceholder }}</option>
+                  <sc-for list="{{ zoneOptions }}" as="zo" hint-placeholder-count="5">
+                    <option value="{{ zo.value }}">{{ zo.label }}</option>
+                  </sc-for>
+                </select>
+              </label>
+            </sc-if>
+            <sc-if value="{{ showNeighbourhood }}" hint-placeholder-val="{{ false }}">
+              <label style="font-size:13px;font-weight:600">Neighbourhood <span style="color:#8A8478;font-weight:500">(optional)</span>
+                <select value="{{ form.districtId }}" onChange="{{ setDistrict }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px">
+                  <sc-for list="{{ districtOptions }}" as="di" hint-placeholder-count="5">
+                    <option value="{{ di.value }}">{{ di.label }}</option>
+                  </sc-for>
+                </select>
+              </label>
+            </sc-if>
           </sc-if>
           <label style="font-size:13px;font-weight:600">Country<input value="{{ form.country }}" disabled="{{ true }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;background:#F7F3ED;color:#6B6660"/></label>
           <label style="font-size:13px;font-weight:600">Referral code <span style="color:#8A8478;font-weight:500">(optional)</span>
@@ -687,7 +729,7 @@ class Component extends DCLogic {
       this.setState(s => {
         const match = d.cities.find(c => c.id === s.form.cityId) || d.cities.find(c => c.name === s.form.city);
         return { areaCities: d.cities, form: { ...s.form, cityId: match ? match.id : '', city: match ? match.name : '', zoneId: match ? s.form.zoneId : '', districtId: match ? s.form.districtId : '' } };
-      }, () => { if (this.state.form.cityId) this.loadZones(this.state.form.cityId); });
+      }, () => { if (this.state.form.cityId) this.loadZones(this.state.form.cityId); this.suggestAreas(this.state.form.address); });
     } catch (e) { /* keep the plain governorate list */ }
   };
   loadZones = async (cityId) => {
@@ -711,21 +753,63 @@ class Component extends DCLogic {
     const v = e.target.value;
     if (!this.state.areaCities) { this.setState(s => ({ form: { ...s.form, city: v } })); return; }
     const c = this.state.areaCities.find(x => x.id === v);
-    this.setState(s => ({ form: { ...s.form, cityId: v, city: c ? c.name : '', zoneId: '', districtId: '' } }));
+    this.setState(s => ({ form: { ...s.form, cityId: v, city: c ? c.name : '', zoneId: '', districtId: '', areaTitle: '', areaSub: '' } }));
     if (v) this.loadZones(v);
   };
   setZone = (e) => {
     const v = e.target.value;
     const z = (this.state.areaZones || []).find(x => x.id === v);
-    this.setState(s => ({ form: { ...s.form, zoneId: v, districtId: z ? z.main : '' } }));
+    this.setState(s => ({ form: { ...s.form, zoneId: v, districtId: z ? z.main : '', areaTitle: '', areaSub: '' } }));
   };
-  setDistrict = (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, districtId: v } })); };
+  setDistrict = (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, districtId: v, areaTitle: '', areaSub: '' } })); };
+
+  // "Type your area" search + suggestions from the street address, both from Bosta's area list.
+  _areaFetch = async (url) => { try { const r = await fetch(url); if (!r.ok) return []; return (await r.json()).results || []; } catch (e) { return []; } };
+  onAreaQuery = (e) => {
+    const q = e.target.value;
+    this.setState({ areaQuery: q });
+    clearTimeout(this._aq);
+    if (q.trim().length < 2) { this.setState({ areaResults: [], areaSearched: false }); return; }
+    this._aq = setTimeout(async () => {
+      const results = await this._areaFetch('api/public.php?action=area_search&q=' + encodeURIComponent(q));
+      if (this.state.areaQuery === q) this.setState({ areaResults: results, areaSearched: true });
+    }, 250);
+  };
+  onAddress = (e) => {
+    const v = e.target.value;
+    this.setState(s => ({ form: { ...s.form, address: v } }));
+    this.suggestAreas(v);
+  };
+  suggestAreas = (text) => {
+    clearTimeout(this._as);
+    if (!this.state.areaCities || (text || '').trim().length < 4) { this.setState({ areaSuggestions: [] }); return; }
+    this._as = setTimeout(async () => {
+      const results = await this._areaFetch('api/public.php?action=area_suggest&text=' + encodeURIComponent(text));
+      if (this.state.form.address === text) this.setState({ areaSuggestions: results });
+    }, 600);
+  };
+  pickArea = (r) => () => {
+    const c = (this.state.areaCities || []).find(x => x.id === r.cityId);
+    this.setState(s => ({
+      areaQuery: '', areaResults: [], areaSearched: false, areaBrowse: false,
+      form: { ...s.form, cityId: r.cityId, city: c ? c.name : s.form.city, zoneId: r.zoneId, districtId: r.districtId,
+        areaTitle: r.title + (r.titleAr ? ' · ' + r.titleAr : ''), areaSub: r.sub }
+    }));
+    this.loadZones(r.cityId);
+  };
+  changeArea = () => this.setState(s => ({ form: { ...s.form, zoneId: '', districtId: '', areaTitle: '', areaSub: '' } }), () => this.suggestAreas(this.state.form.address));
+  openBrowse = () => { this.setState({ areaBrowse: true }); if (this.state.form.cityId) this.loadZones(this.state.form.cityId); };
+  closeBrowse = () => this.setState({ areaBrowse: false });
   setReferralCode = (e) => this.setState({ referralCode: e.target.value, referralError: false });
   setPayment = (val) => () => this.setState(s => ({ form: { ...s.form, payment: val } }));
   submitInfo = async (e) => {
     e.preventDefault();
     const s = this.state;
     if (!this._sd || s.placing) return;
+    if (s.areaCities && !s.form.districtId && s.cart.some(i => i.cat !== 'services')) {
+      this.setState({ orderError: 'Please choose your delivery area — type it in the “Delivery area” box.' });
+      return;
+    }
     this.setState({ placing: true, orderError: '', referralError: false });
     try {
       const res = await this._sd.postJSON('order', {
@@ -793,6 +877,15 @@ class Component extends DCLogic {
     else if (s.sortKey === 'new') filtered = [...filtered].sort((a, b) => (b.id > a.id ? 1 : -1));
     else filtered = [...filtered].sort((a, b) => (popularity[b.id] || 0) - (popularity[a.id] || 0));
     const currentZone = (s.areaZones || []).find(z => z.id === s.form.zoneId) || null;
+    const pickedArea = (() => {
+      if (!s.form.districtId) return { title: '', sub: '' };
+      if (s.form.areaTitle) return { title: s.form.areaTitle, sub: s.form.areaSub || '' };
+      const cityName = s.form.city || '';
+      if (!currentZone) return { title: cityName, sub: '' };
+      const d = currentZone.districts.find(x => x.id === s.form.districtId);
+      if (!d || (d.id === currentZone.main && currentZone.districts.length > 1)) return { title: currentZone.name + (currentZone.ar ? ' · ' + currentZone.ar : ''), sub: cityName + ' · any neighbourhood' };
+      return { title: d.name + (d.ar ? ' · ' + d.ar : ''), sub: (d.name === currentZone.name ? '' : currentZone.name + ', ') + cityName };
+    })();
     const cartSubtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
     const cartItemsTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
     const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
@@ -863,7 +956,16 @@ class Component extends DCLogic {
       saveInfoBg: s.checkoutMode === 'save' ? accent : 'transparent', saveInfoFg: s.checkoutMode === 'save' ? '#fff' : '#22201D',
       setGuestMode: this.setGuestMode, setSaveInfoMode: this.setSaveInfoMode,
       form: s.form, setName: this.setField('name'), setEmail: this.setField('email'), setPhone: this.setField('phone'), setAddress: this.setField('address'),
-      setCity: this.setCity, setZone: this.setZone, setDistrict: this.setDistrict,
+      setCity: this.setCity, setZone: this.setZone, setDistrict: this.setDistrict, onAddress: this.onAddress,
+      areaSearchMode: !!s.areaCities && !s.areaBrowse, showAreaSelects: !s.areaCities || !!s.areaBrowse,
+      areaPicked: !!s.form.districtId, areaNotPicked: !s.form.districtId,
+      areaPickedTitle: pickedArea.title, areaPickedSub: pickedArea.sub,
+      areaQuery: s.areaQuery || '', onAreaQuery: this.onAreaQuery,
+      areaResults: (s.areaResults || []).map(r => ({ ...r, onPick: this.pickArea(r) })),
+      hasAreaResults: !!(s.areaResults && s.areaResults.length), areaNoResults: !!s.areaSearched && !(s.areaResults || []).length,
+      areaSuggestions: (s.areaSuggestions || []).map(r => ({ label: r.title + (r.titleAr ? ' · ' + r.titleAr : '') + ' — ' + r.sub.replace(' · any neighbourhood', ''), onPick: this.pickArea(r) })),
+      hasSuggestions: !!(s.areaSuggestions && s.areaSuggestions.length) && !(s.areaResults && s.areaResults.length),
+      changeArea: this.changeArea, openBrowse: this.openBrowse, closeBrowse: this.closeBrowse,
       hasAreas: !!s.areaCities,
       citySelectValue: s.areaCities ? (s.form.cityId || '') : s.form.city,
       cityOptions: s.areaCities

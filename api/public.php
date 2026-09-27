@@ -33,6 +33,18 @@ try {
         json_out(['cities' => array_map(function ($c) { return ['id' => $c['id'], 'name' => $c['name'], 'ar' => $c['ar']]; }, $cities)]);
     }
 
+    // "Type your area" search and suggestions from the typed street address.
+    if ($action === 'area_search' && $method === 'GET') {
+        if (too_many_attempts('areasearch', 600, 600)) fail('Too many requests', 429);
+        record_attempt('areasearch');
+        json_out(['results' => area_search(str_in($_GET['q'] ?? '', 80))]);
+    }
+    if ($action === 'area_suggest' && $method === 'GET') {
+        if (too_many_attempts('areasearch', 600, 600)) fail('Too many requests', 429);
+        record_attempt('areasearch');
+        json_out(['results' => area_suggest(str_in($_GET['text'] ?? '', 300))]);
+    }
+
     if ($method !== 'POST') fail('Not found', 404);
     $b = body();
 
