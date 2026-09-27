@@ -17,6 +17,9 @@ export const SEED_PRODUCTS = [
   { id: 'co5', sku: 'COS-BJC1', name: 'Birch Juice Moisturizing Cleanser', cat: 'cosmetics', vendor: 'Round Lab', price: 1400, cost: 600, stock: 20, discountPct: 0, label: '', status: 'Active', sub: '150ml, hydrating ampoule cleanser', desc: 'A hydrating cleanser from Round Lab\u2019s Birch Juice line, made to replenish moisture and recharge tired skin.', placeholder: 'Round Lab Birch Juice Moisturizing Cleanser tube and box photo' },
   { id: 'co6', sku: 'COS-RWE1', name: 'Rice Water Bright Vegan Eye Cream', cat: 'cosmetics', vendor: 'The Face Shop', price: 1500, cost: 650, stock: 20, discountPct: 0, label: '', status: 'Active', sub: '20ml, vegan, fermented rice extract', desc: 'A vegan eye cream from The Face Shop\u2019s Rice Water Bright line. Rice extract fermented for 30 days, with hyaluronic acid and niacinamide, to brighten the under-eye area.', placeholder: 'The Face Shop Rice Water Bright Vegan Eye Cream tube and box photo' },
   { id: 'co7', sku: 'COS-RWP1', name: 'Rice Water Bright Enzyme Powder Wash', cat: 'cosmetics', vendor: 'The Face Shop', price: 1850, cost: 800, stock: 20, discountPct: 0, label: '', status: 'Active', sub: '55g, gentle enzyme cleanser', desc: 'An enzyme powder wash from The Face Shop\u2019s Rice Water Bright line, for a gentle deep clean.', placeholder: 'The Face Shop Rice Water Bright Enzyme Powder Wash bottle and box photo' },
+  { id: 'plan1', sku: 'SRV-START', name: 'Starter Lead Generation Plan', cat: 'services', vendor: 'Where To Spot', price: 299, cost: 0, stock: 999, discountPct: 0, label: '', status: 'Active', period: 'month', sub: '20–40 leads / month · billed monthly', desc: 'For small businesses starting with lead generation: targeted ad campaign setup, a lead capture page and monthly optimization.', features: ['20–40 leads per month (estimate)', 'Targeted ad campaign setup', 'Lead capture page', 'Monthly optimization & report'], placeholder: 'Starter plan' },
+  { id: 'plan2', sku: 'SRV-GROW', name: 'Growth Lead Generation Plan', cat: 'services', vendor: 'Where To Spot', price: 699, cost: 0, stock: 999, discountPct: 0, label: 'Most popular', status: 'Active', period: 'month', sub: '50–120 leads / month · billed monthly', desc: 'For businesses ready to generate consistent leads every month: high-converting funnel, ads management, weekly optimization and conversion tracking.', features: ['Everything in Starter', '50–120 leads per month (estimate)', 'High-converting funnel', 'Ads management', 'Weekly optimization', 'Conversion tracking'], placeholder: 'Growth plan' },
+  { id: 'plan3', sku: 'SRV-SCALE', name: 'Scale Lead Generation Plan', cat: 'services', vendor: 'Where To Spot', price: 1499, cost: 0, stock: 999, discountPct: 0, label: '', status: 'Active', period: 'month', sub: '150+ leads / month · billed monthly', desc: 'For businesses ready to scale: advanced funnel system, automation & CRM setup, daily optimization and strategy calls.', features: ['Everything in Growth', '150+ leads per month (estimate)', 'Advanced funnel system', 'Automation & CRM setup', 'Daily optimization', 'Strategy calls'], placeholder: 'Scale plan' },
   { id: 'nfc1', sku: 'NFC-GRB1', name: 'Google Review NFC Card — Black', cat: 'nfc', vendor: 'Grevo.io', price: 200, cost: 90, stock: 40, discountPct: 0, label: '3+1 Free', status: 'Active', sub: 'Tap-to-review NFC card, no app needed', desc: 'A tap-enabled NFC card that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in white.', placeholder: 'black NFC google review card photo' },
   { id: 'nfc2', sku: 'NFC-GRW1', name: 'Google Review NFC Card — White', cat: 'nfc', vendor: 'Grevo.io', price: 300, cost: 90, stock: 40, discountPct: 33.34, label: '3+1 Free', status: 'Active', sub: 'Tap-to-review NFC card, no app needed', desc: 'A tap-enabled NFC card that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed. Buy 3, get 1 free. Also available in black.', placeholder: 'white NFC google review card photo' },
   { id: 'nfc3', sku: 'NFC-GRK1', name: 'Google Review NFC Keychain', cat: 'nfc', vendor: 'Grevo.io', price: 250, cost: 75, stock: 40, discountPct: 0, label: '', status: 'Active', sub: 'Tap-to-review NFC keychain, no app needed', desc: 'A tap-enabled NFC keychain that opens your Google review page instantly \u2014 customers just tap their phone, no app or typing needed.', placeholder: 'black NFC google review keychain photo' },
@@ -25,7 +28,17 @@ export const SEED_PRODUCTS = [
 ];
 
 const DAY = 86400000;
-export const EGYPT_CITIES = ['Cairo', 'Giza', 'Alexandria', 'Kafr El Sheikh', 'Fayoum', 'Gharbia', 'Assiut', 'Red Sea', 'Dakahlia', 'Sharqia', 'Sohag'];
+export const EGYPT_CITIES = ['Cairo', 'Giza', 'Alexandria', 'Qalyubia', 'Dakahlia', 'Sharqia', 'Gharbia', 'Monufia', 'Beheira', 'Kafr El Sheikh', 'Damietta', 'Port Said', 'Ismailia', 'Suez', 'Fayoum', 'Beni Suef', 'Minya', 'Assiut', 'Sohag', 'Qena', 'Luxor', 'Aswan', 'Red Sea', 'New Valley', 'Matrouh', 'North Sinai', 'South Sinai'];
+
+// Delivery — keep in sync with shipping-policy.html
+export const SHIPPING_FEE = 75;
+export const FREE_SHIPPING_THRESHOLD = 1500;
+export function isPhysical(item) { return item.cat !== 'services'; }
+export function shippingFor(cart) {
+  const physical = cart.filter(isPhysical).reduce((sum, i) => sum + i.price * i.qty, 0);
+  if (!physical) return 0;
+  return physical >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+}
 export const SEED_ORDERS = [
   { id: '#1042', customer: 'Lara Haddad', cat: 'stands', total: 2100, date: 'Aug 27', ts: Date.now() - 5 * DAY, status: 'Fulfilled', city: 'Cairo' },
   { id: '#1043', customer: 'Omar Nassar', cat: 'cosmetics', total: 94, date: 'Aug 27', ts: Date.now() - 5 * DAY, status: 'Paid', city: 'Giza' },
@@ -66,7 +79,8 @@ export function saveCurrencyCode(code) {
   try { localStorage.setItem(CUR_KEY, code); } catch {}
 }
 export function fmtPrice(n, code) {
-  const cc = code || loadCurrencyCode();
+  // Storefront always shows EGP; only the admin passes another code explicitly.
+  const cc = code || 'EGP';
   const cur = CURRENCIES.find(c => c.code === cc) || CURRENCIES[0];
   const val = (n || 0) * cur.rate;
   return cur.symbol + ' ' + (cur.code === 'EGP' ? Math.round(val).toLocaleString('en-EG') : val.toFixed(2));

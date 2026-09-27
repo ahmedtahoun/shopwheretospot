@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/png" href="images/logo.png">
-<title>Spot Shop — One storefront, every category you sell.</title>
-<meta name="description" content="Spot Shop — one storefront, every category you sell.">
-<meta property="og:title" content="Spot Shop">
-<meta property="og:description" content="One storefront, every category you sell.">
+<title>Where To Spot — Shop & Marketing Services (EGP)</title>
+<meta name="description" content="Where To Spot, Egypt: NFC Google review cards and stands, skincare, and monthly lead-generation marketing plans. All prices in EGP, delivery across Egypt.">
+<meta property="og:title" content="Where To Spot">
+<meta property="og:description" content="Products and marketing services for Egyptian businesses. Prices in EGP.">
 <meta property="og:image" content="images/og-share.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Spot Shop">
-<meta name="twitter:description" content="One storefront, every category you sell.">
+<meta name="twitter:title" content="Where To Spot">
+<meta name="twitter:description" content="Products and marketing services for Egyptian businesses. Prices in EGP.">
 <meta name="twitter:image" content="images/og-share.png">
 <script src="./support.js"></script>
 </head>
@@ -40,6 +40,10 @@
   @media (max-width: 760px){
     .hero-grid{grid-template-columns:1fr !important}
   }
+  @media (max-width: 520px){
+    nav > div{padding:12px 16px !important;gap:10px !important}
+    .brand-name{font-size:20px !important}
+  }
   .skeleton{background:linear-gradient(90deg,#EFEAE3 25%,#E4DED4 37%,#EFEAE3 63%);background-size:400% 100%;animation:sk 1.4s ease infinite}
   @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
 </style>
@@ -47,15 +51,17 @@
 </helmet>
 <div style="--accent:{{ accent }};min-height:100vh;position:relative">
 
-  <div style="background:#22201D;color:#F7F3ED;text-align:center;font-size:13px;padding:9px 16px;letter-spacing:0.02em">Free shipping on orders over {{ freeShipFmt }} · all categories</div>
+  <div style="background:#22201D;color:#F7F3ED;text-align:center;font-size:13px;padding:9px 16px;letter-spacing:0.02em">Free delivery across Egypt on orders over {{ freeShipFmt }} · All prices in Egyptian Pounds (EGP)</div>
 
   <nav style="position:sticky;top:0;z-index:70;background:rgba(247,243,237,0.92);backdrop-filter:blur(10px);border-bottom:1px solid #DDD6CC">
     <div style="max-width:1280px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px">
-      <a href="#top" style="flex:none;white-space:nowrap;font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;letter-spacing:0.01em">Spot Shop</a>
+      <a href="#top" class="brand-name" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:10px;font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;letter-spacing:0.01em"><img src="images/logo.png" alt="Where To Spot logo" width="52" height="30" style="border-radius:8px;background:#22201D;padding:3px 6px;object-fit:contain">Where To Spot</a>
       <div class="desktop-nav" style="align-items:center;gap:18px;font-size:13.5px;font-weight:500;color:#6B6660;flex-wrap:wrap;flex:1;justify-content:flex-end;min-width:0">
-        <sc-for list="{{ navCats }}" as="c" hint-placeholder-count="5">
-          <a href="#products" class="link" style="white-space:nowrap" onClick="{{ c.onClick }}">{{ c.label }}</a>
-        </sc-for>
+        <a href="#products" class="link" style="white-space:nowrap">Shop</a>
+        <a href="#plans" class="link" style="white-space:nowrap">Marketing plans</a>
+        <a href="#services" class="link" style="white-space:nowrap">Services</a>
+        <a href="about.html" class="link" style="white-space:nowrap">About us</a>
+        <a href="contact.html" class="link" style="white-space:nowrap">Contact</a>
         <button onClick="{{ toggleWishPanel }}" style="border:none;background:none;color:#22201D;font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0">Wishlist{{ wishBadge }}</button>
         <div style="display:flex;align-items:center;gap:14px;padding-left:4px;border-left:1px solid #DDD6CC">
           <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
@@ -67,7 +73,7 @@
           <a href="https://tiktok.com/@wheretospot" target="_blank" rel="noopener" aria-label="TikTok" class="link" style="display:flex">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.6a3 3 0 1 1-2.2-2.9V9.5a6.1 6.1 0 1 0 5.2 6V9.1a7.6 7.6 0 0 0 4.5 1.5V7.4A4.8 4.8 0 0 1 16.5 2z"/></svg>
           </a>
-          <a href="mailto:shop@wheretospot.com" aria-label="Email" class="link" style="display:flex">
+          <a href="mailto:info@wheretospot.com" aria-label="Email" class="link" style="display:flex">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m4 6 8 6 8-6"/></svg>
           </a>
         </div>
@@ -82,9 +88,11 @@
     </div>
     <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="{{ false }}">
       <div style="border-top:1px solid #DDD6CC;padding:14px 24px 20px;display:flex;flex-direction:column;gap:12px;font-size:14.5px;font-weight:500">
-        <sc-for list="{{ mobileNavCats }}" as="c" hint-placeholder-count="5">
-          <a href="#products" class="link" style="white-space:nowrap" onClick="{{ c.onClick }}">{{ c.label }}</a>
-        </sc-for>
+        <a href="#products" class="link" onClick="{{ toggleMobileMenu }}">Shop</a>
+        <a href="#plans" class="link" onClick="{{ toggleMobileMenu }}">Marketing plans</a>
+        <a href="#services" class="link" onClick="{{ toggleMobileMenu }}">Services</a>
+        <a href="about.html" class="link">About us</a>
+        <a href="contact.html" class="link">Contact</a>
         <button onClick="{{ openWishFromMobile }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">Wishlist{{ wishBadge }}</button>
         <div style="display:flex;align-items:center;gap:16px;padding-top:6px">
           <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
@@ -96,7 +104,7 @@
           <a href="https://tiktok.com/@wheretospot" target="_blank" rel="noopener" aria-label="TikTok" class="link" style="display:flex">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 2h-3v13.6a3 3 0 1 1-2.2-2.9V9.5a6.1 6.1 0 1 0 5.2 6V9.1a7.6 7.6 0 0 0 4.5 1.5V7.4A4.8 4.8 0 0 1 16.5 2z"/></svg>
           </a>
-          <a href="mailto:shop@wheretospot.com" aria-label="Email" class="link" style="display:flex">
+          <a href="mailto:info@wheretospot.com" aria-label="Email" class="link" style="display:flex">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m4 6 8 6 8-6"/></svg>
           </a>
         </div>
@@ -106,14 +114,15 @@
 
   <header id="top" style="max-width:1280px;margin:0 auto;padding:clamp(56px,9vw,110px) 28px clamp(40px,6vw,70px);display:grid;grid-template-columns:1.1fr 0.9fr;gap:48px;align-items:center" class="hero-grid">
     <div>
-      <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:22px">shop.wheretospot.com</div>
-      <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(42px,6.5vw,76px);line-height:1.02;letter-spacing:-0.01em;margin:0">One storefront.<br>Every category you sell.</h1>
-      <p style="margin:26px 0 0;max-width:46ch;font-size:17px;line-height:1.6;color:#6B6660">Exhibition stands, cosmetics, pet products, summer school kits, gifting — stocked, priced and shipped from a single premium shop, whatever the audience.</p>
+      <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:22px">Where To Spot · Giza, Egypt</div>
+      <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(42px,6.5vw,76px);line-height:1.02;letter-spacing:-0.01em;margin:0">Get found.<br>Get reviewed.<br>Get customers.</h1>
+      <p style="margin:26px 0 0;max-width:46ch;font-size:17px;line-height:1.6;color:#6B6660">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivery across Egypt, cash on delivery.</p>
       <div style="margin-top:36px;display:flex;gap:14px;flex-wrap:wrap">
-        <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600;transition:transform 0.15s ease,box-shadow 0.15s ease" style-hover="{{ ctaHover }}">Shop all categories</a>
+        <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600;transition:transform 0.15s ease,box-shadow 0.15s ease" style-hover="{{ ctaHover }}">Shop products</a>
+        <a href="#plans" style="border:1px solid #22201D;color:#22201D;padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600">See marketing plans</a>
       </div>
     </div>
-    <image-slot id="hero-shot" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
+    <image-slot id="hero-shot" src="images/nfc-review-black-lifestyle.png" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
   </header>
 
   <section id="categories" style="max-width:1280px;margin:0 auto;padding:0 28px 80px">
@@ -218,6 +227,63 @@
     </sc-if>
   </section>
 
+  <section id="plans" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
+    <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Marketing services</div>
+    <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0">Lead-generation plans</h2>
+    <p style="margin:12px 0 30px;max-width:60ch;font-size:15px;line-height:1.6;color:#6B6660">Monthly plans priced in EGP. Cancel any time before your next billing date. 14-day money-back guarantee on your first month. <a href="refund-policy.html" style="text-decoration:underline">Refund policy</a></p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">
+      <sc-for list="{{ planCards }}" as="pl" hint-placeholder-count="3">
+        <div style="border:1px solid {{ pl.border }};border-radius:20px;padding:26px;background:#fff;display:flex;flex-direction:column;gap:14px;position:relative">
+          <sc-if value="{{ pl.label }}" hint-placeholder-val="{{ null }}">
+            <span style="position:absolute;top:-12px;left:24px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:0.04em">{{ pl.label }}</span>
+          </sc-if>
+          <div style="font-weight:700;font-size:18px">{{ pl.shortName }}</div>
+          <div><span style="font-family:'Instrument Serif',serif;font-size:40px">{{ pl.priceFmt }}</span><span style="color:#6B6660;font-size:14px"> / month</span></div>
+          <div style="font-size:13.5px;color:#6B6660;line-height:1.5">{{ pl.desc }}</div>
+          <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:14px">
+            <sc-for list="{{ pl.features }}" as="f" hint-placeholder-count="4">
+              <li>✓ {{ f }}</li>
+            </sc-for>
+          </ul>
+          <button onClick="{{ pl.onAdd }}" style="margin-top:auto;background:{{ pl.btnBg }};color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Subscribe — {{ pl.priceFmt }}/mo</button>
+        </div>
+      </sc-for>
+    </div>
+    <p style="margin:16px 0 0;font-size:12.5px;color:#8A8478">Lead numbers are estimates and depend on your industry, location and ad budget. Ad spend paid to Meta/Google is not included in the plan price.</p>
+  </section>
+
+  <section id="services" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
+    <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Custom work</div>
+    <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0 0 26px">Creative & production services</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px">
+      <sc-for list="{{ customServices }}" as="cs" hint-placeholder-count="6">
+        <div style="border:1px solid #DDD6CC;border-radius:16px;padding:20px;background:#fff">
+          <div style="font-weight:600;font-size:15.5px">{{ cs.name }}</div>
+          <div style="font-size:13.5px;color:#6B6660;margin-top:6px;line-height:1.5">{{ cs.desc }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <p style="margin:18px 0 0;font-size:14px;color:#6B6660">These are quoted per project in EGP. <a href="contact.html" style="color:var(--accent);font-weight:600;text-decoration:underline">Request a quote</a> and we’ll reply within one business day.</p>
+  </section>
+
+  <section id="about" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center" class="hero-grid">
+      <div>
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">About us</div>
+        <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0">One team for print, products, digital and AI.</h2>
+        <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#6B6660">Where To Spot is a marketing and creative studio based in 6th of October City, Giza, Egypt. We help businesses get found and win customers: lead-generation campaigns, NFC review tools, printing and acrylic fabrication, events, video and websites.</p>
+        <a href="about.html" style="display:inline-block;margin-top:20px;font-weight:600;color:var(--accent);text-decoration:underline">Read more about us →</a>
+      </div>
+      <image-slot id="about-shot" src="images/work/acrylic-display-foodcourt.jpeg" shape="rounded" radius="22" placeholder="about photo" style="width:100%;aspect-ratio:4/3"></image-slot>
+    </div>
+    <div style="margin-top:40px;font-size:13px;font-weight:600;color:#6B6660;text-align:center">Trusted by businesses across Egypt and the region</div>
+    <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:22px 34px;justify-content:center;align-items:center;opacity:0.8">
+      <sc-for list="{{ clientLogos }}" as="lg" hint-placeholder-count="10">
+        <img src="{{ lg }}" alt="Client logo" loading="lazy" style="height:38px;width:auto;max-width:110px;object-fit:contain;filter:grayscale(1)">
+      </sc-for>
+    </div>
+  </section>
+
   <section style="max-width:1280px;margin:0 auto;padding:0 28px 60px">
     <div style="background:#22201D;color:#F7F3ED;border-radius:24px;padding:clamp(28px,5vw,48px);display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between">
       <div style="max-width:38ch">
@@ -243,17 +309,33 @@
   </section>
 
   <footer style="border-top:1px solid #DDD6CC;background:#fff">
-    <div style="max-width:1280px;margin:0 auto;padding:48px 28px;display:flex;flex-wrap:wrap;gap:32px;justify-content:space-between">
+    <div style="max-width:1280px;margin:0 auto;padding:48px 28px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:32px;font-size:13.5px;color:#6B6660;line-height:1.7">
       <div>
-        <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:22px">Spot Shop</div>
-        <div style="font-size:13px;color:#6B6660;margin-top:8px">shop.wheretospot.com</div>
+        <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:22px;color:#22201D">Where To Spot</div>
+        <div style="margin-top:8px">Marketing services & products for businesses in Egypt. All prices in Egyptian Pounds (EGP).</div>
       </div>
-      <div style="display:flex;gap:36px;flex-wrap:wrap;font-size:13.5px;color:#6B6660">
-        <button onClick="{{ openTrack }}" style="border:none;background:none;color:#6B6660;font-size:13.5px;cursor:pointer;padding:0;font-family:inherit;white-space:nowrap">Track your order / order history</button>
-        <a href="shop-admin.dc.html" class="link">Admin dashboard</a>
-        <a href="shop-product.dc.html?id=co2" class="link">Sample product page</a>
+      <div>
+        <div style="font-weight:700;color:#22201D;margin-bottom:6px">Contact us</div>
+        <div><a class="link" href="mailto:info@wheretospot.com">info@wheretospot.com</a></div>
+        <div><a class="link" href="tel:+201277660666">+20 127 766 0666</a> (phone & WhatsApp)</div>
+        <div>MQR, El Wahat Road, 6th of October City, Giza, Egypt</div>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div style="font-weight:700;color:#22201D;margin-bottom:6px">Company</div>
+        <a class="link" href="about.html">About us</a>
+        <a class="link" href="contact.html">Contact us</a>
+        <a class="link" href="#plans">Marketing plans</a>
+        <button onClick="{{ openTrack }}" style="border:none;background:none;color:#6B6660;font-size:13.5px;cursor:pointer;padding:0;font-family:inherit;text-align:left;line-height:1.7">Track your order</button>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div style="font-weight:700;color:#22201D;margin-bottom:6px">Policies</div>
+        <a class="link" href="privacy-policy.html">Privacy policy</a>
+        <a class="link" href="refund-policy.html">Refund & cancellation policy</a>
+        <a class="link" href="shipping-policy.html">Delivery & shipping policy</a>
+        <a class="link" href="terms.html">Terms & conditions</a>
       </div>
     </div>
+    <div style="max-width:1280px;margin:0 auto;padding:18px 28px 30px;border-top:1px solid #EFEAE3;font-size:12.5px;color:#8A8478">© 2026 Where To Spot. All rights reserved.</div>
   </footer>
 
   <sc-if value="{{ trackOpen }}" hint-placeholder-val="{{ false }}">
@@ -366,14 +448,16 @@
           <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
             <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4C6B4F;margin-bottom:6px"><span>Promo {{ appliedPromo.code }} (-{{ appliedPromo.pct }}%)</span><span>-{{ promoDiscountFmt }}</span></div>
           </sc-if>
-          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:14px"><span>Subtotal</span><span>{{ cartTotalFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:6px"><span>Subtotal</span><span>{{ cartItemsTotalFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:8px"><span>Delivery</span><span>{{ shippingFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:14px"><span>Total (EGP)</span><span>{{ cartTotalFmt }}</span></div>
           <button onClick="{{ goInfo }}" disabled="{{ cartEmpty }}" style="width:100%;background:var(--accent);color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ checkoutBtnOpacity }}">Continue to checkout</button>
         </div>
       </sc-if>
 
       <sc-if value="{{ isStepInfo }}" hint-placeholder-val="{{ false }}">
         <form onSubmit="{{ submitInfo }}" style="flex:1;overflow:auto;padding:22px 24px;display:flex;flex-direction:column;gap:14px">
-          <div style="font-size:13px;color:#6B6660">Order total: <strong style="color:#22201D">{{ cartTotalFmt }}</strong> — enter your details to place the order.</div>
+          <div style="font-size:13px;color:#6B6660">Order total: <strong style="color:#22201D">{{ cartTotalFmt }}</strong> (incl. delivery {{ shippingFmt }}) — enter your details to place the order.</div>
           <div style="display:flex;border:1px solid #DDD6CC;border-radius:999px;padding:3px">
             <button type="button" onClick="{{ setGuestMode }}" style="flex:1;border:none;background:{{ guestBg }};color:{{ guestFg }};padding:9px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer">Checkout as guest</button>
             <button type="button" onClick="{{ setSaveInfoMode }}" style="flex:1;border:none;background:{{ saveInfoBg }};color:{{ saveInfoFg }};padding:9px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer">Save my info</button>
@@ -405,6 +489,10 @@
               <label style="flex:1;border:1px solid {{ codBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCod }}" onChange="{{ setPaymentCod }}"/>Cash on delivery</label>
             </div>
           </div>
+          <label style="font-size:12.5px;color:#6B6660;display:flex;gap:8px;align-items:flex-start;line-height:1.5">
+            <input type="checkbox" required="{{ true }}" style="margin-top:3px"/>
+            <span>I agree to the <a href="terms.html" target="_blank" style="text-decoration:underline">Terms</a>, <a href="refund-policy.html" target="_blank" style="text-decoration:underline">Refund & Cancellation</a>, <a href="shipping-policy.html" target="_blank" style="text-decoration:underline">Delivery</a> and <a href="privacy-policy.html" target="_blank" style="text-decoration:underline">Privacy</a> policies.</span>
+          </label>
           <div style="display:flex;gap:10px;margin-top:auto;padding-top:10px">
             <button type="button" onClick="{{ backToCart }}" style="flex:1;background:#fff;border:1px solid #DDD6CC;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Back</button>
             <button type="submit" style="flex:2;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Place order</button>
@@ -416,7 +504,7 @@
         <div style="flex:1;overflow:auto;padding:32px 26px;display:flex;flex-direction:column;gap:16px;text-align:center;align-items:center;justify-content:center">
           <div style="width:56px;height:56px;border-radius:50%;background:#6B8F71;color:#fff;display:grid;place-items:center;font-size:26px">✓</div>
           <div style="font-weight:700;font-size:18px">Order received</div>
-          <p style="font-size:14px;color:#6B6660;margin:0;max-width:30ch">Thanks {{ form.name }} — a confirmation is on its way to {{ form.email }}. Pay by {{ paymentLabel }} on delivery.</p>
+          <p style="font-size:14px;color:#6B6660;margin:0;max-width:30ch">Thanks {{ form.name }} — a confirmation is on its way to {{ form.email }}. Pay by {{ paymentLabel }} on delivery. Questions? info@wheretospot.com · +20 127 766 0666</p>
           <div style="border:1px dashed var(--accent);border-radius:14px;padding:14px 22px;margin-top:6px">
             <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your promo code for next time</div>
             <div style="font-family:'Instrument Serif',serif;font-size:26px;color:var(--accent);margin-top:4px">{{ promo }}</div>
@@ -432,7 +520,7 @@
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}, &quot;freeShippingThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:75,&quot;min&quot;:0,&quot;max&quot;:500,&quot;step&quot;:5,&quot;unit&quot;:&quot;$&quot;,&quot;section&quot;:&quot;Store settings&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}, &quot;freeShippingThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1500,&quot;min&quot;:0,&quot;max&quot;:10000,&quot;step&quot;:50,&quot;unit&quot;:&quot;EGP&quot;,&quot;section&quot;:&quot;Store settings&quot;}}">
 class Component extends DCLogic {
   state = {
     activeCat: 'all',
@@ -444,7 +532,7 @@ class Component extends DCLogic {
     form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' },
     referralCode: '', referralError: false,
     promo: '',
-    leadForm: { name: '', contact: '', cat: 'stands' },
+    leadForm: { name: '', contact: '', cat: 'nfc' },
     leadSent: false,
     trackOpen: false, trackId: '', trackEmail: '', trackResult: null, trackHistory: [],
     mobileMenuOpen: false, wishPanelOpen: false, wishlist: [],
@@ -462,6 +550,23 @@ class Component extends DCLogic {
     { key: 'gift', label: 'Premium & Gift', desc: 'Curated gifting collections', placeholder: 'gift box photo' },
     { key: 'nfc', label: 'NFC Solutions', desc: 'Tap-to-review cards for Google reviews', placeholder: 'NFC review card photo' }
   ];
+
+  customServices = [
+    { name: 'Printing & signage', desc: 'Banners, stickers, menus, business cards and shop signs.' },
+    { name: 'Acrylic & fabrication', desc: 'Display stands, product cases, kiosks and branded fixtures.' },
+    { name: 'Events & activations', desc: 'Exhibition booths, launch events and on-site branding.' },
+    { name: 'Video & photo production', desc: 'Promo videos, reels and product photography.' },
+    { name: 'Social media & ads', desc: 'Content, community management and paid campaigns.' },
+    { name: 'Websites & AI tools', desc: 'Websites, online stores, chat assistants and automation.' }
+  ];
+
+  clientLogos = Array.from({ length: 12 }, (_, i) => 'images/clients/logo-' + String(i + 1).padStart(2, '0') + '.png');
+
+  // Only list shop categories that currently have active products.
+  activeCategories() {
+    const inv = this.state.inventory.filter(p => p.status === 'Active');
+    return this.categories.filter(c => inv.some(p => p.cat === c.key));
+  }
 
   catLabel(key) { const c = this.categories.find(c => c.key === key); return c ? c.label : key; }
 
@@ -556,18 +661,20 @@ class Component extends DCLogic {
     const matchedRep = refCode ? reps.find(r => r.code === refCode) : null;
     if (refCode && !matchedRep) { this.setState({ referralError: true }); return; }
     const subtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    const total = s.appliedPromo ? Math.round(subtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : subtotal;
+    const itemsTotal = s.appliedPromo ? Math.round(subtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : subtotal;
+    const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
+    const total = itemsTotal + shipping;
     const cat = s.cart.length ? s.cart[0].cat : 'gift';
     let inventory = s.inventory;
     if (this._sd) {
       this._sd.addOrder({
         id: '#' + Math.floor(2000 + Math.random() * 8000),
-        customer: s.form.name || 'Guest', cat, total, repId: matchedRep ? matchedRep.id : null,
+        customer: s.form.name || 'Guest', cat, total, shipping, repId: matchedRep ? matchedRep.id : null,
         email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city, country: s.form.country, paymentMethod: s.form.payment,
         items: s.cart.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         ts: Date.now(),
-        status: 'Paid'
+        status: 'Pending'
       });
       inventory = s.inventory.map(p => {
         const item = s.cart.find(i => i.id === p.id);
@@ -584,7 +691,7 @@ class Component extends DCLogic {
     e.preventDefault();
     const s = this.state;
     if (this._sd) this._sd.addLead({ id: 'lead' + Date.now(), name: s.leadForm.name, contact: s.leadForm.contact, cat: s.leadForm.cat, status: 'New' });
-    this.setState({ leadSent: true, leadForm: { name: '', contact: '', cat: 'stands' } });
+    this.setState({ leadSent: true, leadForm: { name: '', contact: '', cat: 'nfc' } });
   };
   openTrack = () => this.setState({ trackOpen: true, trackResult: null });
   closeTrack = () => this.setState({ trackOpen: false });
@@ -607,10 +714,12 @@ class Component extends DCLogic {
 
   renderVals() {
     const accent = this.props.accentColor ?? '#A8552F';
-    const freeShip = this.props.freeShippingThreshold ?? 75;
+    const freeShip = this._sd ? this._sd.FREE_SHIPPING_THRESHOLD : 1500;
     const s = this.state;
     const term = s.search.trim().toLowerCase();
-    const active = s.inventory.filter(p => p.status === 'Active');
+    const active = s.inventory.filter(p => p.status === 'Active' && p.cat !== 'services');
+    const plans = s.inventory.filter(p => p.status === 'Active' && p.cat === 'services');
+    const cats = this.activeCategories();
     let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!term || p.name.toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
     if (s.inStockOnly) filtered = filtered.filter(p => p.stock > 0);
     const min = s.priceMin !== '' ? Number(s.priceMin) : null;
@@ -624,10 +733,12 @@ class Component extends DCLogic {
     else if (s.sortKey === 'new') filtered = [...filtered].sort((a, b) => (b.id > a.id ? 1 : -1));
     else filtered = [...filtered].sort((a, b) => (popularity[b.id] || 0) - (popularity[a.id] || 0));
     const cartSubtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    const cartTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
+    const cartItemsTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
+    const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
+    const cartTotal = cartItemsTotal + shipping;
     const cartCount = s.cart.reduce((sum, i) => sum + i.qty, 0);
 
-    const tabDefs = [{ key: 'all', label: 'All' }, ...this.categories.map(c => ({ key: c.key, label: c.label }))];
+    const tabDefs = [{ key: 'all', label: 'All' }, ...cats.map(c => ({ key: c.key, label: c.label }))];
     const filterTabs = tabDefs.map(t => ({
       key: t.key, label: t.label, onClick: this.setCat(t.key),
       border: s.activeCat === t.key ? accent : '#DDD6CC',
@@ -644,8 +755,14 @@ class Component extends DCLogic {
       darkBtnHover: { opacity: 0.85 },
       navCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCat(c.key) })),
       mobileNavCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCatMobile(c.key) })),
-      catCards: this.categories.map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, onClick: this.setCat(c.key) })),
+      catCards: cats.map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, onClick: this.setCat(c.key) })),
       filterTabs,
+      planCards: plans.map(p => ({
+        ...p, shortName: p.name.replace(' Lead Generation Plan', ''), priceFmt: fmt(p.price), features: p.features || [],
+        label: p.label || null, border: p.label ? accent : '#DDD6CC', btnBg: p.label ? accent : '#22201D',
+        onAdd: this.addToCart({ id: p.id, name: p.name + ' (1 month)', price: p.price, cat: p.cat })
+      })),
+      customServices: this.customServices, clientLogos: this.clientLogos,
       search: s.search, onSearch: this.setSearch,
       isLoading: s.isLoading, skeletonCards: Array.from({ length: 6 }),
       showEmptyState: !s.isLoading && filtered.length === 0,
@@ -674,7 +791,7 @@ class Component extends DCLogic {
       isStepCart: s.checkoutStep === 'cart', isStepInfo: s.checkoutStep === 'info', isStepSuccess: s.checkoutStep === 'success',
       cartEmpty: s.cart.length === 0,
       cartItems: s.cart.map(i => ({ ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', lineTotal: i.price * i.qty, lineTotalFmt: fmt(i.price * i.qty), onInc: this.incItem(i.id), onDec: this.decItem(i.id), onRemove: this.removeItem(i.id) })),
-      cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
+      cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartItemsTotalFmt: fmt(cartItemsTotal), shippingFmt: shipping ? fmt(shipping) : 'Free', cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
       promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
       appliedPromo: s.appliedPromo, promoDiscountFmt: s.appliedPromo ? fmt(cartSubtotal - cartTotal) : '',
       goInfo: this.goInfo, backToCart: this.backToCart, submitInfo: this.submitInfo, newOrder: this.newOrder,
@@ -690,7 +807,7 @@ class Component extends DCLogic {
       promo: s.promo,
       leadForm: s.leadForm, setLeadName: this.setLeadField('name'), setLeadContact: this.setLeadField('contact'), setLeadCat: this.setLeadField('cat'),
       submitLead: this.submitLead, leadSent: s.leadSent, leadFormVisible: !s.leadSent,
-      leadCatOptions: this.categories.map(c => ({ value: c.key, label: c.label })),
+      leadCatOptions: [...cats.map(c => ({ value: c.key, label: c.label })), { value: 'services', label: 'Marketing & custom work' }],
       trackOpen: s.trackOpen, openTrack: this.openTrack, closeTrack: this.closeTrack,
       trackId: s.trackId, setTrackId: this.setTrackId, trackEmail: s.trackEmail, setTrackEmail: this.setTrackEmail, submitTrack: this.submitTrack,
       trackNotFound: s.trackResult === 'notfound',
