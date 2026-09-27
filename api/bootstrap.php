@@ -21,7 +21,7 @@ $config = [
     'mail_from_name' => 'Where To Spot Shop',
     'reply_to' => 'info@wheretospot.com',
     'alert_emails' => [],   // extra addresses that always get alerts
-    'smtp' => null,         // e.g. ['host' => 'mail.wheretospot.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
+    'smtp' => null,         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {
     $config = array_merge($config, (array) require __DIR__ . '/config.local.php');

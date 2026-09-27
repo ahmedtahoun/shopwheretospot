@@ -5,7 +5,7 @@ return [
     // Send order alerts through a real mailbox for reliable delivery (recommended).
     // Create it in cPanel → Email Accounts, e.g. orders@wheretospot.com.
     'smtp' => [
-        'host' => 'mail.wheretospot.com',   // cPanel → Email Accounts → Connect Devices shows the exact server
+        'host' => 'serverXXX.web-hosting.com', // exact name: cPanel → Email Accounts → Connect Devices → Outgoing Server
         'port' => 465,                      // 465 = SSL, 587 = STARTTLS
         'user' => 'orders@wheretospot.com',
         'pass' => 'the-mailbox-password',
