@@ -146,3 +146,20 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .grid2,.grid3{grid-template-columns:1fr}
   .main{padding:20px 16px 50px}
 }
+
+/* targets progress */
+.prog{height:8px;background:var(--line-2);border-radius:999px;overflow:hidden;margin-top:5px;min-width:90px}
+.prog > i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.prog.done > i{background:var(--good)}
+.perf td{vertical-align:top}
+.me{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.me .kpi .value{font-size:30px}
+@media (max-width:820px){.me{grid-template-columns:1fr}}
+/* new order lines */
+.lines .line{display:grid;grid-template-columns:1fr 70px 90px 30px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.lines .line input{padding:7px 8px}
+.pick{display:flex;flex-direction:column;gap:6px;position:relative}
+.pick .results{position:absolute;top:100%;left:0;right:0;z-index:5;background:#fff;border:1px solid var(--line);border-radius:12px;max-height:260px;overflow:auto;box-shadow:0 12px 30px rgba(0,0,0,.08)}
+.pick .results button{display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--line-2);background:#fff;padding:9px 12px;cursor:pointer}
+.pick .results button:hover{background:#FBF8F4}
+.chosen{border:1.5px solid var(--accent);background:#FBF3EE;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center}

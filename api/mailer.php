@@ -132,12 +132,14 @@ function notify_new_order(string $number, array $o, array $lines): void
         . $sum('Subtotal', $egp($o['subtotal']))
         . ($o['discount'] ? $sum('Promo ' . h($o['promo']), '−' . $egp($o['discount'])) : '')
         . $sum('Delivery', $o['shipping'] ? $egp($o['shipping']) : 'Free')
-        . $sum('Total (cash on delivery)', $egp($o['total']), true) . '</table>'
-        . ($o['rep'] ? '<p style="color:#6B6660;font-size:13px">Referral: ' . h($o['rep']) . '</p>' : '')
+        . $sum('Total', $egp($o['total']), true) . '</table>'
+        . '<p style="color:#6B6660;font-size:13px">' . h($o['payment'] ?? 'Cash on delivery') . ' · Source: ' . h($o['source'] ?? 'Website')
+        . (!empty($o['rep']) ? ' · Sales: ' . h($o['rep']) : '') . '</p>'
         . '<p style="margin:18px 0 0">' . btn(wa_link($o['phone']), 'WhatsApp customer', '#1F7A4D') . btn($admin, 'Open in dashboard', '#22201D') . '</p>');
     $text = "New order $number — " . $egp($o['total']) . "\n\n"
         . $o['name'] . "\n" . $o['phone'] . ' · ' . $o['email'] . "\n" . $o['address'] . ', ' . $o['city'] . "\n\n"
-        . $textItems . "\nDelivery: " . ($o['shipping'] ? $egp($o['shipping']) : 'Free') . "\nTotal: " . $egp($o['total']) . " (cash on delivery)\n\n"
+        . $textItems . "\nDelivery: " . ($o['shipping'] ? $egp($o['shipping']) : 'Free') . "\nTotal: " . $egp($o['total']) . ' (' . ($o['payment'] ?? 'Cash on delivery') . ")\n"
+        . 'Source: ' . ($o['source'] ?? 'Website') . (!empty($o['rep']) ? ' · Sales: ' . $o['rep'] : '') . "\n\n"
         . 'WhatsApp: ' . wa_link($o['phone']) . "\nDashboard: $admin\n";
     foreach (array_unique($to) as $r) send_mail([$r], 'New order ' . $number . ' · ' . $egp($o['total']) . ' · ' . $o['name'], $html, $text);
 }

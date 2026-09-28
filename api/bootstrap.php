@@ -31,10 +31,12 @@ if (is_file(__DIR__ . '/config.local.php')) {
 // Errors whose message is safe to show to the team (Bosta replies, validation). Database errors are never shown.
 class ShopError extends RuntimeException {}
 
+// 'sell' = can enter orders; 'targets' = can set monthly targets; 'own_orders' = only sees orders credited to them.
 const ROLES = [
-    'owner' => ['dashboard', 'products', 'orders', 'leads', 'team', 'activity'],
-    'manager' => ['dashboard', 'products', 'orders', 'leads', 'activity'],
-    'staff' => ['dashboard', 'orders', 'leads'],
+    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity'],
+    'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity'],
+    'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
+    'staff' => ['dashboard', 'orders', 'sell', 'leads'],
 ];
 const ORDER_STATUSES = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
 const LEAD_STATUSES = ['New', 'Contacted', 'Quoted', 'Won', 'Lost'];
@@ -155,12 +157,20 @@ function migrate(PDO $pdo): void
     $userCols = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('notify', $userCols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN notify INTEGER NOT NULL DEFAULT 0');
     $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
-    $add = ['city_id' => 'TEXT', 'district_id' => 'TEXT', 'district' => "TEXT DEFAULT ''", 'bosta_id' => 'TEXT', 'tracking_number' => 'TEXT',
+    $add = ['source' => "TEXT DEFAULT 'Website'", 'created_by' => 'INTEGER', 'city_id' => 'TEXT', 'district_id' => 'TEXT', 'district' => "TEXT DEFAULT ''", 'bosta_id' => 'TEXT', 'tracking_number' => 'TEXT',
         'bosta_state' => 'INTEGER', 'bosta_note' => "TEXT DEFAULT ''", 'bosta_cod' => 'REAL', 'bosta_updated_at' => 'TEXT'];
     foreach ($add as $col => $type) {
         if (!in_array($col, $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type");
     }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_tracking ON orders(tracking_number)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_rep ON orders(rep_id, created_at)');
+    $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        month TEXT NOT NULL,
+        orders_target INTEGER NOT NULL DEFAULT 0,
+        revenue_target REAL NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, month)
+    )");
     if ((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
         seed_catalog($pdo);
     }
@@ -199,6 +209,7 @@ function seed_catalog(PDO $pdo): void
 
 require __DIR__ . '/mailer.php';
 require __DIR__ . '/bosta.php';
+require __DIR__ . '/orders.php';
 
 // ---------- HTTP helpers ----------
 

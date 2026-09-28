@@ -328,7 +328,8 @@ function bosta_create_for_order(array $o, array $opts): array
     if (!$physical) throw new ShopError('This order has no physical products to ship.');
     $count = array_sum(array_map(function ($i) { return (int) $i['qty']; }, $physical));
     $desc = implode(', ', array_map(function ($i) { return $i['qty'] . 'x ' . $i['name']; }, $physical));
-    $cod = isset($opts['cod']) && $opts['cod'] !== '' ? (float) $opts['cod'] : (float) $o['total'];
+    // Already-paid orders (bank transfer, wallet, cash in hand) collect nothing at the door by default.
+    $cod = isset($opts['cod']) && $opts['cod'] !== '' ? (float) $opts['cod'] : (($o['payment'] ?? 'cod') === 'cod' ? (float) $o['total'] : 0.0);
     if ($cod < 0 || $cod > 30000) throw new ShopError('Cash to collect must be between 0 and 30,000 EGP (Bosta limit).');
     [$first, $last] = bosta_split_name($o['customer']);
     $goods = array_sum(array_map(function ($i) { return $i['qty'] * $i['price']; }, $physical));

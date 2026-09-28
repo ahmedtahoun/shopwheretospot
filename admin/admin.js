@@ -38,7 +38,7 @@
   const LEAD_TONE = { New: ['accent', '●'], Contacted: ['info', '◆'], Quoted: ['warn', '✎'], Won: ['good', '✓'], Lost: ['bad', '✕'] };
   const PRODUCT_TONE = { Active: ['good', '✓'], Draft: ['warn', '✎'], Archived: ['bad', '▪'] };
   const pill = (map, s) => { const t = map[s] || ['', '•']; return '<span class="pill ' + t[0] + '">' + t[1] + ' ' + esc(s) + '</span>'; };
-  const ROLE_INFO = { owner: 'Everything, including team and settings', manager: 'Products, orders, leads and activity', staff: 'Orders and leads only' };
+  const ROLE_INFO = { sales: 'Enters orders, sees only their own orders, targets and leads', owner: 'Everything, including team and settings', manager: 'Products, orders, leads and activity', staff: 'Orders and leads only' };
 
   // ---------- drawer ----------
   function openDrawer(title, bodyHtml, footHtml) {
@@ -163,7 +163,13 @@
     const statuses = S.meta.orderStatuses.map((s) => [s, d.statusCounts[s] || 0]);
     const maxStatus = Math.max(1, ...statuses.map((s) => s[1]));
     const rangeSeg = '<div class="seg" id="range">' + [7, 30, 90].map((n) => '<button data-d="' + n + '" class="' + (S.range === n ? 'on' : '') + '">' + n + ' days</button>').join('') + '</div>';
-    $('#main').innerHTML = header('Dashboard', 'Hello ' + esc(S.user.name.split(' ')[0]) + ' — here’s the last ' + d.days + ' days.', rangeSeg) +
+    const perf = d.performance || { members: [] };
+    const monthName = new Date(perf.month + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const mine = d.own ? perf.members[0] : null;
+    const actions = (can('sell') ? '<button class="btn primary" id="dashNew">+ New order</button>' : '') + rangeSeg;
+    $('#main').innerHTML = header('Dashboard', 'Hello ' + esc(S.user.name.split(' ')[0]) + ' — here’s ' + (d.own ? 'your work in' : '') + ' the last ' + d.days + ' days.', actions) +
+      (mine ? '<div class="me">' + targetCard('My orders · ' + monthName, mine.orders, mine.orders_target, (n) => n) +
+        targetCard('My sales · ' + monthName, mine.revenue, mine.revenue_target, egp) + '</div>' : '') +
       '<div class="kpis">' +
       kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') +
       kpi('Orders', k.orders, 'avg ' + egp(k.aov)) +
@@ -184,13 +190,58 @@
         '<div class="li"><span>' + esc(p.name) + ' <span class="muted small">× ' + p.qty + '</span></span><b>' + egp(p.revenue) + '</b></div>').join('') + '</div>' : '<div class="muted">No sales in this period.</div>') + '</div>' +
       '<div class="card"><h2>Low stock <span class="pill warn">⚠ 5 or fewer</span></h2>' + (d.lowStock.length ? '<div class="list">' + d.lowStock.map((p) =>
         '<div class="li"><span>' + esc(p.name) + '</span><b>' + p.stock + ' left</b></div>').join('') + '</div>' : '<div class="muted">All products are well stocked.</div>') + '</div>' +
-      (d.reps.length ? '<div class="card"><h2>Sales by team member</h2><div class="list">' + d.reps.map((r) =>
-        '<div class="li"><span>' + esc(r.name) + ' <span class="muted small">' + r.n + ' orders</span></span><b>' + egp(r.revenue) + '</b></div>').join('') + '</div></div>' : '') +
-      '</div></div>';
+      (d.sources && d.sources.length ? '<div class="card"><h2>Orders by source</h2><div class="list">' + d.sources.map((r) =>
+        '<div class="li"><span>' + esc(r.source) + ' <span class="muted small">' + r.n + ' orders</span></span><b>' + egp(r.revenue) + '</b></div>').join('') + '</div></div>' : '') +
+      '</div></div>' +
+      (!d.own ? teamPerformanceCard(perf, monthName) : '');
     $$('#range button').forEach((b) => b.onclick = () => { S.range = +b.dataset.d; pageDashboard(); });
+    const dn = $('#dashNew'); if (dn) dn.onclick = () => newOrderDrawer();
+    const tb = $('#setTargets'); if (tb) tb.onclick = () => targetsDrawer(perf.month);
     const pend = $('[data-status=Pending]'); if (pend) pend.onclick = () => { S.orderStatus = 'Pending'; };
     drawChart($('#chart'), d.series);
   }
+  const pct = (v, t) => t > 0 ? Math.min(100, Math.round(v / t * 100)) : 0;
+  const progress = (v, t) => t > 0 ? '<div class="prog' + (v >= t ? ' done' : '') + '" role="progressbar" aria-valuenow="' + pct(v, t) + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct(v, t) + '%"></i></div>' : '';
+  function targetCard(label, value, target, fmt) {
+    return '<div class="kpi"><div class="label">' + esc(label) + '</div><div class="value">' + esc(fmt(value)) + (target ? ' <span class="muted" style="font-size:18px">/ ' + esc(fmt(target)) + '</span>' : '') + '</div>' +
+      (target ? progress(value, target) + '<div class="note">' + (value >= target ? '✓ Target reached' : pct(value, target) + '% of target · ' + esc(fmt(Math.max(0, target - value))) + ' to go') + '</div>'
+        : '<div class="note">No target set for this month</div>') + '</div>';
+  }
+  function teamPerformanceCard(perf, monthName) {
+    const rows = perf.members.filter((m) => m.orders || m.orders_target || m.revenue_target || m.role === 'sales');
+    return '<div class="card" style="margin-top:16px"><h2>Team this month · ' + esc(monthName) + '<span class="spacer"></span>' +
+      (can('targets') ? '<button class="btn sm" id="setTargets">🎯 Set targets</button>' : '') + '</h2>' +
+      (rows.length ? '<div class="table-wrap" style="border:none"><table class="perf"><thead><tr><th>Team member</th><th>Orders</th><th>Sales (EGP)</th><th class="num">Delivered</th><th class="num">Cancelled / returned</th><th>Last order</th></tr></thead><tbody>' +
+        rows.map((m) => '<tr><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + '</div></td>' +
+          '<td>' + m.orders + (m.orders_target ? ' <span class="muted">/ ' + m.orders_target + '</span>' : '') + progress(m.orders, m.orders_target) + '</td>' +
+          '<td>' + egp(m.revenue) + (m.revenue_target ? ' <span class="muted">/ ' + egp(m.revenue_target) + '</span>' : '') + progress(m.revenue, m.revenue_target) + '</td>' +
+          '<td class="num">' + m.delivered + '</td><td class="num">' + m.lost + '</td><td class="small muted">' + dateTime(m.last_order) + '</td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="muted">No team orders yet this month. Add sales people in Team, set their targets, and orders they enter will show here.</div>') +
+      '<p class="small muted" style="margin:10px 0 0">Orders count toward whoever they’re credited to: the person who entered them, or the referral code used on the website.</p></div>';
+  }
+
+  async function targetsDrawer(month) {
+    const d = await api('targets', { query: '&month=' + encodeURIComponent(month) });
+    const months = [0, 1, 2].map((i) => { const x = new Date(); x.setDate(1); x.setMonth(x.getMonth() + i); return x.toISOString().slice(0, 7); });
+    const members = d.members.filter((m) => m.active);
+    openDrawer('Monthly targets',
+      '<div class="stack"><label class="field">Month<select id="tMonth">' + months.map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' +
+        new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) + '</option>').join('') + '</select></label>' +
+      '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Orders target</th><th>Sales target (EGP)</th><th class="num">So far</th></tr></thead><tbody>' +
+      members.map((m) => '<tr><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + '</div></td>' +
+        '<td><input type="number" min="0" step="1" data-o="' + m.id + '" value="' + (m.orders_target || '') + '" placeholder="0"></td>' +
+        '<td><input type="number" min="0" step="100" data-r="' + m.id + '" value="' + (m.revenue_target || '') + '" placeholder="0"></td>' +
+        '<td class="num small">' + m.orders + ' orders<br>' + egp(m.revenue) + '</td></tr>').join('') + '</tbody></table></div>' +
+      '<p class="small muted" style="margin:0">Leave a target empty or 0 for people who don’t sell.</p></div>',
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="tSave">Save targets</button>');
+    $('#tMonth').onchange = (e) => targetsDrawer(e.target.value);
+    $('#tSave').onclick = async () => {
+      const targets = members.map((m) => ({ user_id: m.id, orders: +($('[data-o="' + m.id + '"]').value || 0), revenue: +($('[data-r="' + m.id + '"]').value || 0) }));
+      try { await api('targets_save', { method: 'POST', body: { month: $('#tMonth').value, targets } }); closeDrawer(); toast('Targets saved'); if (S.route === 'dashboard') pageDashboard(); }
+      catch (err) { toast(err.message, true); }
+    };
+  }
+
   const kpi = (label, value, note) => '<div class="kpi"><div class="label">' + label + '</div><div class="value">' + esc(value) + '</div><div class="note">' + (note || '') + '</div></div>';
 
   // Single-series bar chart with hover tooltip. One hue, recessive grid, 4px rounded tops anchored to the baseline.
@@ -244,7 +295,8 @@
     S.orders = d.orders;
     S.sel = new Set();
     const tabs = [''].concat(S.meta.orderStatuses);
-    $('#main').innerHTML = header('Orders', d.orders.length + ' shown', '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>') +
+    $('#main').innerHTML = header('Orders', d.orders.length + ' shown' + (can('own_orders') ? ' · only orders credited to you' : ''),
+      '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>' + (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
       '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
       '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, phone, email or WTS-…" value="' + esc(q) + '" style="max-width:300px"></div>' +
       (bosta.enabled ? '<div class="row card" id="bulk" style="display:none;margin-bottom:14px;padding:12px 16px"><b id="selCount"></b><span class="spacer"></span>' +
@@ -253,11 +305,12 @@
         '<th>Order</th><th>Customer</th><th>Items</th><th>Status</th>' + (bosta.enabled ? '<th>Bosta</th>' : '') + '<th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
         d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (bosta.enabled ? '<td data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
           '<td><b>' + esc(o.number) + '</b></td><td>' + esc(o.customer) + '<div class="small muted">' + esc(o.phone) + ' · ' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
-          '<td class="small">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td><td>' + pill(ORDER_TONE, o.status) + (o.rep ? '<div class="small muted">via ' + esc(o.rep) + '</div>' : '') + '</td>' +
+          '<td class="small">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td><td>' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
           (bosta.enabled ? '<td>' + bostaPill(o) + '</td>' : '') +
           '<td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b></td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
+    const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
     let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.orderQ = e.target.value; pageOrders().then(() => { const el = $('#q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }, 350); };
     $$('tr[data-i]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-nosel]')) return; orderDrawer(d.orders[+tr.dataset.i]); });
     if (!bosta.enabled) return;
@@ -326,7 +379,7 @@
       '<div class="grid3"><label class="field">Building<input type="text" name="building"></label><label class="field">Floor<input type="text" name="floor"></label><label class="field">Apartment<input type="text" name="apartment"></label></div>' +
       '<label class="field">Nearby landmark<input type="text" name="landmark"></label>' +
       '<div class="grid3"><label class="field">Package size<select name="size">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
-      '<label class="field">Cash to collect (EGP)<input type="number" name="cod" min="0" max="30000" step="0.01" value="' + esc(o.total) + '"></label>' +
+      '<label class="field">Cash to collect (EGP)<input type="number" name="cod" min="0" max="30000" step="0.01" value="' + esc(o.payment === 'cod' ? o.total : 0) + '"></label>' +
       '<label class="field">Pick up from<select name="location_id">' + locOpts + '</select></label></div>' +
       (bosta.locationsError ? '<div class="small" style="color:var(--bad)">' + esc(bosta.locationsError) + '</div>' : '') +
       '<label class="field">Notes for the courier<input type="text" name="notes" placeholder="e.g. Call before arriving"></label>' +
@@ -337,7 +390,8 @@
     const bosta = await bostaInfo();
     const body = '<div class="stack">' +
       '<div class="card"><div class="grid2"><div><div class="small muted">Customer</div><b>' + esc(o.customer) + '</b><div>' + esc(o.email) + '</div><div><a href="tel:' + esc(o.phone) + '">' + esc(o.phone) + '</a> · <a href="https://wa.me/' + esc(o.phone.replace(/\D/g, '').replace(/^0/, '20')) + '" target="_blank" rel="noopener">WhatsApp</a></div></div>' +
-      '<div><div class="small muted">Deliver to</div>' + esc(o.address || '—') + '<div>' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div><div class="small muted" style="margin-top:6px">Placed ' + dateTime(o.createdAt) + ' · ' + (o.payment === 'cod' ? 'Cash on delivery' : esc(o.payment)) + '</div></div></div></div>' +
+      '<div><div class="small muted">Deliver to</div>' + esc(o.address || '—') + '<div>' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div><div class="small muted" style="margin-top:6px">Placed ' + dateTime(o.createdAt) + ' · ' + esc(o.paymentLabel) + '</div>' +
+      '<div class="small muted">Source: ' + esc(o.source) + (o.rep ? ' · credited to ' + esc(o.rep) : '') + (o.createdBy && o.createdBy !== o.rep ? ' · entered by ' + esc(o.createdBy) : '') + '</div></div></div></div>' +
       '<div class="card"><div class="list">' + o.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + '</span><span>' + egp(it.qty * it.price) + '</span></div>').join('') +
       '<div class="li muted"><span>Subtotal</span><span>' + egp(o.subtotal) + '</span></div>' +
       (o.discount ? '<div class="li muted"><span>Promo ' + esc(o.promo) + '</span><span>−' + egp(o.discount) + '</span></div>' : '') +
@@ -433,6 +487,135 @@
         toast('Shipment created · #' + res.tracking);
         reopen();
       } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = 'Create Bosta shipment'; }
+    };
+  }
+
+  // ---------- team-entered orders ----------
+  async function newOrderDrawer() {
+    const cat = await api('order_catalog');
+    const lines = [];
+    let area = null; // { districtId, cityId, title, sub }
+    const physicalProducts = () => lines.some((l) => l.p.cat !== 'services');
+    const repOpts = can('targets') ? '<label class="field">Credit this sale to<select name="rep_id">' +
+      cat.reps.map((r) => '<option value="' + r.id + '"' + (r.id === S.user.id ? ' selected' : '') + '>' + esc(r.name) + ' (' + esc(r.role) + ')</option>').join('') + '</select></label>' : '';
+    const body = '<form id="nf" class="stack">' +
+      '<div class="card stack"><b>Customer</b><div class="grid2"><label class="field">Name<input type="text" name="name" required></label>' +
+      '<label class="field">Phone / WhatsApp<input type="tel" name="phone" required placeholder="01xxxxxxxxx"></label></div>' +
+      '<label class="field">Email <span class="hint">Optional</span><input type="email" name="email"></label></div>' +
+      '<div class="card stack"><b>Products</b><div class="row"><select id="nProd" style="flex:1;min-width:200px"><option value="">Choose a product…</option>' +
+      cat.products.map((p) => '<option value="' + esc(p.id) + '">' + esc(p.name) + ' — ' + egp(p.price) + (p.cat === 'services' ? ' / month' : ' · ' + p.stock + ' in stock') + '</option>').join('') +
+      '</select><input type="number" id="nQty" min="1" value="1" style="width:80px"><button type="button" class="btn" id="nAdd">Add</button></div>' +
+      '<div class="lines" id="nLines"></div></div>' +
+      '<div class="card stack" id="nDelivery"><b>Delivery</b>' +
+      '<label class="field">Street address<textarea name="address" id="nAddr" style="min-height:60px" placeholder="Street, building, floor, apartment"></textarea></label>' +
+      '<div class="field">Area <span class="hint">Search in English or Arabic, e.g. Nasr City / مدينة نصر</span><div class="pick" id="nPick"></div></div></div>' +
+      '<div class="card stack"><b>Sale details</b><div class="grid3">' +
+      '<label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
+      '<label class="field">Payment<select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label>' +
+      '<label class="field">Status<select name="status"><option>Pending</option><option selected>Confirmed</option></select></label></div>' +
+      '<div class="grid3"><label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
+      '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label>' +
+      repOpts + '</div>' +
+      '<label class="field">Notes<textarea name="notes" style="min-height:60px" placeholder="e.g. Customer wants delivery after 5pm"></textarea></label></div>' +
+      '<div class="card" id="nTotals"></div></form>';
+    openDrawer('New order', body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="nf" type="submit" id="nSubmit">Create order</button>');
+
+    const autoShip = () => {
+      const phys = lines.filter((l) => l.p.cat !== 'services').reduce((s, l) => s + l.p.price * l.qty, 0);
+      return phys > 0 && phys < cat.freeShippingThreshold ? cat.shippingFee : 0;
+    };
+    const renderTotals = () => {
+      const sub = lines.reduce((s, l) => s + l.p.price * l.qty, 0);
+      const disc = Math.min(sub, +($('#nDisc').value || 0));
+      const shipVal = $('#nShip').value;
+      const ship = shipVal === '' ? autoShip() : +shipVal;
+      $('#nShipHint').textContent = 'Auto: ' + (autoShip() ? egp(autoShip()) : 'free');
+      const cod = $('#nPay').value === 'cod';
+      $('#nTotals').innerHTML = '<div class="list"><div class="li muted"><span>Subtotal</span><span>' + egp(sub) + '</span></div>' +
+        (disc ? '<div class="li muted"><span>Discount</span><span>−' + egp(disc) + '</span></div>' : '') +
+        '<div class="li muted"><span>Delivery</span><span>' + (ship ? egp(ship) : 'Free') + '</span></div>' +
+        '<div class="li"><b>Total</b><b>' + egp(sub - disc + ship) + '</b></div>' +
+        '<div class="li small muted"><span>' + (cod ? 'Customer pays on delivery' : 'Already paid — courier collects nothing') + '</span><span></span></div></div>';
+      $('#nDelivery').style.opacity = lines.length && !physicalProducts() ? '.55' : '1';
+    };
+    const renderLines = () => {
+      $('#nLines').innerHTML = lines.length ? lines.map((l, i) =>
+        '<div class="line"><span>' + esc(l.p.name) + '<div class="small muted">' + egp(l.p.price) + ' each</div></span>' +
+        '<input type="number" min="1" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity">' +
+        '<b style="text-align:right">' + egp(l.p.price * l.qty) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button></div>').join('')
+        : '<div class="small muted" style="padding:6px 0">No products yet.</div>';
+      $$('[data-q]', $('#nLines')).forEach((inp) => inp.onchange = () => { lines[+inp.dataset.q].qty = Math.max(1, +inp.value || 1); renderLines(); });
+      $$('[data-x]', $('#nLines')).forEach((b) => b.onclick = () => { lines.splice(+b.dataset.x, 1); renderLines(); });
+      renderTotals();
+    };
+    $('#nAdd').onclick = () => {
+      const p = cat.products.find((x) => x.id === $('#nProd').value);
+      if (!p) return toast('Choose a product first', true);
+      const qty = Math.max(1, +$('#nQty').value || 1);
+      const existing = lines.find((l) => l.p.id === p.id);
+      if (existing) existing.qty += qty; else lines.push({ p, qty });
+      $('#nProd').value = ''; $('#nQty').value = 1;
+      renderLines();
+    };
+    ['#nDisc', '#nShip', '#nPay'].forEach((sel) => { $(sel).oninput = renderTotals; $(sel).onchange = renderTotals; });
+    renderLines();
+
+    // Area picker: search + suggestions from the address, same engine as the shop checkout.
+    const pick = $('#nPick');
+    const renderPick = (suggestions) => {
+      if (area) {
+        pick.innerHTML = '<div class="chosen"><span aria-hidden="true">📍</span><div style="flex:1"><b>' + esc(area.title) + '</b><div class="small muted">' + esc(area.sub) + '</div></div><button type="button" class="btn sm" id="nAreaChange">Change</button></div>';
+        $('#nAreaChange').onclick = () => { area = null; renderPick(); };
+        return;
+      }
+      pick.innerHTML = '<input type="search" id="nAreaQ" autocomplete="off" placeholder="🔍 Type the area"><div class="results" id="nAreaR" style="display:none"></div>' +
+        (suggestions && suggestions.length ? '<div class="row small"><span class="muted">✨ From the address:</span>' + suggestions.map((r, i) => '<button type="button" class="btn sm" data-sg="' + i + '">' + esc(r.title + ' — ' + r.sub.replace(' · any neighbourhood', '')) + '</button>').join('') + '</div>' : '');
+      const choose = (r) => { area = { districtId: r.districtId, cityId: r.cityId, title: r.title + (r.titleAr ? ' · ' + r.titleAr : ''), sub: r.sub }; renderPick(); };
+      $$('[data-sg]', pick).forEach((b) => b.onclick = () => choose(suggestions[+b.dataset.sg]));
+      let t;
+      $('#nAreaQ').oninput = (e) => {
+        clearTimeout(t);
+        const q = e.target.value.trim(), box = $('#nAreaR');
+        if (q.length < 2) { box.style.display = 'none'; return; }
+        t = setTimeout(async () => {
+          const res = await fetch('../api/public.php?action=area_search&q=' + encodeURIComponent(q)).then((r) => r.json()).catch(() => ({ results: [] }));
+          const list = res.results || [];
+          box.innerHTML = list.length ? list.map((r, i) => '<button type="button" data-ar="' + i + '"><b>' + esc(r.title) + '</b> <span class="muted">' + esc(r.titleAr) + '</span><div class="small muted">' + esc(r.sub) + '</div></button>').join('')
+            : '<div class="small muted" style="padding:10px 12px">No match — try another spelling</div>';
+          box.style.display = 'block';
+          $$('[data-ar]', box).forEach((b) => b.onclick = () => choose(list[+b.dataset.ar]));
+        }, 250);
+      };
+    };
+    renderPick();
+    let st;
+    $('#nAddr').oninput = (e) => {
+      clearTimeout(st);
+      const text = e.target.value;
+      if (area || text.trim().length < 4) return;
+      st = setTimeout(async () => {
+        const res = await fetch('../api/public.php?action=area_suggest&text=' + encodeURIComponent(text)).then((r) => r.json()).catch(() => ({ results: [] }));
+        if (!area) renderPick(res.results || []);
+      }, 600);
+    };
+
+    $('#nf').onsubmit = async (e) => {
+      e.preventDefault();
+      if (!lines.length) return toast('Add at least one product', true);
+      if (physicalProducts() && !area) return toast('Choose the delivery area', true);
+      const data = formData(e.target);
+      data.items = lines.map((l) => ({ id: l.p.id, qty: l.qty }));
+      if (area) { data.city_id = area.cityId; data.district_id = area.districtId; }
+      if (data.shipping === '') delete data.shipping;
+      const btn = $('#nSubmit'); btn.disabled = true; btn.textContent = 'Creating…';
+      try {
+        const r = await api('order_create', { method: 'POST', body: data });
+        closeDrawer();
+        toast('Order ' + r.number + ' created · ' + egp(r.total));
+        S.orderStatus = ''; S.orderQ = '';
+        if (S.route === 'orders') { await pageOrders(); const o = S.orders.find((x) => x.id === r.id); if (o) orderDrawer(o); }
+        else location.hash = '#orders';
+      } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = 'Create order'; }
     };
   }
 
@@ -628,15 +811,16 @@
   // ---------- team ----------
   async function pageTeam() {
     await loadTeam();
-    $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', '<button class="btn" id="testMail">Send test alert to me</button><button class="btn primary" id="addU">+ Add team member</button>') +
+    $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', (can('targets') ? '<button class="btn" id="teamTargets">🎯 Monthly targets</button>' : '') + '<button class="btn" id="testMail">Send test alert to me</button><button class="btn primary" id="addU">+ Add team member</button>') +
       '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Referral code</th><th>Order alerts</th><th>Status</th><th>Last sign-in</th></tr></thead><tbody>' +
       S.team.map((u) => '<tr class="click" data-id="' + u.id + '"><td><b>' + esc(u.name) + '</b>' + (u.id === S.user.id ? ' <span class="pill">You</span>' : '') + '<div class="small muted">' + esc(u.email) + (u.phone ? ' · ' + esc(u.phone) : '') + '</div></td>' +
         '<td><b>' + esc(u.role) + '</b><div class="small muted">' + esc(ROLE_INFO[u.role]) + '</div></td><td>' + (u.ref_code ? '<code>' + esc(u.ref_code) + '</code>' : '—') + '</td>' +
         '<td>' + (u.notify ? '<span class="pill info">✉ Email</span>' : '<span class="muted">Off</span>') + '</td>' +
         '<td>' + (u.active ? '<span class="pill good">✓ Active</span>' : '<span class="pill bad">✕ Disabled</span>') + '</td><td class="small muted">' + dateTime(u.last_login) + '</td></tr>').join('') +
       '</tbody></table></div>' +
-      '<p class="muted small" style="margin-top:14px">Referral codes: when a customer enters a team member’s code at checkout, the order is credited to them in “Sales by team member” on the dashboard.</p>';
+      '<p class="muted small" style="margin-top:14px">Referral codes: when a customer enters a team member’s code at checkout, the order is credited to them. Orders a team member enters in the dashboard are credited to them too, and count toward their monthly target.</p>';
     $('#addU').onclick = () => userDrawer(null);
+    const tt = $('#teamTargets'); if (tt) tt.onclick = () => targetsDrawer('');
     $('#testMail').onclick = async (e) => {
       e.target.disabled = true;
       try {

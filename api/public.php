@@ -57,80 +57,10 @@ try {
 
     if ($action === 'order') {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
-        $name = str_in($b['name'] ?? '', 120);
-        $email = str_in($b['email'] ?? '', 160);
-        $phone = str_in($b['phone'] ?? '', 40);
-        $address = str_in($b['address'] ?? '', 500);
-        $city = str_in($b['city'] ?? '', 60);
-        $cityId = str_in($b['city_id'] ?? '', 40);
-        $districtId = str_in($b['district_id'] ?? '', 40);
-        $district = '';
-        if ($cityId && $districtId) {
-            try {
-                $area = bosta_find_area($cityId, $districtId);
-                if ($area) { $city = $area['city']['name']; $district = $area['district']['name']; }
-                else { $cityId = $districtId = ''; }
-            } catch (Throwable $e) { $cityId = $districtId = ''; } // area list unavailable: the team picks it later
-        }
-        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Please enter your name and a valid email.');
-        if ($phone === '') fail('Please enter a phone number so we can confirm your order.');
-        $items = is_array($b['items'] ?? null) ? $b['items'] : [];
-        if (!$items || count($items) > 50) fail('Your cart is empty.');
-
-        $pdo = db();
-        $pdo->beginTransaction();
-        $get = $pdo->prepare("SELECT * FROM products WHERE id = ? AND status = 'Active'");
-        $lines = [];
-        $subtotal = 0.0;
-        $physical = 0.0;
-        foreach ($items as $it) {
-            $qty = max(1, min(99, (int) ($it['qty'] ?? 1)));
-            $get->execute([(string) ($it['id'] ?? '')]);
-            $p = $get->fetch();
-            if (!$p) { $pdo->rollBack(); fail('A product in your cart is no longer available. Please refresh.', 409); }
-            if ($p['cat'] !== 'services' && (int) $p['stock'] < $qty) {
-                $pdo->rollBack();
-                fail($p['name'] . ': only ' . (int) $p['stock'] . ' left in stock.', 409);
-            }
-            $price = sale_price($p);
-            $lines[] = ['id' => $p['id'], 'name' => $p['name'], 'qty' => $qty, 'price' => $price, 'cat' => $p['cat']];
-            $subtotal += $price * $qty;
-            if ($p['cat'] !== 'services') $physical += $price * $qty;
-        }
-        if (!$address && $physical > 0) { $pdo->rollBack(); fail('Please enter your delivery address.'); }
-
-        $promo = strtoupper(str_in($b['promo'] ?? '', 40));
-        $codes = cfg('promo_codes');
-        $discount = isset($codes[$promo]) ? round($subtotal * $codes[$promo] / 100, 2) : 0.0;
-        if (!$discount) $promo = '';
-        $shipping = $physical > 0 && $physical < cfg('free_shipping_threshold') ? (float) cfg('shipping_fee') : 0.0;
-        $total = round($subtotal - $discount + $shipping, 2);
-
-        $repId = null;
-        $ref = str_in($b['ref'] ?? '', 40);
-        if ($ref !== '') {
-            $st = $pdo->prepare('SELECT id FROM users WHERE ref_code = ? AND active = 1');
-            $st->execute([$ref]);
-            $repId = $st->fetchColumn() ?: null;
-            if (!$repId) { $pdo->rollBack(); fail('Referral code not recognised — check it or leave it blank.'); }
-        }
-
-        $pdo->prepare('INSERT INTO orders (customer, email, phone, address, city, city_id, district_id, district, items, subtotal, discount, shipping, total, promo, payment, rep_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$name, $email, $phone, $address, $city, $cityId ?: null, $districtId ?: null, $district, json_encode($lines, JSON_UNESCAPED_UNICODE), $subtotal, $discount, $shipping, $total, $promo, 'cod', $repId]);
-        $id = (int) $pdo->lastInsertId();
-        $dec = $pdo->prepare("UPDATE products SET stock = MAX(0, stock - ?), updated_at = datetime('now') WHERE id = ? AND cat != 'services'");
-        foreach ($lines as $l) $dec->execute([$l['qty'], $l['id']]);
-        $pdo->commit();
+        $r = create_order($b);
         record_attempt('order');
-        log_activity(null, 'New order', order_number($id) . ' · ' . $name . ' · EGP ' . number_format($total));
-        $repName = null;
-        if ($repId) { $st = $pdo->prepare('SELECT name FROM users WHERE id = ?'); $st->execute([$repId]); $repName = $st->fetchColumn(); }
-        notify_new_order(order_number($id), [
-            'name' => $name, 'email' => $email, 'phone' => $phone, 'address' => $address, 'city' => $district ? $district . ', ' . $city : $city,
-            'subtotal' => $subtotal, 'discount' => $discount, 'promo' => $promo, 'shipping' => $shipping, 'total' => $total, 'rep' => $repName,
-        ], $lines);
-        json_out(['number' => order_number($id), 'total' => $total, 'shipping' => $shipping, 'discount' => $discount]);
+        log_activity(null, 'New order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']));
+        json_out(['number' => $r['number'], 'total' => $r['total'], 'shipping' => $r['shipping'], 'discount' => $r['discount']]);
     }
 
     if ($action === 'lead') {
@@ -170,6 +100,8 @@ try {
     }
 
     fail('Not found', 404);
+} catch (ShopError $e) {
+    fail($e->getMessage(), 422);
 } catch (Throwable $e) {
     error_log('[shop api] ' . $e->getMessage());
     fail('Something went wrong. Please try again or contact us.', 500);

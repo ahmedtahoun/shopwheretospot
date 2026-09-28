@@ -58,7 +58,7 @@
       <a href="#top" class="brand-name" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:10px;font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;letter-spacing:0.01em"><img src="images/logo.png" alt="Where To Spot logo" width="52" height="30" style="border-radius:8px;background:#22201D;padding:3px 6px;object-fit:contain">Where To Spot</a>
       <div class="desktop-nav" style="align-items:center;gap:18px;font-size:13.5px;font-weight:500;color:#6B6660;flex-wrap:wrap;flex:1;justify-content:flex-end;min-width:0">
         <a href="#products" class="link" style="white-space:nowrap">Shop</a>
-        <a href="#plans" class="link" style="white-space:nowrap">Marketing plans</a>
+        <a href="plans.html" class="link" style="white-space:nowrap">Marketing plans</a>
         <a href="#services" class="link" style="white-space:nowrap">Services</a>
         <a href="about.html" class="link" style="white-space:nowrap">About us</a>
         <a href="contact.html" class="link" style="white-space:nowrap">Contact</a>
@@ -89,7 +89,7 @@
     <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="{{ false }}">
       <div style="border-top:1px solid #DDD6CC;padding:14px 24px 20px;display:flex;flex-direction:column;gap:12px;font-size:14.5px;font-weight:500">
         <a href="#products" class="link" onClick="{{ toggleMobileMenu }}">Shop</a>
-        <a href="#plans" class="link" onClick="{{ toggleMobileMenu }}">Marketing plans</a>
+        <a href="plans.html" class="link">Marketing plans</a>
         <a href="#services" class="link" onClick="{{ toggleMobileMenu }}">Services</a>
         <a href="about.html" class="link">About us</a>
         <a href="contact.html" class="link">Contact</a>
@@ -119,7 +119,7 @@
       <p style="margin:26px 0 0;max-width:46ch;font-size:17px;line-height:1.6;color:#6B6660">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivery across Egypt, cash on delivery.</p>
       <div style="margin-top:36px;display:flex;gap:14px;flex-wrap:wrap">
         <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600;transition:transform 0.15s ease,box-shadow 0.15s ease" style-hover="{{ ctaHover }}">Shop products</a>
-        <a href="#plans" style="border:1px solid #22201D;color:#22201D;padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600">See marketing plans</a>
+        <a href="plans.html" style="border:1px solid #22201D;color:#22201D;padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600">See marketing plans</a>
       </div>
     </div>
     <image-slot id="hero-shot" src="images/nfc-review-black-lifestyle.png" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
@@ -227,31 +227,6 @@
     </sc-if>
   </section>
 
-  <section id="plans" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
-    <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Marketing services</div>
-    <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0">Lead-generation plans</h2>
-    <p style="margin:12px 0 30px;max-width:60ch;font-size:15px;line-height:1.6;color:#6B6660">Monthly plans priced in EGP. Cancel any time before your next billing date. 14-day money-back guarantee on your first month. <a href="refund-policy.html" style="text-decoration:underline">Refund policy</a></p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">
-      <sc-for list="{{ planCards }}" as="pl" hint-placeholder-count="3">
-        <div style="border:1px solid {{ pl.border }};border-radius:20px;padding:26px;background:#fff;display:flex;flex-direction:column;gap:14px;position:relative">
-          <sc-if value="{{ pl.label }}" hint-placeholder-val="{{ null }}">
-            <span style="position:absolute;top:-12px;left:24px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:0.04em">{{ pl.label }}</span>
-          </sc-if>
-          <div style="font-weight:700;font-size:18px">{{ pl.shortName }}</div>
-          <div><span style="font-family:'Instrument Serif',serif;font-size:40px">{{ pl.priceFmt }}</span><span style="color:#6B6660;font-size:14px"> / month</span></div>
-          <div style="font-size:13.5px;color:#6B6660;line-height:1.5">{{ pl.desc }}</div>
-          <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:14px">
-            <sc-for list="{{ pl.features }}" as="f" hint-placeholder-count="4">
-              <li>✓ {{ f }}</li>
-            </sc-for>
-          </ul>
-          <button onClick="{{ pl.onAdd }}" style="margin-top:auto;background:{{ pl.btnBg }};color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Subscribe — {{ pl.priceFmt }}/mo</button>
-        </div>
-      </sc-for>
-    </div>
-    <p style="margin:16px 0 0;font-size:12.5px;color:#8A8478">Lead numbers are estimates and depend on your industry, location and ad budget. Ad spend paid to Meta/Google is not included in the plan price.</p>
-  </section>
-
   <section id="services" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
     <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Custom work</div>
     <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0 0 26px">Creative & production services</h2>
@@ -324,7 +299,7 @@
         <div style="font-weight:700;color:#22201D;margin-bottom:6px">Company</div>
         <a class="link" href="about.html">About us</a>
         <a class="link" href="contact.html">Contact us</a>
-        <a class="link" href="#plans">Marketing plans</a>
+        <a class="link" href="plans.html">Marketing plans</a>
         <button onClick="{{ openTrack }}" style="border:none;background:none;color:#6B6660;font-size:13.5px;cursor:pointer;padding:0;font-family:inherit;text-align:left;line-height:1.7">Track your order</button>
       </div>
       <div style="display:flex;flex-direction:column">
@@ -645,7 +620,17 @@ class Component extends DCLogic {
     const cart = mod.loadCart();
     const orders = mod.loadOrders();
     const params = new URLSearchParams(location.search);
-    const cartOpen = params.get('cart') === '1' || params.get('checkout') === '1';
+    let cart0 = cart;
+    const addId = params.get('add');
+    const addP = addId && inventory.find(p => p.id === addId && p.status === 'Active');
+    if (addP) {
+      const price = addP.discountPct ? Math.round(addP.price * (1 - addP.discountPct / 100) * 100) / 100 : addP.price;
+      const name = addP.cat === 'services' ? addP.name + ' (1 month)' : addP.name;
+      cart0 = cart.some(i => i.id === addP.id) ? cart : [...cart, { id: addP.id, name, price, cat: addP.cat, qty: 1 }];
+      mod.saveCart(cart0);
+      history.replaceState(null, '', location.pathname);
+    }
+    const cartOpen = !!addP || params.get('cart') === '1' || params.get('checkout') === '1';
     const checkoutStep = params.get('checkout') === '1' && cart.length ? 'info' : this.state.checkoutStep;
     let form = this.state.form;
     let checkoutMode = this.state.checkoutMode;
@@ -654,7 +639,7 @@ class Component extends DCLogic {
       if (saved) { form = { ...form, ...saved }; checkoutMode = 'save'; }
     } catch {}
     this.loadAreas();
-    this.setState({ inventory, cart, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9 });
+    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9 });
   }
 
   showToast = (msg) => {
@@ -862,7 +847,6 @@ class Component extends DCLogic {
     const s = this.state;
     const term = s.search.trim().toLowerCase();
     const active = s.inventory.filter(p => p.status === 'Active' && p.cat !== 'services');
-    const plans = s.inventory.filter(p => p.status === 'Active' && p.cat === 'services');
     const cats = this.activeCategories();
     let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!term || p.name.toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
     if (s.inStockOnly) filtered = filtered.filter(p => p.stock > 0);
@@ -914,11 +898,6 @@ class Component extends DCLogic {
         return { key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, img: first ? this._sd.PRODUCT_IMAGES[first.id][0] : '', onClick: this.setCat(c.key) };
       }),
       filterTabs,
-      planCards: plans.map(p => ({
-        ...p, shortName: p.name.replace(' Lead Generation Plan', ''), priceFmt: fmt(p.price), features: p.features || [],
-        label: p.label || null, border: p.label ? accent : '#DDD6CC', btnBg: p.label ? accent : '#22201D',
-        onAdd: this.addToCart({ id: p.id, name: p.name + ' (1 month)', price: p.price, cat: p.cat })
-      })),
       customServices: this.customServices, clientLogos: this.clientLogos,
       search: s.search, onSearch: this.setSearch,
       isLoading: s.isLoading, skeletonCards: Array.from({ length: 6 }),

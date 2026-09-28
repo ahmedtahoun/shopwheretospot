@@ -79,15 +79,17 @@ try {
     // ---------- dashboard ----------
 
     case 'dashboard':
-        require_perm('dashboard');
+        $u = require_perm('dashboard');
         $days = max(7, min(365, (int) ($_GET['days'] ?? 30)));
         $pdo = db();
+        $own = in_array('own_orders', $u['perms'], true);
+        $scope = $own ? ' AND rep_id = ' . (int) $u['id'] : '';
         $since = gmdate('Y-m-d', time() - ($days - 1) * 86400);
         $valid = "status NOT IN ('Cancelled','Returned')";
-        $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?");
+        $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope");
         $st->execute([$since]);
         $k = $st->fetch();
-        $st = $pdo->prepare("SELECT date(created_at) d, COUNT(*) n, SUM(total) revenue FROM orders WHERE $valid AND date(created_at) >= ? GROUP BY d");
+        $st = $pdo->prepare("SELECT date(created_at) d, COUNT(*) n, SUM(total) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope GROUP BY d");
         $st->execute([$since]);
         $byDay = [];
         foreach ($st as $r) $byDay[$r['d']] = $r;
@@ -96,9 +98,9 @@ try {
             $d = gmdate('Y-m-d', time() - $i * 86400);
             $series[] = ['date' => $d, 'orders' => (int) ($byDay[$d]['n'] ?? 0), 'revenue' => (float) ($byDay[$d]['revenue'] ?? 0)];
         }
-        $status = $pdo->query('SELECT status, COUNT(*) n FROM orders GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $status = $pdo->query('SELECT status, COUNT(*) n FROM orders WHERE 1' . $scope . ' GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
         $top = [];
-        $st = $pdo->prepare("SELECT items FROM orders WHERE $valid AND date(created_at) >= ?");
+        $st = $pdo->prepare("SELECT items FROM orders WHERE $valid AND date(created_at) >= ?$scope");
         $st->execute([$since]);
         foreach ($st as $o) {
             foreach (json_decode($o['items'], true) ?: [] as $it) {
@@ -109,12 +111,14 @@ try {
             }
         }
         usort($top, function ($a, $b) { return $b['revenue'] <=> $a['revenue']; });
-        $lowStock = $pdo->query("SELECT id, name, stock FROM products WHERE status = 'Active' AND cat != 'services' AND stock <= 5 ORDER BY stock")->fetchAll();
-        $reps = $pdo->prepare("SELECT u.name, COUNT(o.id) n, COALESCE(SUM(o.total),0) revenue FROM orders o JOIN users u ON u.id = o.rep_id WHERE o.$valid AND date(o.created_at) >= ? GROUP BY u.id ORDER BY revenue DESC");
-        $reps->execute([$since]);
-        $recent = array_map('order_out', $pdo->query('SELECT * FROM orders ORDER BY id DESC LIMIT 6')->fetchAll());
+        $st = $pdo->prepare("SELECT COALESCE(source, 'Website') AS source, COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope GROUP BY 1 ORDER BY revenue DESC");
+        $st->execute([$since]);
+        $sources = $st->fetchAll();
+        $lowStock = $own ? [] : $pdo->query("SELECT id, name, stock FROM products WHERE status = 'Active' AND cat != 'services' AND stock <= 5 ORDER BY stock")->fetchAll();
+        $recent = array_map('order_out', $pdo->query('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE 1' . str_replace('rep_id', 'o.rep_id', $scope) . ' ORDER BY o.id DESC LIMIT 6')->fetchAll());
+        $month = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m');
         json_out([
-            'days' => $days,
+            'days' => $days, 'own' => $own,
             'kpi' => [
                 'revenue' => (float) $k['revenue'], 'orders' => (int) $k['n'],
                 'aov' => $k['n'] ? round($k['revenue'] / $k['n']) : 0,
@@ -122,11 +126,57 @@ try {
                 'newLeads' => (int) $pdo->query("SELECT COUNT(*) FROM leads WHERE status = 'New'")->fetchColumn(),
                 'products' => (int) $pdo->query("SELECT COUNT(*) FROM products WHERE status = 'Active'")->fetchColumn(),
             ],
-            'series' => $series, 'statusCounts' => $status, 'topProducts' => array_slice($top, 0, 5),
-            'lowStock' => $lowStock, 'reps' => $reps->fetchAll(), 'recentOrders' => $recent,
+            'series' => $series, 'statusCounts' => $status, 'topProducts' => array_slice($top, 0, 5), 'sources' => $sources,
+            'lowStock' => $lowStock, 'recentOrders' => $recent,
+            'performance' => team_performance($month, $own ? (int) $u['id'] : null),
         ]);
 
-    // ---------- products & categories ----------
+    // ---------- targets ----------
+
+    case 'targets':
+        require_perm('targets');
+        $perf = team_performance((string) ($_GET['month'] ?? ''));
+        json_out($perf);
+
+    case 'targets_save':
+        $u = require_perm('targets');
+        $b = body();
+        [$month] = cairo_month_bounds((string) ($b['month'] ?? ''));
+        $st = db()->prepare('INSERT INTO targets (user_id, month, orders_target, revenue_target) VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id, month) DO UPDATE SET orders_target = excluded.orders_target, revenue_target = excluded.revenue_target');
+        foreach ((array) ($b['targets'] ?? []) as $t) {
+            $st->execute([(int) ($t['user_id'] ?? 0), $month, max(0, (int) ($t['orders'] ?? 0)), max(0, (float) ($t['revenue'] ?? 0))]);
+        }
+        log_activity($u, 'Updated targets', $month);
+        json_out(['ok' => true]);
+
+    // ---------- team-entered orders ----------
+
+    case 'order_catalog':
+        require_perm('sell');
+        $rows = array_map(function ($p) {
+            return ['id' => $p['id'], 'name' => $p['name'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
+                'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub']];
+        }, load_products(true));
+        $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
+        json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => PAYMENT_METHODS, 'reps' => $reps,
+            'shippingFee' => cfg('shipping_fee'), 'freeShippingThreshold' => cfg('free_shipping_threshold')]);
+
+    case 'order_create':
+        $u = require_perm('sell');
+        $b = body();
+        // Sales people are always credited themselves; owners/managers can credit someone else.
+        $repId = (int) $u['id'];
+        if (in_array('targets', $u['perms'], true) && isset($b['rep_id'])) $repId = (int) $b['rep_id'] ?: null;
+        $r = create_order($b, [
+            'by_team' => true, 'rep_id' => $repId, 'created_by' => (int) $u['id'],
+            'source' => $b['source'] ?? 'Phone', 'payment' => $b['payment'] ?? 'cod', 'status' => $b['status'] ?? 'Pending',
+            'discount' => $b['discount'] ?? 0, 'shipping' => $b['shipping'] ?? null, 'notes' => $b['notes'] ?? '',
+        ]);
+        log_activity($u, 'Created order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']) . ' · ' . ($b['source'] ?? 'Phone'));
+        json_out($r);
+
+        // ---------- products & categories ----------
 
     case 'products':
         require_perm('products');
@@ -257,13 +307,16 @@ try {
         require_perm('orders');
         $where = [];
         $args = [];
-        if (!empty($_GET['status'])) { $where[] = 'status = ?'; $args[] = $_GET['status']; }
+        if (!empty($_GET['status'])) { $where[] = 'o.status = ?'; $args[] = $_GET['status']; }
         if (!empty($_GET['q'])) {
             $q = '%' . $_GET['q'] . '%';
-            $where[] = '(customer LIKE ? OR email LIKE ? OR phone LIKE ? OR (\'WTS-\' || (1000 + id)) LIKE ?)';
+            $where[] = '(o.customer LIKE ? OR o.email LIKE ? OR o.phone LIKE ? OR (\'WTS-\' || (1000 + o.id)) LIKE ?)';
             array_push($args, $q, $q, $q, $q);
         }
-        $sql = 'SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id'
+        $u = current_user();
+        if (in_array('own_orders', $u['perms'], true)) { $where[] = 'o.rep_id = ?'; $args[] = (int) $u['id']; }
+        if (!empty($_GET['rep'])) { $where[] = 'o.rep_id = ?'; $args[] = (int) $_GET['rep']; }
+        $sql = 'SELECT o.*, u.name AS rep_name, c.name AS created_by_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id LEFT JOIN users c ON c.id = o.created_by'
             . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY o.id DESC LIMIT 500';
         $st = db()->prepare($sql);
         $st->execute($args);
@@ -280,6 +333,7 @@ try {
         $st->execute([$id]);
         $o = $st->fetch();
         if (!$o) fail('Order not found.', 404);
+        assert_order_access($u, $o);
         set_order_status($id, (string) ($b['status'] ?? $o['status']), str_in($b['notes'] ?? $o['notes'], 2000));
         json_out(['ok' => true]);
 
@@ -309,7 +363,7 @@ try {
             $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
             $st->execute([$id]);
             $o = $st->fetch();
-            if (!$o) { $results[] = ['id' => $id, 'error' => 'Order not found.']; continue; }
+            if (!$o || !order_accessible($u, $o)) { $results[] = ['id' => $id, 'error' => 'Order not found.']; continue; }
             try {
                 if ($o['status'] === 'Cancelled') throw new RuntimeException('Order is cancelled.');
                 $opts = count($ids) === 1 ? $b : ['size' => $b['size'] ?? '', 'location_id' => $b['location_id'] ?? ''];
@@ -328,21 +382,23 @@ try {
         json_out(['results' => $results]);
 
     case 'bosta_refresh':
-        require_perm('orders');
-        $st = db()->prepare('SELECT id, tracking_number FROM orders WHERE id = ?');
+        $u = require_perm('orders');
+        $st = db()->prepare('SELECT id, tracking_number, rep_id FROM orders WHERE id = ?');
         $st->execute([(int) (body()['id'] ?? 0)]);
         $o = $st->fetch();
         if (!$o || !$o['tracking_number']) fail('This order has no Bosta shipment.', 404);
+        assert_order_access($u, $o);
         $d = bosta_view($o['tracking_number']);
         $code = (int) ($d['state']['code'] ?? 0);
         if ($code) bosta_apply_state((int) $o['id'], $code, (string) ($d['state']['exception']['reason'] ?? ($d['exceptionReason'] ?? '')));
         json_out(['state' => $code, 'label' => bosta_state_label($code)]);
 
     case 'bosta_awb':
-        require_perm('orders');
+        $u = require_perm('orders');
         $ids = array_map('intval', explode(',', (string) ($_GET['ids'] ?? '')));
         $in = implode(',', array_fill(0, count($ids), '?'));
-        $st = db()->prepare("SELECT tracking_number FROM orders WHERE id IN ($in) AND tracking_number IS NOT NULL AND tracking_number != ''");
+        $own = in_array('own_orders', $u['perms'], true) ? ' AND rep_id = ' . (int) $u['id'] : '';
+        $st = db()->prepare("SELECT tracking_number FROM orders WHERE id IN ($in) AND tracking_number IS NOT NULL AND tracking_number != ''$own");
         $st->execute($ids);
         $tracks = $st->fetchAll(PDO::FETCH_COLUMN);
         if (!$tracks) fail('None of these orders has a Bosta shipment yet.', 404);
@@ -356,10 +412,11 @@ try {
 
     case 'bosta_cancel':
         $u = require_perm('orders');
-        $st = db()->prepare('SELECT id, tracking_number FROM orders WHERE id = ?');
+        $st = db()->prepare('SELECT id, tracking_number, rep_id FROM orders WHERE id = ?');
         $st->execute([(int) (body()['id'] ?? 0)]);
         $o = $st->fetch();
         if (!$o || !$o['tracking_number']) fail('This order has no Bosta shipment.', 404);
+        assert_order_access($u, $o);
         bosta_terminate($o['tracking_number']);
         db()->prepare("UPDATE orders SET bosta_state = 48, bosta_updated_at = datetime('now') WHERE id = ?")->execute([$o['id']]);
         log_activity($u, 'Bosta shipment cancelled', order_number((int) $o['id']) . ' · ' . $o['tracking_number']);
@@ -448,6 +505,16 @@ try {
 
 // ---------- helpers ----------
 
+function order_accessible(array $u, array $o): bool
+{
+    return !in_array('own_orders', $u['perms'], true) || (int) $o['rep_id'] === (int) $u['id'];
+}
+
+function assert_order_access(array $u, array $o): void
+{
+    if (!order_accessible($u, $o)) fail('Order not found.', 404);
+}
+
 function order_out(array $o): array
 {
     return [
@@ -455,7 +522,8 @@ function order_out(array $o): array
         'phone' => $o['phone'], 'address' => $o['address'], 'city' => $o['city'], 'items' => json_decode($o['items'], true) ?: [],
         'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'shipping' => (float) $o['shipping'],
         'total' => (float) $o['total'], 'promo' => $o['promo'], 'payment' => $o['payment'], 'status' => $o['status'],
-        'notes' => $o['notes'], 'rep' => $o['rep_name'] ?? null, 'createdAt' => $o['created_at'],
+        'notes' => $o['notes'], 'rep' => $o['rep_name'] ?? null, 'repId' => $o['rep_id'] === null ? null : (int) $o['rep_id'], 'createdAt' => $o['created_at'],
+        'source' => $o['source'] ?? 'Website', 'createdBy' => $o['created_by_name'] ?? null, 'paymentLabel' => PAYMENT_METHODS[$o['payment']] ?? $o['payment'],
         'cityId' => $o['city_id'], 'districtId' => $o['district_id'], 'district' => $o['district'],
         'tracking' => $o['tracking_number'], 'bostaState' => $o['bosta_state'] === null ? null : (int) $o['bosta_state'],
         'bostaLabel' => bosta_state_label($o['bosta_state'] === null ? null : (int) $o['bosta_state']), 'bostaNote' => $o['bosta_note'],

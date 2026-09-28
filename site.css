@@ -30,3 +30,21 @@ footer .in{max-width:1100px;margin:0 auto;padding:32px 24px;display:flex;flex-wr
 footer a{text-decoration:none}
 footer a:hover{color:#A8552F}
 @media (max-width:600px){main{padding:40px 16px 60px}nav .in{padding:12px 16px}}
+
+/* plans page */
+main.wide{max-width:1100px}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin:30px 0 10px}
+.plan{background:#fff;border:1px solid #DDD6CC;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px;position:relative}
+.plan.pop{border:2px solid #A8552F}
+.plan .badge{position:absolute;top:-12px;left:24px;background:#A8552F;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.plan h3{margin:0;font-size:19px}
+.plan .price{font-family:'Instrument Serif',serif;font-size:42px;line-height:1}
+.plan .price small{font-family:'Work Sans',sans-serif;font-size:14px;color:#6B6660}
+.plan ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.plan li{font-size:14.5px}
+.plan .btn{margin-top:auto;text-align:center}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+.steps .card b{font-size:15px}
+details{background:#fff;border:1px solid #DDD6CC;border-radius:14px;padding:14px 18px;margin:10px 0}
+details summary{font-weight:600;cursor:pointer}
+details p{margin:10px 0 0}

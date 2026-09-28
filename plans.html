@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lead-generation plans — Where To Spot</title>
+<meta name="description" content="Monthly lead-generation marketing plans for Egyptian businesses from EGP 299. Ads, funnels, CRM and automation. Cancel any time, 14-day money-back guarantee.">
+<link rel="icon" type="image/png" href="images/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<div class="bar">All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery</div>
+<nav><div class="in"><a class="brand" href="index.html"><img src="images/logo.png" alt="Where To Spot logo" width="52" height="30">Where To Spot</a><div class="links"><a href="index.html">Shop</a><a href="plans.html" aria-current="page">Marketing plans</a><a href="about.html">About us</a><a href="contact.html">Contact us</a></div></div></nav>
+<main class="wide">
+<div class="kicker">Marketing services</div>
+<h1>Lead-generation plans</h1>
+<p class="muted" style="max-width:62ch">We run the ads, build the landing page and follow up, so new customers reach you every month. Monthly plans priced in Egyptian Pounds — no contracts, cancel any time before your next billing date, and a 14-day money-back guarantee on your first month.</p>
+
+<div class="plans" id="plans">
+  <div class="plan" data-id="plan1"><h3>Starter</h3><div class="price"><span data-price>EGP 299</span> <small>/ month</small></div>
+    <p class="muted" data-desc>For small businesses starting with lead generation: targeted ad campaign setup, a lead capture page and monthly optimization.</p>
+    <ul data-features><li>✓ 20–40 leads per month (estimate)</li><li>✓ Targeted ad campaign setup</li><li>✓ Lead capture page</li><li>✓ Monthly optimization &amp; report</li></ul>
+    <a class="btn alt" href="index.html?add=plan1">Subscribe — <span data-price>EGP 299</span>/mo</a></div>
+  <div class="plan pop" data-id="plan2"><span class="badge">Most popular</span><h3>Growth</h3><div class="price"><span data-price>EGP 699</span> <small>/ month</small></div>
+    <p class="muted" data-desc>For businesses ready to generate consistent leads every month: high-converting funnel, ads management, weekly optimization and conversion tracking.</p>
+    <ul data-features><li>✓ Everything in Starter</li><li>✓ 50–120 leads per month (estimate)</li><li>✓ High-converting funnel</li><li>✓ Ads management</li><li>✓ Weekly optimization</li><li>✓ Conversion tracking</li></ul>
+    <a class="btn" href="index.html?add=plan2">Subscribe — <span data-price>EGP 699</span>/mo</a></div>
+  <div class="plan" data-id="plan3"><h3>Scale</h3><div class="price"><span data-price>EGP 1,499</span> <small>/ month</small></div>
+    <p class="muted" data-desc>For businesses ready to scale: advanced funnel system, automation &amp; CRM setup, daily optimization and strategy calls.</p>
+    <ul data-features><li>✓ Everything in Growth</li><li>✓ 150+ leads per month (estimate)</li><li>✓ Advanced funnel system</li><li>✓ Automation &amp; CRM setup</li><li>✓ Daily optimization</li><li>✓ Strategy calls</li></ul>
+    <a class="btn alt" href="index.html?add=plan3">Subscribe — <span data-price>EGP 1,499</span>/mo</a></div>
+</div>
+<p class="muted small">Lead numbers are estimates and depend on your industry, location and ad budget. Advertising spend paid to Meta or Google is separate from the plan price.</p>
+
+<h2>How it works</h2>
+<div class="steps">
+  <div class="card"><b>1. Subscribe</b><br>Choose a plan and place the order. We call or WhatsApp you within one business day.</div>
+  <div class="card"><b>2. Strategy call</b><br>We learn your business, offer and area, then plan the campaign and landing page.</div>
+  <div class="card"><b>3. Launch</b><br>Ads go live, leads arrive by WhatsApp, phone or form, and we optimize every week.</div>
+  <div class="card"><b>4. Report</b><br>You get a clear report: leads, cost per lead and what we’ll improve next month.</div>
+</div>
+
+<h2>Who it’s for</h2>
+<p>Gyms, restaurants and cafés, clinics, real-estate companies, beauty brands, retailers and car dealers across Egypt.</p>
+
+<h2>Questions</h2>
+<details><summary>Is the ad budget included?</summary><p>No. The plan covers our work — setup, management and optimization. You pay the ad platforms (Meta, Google, TikTok) directly for ad spend, and we recommend a budget that fits your goals.</p></details>
+<details><summary>How do I pay?</summary><p>Monthly, in Egyptian Pounds. Cash on the first visit, bank transfer or wallet — card payment will be available at checkout soon.</p></details>
+<details><summary>Can I cancel?</summary><p>Yes, any time before your next billing date, with no fees. Your first month has a 14-day money-back guarantee. See our <a href="refund-policy.html">Refund &amp; cancellation policy</a>.</p></details>
+<details><summary>Do you do one-off projects too?</summary><p>Yes — printing, acrylic displays, event booths, video, websites and AI tools, quoted per project. <a href="contact.html">Contact us</a> for a quote.</p></details>
+
+<p style="margin-top:30px"><a class="btn" href="index.html?add=plan2">Start with Growth</a> &nbsp; <a class="btn alt" href="https://wa.me/201277660666" target="_blank" rel="noopener">Ask on WhatsApp</a></p>
+<script>
+// Keep prices and bullet points in sync with the dashboard (Products → Marketing Plans).
+fetch('api/public.php?action=catalog').then(function (r) { return r.json(); }).then(function (d) {
+  var fmt = function (n) { return 'EGP ' + Math.round(n).toLocaleString('en-US'); };
+  (d.products || []).forEach(function (p) {
+    var card = document.querySelector('.plan[data-id="' + p.id + '"]');
+    if (!card) return;
+    var price = p.discountPct ? p.price * (1 - p.discountPct / 100) : p.price;
+    card.querySelectorAll('[data-price]').forEach(function (el) { el.textContent = fmt(price); });
+    if (p.desc) card.querySelector('[data-desc]').textContent = p.desc;
+    if (p.features && p.features.length) {
+      var ul = card.querySelector('[data-features]'); ul.innerHTML = '';
+      p.features.forEach(function (f) { var li = document.createElement('li'); li.textContent = '✓ ' + f; ul.appendChild(li); });
+    }
+  });
+}).catch(function () {});
+</script>
+</main>
+<footer><div class="in">
+<span>© 2026 Where To Spot · MQR, El Wahat Road, 6th of October City, Giza, Egypt · <a href="mailto:info@wheretospot.com">info@wheretospot.com</a> · <a href="tel:+201277660666">+20 127 766 0666</a></span>
+<a href="about.html">About us</a><a href="contact.html">Contact us</a><a href="privacy-policy.html">Privacy policy</a><a href="refund-policy.html">Refund & cancellation</a><a href="shipping-policy.html">Delivery & shipping</a><a href="terms.html">Terms & conditions</a>
+</div></footer>
+</body>
+</html>
