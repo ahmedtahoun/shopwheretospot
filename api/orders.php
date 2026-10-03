@@ -141,35 +141,75 @@ function team_performance(string $month, ?int $onlyUser = null): array
     return ['month' => $month, 'members' => $rows];
 }
 
-// Save the customer of a team-entered order as a lead (status Won), so every customer is in Leads.
-// A returning customer (same phone number) updates their existing lead instead of creating a duplicate.
-function lead_from_order(array $in, array $order, ?int $repId): string
+// ---------- leads: one lead per phone number / email ----------
+
+// Last 9 digits of an Egyptian number, so 01012345678, +20 101 234 5678 and 00201012345678 all match.
+function phone_key(string $text): ?string
 {
-    $pdo = db();
+    $text = strtr($text, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']);
+    $text = preg_replace('/[\w.+-]+@[\w-]+\.[\w.]+/u', ' ', $text); // ignore digits inside an email address
+    $digits = preg_replace('/\D/', '', $text);
+    return strlen($digits) >= 8 ? substr($digits, -9) : null;
+}
+
+function email_key(string $text): ?string
+{
+    return preg_match('/[\w.+-]+@[\w-]+\.[\w.]+/u', $text, $m) ? strtolower($m[0]) : null;
+}
+
+// The existing lead with this phone number or email, if any.
+function find_lead(?string $phoneKey, ?string $emailKey): ?array
+{
+    if (!$phoneKey && !$emailKey) return null;
+    $st = db()->prepare('SELECT l.*, u.name AS assigned_name FROM leads l LEFT JOIN users u ON u.id = l.assigned_to
+        WHERE (? IS NOT NULL AND l.phone_key = ?) OR (? IS NOT NULL AND l.email_key = ?) ORDER BY l.id LIMIT 1');
+    $st->execute([$phoneKey, $phoneKey, $emailKey, $emailKey]);
+    return $st->fetch() ?: null;
+}
+
+function insert_lead(array $f): int
+{
+    $contact = (string) $f['contact'];
+    db()->prepare('INSERT INTO leads (name, contact, cat, source, status, notes, assigned_to, phone_key, email_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        ->execute([$f['name'], $contact, $f['cat'] ?? '', $f['source'] ?? '', $f['status'] ?? 'New', $f['notes'] ?? '', $f['assigned_to'] ?? null,
+            phone_key($contact), email_key($contact)]);
+    return (int) db()->lastInsertId();
+}
+
+// Add a note (newest first) to an existing lead, optionally changing its status and filling in missing contact details.
+function touch_lead(array $lead, string $note, ?string $status, ?int $assignTo, string $contact = ''): void
+{
+    $notes = mb_substr(trim($note . "\n" . (string) $lead['notes']), 0, 4000);
+    $newContact = $lead['contact'];
+    if ($contact !== '') {
+        // Keep one lead per customer but remember both their phone and email if we learn a new one.
+        if (!$lead['phone_key'] && phone_key($contact)) $newContact .= ' · ' . trim(preg_replace('/[\w.+-]+@[\w-]+\.[\w.]+/u', '', $contact), " ·");
+        if (!$lead['email_key'] && email_key($contact)) $newContact .= ' · ' . email_key($contact);
+    }
+    db()->prepare('UPDATE leads SET notes = ?, status = COALESCE(?, status), assigned_to = COALESCE(assigned_to, ?), contact = ?, phone_key = ?, email_key = ? WHERE id = ?')
+        ->execute([$notes, $status, $assignTo, mb_substr($newContact, 0, 160), phone_key($newContact), email_key($newContact), $lead['id']]);
+}
+
+// Save the customer of any order (website or dashboard) as a Won lead. A returning customer
+// (same phone or email) gets the order added to their existing lead instead of a duplicate.
+function lead_from_order(array $in, array $order, ?int $repId, string $channel = 'Website'): string
+{
     $name = str_in($in['name'] ?? '', 120);
     $phone = str_in($in['phone'] ?? '', 40);
     $email = str_in($in['email'] ?? '', 160);
-    $digits = preg_replace('/\D/', '', $phone);
-    $last9 = substr($digits, -9); // ignore 0 / +20 / 20 prefixes when matching
-    $st = $pdo->prepare("SELECT id, notes FROM leads WHERE REPLACE(REPLACE(REPLACE(REPLACE(contact, ' ', ''), '-', ''), '+', ''), '(', '') LIKE ? ORDER BY id DESC LIMIT 1");
-    $st->execute(['%' . $last9 . '%']);
-    $existing = strlen($last9) >= 8 ? $st->fetch() : false;
-
-    $st = $pdo->prepare('SELECT items FROM orders WHERE id = ?');
+    $contact = trim($phone . ($email !== '' ? ' · ' . $email : ''), ' ·');
+    $st = db()->prepare('SELECT items FROM orders WHERE id = ?');
     $st->execute([$order['id']]);
     $items = json_decode((string) $st->fetchColumn(), true) ?: [];
     $what = implode(', ', array_map(function ($i) { return $i['qty'] . '× ' . $i['name']; }, $items));
-    $note = date('Y-m-d') . ' · Order ' . $order['number'] . ' · EGP ' . number_format($order['total']) . ' · ' . $what;
-    $source = 'Order ' . $order['number'] . ' · ' . (in_array($in['source'] ?? '', ORDER_SOURCES, true) ? $in['source'] : 'Phone');
+    $note = date('Y-m-d') . ' · Order ' . $order['number'] . ' (' . $channel . ') · EGP ' . number_format($order['total']) . ' · ' . $what;
 
+    $existing = find_lead(phone_key($phone), email_key($email));
     if ($existing) {
-        $notes = trim($note . "\n" . (string) $existing['notes']);
-        $pdo->prepare("UPDATE leads SET status = 'Won', notes = ?, assigned_to = COALESCE(assigned_to, ?) WHERE id = ?")
-            ->execute([mb_substr($notes, 0, 2000), $repId, $existing['id']]);
+        touch_lead($existing, $note, 'Won', $repId, $contact);
         return 'updated';
     }
-    $contact = $phone . ($email !== '' ? ' · ' . $email : '');
-    $pdo->prepare("INSERT INTO leads (name, contact, cat, source, status, notes, assigned_to) VALUES (?, ?, ?, ?, 'Won', ?, ?)")
-        ->execute([$name, $contact, mb_substr($what, 0, 120), $source, $note, $repId]);
+    insert_lead(['name' => $name, 'contact' => $contact, 'cat' => mb_substr($what, 0, 120), 'source' => 'Order ' . $order['number'] . ' · ' . $channel,
+        'status' => 'Won', 'notes' => $note, 'assigned_to' => $repId]);
     return 'created';
 }

@@ -175,7 +175,7 @@ try {
         ]);
         log_activity($u, 'Created order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']) . ' · ' . ($b['source'] ?? 'Phone'));
         try {
-            $r['lead'] = lead_from_order($b, $r, $repId);
+            $r['lead'] = lead_from_order($b, $r, $repId, in_array($b['source'] ?? '', ORDER_SOURCES, true) ? $b['source'] : 'Phone');
         } catch (Throwable $e) {
             error_log('[shop] lead from order failed: ' . $e->getMessage()); // never block the order itself
         }
@@ -443,14 +443,18 @@ try {
         $assigned = !empty($b['assigned_to']) ? (int) $b['assigned_to'] : null;
         if ($id) {
             db()->prepare('UPDATE leads SET status = ?, notes = ?, assigned_to = ? WHERE id = ?')
-                ->execute([$status, str_in($b['notes'] ?? '', 2000), $assigned, $id]);
+                ->execute([$status, str_in($b['notes'] ?? '', 4000), $assigned, $id]);
             log_activity($u, 'Updated lead', '#' . $id . ' → ' . $status);
         } else {
             $name = str_in($b['name'] ?? '', 120);
             $contact = str_in($b['contact'] ?? '', 160);
             if ($name === '' || $contact === '') fail('Name and contact are required.');
-            db()->prepare('INSERT INTO leads (name, contact, cat, source, status, notes, assigned_to) VALUES (?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$name, $contact, str_in($b['cat'] ?? '', 40), str_in($b['source'] ?? 'Added by team', 80), $status, str_in($b['notes'] ?? '', 2000), $assigned]);
+            $dupe = find_lead(phone_key($contact), email_key($contact));
+            if ($dupe) {
+                fail('This number or email already belongs to “' . $dupe['name'] . '” (' . $dupe['status'] . ($dupe['assigned_name'] ? ', ' . $dupe['assigned_name'] : '') . '). Open that lead and add a note instead.', 409);
+            }
+            insert_lead(['name' => $name, 'contact' => $contact, 'cat' => str_in($b['cat'] ?? '', 40), 'source' => str_in($b['source'] ?? 'Added by team', 80),
+                'status' => $status, 'notes' => str_in($b['notes'] ?? '', 2000), 'assigned_to' => $assigned]);
             log_activity($u, 'Added lead', $name);
         }
         json_out(['ok' => true]);

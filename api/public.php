@@ -59,6 +59,11 @@ try {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
         $r = create_order($b);
         record_attempt('order');
+        try {
+            $st = db()->prepare('SELECT rep_id FROM orders WHERE id = ?');
+            $st->execute([$r['id']]);
+            lead_from_order($b, $r, ($rep = $st->fetchColumn()) ? (int) $rep : null, 'Website');
+        } catch (Throwable $e) { error_log('[shop] lead from website order failed: ' . $e->getMessage()); }
         log_activity(null, 'New order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']));
         json_out(['number' => $r['number'], 'total' => $r['total'], 'shipping' => $r['shipping'], 'discount' => $r['discount']]);
     }
@@ -68,8 +73,14 @@ try {
         $name = str_in($b['name'] ?? '', 120);
         $contact = str_in($b['contact'] ?? '', 160);
         if ($name === '' || $contact === '') fail('Please enter your name and email or phone.');
-        db()->prepare('INSERT INTO leads (name, contact, cat, source) VALUES (?, ?, ?, ?)')
-            ->execute([$name, $contact, str_in($b['cat'] ?? '', 40), str_in($b['source'] ?? 'Website', 80)]);
+        $cat = str_in($b['cat'] ?? '', 40);
+        $existing = find_lead(phone_key($contact), email_key($contact));
+        if ($existing) {
+            // Same person asking again: add it to their lead and put it back in the New pile.
+            touch_lead($existing, date('Y-m-d') . ' · New website enquiry' . ($cat ? ' · interested in ' . $cat : '') . ' · from ' . $name, 'New', null, $contact);
+        } else {
+            insert_lead(['name' => $name, 'contact' => $contact, 'cat' => $cat, 'source' => str_in($b['source'] ?? 'Website', 80), 'status' => 'New']);
+        }
         record_attempt('lead');
         log_activity(null, 'New lead', $name);
         notify_new_lead(['name' => $name, 'contact' => $contact, 'cat' => str_in($b['cat'] ?? '', 40)]);

@@ -58,6 +58,7 @@ function db(): PDO
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     $pdo->exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
     migrate($pdo);
+    if (!empty($GLOBALS['backfill_lead_keys']) && function_exists('backfill_lead_keys')) backfill_lead_keys();
     return $pdo;
 }
 
@@ -164,6 +165,14 @@ function migrate(PDO $pdo): void
     }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_tracking ON orders(tracking_number)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_rep ON orders(rep_id, created_at)');
+    $leadCols = $pdo->query('PRAGMA table_info(leads)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('phone_key', $leadCols, true)) {
+        $pdo->exec('ALTER TABLE leads ADD COLUMN phone_key TEXT');
+        $pdo->exec('ALTER TABLE leads ADD COLUMN email_key TEXT');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone_key)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email_key)');
+        $GLOBALS['backfill_lead_keys'] = true; // filled in once orders.php (phone_key/email_key) is loaded
+    }
     $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         month TEXT NOT NULL,
@@ -210,6 +219,15 @@ function seed_catalog(PDO $pdo): void
 require __DIR__ . '/mailer.php';
 require __DIR__ . '/bosta.php';
 require __DIR__ . '/orders.php';
+
+// One-time: normalised phone/email keys for leads created before duplicate prevention existed.
+function backfill_lead_keys(): void
+{
+    if (empty($GLOBALS['backfill_lead_keys'])) return;
+    $GLOBALS['backfill_lead_keys'] = false;
+    $up = db()->prepare('UPDATE leads SET phone_key = ?, email_key = ? WHERE id = ?');
+    foreach (db()->query('SELECT id, contact FROM leads')->fetchAll() as $l) $up->execute([phone_key($l['contact']), email_key($l['contact']), $l['id']]);
+}
 
 // ---------- HTTP helpers ----------
 
