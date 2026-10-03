@@ -174,6 +174,11 @@ try {
             'discount' => $b['discount'] ?? 0, 'shipping' => $b['shipping'] ?? null, 'notes' => $b['notes'] ?? '',
         ]);
         log_activity($u, 'Created order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']) . ' · ' . ($b['source'] ?? 'Phone'));
+        try {
+            $r['lead'] = lead_from_order($b, $r, $repId);
+        } catch (Throwable $e) {
+            error_log('[shop] lead from order failed: ' . $e->getMessage()); // never block the order itself
+        }
         json_out($r);
 
         // ---------- products & categories ----------

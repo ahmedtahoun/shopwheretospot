@@ -611,7 +611,7 @@
       try {
         const r = await api('order_create', { method: 'POST', body: data });
         closeDrawer();
-        toast('Order ' + r.number + ' created · ' + egp(r.total));
+        toast('Order ' + r.number + ' created · ' + egp(r.total) + (r.lead === 'created' ? ' · customer added to Leads' : r.lead === 'updated' ? ' · existing lead updated' : ''));
         S.orderStatus = ''; S.orderQ = '';
         if (S.route === 'orders') { await pageOrders(); const o = S.orders.find((x) => x.id === r.id); if (o) orderDrawer(o); }
         else location.hash = '#orders';

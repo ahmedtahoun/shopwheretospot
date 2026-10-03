@@ -140,3 +140,36 @@ function team_performance(string $month, ?int $onlyUser = null): array
     }, $st->fetchAll());
     return ['month' => $month, 'members' => $rows];
 }
+
+// Save the customer of a team-entered order as a lead (status Won), so every customer is in Leads.
+// A returning customer (same phone number) updates their existing lead instead of creating a duplicate.
+function lead_from_order(array $in, array $order, ?int $repId): string
+{
+    $pdo = db();
+    $name = str_in($in['name'] ?? '', 120);
+    $phone = str_in($in['phone'] ?? '', 40);
+    $email = str_in($in['email'] ?? '', 160);
+    $digits = preg_replace('/\D/', '', $phone);
+    $last9 = substr($digits, -9); // ignore 0 / +20 / 20 prefixes when matching
+    $st = $pdo->prepare("SELECT id, notes FROM leads WHERE REPLACE(REPLACE(REPLACE(REPLACE(contact, ' ', ''), '-', ''), '+', ''), '(', '') LIKE ? ORDER BY id DESC LIMIT 1");
+    $st->execute(['%' . $last9 . '%']);
+    $existing = strlen($last9) >= 8 ? $st->fetch() : false;
+
+    $st = $pdo->prepare('SELECT items FROM orders WHERE id = ?');
+    $st->execute([$order['id']]);
+    $items = json_decode((string) $st->fetchColumn(), true) ?: [];
+    $what = implode(', ', array_map(function ($i) { return $i['qty'] . '× ' . $i['name']; }, $items));
+    $note = date('Y-m-d') . ' · Order ' . $order['number'] . ' · EGP ' . number_format($order['total']) . ' · ' . $what;
+    $source = 'Order ' . $order['number'] . ' · ' . (in_array($in['source'] ?? '', ORDER_SOURCES, true) ? $in['source'] : 'Phone');
+
+    if ($existing) {
+        $notes = trim($note . "\n" . (string) $existing['notes']);
+        $pdo->prepare("UPDATE leads SET status = 'Won', notes = ?, assigned_to = COALESCE(assigned_to, ?) WHERE id = ?")
+            ->execute([mb_substr($notes, 0, 2000), $repId, $existing['id']]);
+        return 'updated';
+    }
+    $contact = $phone . ($email !== '' ? ' · ' . $email : '');
+    $pdo->prepare("INSERT INTO leads (name, contact, cat, source, status, notes, assigned_to) VALUES (?, ?, ?, ?, 'Won', ?, ?)")
+        ->execute([$name, $contact, mb_substr($what, 0, 120), $source, $note, $repId]);
+    return 'created';
+}
