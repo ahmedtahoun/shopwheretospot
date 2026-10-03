@@ -332,7 +332,7 @@ function bosta_create_for_order(array $o, array $opts): array
     $cod = isset($opts['cod']) && $opts['cod'] !== '' ? (float) $opts['cod'] : (($o['payment'] ?? 'cod') === 'cod' ? (float) $o['total'] : 0.0);
     if ($cod < 0 || $cod > 30000) throw new ShopError('Cash to collect must be between 0 and 30,000 EGP (Bosta limit).');
     [$first, $last] = bosta_split_name($o['customer']);
-    $goods = array_sum(array_map(function ($i) { return $i['qty'] * $i['price']; }, $physical));
+    $goods = array_sum(array_map(function ($i) { return $i['total'] ?? $i['qty'] * $i['price']; }, $physical));
 
     $payload = [
         'type' => 10,
@@ -423,8 +423,7 @@ function bosta_apply_state(int $orderId, int $code, string $note = ''): void
     $pdo->prepare("UPDATE orders SET bosta_state = ?, bosta_note = ?, bosta_updated_at = datetime('now') WHERE id = ?")
         ->execute([$code, mb_substr($note, 0, 300), $orderId]);
     $next = bosta_order_status($code);
-    $rank = ['Pending' => 0, 'Confirmed' => 1, 'Shipped' => 2, 'Delivered' => 3, 'Returned' => 3, 'Cancelled' => 3];
-    if ($next && $next !== $current && ($rank[$next] ?? 0) >= ($rank[$current] ?? 0) && $current !== 'Cancelled') {
+    if ($next && $next !== $current && (ORDER_STAGE[$next] ?? 0) >= (ORDER_STAGE[$current] ?? 0) && $current !== 'Cancelled') {
         set_order_status($orderId, $next);
     }
 }

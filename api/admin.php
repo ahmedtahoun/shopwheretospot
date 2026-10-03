@@ -107,14 +107,22 @@ try {
                 $key = $it['id'];
                 if (!isset($top[$key])) $top[$key] = ['name' => $it['name'], 'qty' => 0, 'revenue' => 0];
                 $top[$key]['qty'] += $it['qty'];
-                $top[$key]['revenue'] += $it['qty'] * $it['price'];
+                $top[$key]['revenue'] += $it['total'] ?? $it['qty'] * $it['price'];
             }
         }
         usort($top, function ($a, $b) { return $b['revenue'] <=> $a['revenue']; });
         $st = $pdo->prepare("SELECT COALESCE(source, 'Website') AS source, COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope GROUP BY 1 ORDER BY revenue DESC");
         $st->execute([$since]);
         $sources = $st->fetchAll();
-        $lowStock = $own ? [] : $pdo->query("SELECT id, name, stock FROM products WHERE status = 'Active' AND cat != 'services' AND stock <= 5 ORDER BY stock")->fetchAll();
+        $lowStock = [];
+        if (!$own) {
+            foreach ($pdo->query("SELECT id, name, stock, variants FROM products WHERE status = 'Active' AND cat != 'services'")->fetchAll() as $p) {
+                $vs = product_json($p, 'variants');
+                if ($vs) { foreach ($vs as $v) if ((int) $v['stock'] <= 5) $lowStock[] = ['id' => $p['id'], 'name' => $p['name'] . ' — ' . $v['label'], 'stock' => (int) $v['stock']]; }
+                elseif ((int) $p['stock'] <= 5) $lowStock[] = ['id' => $p['id'], 'name' => $p['name'], 'stock' => (int) $p['stock']];
+            }
+            usort($lowStock, function ($a, $b) { return $a['stock'] <=> $b['stock']; });
+        }
         $recent = array_map('order_out', $pdo->query('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE 1' . str_replace('rep_id', 'o.rep_id', $scope) . ' ORDER BY o.id DESC LIMIT 6')->fetchAll());
         $month = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m');
         json_out([
@@ -156,7 +164,9 @@ try {
         require_perm('sell');
         $rows = array_map(function ($p) {
             return ['id' => $p['id'], 'name' => $p['name'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
-                'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub']];
+                'discountPct' => $p['discountPct'], 'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub'],
+                'variants' => array_map(function ($v) { unset($v['sku']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
+                'personalized' => $p['personalized'], 'fromPrice' => $p['fromPrice']];
         }, load_products(true));
         $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
         json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => PAYMENT_METHODS, 'reps' => $reps,
@@ -201,24 +211,42 @@ try {
         $st = $pdo->prepare('SELECT 1 FROM categories WHERE key = ?');
         $st->execute([$cat]);
         if (!$st->fetchColumn()) fail('Pick a category.');
+        $variants = clean_variants($b['variants'] ?? []);
+        $tiers = $variants ? [] : clean_tiers($b['tiers'] ?? []);
+        $addons = clean_addons($b['addons'] ?? []);
         $price = (float) ($b['price'] ?? 0);
-        if ($price <= 0) fail('Price must be more than 0 EGP.');
+        // With sizes or quantity prices, the base price can be left empty: it becomes the lowest price.
+        if ($price <= 0) {
+            $candidates = [];
+            foreach ($variants as $v) { foreach ($v['tiers'] as $t) $candidates[] = $t['price']; if ($v['price'] > 0) $candidates[] = $v['price']; }
+            foreach ($tiers as $t) $candidates[] = $t['price'];
+            $price = $candidates ? min($candidates) : 0;
+        }
+        if ($price <= 0) fail('Enter a price, or add sizes / quantity prices.');
+        foreach ($variants as &$v) {
+            if (!$v['tiers'] && $v['price'] <= 0) $v['price'] = $price;
+        }
+        unset($v);
+        $stock = $variants ? array_sum(array_map(function ($v) { return $v['stock']; }, $variants)) : max(0, (int) ($b['stock'] ?? 0));
         $features = array_values(array_filter(array_map(function ($f) { return str_in($f, 160); }, (array) ($b['features'] ?? []))));
         $vals = [
             ':id' => $id, ':sku' => str_in($b['sku'] ?? '', 40), ':name' => $name, ':cat' => $cat,
             ':vendor' => str_in($b['vendor'] ?? '', 80), ':price' => $price, ':cost' => max(0, (float) ($b['cost'] ?? 0)),
-            ':stock' => max(0, (int) ($b['stock'] ?? 0)), ':discount_pct' => max(0, min(90, (float) ($b['discountPct'] ?? 0))),
+            ':stock' => $stock, ':discount_pct' => max(0, min(90, (float) ($b['discountPct'] ?? 0))),
             ':label' => str_in($b['label'] ?? '', 30), ':status' => in_array($b['status'] ?? '', ['Active', 'Draft', 'Archived'], true) ? $b['status'] : 'Draft',
             ':sub' => str_in($b['sub'] ?? '', 160), ':descr' => str_in($b['desc'] ?? '', 4000),
             ':features' => json_encode($features, JSON_UNESCAPED_UNICODE), ':period' => $cat === 'services' ? 'month' : '',
+            ':variants' => json_encode($variants, JSON_UNESCAPED_UNICODE), ':tiers' => json_encode($tiers), ':addons' => json_encode($addons, JSON_UNESCAPED_UNICODE),
+            ':personalized' => empty($b['personalized']) ? 0 : 1,
         ];
         if ($isNew) {
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM products')->fetchColumn();
-            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort)
-                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort)')->execute($vals);
+            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized)
+                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized)')->execute($vals);
         } else {
             $st = $pdo->prepare("UPDATE products SET sku=:sku, name=:name, cat=:cat, vendor=:vendor, price=:price, cost=:cost, stock=:stock, discount_pct=:discount_pct,
-                label=:label, status=:status, sub=:sub, descr=:descr, features=:features, period=:period, updated_at=datetime('now') WHERE id=:id");
+                label=:label, status=:status, sub=:sub, descr=:descr, features=:features, period=:period, variants=:variants, tiers=:tiers, addons=:addons,
+                personalized=:personalized, updated_at=datetime('now') WHERE id=:id");
             $st->execute($vals);
             if (!$st->rowCount()) fail('Product not found.', 404);
         }
@@ -340,7 +368,51 @@ try {
         if (!$o) fail('Order not found.', 404);
         assert_order_access($u, $o);
         set_order_status($id, (string) ($b['status'] ?? $o['status']), str_in($b['notes'] ?? $o['notes'], 2000));
+        if (array_key_exists('business_name', $b)) {
+            $pdo->prepare('UPDATE orders SET business_name = ?, review_link = ?, links = ?, design_notes = ? WHERE id = ?')
+                ->execute([str_in($b['business_name'], 120), str_in($b['review_link'] ?? '', 500), str_in($b['links'] ?? '', 1000), str_in($b['design_notes'] ?? '', 2000), $id]);
+        }
         json_out(['ok' => true]);
+
+    case 'order_file_upload':
+        $u = require_perm('orders');
+        $id = (int) ($_POST['order_id'] ?? 0);
+        $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+        $st->execute([$id]);
+        $o = $st->fetch();
+        if (!$o) fail('Order not found.', 404);
+        assert_order_access($u, $o);
+        $f = $_FILES['file'] ?? null;
+        if (!$f || $f['error'] !== UPLOAD_ERR_OK) fail('Upload failed. Files must be under ' . (cfg('max_upload_bytes') >> 20) . ' MB.');
+        $kind = in_array($_POST['kind'] ?? '', ['Logo', 'Design proof', 'Final design', 'Other'], true) ? $_POST['kind'] : 'Other';
+        $path = store_order_file($f, $kind === 'Logo' ? 'logo' : 'file');
+        $files = json_decode((string) $o['files'], true) ?: [];
+        $files[] = ['path' => $path, 'name' => str_in($f['name'], 120), 'kind' => $kind, 'by' => $u['name'], 'at' => gmdate('Y-m-d H:i:s')];
+        db()->prepare('UPDATE orders SET files = ? WHERE id = ?')->execute([json_encode($files, JSON_UNESCAPED_UNICODE), $id]);
+        log_activity($u, 'Added ' . strtolower($kind), order_number($id));
+        json_out(['files' => $files]);
+
+    case 'order_file_delete':
+        $u = require_perm('orders');
+        $b = body();
+        $id = (int) ($b['order_id'] ?? 0);
+        $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+        $st->execute([$id]);
+        $o = $st->fetch();
+        if (!$o) fail('Order not found.', 404);
+        assert_order_access($u, $o);
+        $files = json_decode((string) $o['files'], true) ?: [];
+        $keep = [];
+        foreach ($files as $file) {
+            if ($file['path'] === ($b['path'] ?? '')) {
+                $local = cfg('order_upload_dir') . '/' . basename($file['path']);
+                if (strpos($file['path'], cfg('order_upload_url') . '/') === 0 && is_file($local)) @unlink($local);
+                continue;
+            }
+            $keep[] = $file;
+        }
+        db()->prepare('UPDATE orders SET files = ? WHERE id = ?')->execute([json_encode($keep, JSON_UNESCAPED_UNICODE), $id]);
+        json_out(['files' => $keep]);
 
     // ---------- Bosta shipping ----------
 
@@ -532,6 +604,8 @@ function order_out(array $o): array
         'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'shipping' => (float) $o['shipping'],
         'total' => (float) $o['total'], 'promo' => $o['promo'], 'payment' => $o['payment'], 'status' => $o['status'],
         'notes' => $o['notes'], 'rep' => $o['rep_name'] ?? null, 'repId' => $o['rep_id'] === null ? null : (int) $o['rep_id'], 'createdAt' => $o['created_at'],
+        'businessName' => $o['business_name'] ?? '', 'reviewLink' => $o['review_link'] ?? '', 'links' => $o['links'] ?? '', 'designNotes' => $o['design_notes'] ?? '',
+        'files' => json_decode((string) ($o['files'] ?? '[]'), true) ?: [],
         'source' => $o['source'] ?? 'Website', 'createdBy' => $o['created_by_name'] ?? null, 'paymentLabel' => PAYMENT_METHODS[$o['payment']] ?? $o['payment'],
         'cityId' => $o['city_id'], 'districtId' => $o['district_id'], 'district' => $o['district'],
         'tracking' => $o['tracking_number'], 'bostaState' => $o['bosta_state'] === null ? null : (int) $o['bosta_state'],

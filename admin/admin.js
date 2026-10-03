@@ -34,7 +34,7 @@
     return data;
   }
 
-  const ORDER_TONE = { Pending: ['warn', '●'], Confirmed: ['info', '◆'], Shipped: ['info', '➜'], Delivered: ['good', '✓'], Cancelled: ['bad', '✕'], Returned: ['bad', '↩'] };
+  const ORDER_TONE = { Pending: ['warn', '●'], Confirmed: ['info', '◆'], Designing: ['accent', '✎'], 'Awaiting approval': ['warn', '⏳'], 'In production': ['accent', '⚙'], Ready: ['good', '▣'], Shipped: ['info', '➜'], Delivered: ['good', '✓'], Cancelled: ['bad', '✕'], Returned: ['bad', '↩'] };
   const LEAD_TONE = { New: ['accent', '●'], Contacted: ['info', '◆'], Quoted: ['warn', '✎'], Won: ['good', '✓'], Lost: ['bad', '✕'] };
   const PRODUCT_TONE = { Active: ['good', '✓'], Draft: ['warn', '✎'], Archived: ['bad', '▪'] };
   const pill = (map, s) => { const t = map[s] || ['', '•']; return '<span class="pill ' + t[0] + '">' + t[1] + ' ' + esc(s) + '</span>'; };
@@ -294,8 +294,10 @@
     const [d, bosta] = await Promise.all([api('orders', { query: '&status=' + encodeURIComponent(status) + '&q=' + encodeURIComponent(q) }), bostaInfo()]);
     S.orders = d.orders;
     S.sel = new Set();
+    if (S.orderView === 'board') return pageBoard(d.orders, bosta);
     const tabs = [''].concat(S.meta.orderStatuses);
     $('#main').innerHTML = header('Orders', d.orders.length + ' shown' + (can('own_orders') ? ' · only orders credited to you' : ''),
+      '<div class="seg" id="view"><button data-v="list" class="' + (S.orderView !== 'board' ? 'on' : '') + '">List</button><button data-v="board" class="' + (S.orderView === 'board' ? 'on' : '') + '">Production board</button></div>' +
       '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>' + (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
       '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
       '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, phone, email or WTS-…" value="' + esc(q) + '" style="max-width:300px"></div>' +
@@ -311,6 +313,7 @@
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
     const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
+    $$('#view button').forEach((b) => b.onclick = () => { S.orderView = b.dataset.v; S.orderStatus = ''; pageOrders(); });
     let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.orderQ = e.target.value; pageOrders().then(() => { const el = $('#q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }, 350); };
     $$('tr[data-i]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-nosel]')) return; orderDrawer(d.orders[+tr.dataset.i]); });
     if (!bosta.enabled) return;
@@ -323,6 +326,38 @@
     const all = $('#selAll'); if (all) all.onchange = () => { $$('.sel').forEach((c) => { c.checked = all.checked; }); sync(); };
     $('#bulkAwb').onclick = () => window.open(API + '?action=bosta_awb&ids=' + [...S.sel].join(','), '_blank');
     $('#bulkShip').onclick = () => bulkShip([...S.sel]);
+  }
+
+  // Kanban-style board: one column per open stage; move orders with the arrows or open them for details.
+  const BOARD = ['Pending', 'Confirmed', 'Designing', 'Awaiting approval', 'In production', 'Ready', 'Shipped'];
+  function pageBoard(orders, bosta) {
+    const open = orders.filter((o) => BOARD.includes(o.status));
+    $('#main').innerHTML = header('Orders', open.length + ' open orders' + (can('own_orders') ? ' · only orders credited to you' : ''),
+      '<div class="seg" id="view"><button data-v="list">List</button><button data-v="board" class="on">Production board</button></div>' +
+      (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
+      '<div style="display:grid;grid-template-columns:repeat(' + BOARD.length + ',minmax(210px,1fr));gap:12px;overflow-x:auto;padding-bottom:10px">' +
+      BOARD.map((st, si) => {
+        const list = open.filter((o) => o.status === st);
+        return '<div style="background:#EFEAE3;border-radius:14px;padding:10px;min-height:200px"><div class="row" style="margin-bottom:8px">' + pill(ORDER_TONE, st) + '<span class="spacer"></span><b class="small">' + list.length + '</b></div>' +
+          list.map((o) => '<div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" data-open="' + o.id + '">' +
+            '<div class="row"><b>' + esc(o.number) + '</b><span class="spacer"></span><span class="small muted">' + egp(o.total) + '</span></div>' +
+            '<div class="small">' + esc(o.businessName || o.customer) + '</div>' +
+            '<div class="small muted" style="margin:4px 0">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</div>' +
+            (o.files && o.files.length ? '<div class="small muted">📎 ' + o.files.length + ' file' + (o.files.length > 1 ? 's' : '') + '</div>' : '') +
+            '<div class="small muted">' + esc(o.rep || o.source) + ' · ' + dateTime(o.createdAt) + '</div>' +
+            '<div class="row" style="margin-top:8px">' + (si > 0 ? '<button class="btn sm" data-mv="' + o.id + '" data-to="' + BOARD[si - 1] + '" aria-label="Move back">←</button>' : '') +
+            '<span class="spacer"></span>' + (si < BOARD.length - 1 ? '<button class="btn sm" data-mv="' + o.id + '" data-to="' + BOARD[si + 1] + '">' + esc(BOARD[si + 1]) + ' →</button>' : '') + '</div></div>').join('') +
+          '</div>';
+      }).join('') + '</div>' +
+      '<p class="small muted">Delivered, cancelled and returned orders are in the List view. Bosta moves shipped orders forward automatically.</p>';
+    $$('#view button').forEach((b) => b.onclick = () => { S.orderView = b.dataset.v; pageOrders(); });
+    const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
+    $$('[data-open]').forEach((c) => c.onclick = (e) => { if (e.target.closest('[data-mv]')) return; orderDrawer(orders.find((o) => o.id === +c.dataset.open)); });
+    $$('[data-mv]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      try { await api('order_update', { method: 'POST', body: { id: +b.dataset.mv, status: b.dataset.to } }); toast('Moved to ' + b.dataset.to); pageOrders(); }
+      catch (err) { toast(err.message, true); b.disabled = false; }
+    });
   }
 
   async function bulkShip(ids) {
@@ -392,13 +427,24 @@
       '<div class="card"><div class="grid2"><div><div class="small muted">Customer</div><b>' + esc(o.customer) + '</b><div>' + esc(o.email) + '</div><div><a href="tel:' + esc(o.phone) + '">' + esc(o.phone) + '</a> · <a href="https://wa.me/' + esc(o.phone.replace(/\D/g, '').replace(/^0/, '20')) + '" target="_blank" rel="noopener">WhatsApp</a></div></div>' +
       '<div><div class="small muted">Deliver to</div>' + esc(o.address || '—') + '<div>' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div><div class="small muted" style="margin-top:6px">Placed ' + dateTime(o.createdAt) + ' · ' + esc(o.paymentLabel) + '</div>' +
       '<div class="small muted">Source: ' + esc(o.source) + (o.rep ? ' · credited to ' + esc(o.rep) : '') + (o.createdBy && o.createdBy !== o.rep ? ' · entered by ' + esc(o.createdBy) : '') + '</div></div></div></div>' +
-      '<div class="card"><div class="list">' + o.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + '</span><span>' + egp(it.qty * it.price) + '</span></div>').join('') +
+      '<div class="card"><div class="list">' + o.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + '</span><span>' + egp(it.total != null ? it.total : it.qty * it.price) + '</span></div>').join('') +
       '<div class="li muted"><span>Subtotal</span><span>' + egp(o.subtotal) + '</span></div>' +
       (o.discount ? '<div class="li muted"><span>Promo ' + esc(o.promo) + '</span><span>−' + egp(o.discount) + '</span></div>' : '') +
       '<div class="li muted"><span>Delivery</span><span>' + (o.shipping ? egp(o.shipping) : 'Free') + '</span></div>' +
       '<div class="li"><b>Total</b><b>' + egp(o.total) + '</b></div></div></div>' +
       bostaSection(o, bosta) +
-      '<form id="of" class="stack"><label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
+      '<form id="of" class="stack">' +
+      '<div class="card stack"><b>Personalisation</b>' +
+      '<div class="grid2"><label class="field">Business / brand name<input type="text" name="business_name" value="' + esc(o.businessName) + '"></label>' +
+      '<label class="field">Google review link' + (o.reviewLink ? ' <a class="hint" href="' + esc(/^https?:\/\//.test(o.reviewLink) ? o.reviewLink : 'https://' + o.reviewLink) + '" target="_blank" rel="noopener">open ↗</a>' : '') +
+      '<input type="text" name="review_link" value="' + esc(o.reviewLink) + '"></label></div>' +
+      '<label class="field">Social links / website<textarea name="links" style="min-height:50px">' + esc(o.links) + '</textarea></label>' +
+      '<label class="field">Design notes<textarea name="design_notes" style="min-height:50px">' + esc(o.designNotes) + '</textarea></label>' +
+      '<div><b class="small">Files</b><div class="list" id="oFiles"></div>' +
+      '<div class="row" style="margin-top:8px"><select id="oFileKind" style="width:auto"><option>Logo</option><option selected>Design proof</option><option>Final design</option><option>Other</option></select>' +
+      '<label class="btn sm" style="cursor:pointer">⬆ Upload file<input type="file" id="oFile" accept="image/jpeg,image/png,image/webp,application/pdf" hidden></label>' +
+      '<span class="hint">JPG, PNG, WebP or PDF up to 5 MB</span></div></div></div>' +
+      '<label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
       '<span class="hint">Cancelling or returning puts the items back in stock.' + (o.tracking ? ' Bosta updates move this to Shipped, Delivered or Returned automatically.' : '') + '</span></label>' +
       '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone">' + esc(o.notes) + '</textarea></label></form></div>';
     openDrawer('Order ' + o.number, body, '<span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" form="of" type="submit">Save</button>');
@@ -407,6 +453,29 @@
       e.preventDefault();
       try { await api('order_update', { method: 'POST', body: Object.assign({ id: o.id }, formData(e.target)) }); closeDrawer(); toast('Order updated'); pageOrders(); }
       catch (err) { toast(err.message, true); }
+    };
+    const renderFiles = (files) => {
+      o.files = files;
+      $('#oFiles').innerHTML = files.length ? files.map((f, i) =>
+        '<div class="li"><span><span class="pill">' + esc(f.kind) + '</span> <a href="../' + esc(f.path) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a>' +
+        '<div class="small muted">' + esc(f.by || '') + ' · ' + dateTime(f.at) + '</div></span>' +
+        (/\.(jpg|png|webp)$/i.test(f.path) ? '<img src="../' + esc(f.path) + '" alt="" style="width:46px;height:46px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff">' : '') +
+        '<button type="button" class="btn sm" data-fdel="' + i + '" aria-label="Remove file">✕</button></div>').join('') : '<div class="small muted" style="padding:6px 0">No files yet.</div>';
+      $$('[data-fdel]', $('#oFiles')).forEach((b) => b.onclick = async () => {
+        const f = files[+b.dataset.fdel];
+        if (!confirm('Remove ' + f.name + '?')) return;
+        try { const r = await api('order_file_delete', { method: 'POST', body: { order_id: o.id, path: f.path } }); renderFiles(r.files); }
+        catch (err) { toast(err.message, true); }
+      });
+    };
+    renderFiles(o.files || []);
+    $('#oFile').onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const fd = new FormData(); fd.append('order_id', o.id); fd.append('kind', $('#oFileKind').value); fd.append('file', f);
+      try { const r = await api('order_file_upload', { method: 'POST', form: fd }); renderFiles(r.files); toast('File uploaded'); }
+      catch (err) { toast(err.message, true); }
+      e.target.value = '';
     };
     const refresh = $('#bRefresh');
     if (refresh) refresh.onclick = async () => {
@@ -490,12 +559,33 @@
     };
   }
 
+  // Same pricing rules as api/pricing.php: quantity tiers per size, extras per piece or per order, whole-pound totals.
+  function priceLine(p, variantId, addonIds, qty) {
+    const vs = p.variants || [];
+    const variant = vs.find((v) => v.id === variantId) || (vs.length === 1 ? vs[0] : null);
+    const tiers = variant ? (variant.tiers || []) : (p.tiers || []);
+    let unit = null, bestMin = 0;
+    tiers.forEach((t) => { if (t.min >= 1 && t.min <= qty && t.min >= bestMin && t.price > 0) { unit = t.price; bestMin = t.min; } });
+    if (unit === null) unit = variant && variant.price ? variant.price : p.price;
+    if (p.discountPct) unit = unit * (1 - p.discountPct / 100);
+    let perUnit = 0, perOrder = 0; const labels = [];
+    (p.addons || []).forEach((g) => {
+      const o = (g.options || []).find((x) => (addonIds || []).includes(x.id)) || (g.options || [])[0];
+      if (!o) return;
+      if (o.per === 'order') perOrder += o.price; else perUnit += o.price;
+      if (!/standard/i.test(o.label) && (o.price || g.options.length > 1)) labels.push(o.label);
+    });
+    const total = Math.round((unit + perUnit) * qty + perOrder);
+    return { total, unit: total / Math.max(1, qty), name: p.name + (variant ? ' — ' + variant.label : '') + (labels.length ? ' · ' + labels.join(' · ') : ''), variant };
+  }
+
   // ---------- team-entered orders ----------
   async function newOrderDrawer() {
     const cat = await api('order_catalog');
     const lines = [];
     let area = null; // { districtId, cityId, title, sub }
-    const physicalProducts = () => lines.some((l) => l.p.cat !== 'services');
+    const physicalProducts = () => lines.some((l) => (l.custom ? l.ship : l.p.cat !== 'services'));
+    const lineCalc = (l) => l.custom ? { total: Math.round(l.price * l.qty), name: l.name } : priceLine(l.p, l.variant, l.addons, l.qty);
     const repOpts = can('targets') ? '<label class="field">Credit this sale to<select name="rep_id">' +
       cat.reps.map((r) => '<option value="' + r.id + '"' + (r.id === S.user.id ? ' selected' : '') + '>' + esc(r.name) + ' (' + esc(r.role) + ')</option>').join('') + '</select></label>' : '';
     const body = '<form id="nf" class="stack">' +
@@ -503,9 +593,21 @@
       '<label class="field">Phone / WhatsApp<input type="tel" name="phone" required placeholder="01xxxxxxxxx"></label></div>' +
       '<label class="field">Email <span class="hint">Optional</span><input type="email" name="email"></label></div>' +
       '<div class="card stack"><b>Products</b><div class="row"><select id="nProd" style="flex:1;min-width:200px"><option value="">Choose a product…</option>' +
-      cat.products.map((p) => '<option value="' + esc(p.id) + '">' + esc(p.name) + ' — ' + egp(p.price) + (p.cat === 'services' ? ' / month' : ' · ' + p.stock + ' in stock') + '</option>').join('') +
-      '</select><input type="number" id="nQty" min="1" value="1" style="width:80px"><button type="button" class="btn" id="nAdd">Add</button></div>' +
-      '<div class="lines" id="nLines"></div></div>' +
+      cat.products.map((p) => '<option value="' + esc(p.id) + '">' + esc(p.name) + ' — ' + ((p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? 'from ' + egp(p.fromPrice) : egp(p.price)) + (p.cat === 'services' ? ' / month' : ' · ' + p.stock + ' in stock') + '</option>').join('') +
+      '</select><input type="number" id="nQty" min="1" value="1" style="width:80px" aria-label="Quantity"><button type="button" class="btn" id="nAdd">Add</button></div>' +
+      '<div class="row" id="nOpts"></div><div class="small muted" id="nPreview"></div>' +
+      '<div class="lines" id="nLines"></div>' +
+      '<details id="nCustomBox"><summary class="small" style="cursor:pointer;font-weight:600">＋ Custom item (anything not in the catalog)</summary>' +
+      '<div class="row" style="margin-top:8px"><input type="text" id="cName" placeholder="Description, e.g. 30 mixed stands with logo" style="flex:1;min-width:200px">' +
+      '<input type="number" id="cQty" min="1" value="1" style="width:70px" aria-label="Custom quantity"><span class="small">× EGP</span><input type="number" id="cPrice" min="0" step="0.01" style="width:100px" placeholder="each" aria-label="Price each">' +
+      '<label class="row small"><input type="checkbox" id="cShip" checked> needs delivery</label><button type="button" class="btn sm" id="cAdd">Add</button></div>' +
+      '<div class="small muted" style="margin-top:4px">Tip: for "30 for EGP 7,000" enter 30 × 233.33 — totals round to whole pounds.</div></details></div>' +
+      '<div class="card stack" id="nPers"><b>Personalisation</b> <span class="hint">What to print — shown on the order for the design team</span>' +
+      '<div class="grid2"><label class="field">Business / brand name<input type="text" name="business_name"></label>' +
+      '<label class="field">Google review link<input type="url" name="review_link" placeholder="https://g.page/r/…"></label></div>' +
+      '<label class="field">Social links / website<textarea name="links" style="min-height:50px" placeholder="One per line"></textarea></label>' +
+      '<label class="field">Design notes<textarea name="design_notes" style="min-height:50px" placeholder="Colours, text, logo comes on WhatsApp…"></textarea></label>' +
+      '<span class="hint">You can upload the logo and design files on the order after it’s created.</span></div>' +
       '<div class="card stack" id="nDelivery"><b>Delivery</b>' +
       '<label class="field">Street address<textarea name="address" id="nAddr" style="min-height:60px" placeholder="Street, building, floor, apartment"></textarea></label>' +
       '<div class="field">Area <span class="hint">Search in English or Arabic, e.g. Nasr City / مدينة نصر</span><div class="pick" id="nPick"></div></div></div>' +
@@ -521,11 +623,11 @@
     openDrawer('New order', body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="nf" type="submit" id="nSubmit">Create order</button>');
 
     const autoShip = () => {
-      const phys = lines.filter((l) => l.p.cat !== 'services').reduce((s, l) => s + l.p.price * l.qty, 0);
+      const phys = lines.filter((l) => (l.custom ? l.ship : l.p.cat !== 'services')).reduce((s, l) => s + lineCalc(l).total, 0);
       return phys > 0 && phys < cat.freeShippingThreshold ? cat.shippingFee : 0;
     };
     const renderTotals = () => {
-      const sub = lines.reduce((s, l) => s + l.p.price * l.qty, 0);
+      const sub = lines.reduce((s, l) => s + lineCalc(l).total, 0);
       const disc = Math.min(sub, +($('#nDisc').value || 0));
       const shipVal = $('#nShip').value;
       const ship = shipVal === '' ? autoShip() : +shipVal;
@@ -539,22 +641,53 @@
       $('#nDelivery').style.opacity = lines.length && !physicalProducts() ? '.55' : '1';
     };
     const renderLines = () => {
-      $('#nLines').innerHTML = lines.length ? lines.map((l, i) =>
-        '<div class="line"><span>' + esc(l.p.name) + '<div class="small muted">' + egp(l.p.price) + ' each</div></span>' +
+      $('#nLines').innerHTML = lines.length ? lines.map((l, i) => { const c = lineCalc(l);
+        return '<div class="line"><span>' + esc(c.name) + (l.custom ? ' <span class="pill">custom</span>' : '') + '<div class="small muted">' + egp(c.total / l.qty) + ' each</div></span>' +
         '<input type="number" min="1" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity">' +
-        '<b style="text-align:right">' + egp(l.p.price * l.qty) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button></div>').join('')
+        '<b style="text-align:right">' + egp(c.total) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button></div>'; }).join('')
         : '<div class="small muted" style="padding:6px 0">No products yet.</div>';
       $$('[data-q]', $('#nLines')).forEach((inp) => inp.onchange = () => { lines[+inp.dataset.q].qty = Math.max(1, +inp.value || 1); renderLines(); });
       $$('[data-x]', $('#nLines')).forEach((b) => b.onclick = () => { lines.splice(+b.dataset.x, 1); renderLines(); });
       renderTotals();
     };
-    $('#nAdd').onclick = () => {
+    // Size and extras pickers for the chosen product, with a live price preview.
+    const chosenOpts = () => {
       const p = cat.products.find((x) => x.id === $('#nProd').value);
-      if (!p) return toast('Choose a product first', true);
-      const qty = Math.max(1, +$('#nQty').value || 1);
-      const existing = lines.find((l) => l.p.id === p.id);
-      if (existing) existing.qty += qty; else lines.push({ p, qty });
-      $('#nProd').value = ''; $('#nQty').value = 1;
+      if (!p) return null;
+      const vSel = $('#nVariant');
+      const addons = $$('[data-addon]').map((el) => el.value);
+      return { p, variant: vSel ? vSel.value : ((p.variants || [])[0] || {}).id, addons, qty: Math.max(1, +$('#nQty').value || 1) };
+    };
+    const preview = () => {
+      const c = chosenOpts();
+      if (!c) { $('#nPreview').textContent = ''; return; }
+      const r = priceLine(c.p, c.variant, c.addons, c.qty);
+      const stock = c.p.cat === 'services' ? null : (r.variant ? r.variant.stock : c.p.stock);
+      $('#nPreview').textContent = c.qty + ' × ' + r.name + ' = ' + egp(r.total) + ' (' + egp(r.unit) + ' each)' + (stock !== null ? ' · ' + stock + ' in stock' : '');
+    };
+    $('#nProd').onchange = () => {
+      const p = cat.products.find((x) => x.id === $('#nProd').value);
+      $('#nOpts').innerHTML = !p ? '' :
+        ((p.variants || []).length > 1 ? '<label class="field" style="flex:1">Size<select id="nVariant">' + p.variants.map((v) => '<option value="' + esc(v.id) + '">' + esc(v.label) + ' · ' + v.stock + ' in stock</option>').join('') + '</select></label>' : '') +
+        (p.addons || []).map((g) => '<label class="field" style="flex:1">' + esc(g.group) + '<select data-addon>' + g.options.map((o) => '<option value="' + esc(o.id) + '">' + esc(o.label) + (o.price ? ' (+' + egp(o.price) + (o.per === 'order' ? ' once' : ' each') + ')' : '') + '</option>').join('') + '</select></label>').join('');
+      $$('#nOpts select').forEach((el) => el.onchange = preview);
+      preview();
+    };
+    $('#nQty').oninput = preview;
+    $('#nAdd').onclick = () => {
+      const c = chosenOpts();
+      if (!c) return toast('Choose a product first', true);
+      const key = c.p.id + '|' + (c.variant || '') + '|' + c.addons.slice().sort().join('+');
+      const existing = lines.find((l) => l.key === key);
+      if (existing) existing.qty += c.qty; else lines.push({ key, p: c.p, variant: c.variant, addons: c.addons, qty: c.qty });
+      $('#nProd').value = ''; $('#nQty').value = 1; $('#nOpts').innerHTML = ''; preview();
+      renderLines();
+    };
+    $('#cAdd').onclick = () => {
+      const name = $('#cName').value.trim(), price = +$('#cPrice').value, qty = Math.max(1, +$('#cQty').value || 1);
+      if (!name || !(price > 0)) return toast('Enter a description and a price for the custom item', true);
+      lines.push({ custom: true, key: 'c' + Date.now(), name, price, qty, ship: $('#cShip').checked });
+      $('#cName').value = ''; $('#cPrice').value = ''; $('#cQty').value = 1;
       renderLines();
     };
     ['#nDisc', '#nShip', '#nPay'].forEach((sel) => { $(sel).oninput = renderTotals; $(sel).onchange = renderTotals; });
@@ -604,7 +737,7 @@
       if (!lines.length) return toast('Add at least one product', true);
       if (physicalProducts() && !area) return toast('Choose the delivery area', true);
       const data = formData(e.target);
-      data.items = lines.map((l) => ({ id: l.p.id, qty: l.qty }));
+      data.items = lines.map((l) => l.custom ? { custom: 1, name: l.name, price: l.price, qty: l.qty, ship: l.ship ? 1 : 0 } : { id: l.p.id, variant: l.variant, addons: l.addons, qty: l.qty });
       if (area) { data.city_id = area.cityId; data.district_id = area.districtId; }
       if (data.shipping === '') delete data.shipping;
       const btn = $('#nSubmit'); btn.disabled = true; btn.textContent = 'Creating…';
@@ -635,10 +768,10 @@
       (list.length ? '<div class="table-wrap"><table><thead><tr><th></th><th>Product</th><th>Category</th><th class="num">Price</th><th class="num">Stock</th><th>Status</th></tr></thead><tbody>' +
         list.map((p) => {
           const img = p.images[0] ? '../' + p.images[0].path : '';
-          const sale = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100)) : p.price;
+          const sale = (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? p.fromPrice : (p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100)) : p.price);
           return '<tr class="click" data-id="' + esc(p.id) + '"><td style="width:60px">' + (img ? '<img class="thumb" src="' + esc(img) + '" alt="">' : '<div class="thumb"></div>') + '</td>' +
             '<td><b>' + esc(p.name) + '</b><div class="small muted">' + esc([p.sku, p.vendor].filter(Boolean).join(' · ')) + ' · ' + p.images.length + ' photo' + (p.images.length === 1 ? '' : 's') + '</div></td>' +
-            '<td>' + esc(catLabel(p.cat)) + '</td><td class="num">' + egp(sale) + (p.discountPct ? '<div class="small muted"><s>' + egp(p.price) + '</s></div>' : '') + (p.period ? '<div class="small muted">/ month</div>' : '') + '</td>' +
+            '<td>' + esc(catLabel(p.cat)) + (p.variants && p.variants.length ? '<div class="small muted">' + p.variants.length + ' sizes</div>' : '') + '</td><td class="num">' + ((p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? '<span class="small muted">from </span>' : '') + egp(sale) + (p.discountPct ? '<div class="small muted"><s>' + egp(p.price) + '</s></div>' : '') + (p.period ? '<div class="small muted">/ month</div>' : '') + '</td>' +
             '<td class="num">' + (p.cat === 'services' ? '—' : (p.stock <= 5 ? '<span class="pill warn">⚠ ' + p.stock + '</span>' : p.stock)) + '</td><td>' + pill(PRODUCT_TONE, p.status) + '</td></tr>';
         }).join('') + '</tbody></table></div>' : '<div class="card empty">No products here yet. <button class="btn primary sm" id="addBtn2">Add one</button></div>');
     $('#cat').onchange = (e) => { S.prodCat = e.target.value; pageProducts(); };
@@ -651,14 +784,22 @@
 
   function productDrawer(p) {
     const isNew = !p;
-    p = p || { id: '', name: '', sku: '', vendor: '', cat: S.prodCat || (S.cats[0] || {}).key, price: '', cost: '', stock: 0, discountPct: 0, label: '', status: 'Active', sub: '', desc: '', features: [], images: [] };
+    p = p || { id: '', name: '', sku: '', vendor: '', cat: S.prodCat || (S.cats[0] || {}).key, price: '', cost: '', stock: 0, discountPct: 0, label: '', status: 'Active', sub: '', desc: '', features: [], images: [], variants: [], tiers: [], addons: [], personalized: false };
+    // Working copy of sizes / quantity prices / extras, edited in the "Sizes & prices" card.
+    const opt = {
+      variants: JSON.parse(JSON.stringify(p.variants || [])),
+      tiers: JSON.parse(JSON.stringify(p.tiers || [])),
+      addons: JSON.parse(JSON.stringify(p.addons || [])),
+    };
     const body = '<form id="pf" class="stack">' +
       '<label class="field">Product name<input type="text" name="name" required value="' + esc(p.name) + '"></label>' +
       '<div class="grid2"><label class="field">Category<select name="cat">' + S.cats.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === p.cat ? ' selected' : '') + '>' + esc(c.label) + '</option>').join('') + '</select></label>' +
       '<label class="field">Status<select name="status">' + ['Active', 'Draft', 'Archived'].map((s) => '<option' + (s === p.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select><span class="hint">Only Active products show in the shop.</span></label></div>' +
-      '<div class="grid3"><label class="field">Price (EGP)<input type="number" name="price" min="1" step="0.01" required value="' + esc(p.price) + '"></label>' +
+      '<div class="grid3"><label class="field">Price (EGP)<input type="number" name="price" min="0" step="0.01" value="' + esc(p.price) + '"><span class="hint" id="priceHint">Price for one piece</span></label>' +
       '<label class="field">Discount %<input type="number" name="discountPct" min="0" max="90" step="0.01" value="' + esc(p.discountPct) + '"></label>' +
-      '<label class="field">Stock<input type="number" name="stock" min="0" step="1" value="' + esc(p.stock) + '"><span class="hint">Ignored for plans</span></label></div>' +
+      '<label class="field" id="stockField">Stock<input type="number" name="stock" min="0" step="1" value="' + esc(p.stock) + '"><span class="hint">Ignored for plans</span></label></div>' +
+      '<div class="card stack" id="optCard"></div>' +
+      '<label class="row" style="font-weight:600"><input type="checkbox" name="personalized" ' + (p.personalized ? 'checked' : '') + '> Needs personalisation <span class="hint" style="font-weight:400">Checkout asks for business name, review link, logo and design notes</span></label>' +
       '<div class="grid3"><label class="field">Cost (EGP)<input type="number" name="cost" min="0" step="0.01" value="' + esc(p.cost) + '"><span class="hint">Private — not shown in shop</span></label>' +
       '<label class="field">SKU<input type="text" name="sku" value="' + esc(p.sku) + '"></label>' +
       '<label class="field">Brand / vendor<input type="text" name="vendor" value="' + esc(p.vendor) + '"></label></div>' +
@@ -673,10 +814,12 @@
     openDrawer(isNew ? 'Add product' : p.name, body, foot);
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
     if (!isNew) renderPhotos(p);
+    renderOptions(opt);
     $('#pf').onsubmit = async (e) => {
       e.preventDefault();
       const data = formData(e.target);
       data.id = p.id;
+      data.variants = opt.variants; data.tiers = opt.tiers; data.addons = opt.addons;
       data.features = String(data.features || '').split('\n').map((s) => s.trim()).filter(Boolean);
       try {
         const r = await api('product_save', { method: 'POST', body: data });
@@ -691,6 +834,69 @@
       try { await api('product_delete', { method: 'POST', body: { id: p.id } }); closeDrawer(); toast('Product deleted'); pageProducts(); }
       catch (err) { toast(err.message, true); }
     };
+  }
+
+  // ---------- sizes, quantity prices and extras ----------
+  function tierEditor(tiers, path) {
+    return '<div class="small muted" style="margin-top:4px">Quantity prices <span class="hint">price per piece from that quantity — e.g. 3 for EGP 1,000 → 333.33</span></div>' +
+      tiers.map((t, i) => '<div class="row" style="margin-top:4px"><span class="small">From</span><input type="number" min="1" step="1" style="width:80px" data-path="' + path + '.' + i + '.min" value="' + esc(t.min) + '">' +
+        '<span class="small">pcs → EGP</span><input type="number" min="0" step="0.01" style="width:110px" data-path="' + path + '.' + i + '.price" value="' + esc(t.price) + '"><span class="small muted">each</span>' +
+        '<button type="button" class="btn sm" data-del="' + path + '.' + i + '" aria-label="Remove price">✕</button></div>').join('') +
+      '<button type="button" class="btn sm" style="margin-top:6px" data-add-tier="' + path + '">+ Price break</button>';
+  }
+  function renderOptions(opt) {
+    const card = $('#optCard');
+    if (!card) return;
+    const hasSizes = opt.variants.length > 0;
+    card.innerHTML = '<div class="row"><b>Sizes &amp; prices</b><span class="spacer"></span>' +
+      '<label class="row small" style="font-weight:600"><input type="checkbox" id="optSizes" ' + (hasSizes ? 'checked' : '') + '> Comes in sizes</label></div>' +
+      (hasSizes ? opt.variants.map((v, i) => '<div class="card" style="padding:12px;background:#FBF8F4">' +
+          '<div class="row"><input type="text" placeholder="Size, e.g. 15×10 cm" style="flex:1;min-width:140px" data-path="variants.' + i + '.label" value="' + esc(v.label) + '">' +
+          '<input type="text" placeholder="SKU" style="width:110px" data-path="variants.' + i + '.sku" value="' + esc(v.sku || '') + '">' +
+          '<span class="small">Stock</span><input type="number" min="0" style="width:80px" data-path="variants.' + i + '.stock" value="' + esc(v.stock || 0) + '">' +
+          '<button type="button" class="btn sm danger" data-del="variants.' + i + '">Remove size</button></div>' +
+          tierEditor(v.tiers || [], 'variants.' + i + '.tiers') + '</div>').join('') +
+        '<button type="button" class="btn sm" data-add-size>+ Add size</button>'
+        : tierEditor(opt.tiers, 'tiers')) +
+      '<div style="border-top:1px solid var(--line-2);padding-top:12px"><b>Extras</b> <span class="hint">Choices like Standard / Custom design. The first option is the default.</span></div>' +
+      opt.addons.map((g, gi) => '<div class="card" style="padding:12px;background:#FBF8F4"><div class="row"><input type="text" placeholder="Group name, e.g. Design" style="flex:1" data-path="addons.' + gi + '.group" value="' + esc(g.group) + '">' +
+          '<button type="button" class="btn sm danger" data-del="addons.' + gi + '">Remove group</button></div>' +
+          (g.options || []).map((o, oi) => '<div class="row" style="margin-top:6px"><input type="text" placeholder="Option, e.g. Custom design" style="flex:1;min-width:140px" data-path="addons.' + gi + '.options.' + oi + '.label" value="' + esc(o.label) + '">' +
+            '<span class="small">+ EGP</span><input type="number" step="0.01" style="width:90px" data-path="addons.' + gi + '.options.' + oi + '.price" value="' + esc(o.price || 0) + '">' +
+            '<select data-path="addons.' + gi + '.options.' + oi + '.per" style="width:auto"><option value="unit"' + (o.per !== 'order' ? ' selected' : '') + '>per piece</option><option value="order"' + (o.per === 'order' ? ' selected' : '') + '>once per order</option></select>' +
+            '<button type="button" class="btn sm" data-del="addons.' + gi + '.options.' + oi + '" aria-label="Remove option">✕</button></div>').join('') +
+          '<button type="button" class="btn sm" style="margin-top:6px" data-add-option="' + gi + '">+ Option</button></div>').join('') +
+      '<div class="row"><button type="button" class="btn sm" data-add-group>+ Extras group</button>' +
+      (opt.addons.length ? '' : '<button type="button" class="btn sm" data-add-design>+ Standard / Custom design</button>') + '</div>';
+    const get = (path) => path.split('.').reduce((o, k) => o[k], opt);
+    const parentOf = (path) => { const parts = path.split('.'); const last = parts.pop(); return [parts.reduce((o, k) => o[k], opt), last]; };
+    $$('[data-path]', card).forEach((el) => {
+      el.oninput = el.onchange = () => {
+        const [parent, key] = parentOf(el.dataset.path);
+        parent[key] = el.type === 'number' ? (el.value === '' ? '' : +el.value) : el.value;
+      };
+    });
+    $$('[data-del]', card).forEach((b) => b.onclick = () => { const [parent, key] = parentOf(b.dataset.del); parent.splice(+key, 1); renderOptions(opt); });
+    $$('[data-add-tier]', card).forEach((b) => b.onclick = () => {
+      const list = get(b.dataset.addTier);
+      const last = list[list.length - 1];
+      list.push({ min: last ? last.min + 2 : 1, price: last ? last.price : '' });
+      renderOptions(opt);
+    });
+    const addSize = $('[data-add-size]', card);
+    if (addSize) addSize.onclick = () => { opt.variants.push({ label: '', sku: '', stock: 0, tiers: [{ min: 1, price: '' }] }); renderOptions(opt); };
+    $('#optSizes').onchange = (e) => {
+      if (e.target.checked && !opt.variants.length) opt.variants.push({ label: '', sku: '', stock: 0, tiers: opt.tiers.length ? opt.tiers : [{ min: 1, price: '' }] });
+      if (!e.target.checked && opt.variants.length && !confirm('Remove all sizes and their prices and stock?')) { e.target.checked = true; return; }
+      if (!e.target.checked) opt.variants = [];
+      renderOptions(opt);
+    };
+    $$('[data-add-option]', card).forEach((b) => b.onclick = () => { opt.addons[+b.dataset.addOption].options.push({ label: '', price: 0, per: 'unit' }); renderOptions(opt); });
+    $('[data-add-group]', card).onclick = () => { opt.addons.push({ group: '', options: [{ label: '', price: 0, per: 'unit' }] }); renderOptions(opt); };
+    const design = $('[data-add-design]', card);
+    if (design) design.onclick = () => { opt.addons.push({ group: 'Design', options: [{ label: 'Standard design', price: 0, per: 'unit' }, { label: 'Custom design', price: 100, per: 'unit' }] }); renderOptions(opt); };
+    const sf = $('#stockField'); if (sf) sf.style.display = hasSizes ? 'none' : '';
+    const ph = $('#priceHint'); if (ph) ph.textContent = hasSizes || opt.tiers.length ? 'Optional — the lowest size / quantity price is used' : 'Price for one piece';
   }
 
   function renderPhotos(p) {

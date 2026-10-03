@@ -5,7 +5,7 @@ deployment:
     # Copy the site. "*" skips dotfiles, so the .htaccess files are copied explicitly.
     # data/ and uploads/ on the server are never overwritten: the repo only holds their .htaccess.
     - /bin/cp -R * $DEPLOYPATH
-    - /bin/mkdir -p $DEPLOYPATH/data $DEPLOYPATH/uploads/products
+    - /bin/mkdir -p $DEPLOYPATH/data $DEPLOYPATH/uploads/products $DEPLOYPATH/uploads/orders
     - /bin/cp data/.htaccess $DEPLOYPATH/data/.htaccess
     - /bin/cp uploads/.htaccess $DEPLOYPATH/uploads/.htaccess
     - /bin/cp api/.htaccess $DEPLOYPATH/api/.htaccess

@@ -11,6 +11,8 @@ $config = [
     'data_dir' => getenv('WTS_DATA_DIR') ?: (is_writable(dirname(__DIR__, 2)) ? dirname(__DIR__, 2) . '/wts-shop-data' : dirname(__DIR__) . '/data'),
     'upload_dir' => dirname(__DIR__) . '/uploads/products',
     'upload_url' => 'uploads/products',
+    'order_upload_dir' => dirname(__DIR__) . '/uploads/orders',
+    'order_upload_url' => 'uploads/orders',
     'max_upload_bytes' => 5 * 1024 * 1024,
     'shipping_fee' => 75,
     'free_shipping_threshold' => 1500,
@@ -38,7 +40,9 @@ const ROLES = [
     'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
     'staff' => ['dashboard', 'orders', 'sell', 'leads'],
 ];
-const ORDER_STATUSES = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
+// Order lifecycle, including production of personalised items. Cancelled/Returned put stock back.
+const ORDER_STATUSES = ['Pending', 'Confirmed', 'Designing', 'Awaiting approval', 'In production', 'Ready', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
+const ORDER_STAGE = ['Pending' => 0, 'Confirmed' => 1, 'Designing' => 2, 'Awaiting approval' => 3, 'In production' => 4, 'Ready' => 5, 'Shipped' => 6, 'Delivered' => 7, 'Returned' => 7, 'Cancelled' => 7];
 const LEAD_STATUSES = ['New', 'Contacted', 'Quoted', 'Won', 'Lost'];
 
 function cfg(string $key)
@@ -165,6 +169,14 @@ function migrate(PDO $pdo): void
     }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_tracking ON orders(tracking_number)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_rep ON orders(rep_id, created_at)');
+    $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    foreach (['variants' => "TEXT DEFAULT '[]'", 'tiers' => "TEXT DEFAULT '[]'", 'addons' => "TEXT DEFAULT '[]'", 'personalized' => 'INTEGER NOT NULL DEFAULT 0'] as $col => $type) {
+        if (!in_array($col, $prodCols, true)) $pdo->exec("ALTER TABLE products ADD COLUMN $col $type");
+    }
+    $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    foreach (['business_name' => "TEXT DEFAULT ''", 'review_link' => "TEXT DEFAULT ''", 'links' => "TEXT DEFAULT ''", 'design_notes' => "TEXT DEFAULT ''", 'files' => "TEXT DEFAULT '[]'"] as $col => $type) {
+        if (!in_array($col, $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type");
+    }
     $leadCols = $pdo->query('PRAGMA table_info(leads)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('phone_key', $leadCols, true)) {
         $pdo->exec('ALTER TABLE leads ADD COLUMN phone_key TEXT');
@@ -217,6 +229,7 @@ function seed_catalog(PDO $pdo): void
 }
 
 require __DIR__ . '/mailer.php';
+require __DIR__ . '/pricing.php';
 require __DIR__ . '/bosta.php';
 require __DIR__ . '/orders.php';
 
@@ -343,6 +356,8 @@ function product_row(array $p, array $images): array
         'discountPct' => (float) $p['discount_pct'], 'label' => $p['label'], 'status' => $p['status'],
         'sub' => $p['sub'], 'desc' => $p['descr'], 'features' => json_decode($p['features'] ?: '[]', true) ?: [],
         'period' => $p['period'], 'sort' => (int) $p['sort'], 'images' => $images,
+        'variants' => product_json($p, 'variants'), 'tiers' => product_json($p, 'tiers'), 'addons' => product_json($p, 'addons'),
+        'personalized' => (bool) ($p['personalized'] ?? 0), 'fromPrice' => from_price($p),
         'createdAt' => $p['created_at'], 'updatedAt' => $p['updated_at'],
     ];
 }
@@ -380,8 +395,10 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     $isOpen = !in_array($status, ['Cancelled', 'Returned'], true);
     if ($wasOpen !== $isOpen) {
         $sign = $isOpen ? -1 : 1;
-        $adj = $pdo->prepare("UPDATE products SET stock = MAX(0, stock + ?) WHERE id = ? AND cat != 'services'");
-        foreach (json_decode($o['items'], true) ?: [] as $it) $adj->execute([$sign * (int) $it['qty'], $it['id']]);
+        foreach (json_decode($o['items'], true) ?: [] as $it) {
+            if (($it['id'] ?? '') === 'custom') continue;
+            adjust_stock($pdo, (string) $it['id'], isset($it['variant']) ? (string) $it['variant'] : null, $sign * (int) $it['qty']);
+        }
     }
     $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
         ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);

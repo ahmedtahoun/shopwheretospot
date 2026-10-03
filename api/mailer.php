@@ -119,8 +119,8 @@ function notify_new_order(string $number, array $o, array $lines): void
     $rows = '';
     $textItems = '';
     foreach ($lines as $l) {
-        $rows .= '<tr><td style="padding:6px 0;border-bottom:1px solid #EFEAE3">' . (int) $l['qty'] . '× ' . h($l['name']) . '</td><td style="padding:6px 0;border-bottom:1px solid #EFEAE3;text-align:right">' . $egp($l['qty'] * $l['price']) . '</td></tr>';
-        $textItems .= '- ' . $l['qty'] . 'x ' . $l['name'] . ' — ' . $egp($l['qty'] * $l['price']) . "\n";
+        $rows .= '<tr><td style="padding:6px 0;border-bottom:1px solid #EFEAE3">' . (int) $l['qty'] . '× ' . h($l['name']) . '</td><td style="padding:6px 0;border-bottom:1px solid #EFEAE3;text-align:right">' . $egp(($l['total'] ?? $l['qty'] * $l['price'])) . '</td></tr>';
+        $textItems .= '- ' . $l['qty'] . 'x ' . $l['name'] . ' — ' . $egp(($l['total'] ?? $l['qty'] * $l['price'])) . "\n";
     }
     $sum = function ($label, $v, $bold = false) { return '<tr><td style="padding:4px 0;color:#6B6660">' . ($bold ? '<b style="color:#22201D">' . $label . '</b>' : $label) . '</td><td style="padding:4px 0;text-align:right">' . ($bold ? '<b>' . $v . '</b>' : $v) . '</td></tr>'; };
     $admin = rtrim(cfg('site_url'), '/') . '/admin/#orders';

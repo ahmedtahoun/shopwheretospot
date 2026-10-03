@@ -98,10 +98,39 @@
       </div>
       <p style="font-size:15px;line-height:1.7;color:#6B6660;margin:20px 0 0;max-width:46ch">{{ product.desc }}</p>
 
+      <sc-if value="{{ hasVariants }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:24px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px">{{ variantTitle }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ variantOptions }}" as="vo" hint-placeholder-count="3">
+              <button type="button" onClick="{{ vo.onClick }}" style="border:1.5px solid {{ vo.border }};background:{{ vo.bg }};color:{{ vo.fg }};padding:9px 14px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer">{{ vo.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <sc-for list="{{ addonGroups }}" as="ag" hint-placeholder-count="0">
+        <div style="margin-top:18px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px">{{ ag.group }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ ag.options }}" as="ao" hint-placeholder-count="2">
+              <button type="button" onClick="{{ ao.onClick }}" style="border:1.5px solid {{ ao.border }};background:{{ ao.bg }};color:{{ ao.fg }};padding:9px 14px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer">{{ ao.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ hasTiers }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:18px;border:1px solid #DDD6CC;border-radius:14px;background:#fff;overflow:hidden">
+          <div style="padding:10px 14px;font-size:12.5px;font-weight:700;background:#FBF8F4;border-bottom:1px solid #EFEAE3">Buy more, pay less per piece</div>
+          <sc-for list="{{ tierRows }}" as="tr" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;padding:9px 14px;font-size:13.5px;border-bottom:1px solid #F3EFE8;font-weight:{{ tr.weight }};background:{{ tr.bg }}"><span>{{ tr.qty }}</span><span>{{ tr.price }}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="margin-top:16px;font-size:14px;color:#6B6660">{{ totalLine }}</div>
       <div style="display:flex;align-items:center;gap:14px;margin-top:30px">
         <div style="display:flex;align-items:center;border:1px solid #DDD6CC;border-radius:999px">
           <button onClick="{{ decQty }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;border-radius:999px 0 0 999px;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">–</button>
-          <span style="min-width:28px;text-align:center;font-weight:600">{{ qty }}</span>
+          <input type="number" min="1" value="{{ qty }}" onChange="{{ setQty }}" aria-label="Quantity" style="width:56px;text-align:center;font-weight:600;border:none;background:transparent;font-size:15px;font-family:inherit"/>
           <button onClick="{{ incQty }}" disabled="{{ atStockLimit }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;opacity:{{ incQtyOpacity }};border-radius:0 999px 999px 0;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">+</button>
         </div>
         <button onClick="{{ addToCart }}" disabled="{{ outOfStock }}" style="flex:1;background:#fff;color:{{ accent }};border:2px solid {{ addBtnBg }};padding:13px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">{{ addBtnLabel }}</button>
@@ -236,7 +265,8 @@ class Component extends DCLogic {
     qty: 1, added: false, product: null, related: [], inventory: [],
     wishlist: [], reviews: [], recent: [], toast: '',
     lightboxOpen: false, lightboxIndex: 0, showStickyBar: false,
-    reviewForm: { name: '', text: '', rating: 5 }, reviewSent: false
+    reviewForm: { name: '', text: '', rating: 5 }, reviewSent: false,
+    variantId: null, addonSel: {}
   };
 
   catLabels = { stands: 'Exhibition Stands', cosmetics: 'Cosmetics', pets: 'Pet Products', school: 'Summer School Kits', gift: 'Premium & Gift', nfc: 'NFC Solutions' };
@@ -251,7 +281,8 @@ class Component extends DCLogic {
     if (!product) { this.setState({ notFound: true }); return; }
     const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
     const recent = mod.pushRecent(product.id);
-    this.setState({ product, related, inventory: inv, wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent });
+    const variantId = product.variants && product.variants.length ? (product.variants.find(v => v.stock > 0) || product.variants[0]).id : null;
+    this.setState({ product, related, inventory: inv, wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent, variantId });
     this.updateShareMeta(product, mod);
     window.addEventListener('scroll', this.onScroll, { passive: true });
   }
@@ -281,18 +312,25 @@ class Component extends DCLogic {
     set('meta[name="twitter:description"]', 'content', product.desc || '');
     set('meta[name="twitter:image"]', 'content', abs);
   };
-  incQty = () => this.setState(s => ({ qty: s.product ? Math.min(s.qty + 1, Math.max(1, s.product.stock)) : s.qty + 1 }));
+  _stock = () => { const p = this.state.product; if (!p || !this._sd) return 0; return p.cat === 'services' ? 9999 : this._sd.availableStock(p, this.state.variantId); };
+  _addonIds = () => Object.values(this.state.addonSel);
+  setVariant = (id) => () => this.setState(s => ({ variantId: id, qty: Math.min(s.qty, Math.max(1, this._sd.availableStock(s.product, id))) }));
+  setAddon = (group, id) => () => this.setState(s => ({ addonSel: { ...s.addonSel, [group]: id } }));
+  incQty = () => this.setState(s => ({ qty: Math.min(s.qty + 1, Math.max(1, this._stock())) }));
+  setQty = (e) => { const n = parseInt(e.target.value, 10); if (!n || n < 1) return; this.setState({ qty: Math.min(n, Math.max(1, this._stock())) }); };
   decQty = () => this.setState(s => ({ qty: Math.max(1, s.qty - 1) }));
   addToCart = () => {
     const p = this.state.product;
     if (!p || !this._sd) return;
-    const salePrice = this._sd.salePrice(p);
+    const variant = this.state.variantId || undefined;
+    const addons = this._addonIds();
+    const key = this._sd.lineKey(p.id, variant, addons);
     const cart = this._sd.loadCart();
-    const existing = cart.find(i => i.id === p.id);
+    const existing = cart.find(i => (i.key || this._sd.lineKey(i.id, i.variant, i.addons)) === key);
     const next = existing
-      ? cart.map(i => i.id === p.id ? { ...i, qty: i.qty + this.state.qty } : i)
-      : [...cart, { id: p.id, name: p.name, price: salePrice, cat: p.cat, qty: this.state.qty }];
-    this._sd.saveCart(next);
+      ? cart.map(i => (i.key || this._sd.lineKey(i.id, i.variant, i.addons)) === key ? { ...i, key, qty: i.qty + this.state.qty } : i)
+      : [...cart, { key, id: p.id, variant, addons, name: p.name, price: p.price, cat: p.cat, qty: this.state.qty }];
+    this._sd.saveCart(this._sd.repriceCart(next, this.state.inventory));
     this.setState({ added: true });
     this.showToast('Added to cart ✓');
     setTimeout(() => this.setState({ added: false }), 2400);
@@ -342,9 +380,16 @@ class Component extends DCLogic {
     const accent = this.props.accentColor ?? '#A8552F';
     const p = this.state.product;
     if (!p) return { accent, notFound: this.state.notFound, hasProduct: false, product: { name: '', catLabel: '', placeholder: '', desc: '' }, thumbs: [], related: [], recentOthers: [], recentOthersCount: 0, reviews: [], qty: 1 };
-    const salePrice = this._sd ? this._sd.salePrice(p) : p.price;
-    const photoId = (n) => 'prod-photo-' + p.id + '-' + n;
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
+    const qty = this.state.qty;
+    const line = this._sd ? this._sd.priceLine(p, this.state.variantId, this._addonIds(), qty) : { unit: p.price, total: p.price * qty, variant: null };
+    const variant = line.variant;
+    const stock = this._stock();
+    const salePrice = line.unit;
+    const tiers = variant ? (variant.tiers || []) : (p.tiers || []);
+    const activeTier = tiers.filter(t => t.min <= qty).reduce((a, t) => (!a || t.min > a.min ? t : a), null);
+    const photoId = (n) => 'prod-photo-' + p.id + '-' + n;
+    const sel = (on) => ({ border: on ? accent : '#DDD6CC', bg: on ? accent : '#fff', fg: on ? '#fff' : '#22201D' });
     const stats = this._sd ? this._sd.ratingStats(p.id, this.state.reviews) : { avg: 0, count: 0 };
     const isWished = this.state.wishlist.includes(p.id);
     const recentOthers = this.state.recent.filter(id => id !== p.id).map(id => this.state.inventory.find(x => x.id === id)).filter(Boolean).slice(0, 4);
@@ -361,15 +406,25 @@ class Component extends DCLogic {
         if (imgs.length) return imgs.slice(1).map((src, i) => ({ id: photoId(i + 1), placeholder: 'angle ' + (i + 2), src, onOpen: this.openLightboxAt(i + 1) }));
         return [1, 2, 3].map(n => ({ id: photoId(n), placeholder: 'angle ' + (n + 1), src: '', onOpen: this.openLightboxAt(0) }));
       })(),
-      price: salePrice, priceFmt: fmt(salePrice), hasDiscount: !!p.discountPct, badgeBg: p.discountPct ? '#A8552F' : '#22201D',
+      price: salePrice, priceFmt: fmt(salePrice) + (qty > 1 || tiers.length ? ' each' : ''), hasDiscount: !!p.discountPct && !tiers.length, badgeBg: p.discountPct ? '#A8552F' : '#22201D',
+      hasVariants: !!(p.variants && p.variants.length > 1), variantTitle: 'Size',
+      variantOptions: (p.variants || []).map(v => ({ label: v.label + (v.stock <= 0 && p.cat !== 'services' ? ' (sold out)' : ''), onClick: this.setVariant(v.id), ...sel(variant && v.id === variant.id) })),
+      addonGroups: (p.addons || []).map(g => {
+        const chosen = this.state.addonSel[g.group] || (g.options[0] && g.options[0].id);
+        return { group: g.group, options: g.options.map(o => ({ label: o.label + (o.price ? ' (+' + fmt(o.price) + (o.per === 'order' ? ' once' : ' each') + ')' : ''), onClick: this.setAddon(g.group, o.id), ...sel(o.id === chosen) })) };
+      }),
+      hasTiers: tiers.length > 1,
+      tierRows: tiers.map((t, i) => { const next = tiers[i + 1]; const on = activeTier && activeTier.min === t.min;
+        return { qty: next ? t.min + (next.min - 1 > t.min ? '–' + (next.min - 1) : '') + ' pcs' : t.min + '+ pcs', price: fmt(t.price) + ' each', weight: on ? 700 : 400, bg: on ? '#FBF3EE' : '#fff' }; }),
+      totalLine: 'Total for ' + qty + (qty === 1 ? ' piece' : ' pieces') + ': ' + fmt(line.total),
       related: this.state.related.map(r => { const rp = this._sd ? this._sd.salePrice(r) : r.price; return { ...r, price: rp, priceFmt: fmt(rp), imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id }; }),
-      qty: this.state.qty, incQty: this.incQty, decQty: this.decQty, addToCart: this.addToCart,
+      qty: this.state.qty, incQty: this.incQty, decQty: this.decQty, setQty: this.setQty, addToCart: this.addToCart,
       added: this.state.added,
-      addBtnLabel: this.state.added ? 'Added ✓' : p.stock === 0 ? 'Out of stock' : 'Add to cart',
+      addBtnLabel: this.state.added ? 'Added ✓' : stock <= 0 ? 'Out of stock' : 'Add to cart',
       addBtnBg: this.state.added ? '#6B8F71' : accent,
-      atStockLimit: this.state.qty >= p.stock, incQtyOpacity: this.state.qty >= p.stock ? 0.4 : 1,
-      outOfStock: p.stock === 0, addBtnOpacity: p.stock === 0 ? 0.5 : 1,
-      stockNote: p.stock > 0 && p.stock <= 5 ? 'Only ' + p.stock + ' left' : '',
+      atStockLimit: qty >= stock, incQtyOpacity: qty >= stock ? 0.4 : 1,
+      outOfStock: stock <= 0, addBtnOpacity: stock <= 0 ? 0.5 : 1,
+      stockNote: stock > 0 && stock <= 5 ? 'Only ' + stock + ' left' : '',
       toast: this.state.toast,
       toggleWish: this.toggleWish, wishBorder: isWished ? accent : '#DDD6CC', wishBg: isWished ? accent : '#fff', wishFg: isWished ? '#fff' : '#22201D',
       starsFmt: this.stars(stats.avg || 0), hasReviews: stats.count > 0, noReviews: stats.count === 0, ratingAvg: stats.avg, ratingCount: stats.count,

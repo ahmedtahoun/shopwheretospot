@@ -40,17 +40,43 @@ function create_order(array $in, array $opts = []): array
         $lines = [];
         $subtotal = 0.0;
         $physical = 0.0;
+        $personalized = false;
+        $taken = []; // stock already claimed by earlier lines of this order, per product/variant
         foreach ($items as $it) {
-            $qty = max(1, min(999, (int) ($it['qty'] ?? 1)));
+            $qty = max(1, min(9999, (int) ($it['qty'] ?? 1)));
+            if (!empty($it['custom'])) {
+                // Free-form line (e.g. "30 pieces, mixed sizes"): only the team can add these.
+                if (!$team) throw new ShopError('A product in your cart is no longer available. Please refresh.');
+                $cname = str_in($it['name'] ?? '', 160);
+                $cprice = round((float) ($it['price'] ?? 0), 2);
+                if ($cname === '' || $cprice <= 0) throw new ShopError('Custom items need a description and a price.');
+                $lineTotal = round($cprice * $qty); // whole pounds, so "30 for 7,000" can be entered as 233.33 each
+                $ship = !isset($it['ship']) || !empty($it['ship']);
+                $lines[] = ['id' => 'custom', 'name' => $cname, 'qty' => $qty, 'price' => $cprice, 'total' => $lineTotal, 'cat' => $ship ? 'custom' : 'services'];
+                $subtotal += $lineTotal;
+                if ($ship) $physical += $lineTotal;
+                $personalized = true;
+                continue;
+            }
             $get->execute([(string) ($it['id'] ?? '')]);
             $p = $get->fetch();
             if (!$p) throw new ShopError('A product in the order is no longer available. Please refresh.');
-            if ($p['cat'] !== 'services' && (int) $p['stock'] < $qty) throw new ShopError($p['name'] . ': only ' . (int) $p['stock'] . ' left in stock.');
-            $price = sale_price($p);
-            $lines[] = ['id' => $p['id'], 'name' => $p['name'], 'qty' => $qty, 'price' => $price, 'cat' => $p['cat']];
-            $subtotal += $price * $qty;
-            if ($p['cat'] !== 'services') $physical += $price * $qty;
+            [$unit, $lineTotal, $variant, $addons, $lineName] = price_line($p, isset($it['variant']) ? (string) $it['variant'] : null, (array) ($it['addons'] ?? []), $qty);
+            $key = $p['id'] . '|' . ($variant['id'] ?? '');
+            $taken[$key] = ($taken[$key] ?? 0) + $qty;
+            if ($p['cat'] !== 'services' && variant_stock($p, $variant) < $taken[$key]) {
+                throw new ShopError($lineName . ': only ' . variant_stock($p, $variant) . ' left in stock.');
+            }
+            $line = ['id' => $p['id'], 'name' => $lineName, 'qty' => $qty, 'price' => $unit, 'total' => $lineTotal, 'cat' => $p['cat']];
+            if ($variant) $line['variant'] = (string) $variant['id'];
+            if ($addons) $line['addons'] = $addons;
+            $lines[] = $line;
+            $subtotal += $lineTotal;
+            if ($p['cat'] !== 'services') $physical += $lineTotal;
+            if (!empty($p['personalized'])) $personalized = true;
         }
+        $biz = str_in($in['business_name'] ?? '', 120);
+        if ($personalized && !$team && $biz === '') throw new ShopError('Please enter the business or brand name to print on your items.');
         if ($physical > 0 && mb_strlen($address) < 6) throw new ShopError($team ? 'Enter the delivery address.' : 'Please enter your delivery address.');
 
         $promo = strtoupper(str_in($in['promo'] ?? '', 40));
@@ -63,6 +89,7 @@ function create_order(array $in, array $opts = []): array
         }
         $shipping = $physical > 0 && $physical < cfg('free_shipping_threshold') ? (float) cfg('shipping_fee') : 0.0;
         if ($team && isset($opts['shipping']) && $opts['shipping'] !== '' && $opts['shipping'] !== null) $shipping = max(0, round((float) $opts['shipping'], 2));
+        $subtotal = round($subtotal, 2);
         $total = round($subtotal - $discount + $shipping, 2);
 
         $repId = $opts['rep_id'] ?? null;
@@ -77,13 +104,22 @@ function create_order(array $in, array $opts = []): array
         $payment = array_key_exists($opts['payment'] ?? '', PAYMENT_METHODS) ? $opts['payment'] : 'cod';
         $status = in_array($opts['status'] ?? '', ['Pending', 'Confirmed'], true) ? $opts['status'] : 'Pending';
 
-        $pdo->prepare('INSERT INTO orders (customer, email, phone, address, city, city_id, district_id, district, items, subtotal, discount, shipping, total, promo, payment, rep_id, source, created_by, status, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        $files = [];
+        $logo = basename((string) ($in['logo_token'] ?? ''));
+        if ($logo !== '' && preg_match('/^logo-[a-f0-9]{16}\.(jpg|png|webp|pdf)$/', $logo) && is_file(cfg('order_upload_dir') . '/' . $logo)) {
+            $files[] = ['path' => cfg('order_upload_url') . '/' . $logo, 'name' => str_in($in['logo_name'] ?? 'Logo', 120), 'kind' => 'Logo', 'by' => $team ? 'Team' : 'Customer', 'at' => gmdate('Y-m-d H:i:s')];
+        }
+        $pdo->prepare('INSERT INTO orders (customer, email, phone, address, city, city_id, district_id, district, items, subtotal, discount, shipping, total, promo, payment, rep_id, source, created_by, status, notes,
+                business_name, review_link, links, design_notes, files)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([$name, $email, $phone, $address, $city, $cityId ?: null, $districtId ?: null, $district, json_encode($lines, JSON_UNESCAPED_UNICODE),
-                $subtotal, $discount, $shipping, $total, $promo, $payment, $repId, $source, $opts['created_by'] ?? null, $status, str_in($opts['notes'] ?? '', 2000)]);
+                $subtotal, $discount, $shipping, $total, $promo, $payment, $repId, $source, $opts['created_by'] ?? null, $status, str_in($opts['notes'] ?? '', 2000),
+                $biz, str_in($in['review_link'] ?? '', 500), str_in($in['links'] ?? '', 1000), str_in($in['design_notes'] ?? '', 2000), json_encode($files, JSON_UNESCAPED_UNICODE)]);
         $id = (int) $pdo->lastInsertId();
-        $dec = $pdo->prepare("UPDATE products SET stock = MAX(0, stock - ?), updated_at = datetime('now') WHERE id = ? AND cat != 'services'");
-        foreach ($lines as $l) $dec->execute([$l['qty'], $l['id']]);
+        foreach ($lines as $l) {
+            if ($l['id'] === 'custom') continue;
+            adjust_stock($pdo, $l['id'], $l['variant'] ?? null, -$l['qty']);
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -213,3 +249,20 @@ function lead_from_order(array $in, array $order, ?int $repId, string $channel =
         'status' => 'Won', 'notes' => $note, 'assigned_to' => $repId]);
     return 'created';
 }
+
+// Customer logos and design files for an order: images or PDF, random file names, no scripts.
+function store_order_file(array $f, string $prefix): string
+{
+    if ($f['size'] > cfg('max_upload_bytes')) fail('File is too large (max ' . (cfg('max_upload_bytes') >> 20) . ' MB).');
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+    $exts = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf'];
+    if (!isset($exts[$mime])) fail('Only JPG, PNG, WebP or PDF files are allowed.');
+    if ($mime !== 'application/pdf' && !@getimagesize($f['tmp_name'])) fail('That image file looks damaged.');
+    $dir = cfg('order_upload_dir');
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $name = $prefix . '-' . bin2hex(random_bytes(8)) . '.' . $exts[$mime];
+    if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) fail('Could not save the file on the server.', 500);
+    @chmod($dir . '/' . $name, 0644);
+    return cfg('order_upload_url') . '/' . $name;
+}
+

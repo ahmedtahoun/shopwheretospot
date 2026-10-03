@@ -4,3 +4,5 @@ data/*
 uploads/products/*
 !uploads/products/.gitkeep
 api/config.local.php
+uploads/orders/*
+!uploads/orders/.gitkeep

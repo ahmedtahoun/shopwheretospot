@@ -369,3 +369,64 @@ export async function postJSON(action, body) {
   if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again or contact us.');
   return data;
 }
+
+// ---------- options & quantity pricing (mirrors api/pricing.php) ----------
+// Products can have variants (sizes, each with stock and quantity prices), quantity tiers, and add-on groups.
+export function hasOptions(p) { return !!((p.variants && p.variants.length > 1) || (p.addons && p.addons.length)); }
+
+function pickTier(tiers, qty) {
+  let best = null, bestMin = 0;
+  (tiers || []).forEach(t => { if (t.min >= 1 && t.min <= qty && t.min >= bestMin && t.price > 0) { best = t.price; bestMin = t.min; } });
+  return best;
+}
+
+export function findVariant(p, variantId) {
+  const vs = p.variants || [];
+  if (!vs.length) return null;
+  return vs.find(v => v.id === variantId) || (vs.length === 1 ? vs[0] : null);
+}
+
+// Price one line. Returns { unit, total, name, variant, addons: [{id,label,group}] }.
+export function priceLine(p, variantId, addonIds, qty) {
+  const variant = findVariant(p, variantId);
+  const tiers = variant ? (variant.tiers || []) : (p.tiers || []);
+  let unit = pickTier(tiers, qty);
+  if (unit === null) unit = variant && variant.price ? variant.price : p.price;
+  if (p.discountPct) unit = unit * (1 - p.discountPct / 100);
+  let perUnit = 0, perOrder = 0;
+  const addons = [];
+  (p.addons || []).forEach(g => {
+    const opts = g.options || [];
+    if (!opts.length) return;
+    const chosen = opts.find(o => (addonIds || []).includes(o.id)) || opts[0];
+    if (chosen.per === 'order') perOrder += chosen.price; else perUnit += chosen.price;
+    if (chosen.price || opts.length > 1) addons.push({ id: chosen.id, label: chosen.label, group: g.group });
+  });
+  const total = Math.round((unit + perUnit) * qty + perOrder);
+  const extras = addons.map(a => a.label).filter(l => !/standard/i.test(l));
+  const name = p.name + (variant ? ' — ' + variant.label : '') + (extras.length ? ' · ' + extras.join(' · ') : '');
+  return { unit: total / Math.max(1, qty), total, name, variant, addons };
+}
+
+export function availableStock(p, variantId) {
+  const v = findVariant(p, variantId);
+  return v ? (v.stock || 0) : (p.stock || 0);
+}
+
+// Lowest per-piece price ("From EGP …").
+export function fromPrice(p) {
+  if (p.fromPrice) return p.fromPrice;
+  return p.discountPct ? p.price * (1 - p.discountPct / 100) : p.price;
+}
+
+// Re-price every cart line from the live catalog (quantity tiers change with qty). Lines whose product is gone are dropped.
+export function repriceCart(cart, inventory) {
+  return cart.map(i => {
+    const p = inventory.find(x => x.id === i.id);
+    if (!p) return null;
+    const r = priceLine(p, i.variant, i.addons || [], i.qty);
+    return { ...i, key: i.key || lineKey(i.id, i.variant, i.addons), name: p.cat === 'services' && !r.variant ? i.name : r.name, price: r.unit, total: r.total, cat: p.cat, personalized: !!p.personalized };
+  }).filter(Boolean);
+}
+
+export function lineKey(id, variant, addons) { return [id, variant || '', (addons || []).slice().sort().join('+')].join('|'); }

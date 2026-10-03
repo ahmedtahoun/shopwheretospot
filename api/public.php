@@ -48,6 +48,16 @@ try {
     if ($method !== 'POST') fail('Not found', 404);
     $b = body();
 
+    // Customer logo for a personalised order, uploaded before the order is placed.
+    if ($action === 'upload_logo') {
+        if (too_many_attempts('logo', 15, 3600)) fail('Too many uploads. Please send your logo on WhatsApp instead.', 429);
+        $f = $_FILES['file'] ?? null;
+        if (!$f || $f['error'] !== UPLOAD_ERR_OK) fail('Upload failed. Files must be under ' . (cfg('max_upload_bytes') >> 20) . ' MB.');
+        record_attempt('logo');
+        $path = store_order_file($f, 'logo');
+        json_out(['token' => basename($path), 'name' => str_in($f['name'], 120)]);
+    }
+
     if ($action === 'promo') {
         $code = strtoupper(str_in($b['code'] ?? '', 40));
         $codes = cfg('promo_codes');

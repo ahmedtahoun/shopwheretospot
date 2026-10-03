@@ -214,7 +214,7 @@
                   <span style="font-size:13px;color:#6B6660;text-decoration:line-through">{{ p.origPriceFmt }}</span>
                 </sc-if>
               </span>
-              <button onClick="{{ p.onAdd }}" style="background:#22201D;color:#fff;border:none;padding:9px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity 0.15s ease" style-hover="{{ darkBtnHover }}">Add to cart</button>
+              <button onClick="{{ p.onAdd }}" style="background:#22201D;color:#fff;border:none;padding:9px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity 0.15s ease" style-hover="{{ darkBtnHover }}">{{ p.addLabel }}</button>
             </div>
           </div>
         </sc-for>
@@ -365,7 +365,7 @@
               <div style="font-size:14px;font-weight:600">{{ w.name }}</div>
               <div style="font-size:12.5px;color:#6B6660;margin-top:2px">{{ w.priceFmt }}</div>
             </div>
-            <button onClick="{{ w.onAdd }}" style="border:none;background:#22201D;color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer">Add to cart</button>
+            <button onClick="{{ w.onAdd }}" style="border:none;background:#22201D;color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer">{{ w.addLabel }}</button>
             <button onClick="{{ w.onRemove }}" style="border:none;background:none;color:#6B6660;font-size:15px;cursor:pointer">✕</button>
           </div>
         </sc-for>
@@ -509,6 +509,24 @@
               </label>
             </sc-if>
           </sc-if>
+          <sc-if value="{{ needsPersonalization }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid #DDD6CC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;background:#FBF8F4">
+              <div><div style="font-size:14px;font-weight:700">Personalise your items</div><div style="font-size:12.5px;color:#6B6660;margin-top:2px">We print these on your stands and cards. We’ll send you the design to approve before production.</div></div>
+              <label style="font-size:13px;font-weight:600">Business / brand name<input required="{{ true }}" value="{{ form.businessName }}" onChange="{{ setBusinessName }}" placeholder="As it should appear on the design" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+              <label style="font-size:13px;font-weight:600">Google review link <span style="color:#8A8478;font-weight:500">(optional — we can find it for you)</span><input type="url" value="{{ form.reviewLink }}" onChange="{{ setReviewLink }}" placeholder="https://g.page/r/… or your Google Maps link" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
+              <label style="font-size:13px;font-weight:600">Instagram / Facebook / TikTok / website <span style="color:#8A8478;font-weight:500">(optional)</span><textarea value="{{ form.links }}" onChange="{{ setLinks }}" placeholder="One link per line" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:56px;font-family:inherit"></textarea></label>
+              <div style="font-size:13px;font-weight:600">Logo <span style="color:#8A8478;font-weight:500">(optional — JPG, PNG or PDF up to 5 MB, or send it on WhatsApp later)</span>
+                <sc-if value="{{ logoUploaded }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:6px;display:flex;align-items:center;gap:10px;font-weight:500;font-size:13px"><span>✓ {{ form.logoName }}</span><button type="button" onClick="{{ removeLogo }}" style="border:none;background:none;color:#6B6660;text-decoration:underline;cursor:pointer;font-size:12.5px">remove</button></div>
+                </sc-if>
+                <sc-if value="{{ logoNotUploaded }}" hint-placeholder-val="{{ true }}">
+                  <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange="{{ uploadLogo }}" style="display:block;margin-top:6px;font-size:13px"/>
+                  <sc-if value="{{ logoUploading }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:#6B6660;margin-top:4px">Uploading…</div></sc-if>
+                </sc-if>
+              </div>
+              <label style="font-size:13px;font-weight:600">Design notes <span style="color:#8A8478;font-weight:500">(optional)</span><textarea value="{{ form.designNotes }}" onChange="{{ setDesignNotes }}" placeholder="Colours, text, anything we should know" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:56px;font-family:inherit"></textarea></label>
+            </div>
+          </sc-if>
           <label style="font-size:13px;font-weight:600">Country<input value="{{ form.country }}" disabled="{{ true }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;background:#F7F3ED;color:#6B6660"/></label>
           <label style="font-size:13px;font-weight:600">Referral code <span style="color:#8A8478;font-weight:500">(optional)</span>
             <input value="{{ referralCode }}" onChange="{{ setReferralCode }}" placeholder="Got a code from a rep?" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/>
@@ -626,7 +644,7 @@ class Component extends DCLogic {
     if (addP) {
       const price = addP.discountPct ? Math.round(addP.price * (1 - addP.discountPct / 100) * 100) / 100 : addP.price;
       const name = addP.cat === 'services' ? addP.name + ' (1 month)' : addP.name;
-      cart0 = cart.some(i => i.id === addP.id) ? cart : [...cart, { id: addP.id, name, price, cat: addP.cat, qty: 1 }];
+      cart0 = cart.some(i => i.id === addP.id) ? cart : [...cart, { key: mod.lineKey(addP.id), id: addP.id, name, price, cat: addP.cat, qty: 1 }];
       mod.saveCart(cart0);
       history.replaceState(null, '', location.pathname);
     }
@@ -639,6 +657,8 @@ class Component extends DCLogic {
       if (saved) { form = { ...form, ...saved }; checkoutMode = 'save'; }
     } catch {}
     this.loadAreas();
+    cart0 = mod.repriceCart(cart0, inventory);
+    mod.saveCart(cart0);
     this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9 });
   }
 
@@ -679,24 +699,34 @@ class Component extends DCLogic {
   };
   setGuestMode = () => this.setState({ checkoutMode: 'guest' });
   setSaveInfoMode = () => this.setState({ checkoutMode: 'save' });
-  _persistCart = (cart) => { if (this._sd) this._sd.saveCart(cart); return cart; };
-  addToCart = (p) => () => this.setState(s => {
-    const existing = s.cart.find(i => i.id === p.id);
-    const cart = existing ? s.cart.map(i => i.id === p.id ? { ...i, qty: i.qty + 1 } : i) : [...s.cart, { ...p, qty: 1 }];
-    return { cart: this._persistCart(cart), cartOpen: true, checkoutStep: 'cart' };
-  });
-  incItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i)) }));
-  decItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.id === id ? { ...i, qty: Math.max(1, i.qty - 1) } : i)) }));
-  removeItem = (id) => () => this.setState(s => ({ cart: this._persistCart(s.cart.filter(i => i.id !== id)) }));
+  // Cart lines are keyed by product + size + extras, and re-priced on every change (quantity prices).
+  _persistCart = (cart) => {
+    if (!this._sd) return cart;
+    const priced = this.state.inventory.length ? this._sd.repriceCart(cart, this.state.inventory) : cart;
+    this._sd.saveCart(priced);
+    return priced;
+  };
+  // Products with sizes or extras open the product page to choose; others go straight to the cart.
+  addToCart = (p) => () => {
+    if (this._sd && this._sd.hasOptions(p)) { location.href = 'shop-product.dc.html?id=' + encodeURIComponent(p.id); return; }
+    const variant = p.variants && p.variants.length === 1 ? p.variants[0].id : undefined;
+    const key = this._sd ? this._sd.lineKey(p.id, variant, []) : p.id;
+    this.setState(s => {
+      const existing = s.cart.find(i => i.key === key);
+      const cart = existing ? s.cart.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i) : [...s.cart, { key, id: p.id, variant, addons: [], name: p.name, price: p.price, cat: p.cat, qty: 1 }];
+      return { cart: this._persistCart(cart), cartOpen: true, checkoutStep: 'cart' };
+    });
+  };
+  incItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i)) }));
+  decItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.key === key ? { ...i, qty: Math.max(1, i.qty - 1) } : i)) }));
+  removeItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.filter(i => i.key !== key)) }));
   goInfo = () => {
     if (!this.state.cart.length || !this._sd) return;
     const fresh = this.state.inventory;
-    const shortages = this.state.cart.map(i => {
-      const p = fresh.find(x => x.id === i.id);
-      return p && p.stock < i.qty ? { name: i.name, available: p.stock } : null;
-    }).filter(Boolean);
+    const avail = (i) => { const p = fresh.find(x => x.id === i.id); return !p || p.cat === 'services' ? Infinity : this._sd.availableStock(p, i.variant); };
+    const shortages = this.state.cart.map(i => avail(i) < i.qty ? { name: i.name, available: avail(i) } : null).filter(Boolean);
     if (shortages.length) {
-      const cart = this.state.cart.map(i => { const p = fresh.find(x => x.id === i.id); return p ? { ...i, qty: Math.min(i.qty, p.stock) } : i; }).filter(i => i.qty > 0);
+      const cart = this._persistCart(this.state.cart.map(i => ({ ...i, qty: Math.min(i.qty, avail(i)) })).filter(i => i.qty > 0));
       this._persistCart(cart);
       this.setState({ cart, inventory: fresh, stockWarning: shortages.map(s => s.name + ' (only ' + s.available + ' left)').join(', ') });
       return;
@@ -785,6 +815,20 @@ class Component extends DCLogic {
   changeArea = () => this.setState(s => ({ form: { ...s.form, zoneId: '', districtId: '', areaTitle: '', areaSub: '' } }), () => this.suggestAreas(this.state.form.address));
   openBrowse = () => { this.setState({ areaBrowse: true }); if (this.state.form.cityId) this.loadZones(this.state.form.cityId); };
   closeBrowse = () => this.setState({ areaBrowse: false });
+  uploadLogo = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { this.showToast('Logo is larger than 5 MB'); return; }
+    this.setState({ logoUploading: true });
+    try {
+      const fd = new FormData(); fd.append('file', f);
+      const r = await fetch('api/public.php?action=upload_logo', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Upload failed');
+      this.setState(s => ({ logoUploading: false, form: { ...s.form, logoToken: d.token, logoName: d.name } }));
+    } catch (err) { this.setState({ logoUploading: false }); this.showToast(err.message); }
+  };
+  removeLogo = () => this.setState(s => ({ form: { ...s.form, logoToken: '', logoName: '' } }));
   setReferralCode = (e) => this.setState({ referralCode: e.target.value, referralError: false });
   setPayment = (val) => () => this.setState(s => ({ form: { ...s.form, payment: val } }));
   submitInfo = async (e) => {
@@ -800,15 +844,15 @@ class Component extends DCLogic {
       const res = await this._sd.postJSON('order', {
         name: s.form.name, email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city,
         city_id: s.form.cityId || '', district_id: s.form.districtId || '',
-        items: s.cart.map(i => ({ id: i.id, qty: i.qty })),
+        items: s.cart.map(i => ({ id: i.id, variant: i.variant, addons: i.addons || [], qty: i.qty })),
+        business_name: s.form.businessName || '', review_link: s.form.reviewLink || '', links: s.form.links || '', design_notes: s.form.designNotes || '',
+        logo_token: s.form.logoToken || '', logo_name: s.form.logoName || '',
         promo: s.appliedPromo ? s.appliedPromo.code : '', ref: (s.referralCode || '').trim()
       });
       if (s.checkoutMode === 'save') { try { localStorage.setItem('spotshop_saved_contact', JSON.stringify(s.form)); } catch {} }
-      const inventory = s.inventory.map(p => {
-        const item = s.cart.find(i => i.id === p.id);
-        return item && p.cat !== 'services' ? { ...p, stock: Math.max(0, p.stock - item.qty) } : p;
-      });
-      this._persistCart([]);
+      const inventory = (await this._sd.fetchCatalog()) || s.inventory;
+      this._sd.saveCart([]);
+      this.setState(st => ({ form: { ...st.form, logoToken: '', logoName: '', designNotes: '' } }));
       this.setState({ checkoutStep: 'success', orderNumber: res.number, orderTotal: res.total, inventory, placing: false });
     } catch (err) {
       const msg = err.message || '';
@@ -870,7 +914,7 @@ class Component extends DCLogic {
       if (!d || (d.id === currentZone.main && currentZone.districts.length > 1)) return { title: currentZone.name + (currentZone.ar ? ' · ' + currentZone.ar : ''), sub: cityName + ' · any neighbourhood' };
       return { title: d.name + (d.ar ? ' · ' + d.ar : ''), sub: (d.name === currentZone.name ? '' : currentZone.name + ', ') + cityName };
     })();
-    const cartSubtotal = s.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const cartSubtotal = s.cart.reduce((sum, i) => sum + (i.total != null ? i.total : i.price * i.qty), 0);
     const cartItemsTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
     const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
     const cartTotal = cartItemsTotal + shipping;
@@ -914,19 +958,22 @@ class Component extends DCLogic {
       wishEmpty: s.wishlist.length === 0,
       wishItems: s.wishlist.map(id => active.find(p => p.id === id)).filter(Boolean).map(p => {
         const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
-        return { ...p, priceFmt: fmt(salePrice), imgId: 'prod-photo-' + p.id + '-0', onAdd: this.addToCart({ id: p.id, name: p.name, price: salePrice, cat: p.cat }), onRemove: this.toggleWish(p.id) };
+        const opts = this._sd && this._sd.hasOptions(p);
+        return { ...p, priceFmt: (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), imgId: 'prod-photo-' + p.id + '-0', addLabel: opts ? 'Choose' : 'Add to cart', onAdd: this.addToCart(p), onRemove: this.toggleWish(p.id) };
       }),
       productCards: filtered.slice(0, s.visibleCount).map(p => {
         const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
         const isWished = s.wishlist.includes(p.id);
-        return { ...p, price: salePrice, priceFmt: fmt(salePrice), origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.PRODUCT_IMAGES[p.id][0] : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart({ id: p.id, name: p.name, price: salePrice, cat: p.cat }), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
+        const opts = this._sd && this._sd.hasOptions(p);
+        const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
+        return { ...p, price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.PRODUCT_IMAGES[p.id][0] : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,
       cartTitle: s.checkoutStep === 'success' ? 'Order placed' : s.checkoutStep === 'info' ? 'Checkout' : 'Your cart',
       isStepCart: s.checkoutStep === 'cart', isStepInfo: s.checkoutStep === 'info', isStepSuccess: s.checkoutStep === 'success',
       cartEmpty: s.cart.length === 0,
-      cartItems: s.cart.map(i => ({ ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', lineTotal: i.price * i.qty, lineTotalFmt: fmt(i.price * i.qty), onInc: this.incItem(i.id), onDec: this.decItem(i.id), onRemove: this.removeItem(i.id) })),
+      cartItems: s.cart.map(i => { const lt = i.total != null ? i.total : i.price * i.qty; return { ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', lineTotal: lt, lineTotalFmt: fmt(lt), onInc: this.incItem(i.key), onDec: this.decItem(i.key), onRemove: this.removeItem(i.key) }; }),
       cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartItemsTotalFmt: fmt(cartItemsTotal), shippingFmt: shipping ? fmt(shipping) : 'Free', cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
       promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
       appliedPromo: s.appliedPromo, promoDiscountFmt: s.appliedPromo ? fmt(cartSubtotal - cartTotal) : '',
@@ -935,6 +982,9 @@ class Component extends DCLogic {
       saveInfoBg: s.checkoutMode === 'save' ? accent : 'transparent', saveInfoFg: s.checkoutMode === 'save' ? '#fff' : '#22201D',
       setGuestMode: this.setGuestMode, setSaveInfoMode: this.setSaveInfoMode,
       form: s.form, setName: this.setField('name'), setEmail: this.setField('email'), setPhone: this.setField('phone'), setAddress: this.setField('address'),
+      needsPersonalization: s.cart.some(i => i.personalized),
+      setBusinessName: this.setField('businessName'), setReviewLink: this.setField('reviewLink'), setLinks: this.setField('links'), setDesignNotes: this.setField('designNotes'),
+      uploadLogo: this.uploadLogo, removeLogo: this.removeLogo, logoUploaded: !!s.form.logoToken, logoNotUploaded: !s.form.logoToken, logoUploading: !!s.logoUploading,
       setCity: this.setCity, setZone: this.setZone, setDistrict: this.setDistrict, onAddress: this.onAddress,
       areaSearchMode: !!s.areaCities && !s.areaBrowse, showAreaSelects: !s.areaCities || !!s.areaBrowse,
       areaPicked: !!s.form.districtId, areaNotPicked: !s.form.districtId,
