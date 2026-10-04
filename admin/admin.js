@@ -7,6 +7,8 @@
   const S = { user: null, csrf: null, meta: {}, team: [], cats: [], products: [], route: 'dashboard', range: 30 };
 
   // ---------- utils ----------
+  // Photos at display size via api/img.php (resized + cached), instead of multi-MB originals.
+  const thumb = (path, w) => /^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(path || '') ? '../api/img.php?src=' + encodeURIComponent(path) + '&w=' + w : '../' + path;
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const egp = (n) => 'EGP ' + Math.round(Number(n) || 0).toLocaleString('en-US');
   const date = (s) => { if (!s) return '—'; const d = new Date(s.replace(' ', 'T') + 'Z'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
@@ -26,7 +28,18 @@
     if (method !== 'GET') opts.headers['X-CSRF-Token'] = S.csrf || '';
     if (form) opts.body = form;
     else if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-    const res = await fetch(API + '?action=' + action + query, opts);
+    // Reads are retried once after a network error or a server hiccup; writes are never retried.
+    let res;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        res = await fetch(API + '?action=' + action + query, opts);
+        if (method === 'GET' && res.status >= 500 && attempt === 0) { await new Promise((r) => setTimeout(r, 700)); continue; }
+        break;
+      } catch (e) {
+        if (method !== 'GET' || attempt > 0) throw new Error('Could not reach the server — check your internet connection and try again.');
+        await new Promise((r) => setTimeout(r, 700));
+      }
+    }
     let data = {};
     try { data = await res.json(); } catch (e) { /* non-JSON */ }
     if (res.status === 401 && action !== 'login') { S.user = null; render(); }
@@ -767,9 +780,9 @@
       '</select><span class="spacer"></span><input type="search" id="q" placeholder="Search name, SKU, brand" value="' + esc(S.prodQ || '') + '" style="max-width:280px"></div>' +
       (list.length ? '<div class="table-wrap"><table><thead><tr><th></th><th>Product</th><th>Category</th><th class="num">Price</th><th class="num">Stock</th><th>Status</th></tr></thead><tbody>' +
         list.map((p) => {
-          const img = p.images[0] ? '../' + p.images[0].path : '';
+          const img = p.images[0] ? thumb(p.images[0].path, 120) : '';
           const sale = (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? p.fromPrice : (p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100)) : p.price);
-          return '<tr class="click" data-id="' + esc(p.id) + '"><td style="width:60px">' + (img ? '<img class="thumb" src="' + esc(img) + '" alt="">' : '<div class="thumb"></div>') + '</td>' +
+          return '<tr class="click" data-id="' + esc(p.id) + '"><td style="width:60px">' + (img ? '<img class="thumb" src="' + esc(img) + '" alt="" loading="lazy">' : '<div class="thumb"></div>') + '</td>' +
             '<td><b>' + esc(p.name) + '</b><div class="small muted">' + esc([p.sku, p.vendor].filter(Boolean).join(' · ')) + ' · ' + p.images.length + ' photo' + (p.images.length === 1 ? '' : 's') + '</div></td>' +
             '<td>' + esc(catLabel(p.cat)) + (p.variants && p.variants.length ? '<div class="small muted">' + p.variants.length + ' sizes</div>' : '') + '</td><td class="num">' + ((p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? '<span class="small muted">from </span>' : '') + egp(sale) + (p.discountPct ? '<div class="small muted"><s>' + egp(p.price) + '</s></div>' : '') + (p.period ? '<div class="small muted">/ month</div>' : '') + '</td>' +
             '<td class="num">' + (p.cat === 'services' ? '—' : (p.stock <= 5 ? '<span class="pill warn">⚠ ' + p.stock + '</span>' : p.stock)) + '</td><td>' + pill(PRODUCT_TONE, p.status) + '</td></tr>';
@@ -903,7 +916,7 @@
     const box = $('#photos');
     if (!box) return;
     box.innerHTML = p.images.map((im, i) =>
-      '<div class="photo">' + (i === 0 ? '<span class="cover">Cover</span>' : '') + '<img src="../' + esc(im.path) + '" alt="">' +
+      '<div class="photo">' + (i === 0 ? '<span class="cover">Cover</span>' : '') + '<img src="' + esc(thumb(im.path, 300)) + '" alt="" loading="lazy">' +
       '<div class="tools"><button data-mv="-1" data-i="' + i + '" ' + (i === 0 ? 'disabled' : '') + ' aria-label="Move left">←</button>' +
       '<button data-del="' + im.id + '" aria-label="Remove photo">🗑</button>' +
       '<button data-mv="1" data-i="' + i + '" ' + (i === p.images.length - 1 ? 'disabled' : '') + ' aria-label="Move right">→</button></div></div>').join('') +

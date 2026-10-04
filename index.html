@@ -122,7 +122,7 @@
         <a href="plans.html" style="border:1px solid #22201D;color:#22201D;padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600">See marketing plans</a>
       </div>
     </div>
-    <image-slot id="hero-shot" src="images/nfc-review-black-lifestyle.png" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
+    <image-slot id="hero-shot" src="api/img.php?src=images/nfc-review-black-lifestyle.png&amp;w=1000" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
   </header>
 
   <section id="categories" style="max-width:1280px;margin:0 auto;padding:0 28px 80px">
@@ -249,7 +249,7 @@
         <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#6B6660">Where To Spot is a marketing and creative studio based in 6th of October City, Giza, Egypt. We help businesses get found and win customers: lead-generation campaigns, NFC review tools, printing and acrylic fabrication, events, video and websites.</p>
         <a href="about.html" style="display:inline-block;margin-top:20px;font-weight:600;color:var(--accent);text-decoration:underline">Read more about us →</a>
       </div>
-      <image-slot id="about-shot" src="images/work/acrylic-display-foodcourt.jpeg" shape="rounded" radius="22" placeholder="about photo" style="width:100%;aspect-ratio:4/3"></image-slot>
+      <image-slot id="about-shot" src="api/img.php?src=images/work/acrylic-display-foodcourt.jpeg&amp;w=1000" shape="rounded" radius="22" placeholder="about photo" style="width:100%;aspect-ratio:4/3"></image-slot>
     </div>
     <div style="margin-top:40px;font-size:13px;font-weight:600;color:#6B6660;text-align:center">Trusted by businesses across Egypt and the region</div>
     <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:22px 34px;justify-content:center;align-items:center;opacity:0.8">
@@ -939,7 +939,7 @@ class Component extends DCLogic {
       mobileNavCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCatMobile(c.key) })),
       catCards: cats.map(c => {
         const first = active.find(p => p.cat === c.key && this._sd && (this._sd.PRODUCT_IMAGES[p.id] || []).length);
-        return { key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, img: first ? this._sd.PRODUCT_IMAGES[first.id][0] : '', onClick: this.setCat(c.key) };
+        return { key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, img: first ? this._sd.img(this._sd.PRODUCT_IMAGES[first.id][0], 300) : '', onClick: this.setCat(c.key) };
       }),
       filterTabs,
       customServices: this.customServices, clientLogos: this.clientLogos,
@@ -966,7 +966,7 @@ class Component extends DCLogic {
         const isWished = s.wishlist.includes(p.id);
         const opts = this._sd && this._sd.hasOptions(p);
         const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
-        return { ...p, price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.PRODUCT_IMAGES[p.id][0] : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
+        return { ...p, price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.img(this._sd.PRODUCT_IMAGES[p.id][0], 600) : '', catLabel: this.catLabel(p.cat), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,

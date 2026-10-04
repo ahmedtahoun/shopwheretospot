@@ -33,7 +33,7 @@ function bosta_request(string $method, string $path, ?array $body = null, bool $
     if ($body !== null) $headers[] = 'Content-Type: application/json';
     $ch = curl_init($url);
     curl_setopt_array($ch, [
-        CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 6,
         CURLOPT_HTTPHEADER => $headers,
     ]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_UNICODE));
@@ -283,7 +283,7 @@ function bosta_find_area(string $cityId, string $districtId): ?array
 
 function bosta_locations(): array
 {
-    return bosta_cache('locations', 600, function () {
+    return bosta_cache('locations', 6 * 3600, function () {
         $res = bosta_request('GET', '/pickup-locations');
         $list = $res['data']['list'] ?? ($res['data'] ?? []);
         return array_map(function ($l) {

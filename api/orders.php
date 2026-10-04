@@ -34,7 +34,7 @@ function create_order(array $in, array $opts = []): array
     if (!$items || count($items) > 50) throw new ShopError($team ? 'Add at least one product.' : 'Your cart is empty.');
 
     $pdo = db();
-    $pdo->beginTransaction();
+    tx_begin();
     try {
         $get = $pdo->prepare("SELECT * FROM products WHERE id = ? AND status = 'Active'");
         $lines = [];
@@ -120,9 +120,9 @@ function create_order(array $in, array $opts = []): array
             if ($l['id'] === 'custom') continue;
             adjust_stock($pdo, $l['id'], $l['variant'] ?? null, -$l['qty']);
         }
-        $pdo->commit();
+        tx_commit();
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        tx_rollback();
         throw $e;
     }
 

@@ -6,3 +6,4 @@ uploads/products/*
 api/config.local.php
 uploads/orders/*
 !uploads/orders/.gitkeep
+uploads/thumbs/

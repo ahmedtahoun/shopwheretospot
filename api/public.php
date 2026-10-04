@@ -18,31 +18,25 @@ try {
             unset($p['cost'], $p['createdAt'], $p['updatedAt']);
             return $p;
         }, load_products(true));
-        header('Cache-Control: public, max-age=30');
-        json_out(['categories' => $cats, 'products' => $products]);
+        json_out(['categories' => $cats, 'products' => $products], 200, 60);
     }
 
     // Cities Bosta delivers to (?action=areas) or the areas of one city (?action=areas&city=ID).
     if ($action === 'areas' && $method === 'GET') {
         $cities = bosta_areas();
-        header('Cache-Control: public, max-age=3600');
         if (!empty($_GET['city'])) {
-            foreach ($cities as $c) if ($c['id'] === $_GET['city']) json_out(['zones' => bosta_zones($c)]);
+            foreach ($cities as $c) if ($c['id'] === $_GET['city']) json_out(['zones' => bosta_zones($c)], 200, 3600);
             fail('City not found', 404);
         }
-        json_out(['cities' => array_map(function ($c) { return ['id' => $c['id'], 'name' => $c['name'], 'ar' => $c['ar']]; }, $cities)]);
+        json_out(['cities' => array_map(function ($c) { return ['id' => $c['id'], 'name' => $c['name'], 'ar' => $c['ar']]; }, $cities)], 200, 3600);
     }
 
     // "Type your area" search and suggestions from the typed street address.
     if ($action === 'area_search' && $method === 'GET') {
-        if (too_many_attempts('areasearch', 600, 600)) fail('Too many requests', 429);
-        record_attempt('areasearch');
-        json_out(['results' => area_search(str_in($_GET['q'] ?? '', 80))]);
+        json_out(['results' => area_search(str_in($_GET['q'] ?? '', 80))], 200, 3600);
     }
     if ($action === 'area_suggest' && $method === 'GET') {
-        if (too_many_attempts('areasearch', 600, 600)) fail('Too many requests', 429);
-        record_attempt('areasearch');
-        json_out(['results' => area_suggest(str_in($_GET['text'] ?? '', 300))]);
+        json_out(['results' => area_suggest(str_in($_GET['text'] ?? '', 300))], 200, 3600);
     }
 
     if ($method !== 'POST') fail('Not found', 404);

@@ -579,7 +579,7 @@ try {
 } catch (ShopError $e) {
     fail($e->getMessage(), 502);
 } catch (Throwable $e) {
-    try { if (db()->inTransaction()) db()->rollBack(); } catch (Throwable $ignored) {}
+    tx_rollback();
     error_log('[shop admin] ' . $e->getMessage());
     fail('Something went wrong. Please try again.', 500);
 }

@@ -51,6 +51,42 @@ function cfg(string $key)
     return $config[$key];
 }
 
+// Single-row lookups (fetch / fetchColumn) close their cursor straight away. A half-read
+// statement keeps an old snapshot open, and SQLite then refuses this request's next write
+// with "database is locked" if another request wrote in between. Nothing reads row by row
+// with fetch() in a loop (lists use fetchAll or foreach), so closing after one row is safe.
+class WtsStatement extends PDOStatement
+{
+    protected function __construct() {}
+
+    #[\ReturnTypeWillChange]
+    public function fetch($mode = null, $cursorOrientation = PDO::FETCH_ORI_NEXT, $cursorOffset = 0)
+    {
+        $row = $mode === null ? parent::fetch() : parent::fetch($mode, $cursorOrientation, $cursorOffset);
+        $this->closeCursor();
+        return $row;
+    }
+
+    #[\ReturnTypeWillChange]
+    public function fetchColumn($column = 0)
+    {
+        $value = parent::fetchColumn($column);
+        $this->closeCursor();
+        return $value;
+    }
+}
+
+// Write transactions take SQLite's write lock up front (BEGIN IMMEDIATE), so concurrent orders wait
+// their turn via busy_timeout instead of failing with "database is locked" halfway through.
+// Plain exec() calls keep this working the same on every PHP version.
+function tx_begin(): void { db()->exec('BEGIN IMMEDIATE'); $GLOBALS['wts_tx'] = true; }
+function tx_commit(): void { db()->exec('COMMIT'); $GLOBALS['wts_tx'] = false; }
+function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_tx'] = false; try { db()->exec('ROLLBACK'); } catch (Throwable $e) {} } }
+function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
+
+// Bump whenever migrate() gains a new table/column so existing databases upgrade once.
+const SCHEMA_VERSION = 7;
+
 function db(): PDO
 {
     static $pdo = null;
@@ -60,8 +96,17 @@ function db(): PDO
     $pdo = new PDO('sqlite:' . $dir . '/shop.sqlite');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $pdo->exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
-    migrate($pdo);
+    $pdo->setAttribute(PDO::ATTR_STATEMENT_CLASS, [WtsStatement::class]);
+    // Wait up to 8 s for another request's write to finish instead of failing straight away
+    // ("database is locked" was the intermittent "couldn't load data" error).
+    $pdo->setAttribute(PDO::ATTR_TIMEOUT, 8);
+    $pdo->exec('PRAGMA busy_timeout = 8000; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;');
+    // Schema changes only run when the stored version is older than this code.
+    if ((int) $pdo->query('PRAGMA user_version')->fetchColumn() < SCHEMA_VERSION) {
+        $pdo->exec('PRAGMA journal_mode = WAL;');
+        migrate($pdo);
+        $pdo->exec('PRAGMA user_version = ' . SCHEMA_VERSION);
+    }
     if (!empty($GLOBALS['backfill_lead_keys']) && function_exists('backfill_lead_keys')) backfill_lead_keys();
     return $pdo;
 }
@@ -244,11 +289,11 @@ function backfill_lead_keys(): void
 
 // ---------- HTTP helpers ----------
 
-function json_out($data, int $code = 200): void
+function json_out($data, int $code = 200, int $cacheSeconds = 0): void
 {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store');
+    header($cacheSeconds > 0 ? 'Cache-Control: public, max-age=' . $cacheSeconds : 'Cache-Control: no-store');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -313,6 +358,9 @@ function require_perm(string $perm): array
         $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
         if (!hash_equals($_SESSION['csrf'] ?? '', $token)) fail('Session expired, please reload', 419);
     }
+    // Release the session lock: nothing writes to the session after this point, and holding it
+    // made the dashboard's parallel requests queue behind each other.
+    session_write_close();
     return $u;
 }
 
@@ -389,8 +437,8 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     $o = $st->fetch();
     if (!$o) throw new ShopError('Order not found.');
     if (!in_array($status, ORDER_STATUSES, true)) $status = $o['status'];
-    $own = !$pdo->inTransaction();
-    if ($own) $pdo->beginTransaction();
+    $own = !tx_active();
+    if ($own) tx_begin();
     $wasOpen = !in_array($o['status'], ['Cancelled', 'Returned'], true);
     $isOpen = !in_array($status, ['Cancelled', 'Returned'], true);
     if ($wasOpen !== $isOpen) {
@@ -402,7 +450,7 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     }
     $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
         ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);
-    if ($own) $pdo->commit();
+    if ($own) tx_commit();
     if ($status !== $o['status']) log_activity(current_user_quiet(), 'Order ' . $status, order_number($id));
     return $o;
 }
