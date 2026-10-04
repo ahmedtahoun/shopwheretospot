@@ -432,7 +432,9 @@ export function repriceCart(cart, inventory) {
 export function lineKey(id, variant, addons) { return [id, variant || '', (addons || []).slice().sort().join('+')].join('|'); }
 
 // Product photos at the size they're shown (api/img.php makes and caches resized WebP copies).
+// Bump to make browsers fetch fresh copies of every resized photo (they're cached for a year).
+const IMG_VERSION = 2;
 export function img(src, w) {
   if (!src || !/^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(src)) return src || '';
-  return 'api/img.php?src=' + encodeURIComponent(src) + '&w=' + (w || 600);
+  return 'api/img.php?src=' + encodeURIComponent(src) + '&w=' + (w || 600) + '&v=' + IMG_VERSION;
 }

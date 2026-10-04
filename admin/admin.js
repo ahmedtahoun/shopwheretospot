@@ -8,7 +8,7 @@
 
   // ---------- utils ----------
   // Photos at display size via api/img.php (resized + cached), instead of multi-MB originals.
-  const thumb = (path, w) => /^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(path || '') ? '../api/img.php?src=' + encodeURIComponent(path) + '&w=' + w : '../' + path;
+  const thumb = (path, w) => /^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(path || '') ? '../api/img.php?src=' + encodeURIComponent(path) + '&w=' + w + '&v=2' : '../' + path;
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const egp = (n) => 'EGP ' + Math.round(Number(n) || 0).toLocaleString('en-US');
   const date = (s) => { if (!s) return '—'; const d = new Date(s.replace(' ', 'T') + 'Z'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };

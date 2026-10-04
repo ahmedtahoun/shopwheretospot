@@ -5,6 +5,9 @@
 
 declare(strict_types=1);
 
+// Never let a PHP notice end up inside image bytes.
+ini_set('display_errors', '0');
+
 const IMG_WIDTHS = [120, 300, 600, 1000];
 
 $src = (string) ($_GET['src'] ?? '');
@@ -69,8 +72,6 @@ imagecopyresampled($out, $im, 0, 0, 0, 0, $w, $nh, $ow, $oh);
 if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
 $tmp = $cacheFile . '.' . bin2hex(random_bytes(4));
 $ok = $ext === 'webp' ? imagewebp($out, $tmp, 80) : ($ext === 'png' ? imagepng($out, $tmp, 7) : imagejpeg($out, $tmp, 82));
-imagedestroy($im);
-imagedestroy($out);
 if ($ok && @rename($tmp, $cacheFile)) $send($cacheFile, $types[$ext]);
 @unlink($tmp);
 $send($file, $mime);

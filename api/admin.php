@@ -675,8 +675,6 @@ function resize_image(string $src, string $dest, string $mime, int $max): bool
     imagesavealpha($out, true);
     imagecopyresampled($out, $im, 0, 0, 0, 0, $nw, $nh, $w, $h);
     $ok = $mime === 'image/png' ? imagepng($out, $dest, 6) : ($mime === 'image/webp' ? imagewebp($out, $dest, 82) : imagejpeg($out, $dest, 82));
-    imagedestroy($im);
-    imagedestroy($out);
     return $ok;
 }
 
