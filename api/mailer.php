@@ -152,10 +152,12 @@ function notify_new_lead(array $l): void
     $contact = $l['contact'];
     $isEmail = filter_var($contact, FILTER_VALIDATE_EMAIL);
     $action = $isEmail ? btn('mailto:' . $contact, 'Email them') : btn(wa_link($contact), 'WhatsApp them', '#1F7A4D');
-    $html = email_shell('New bulk / corporate enquiry',
+    $html = email_shell('New enquiry from the website',
         '<p style="margin:0 0 4px"><b>' . h($l['name']) . '</b></p><p style="margin:0 0 4px">' . h($contact) . '</p>'
-        . '<p style="margin:0 0 16px;color:#6B6660">Interested in: ' . h($l['cat'] ?: '—') . '</p>'
+        . '<p style="margin:0 0 4px;color:#6B6660">Interested in: ' . h($l['cat'] ?: '—') . '</p>'
+        . '<p style="margin:0 0 4px;color:#6B6660">From: ' . h($l['source'] ?? 'Website') . '</p>'
+        . (!empty($l['notes']) ? '<p style="margin:12px 0 16px;white-space:pre-line;background:#F7F3ED;border-radius:10px;padding:12px 14px">' . h($l['notes']) . '</p>' : '<p style="margin:0 0 16px"></p>')
         . '<p>' . $action . btn($admin, 'Open leads', '#22201D') . '</p>');
-    $text = "New enquiry\n\n" . $l['name'] . "\n" . $contact . "\nInterested in: " . $l['cat'] . "\n\nDashboard: $admin\n";
+    $text = "New enquiry\n\n" . $l['name'] . "\n" . $contact . "\nInterested in: " . $l['cat'] . "\nFrom: " . ($l['source'] ?? 'Website') . (!empty($l['notes']) ? "\n\n" . $l['notes'] : '') . "\n\nDashboard: $admin\n";
     foreach (array_unique($to) as $r) send_mail([$r], 'New enquiry · ' . $l['name'], $html, $text);
 }

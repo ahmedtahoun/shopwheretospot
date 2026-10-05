@@ -78,16 +78,19 @@ try {
         $contact = str_in($b['contact'] ?? '', 160);
         if ($name === '' || $contact === '') fail('Please enter your name and email or phone.');
         $cat = str_in($b['cat'] ?? '', 40);
+        $source = str_in($b['source'] ?? 'Website', 80);
+        // What they told us (the chat assistant sends the customer's answers here).
+        $details = str_in($b['notes'] ?? '', 1000);
         $existing = find_lead(phone_key($contact), email_key($contact));
         if ($existing) {
             // Same person asking again: add it to their lead and put it back in the New pile.
-            touch_lead($existing, date('Y-m-d') . ' · New website enquiry' . ($cat ? ' · interested in ' . $cat : '') . ' · from ' . $name, 'New', null, $contact);
+            touch_lead($existing, date('Y-m-d') . ' · New enquiry (' . $source . ')' . ($cat ? ' · interested in ' . $cat : '') . ' · from ' . $name . ($details !== '' ? "\n" . $details : ''), 'New', null, $contact);
         } else {
-            insert_lead(['name' => $name, 'contact' => $contact, 'cat' => $cat, 'source' => str_in($b['source'] ?? 'Website', 80), 'status' => 'New']);
+            insert_lead(['name' => $name, 'contact' => $contact, 'cat' => $cat, 'source' => $source, 'status' => 'New', 'notes' => $details]);
         }
         record_attempt('lead');
-        log_activity(null, 'New lead', $name);
-        notify_new_lead(['name' => $name, 'contact' => $contact, 'cat' => str_in($b['cat'] ?? '', 40)]);
+        log_activity(null, 'New lead', $name . ' · ' . $source);
+        notify_new_lead(['name' => $name, 'contact' => $contact, 'cat' => $cat, 'source' => $source, 'notes' => $details]);
         json_out(['ok' => true]);
     }
 

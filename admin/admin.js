@@ -101,18 +101,21 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', '▦'], ['orders', 'Orders', '🧾'], ['products', 'Products', '▣'],
-      ['leads', 'Leads', '✉'], ['team', 'Team', '👥'], ['activity', 'Activity', '↺'],
+      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['products', 'Products', 'box'],
+      ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'],
     ].filter(([k]) => can(k));
+    const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
-      '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">☰</button><b>Where To Spot</b></div>' +
+      '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">' + icon('menu') + '</button><span class="brand-mark"><img src="../images/logo.png" alt="">Where To Spot</span></div>' +
       '<div class="shell"><nav class="side" id="side">' +
-      '<div class="brand"><img src="../images/logo.png" alt="">Team</div>' +
-      nav.map(([k, label, icon]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '"><span aria-hidden="true">' + icon + '</span>' + label + '</a>').join('') +
-      '<a class="nav" href="../index.html" target="_blank" rel="noopener"><span aria-hidden="true">↗</span>View shop</a>' +
-      '<div class="foot"><b>' + esc(S.user.name) + '</b><br>' + esc(S.user.role) + ' · ' + esc(S.user.email) +
-      '<div style="margin-top:8px"><button id="pwBtn">Change password</button><button id="outBtn">Sign out</button></div></div>' +
+      '<div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>Where To Spot</b><small>Team workspace</small></span></div>' +
+      '<div class="nav-label">Workspace</div>' +
+      nav.map(([k, label, ic]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '">' + icon(ic) + '<span>' + label + '</span></a>').join('') +
+      '<div class="nav-label">Shop</div>' +
+      '<a class="nav" href="../index.html" target="_blank" rel="noopener">' + icon('external') + '<span>View shop</span></a>' +
+      '<div class="foot"><div class="me-card"><span class="avatar">' + esc(initials) + '</span><span class="who"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.role) + '</small></span></div>' +
+      '<div class="foot-actions"><button id="pwBtn">' + icon('key') + 'Password</button><button id="outBtn">' + icon('logout') + 'Sign out</button></div></div>' +
       '</nav><main class="main" id="main"><div class="boot">Loading…</div></main></div>';
     $('#menuBtn').onclick = () => $('#side').classList.toggle('open');
     $$('#side a.nav').forEach((a) => a.addEventListener('click', () => $('#side').classList.remove('open')));
@@ -122,9 +125,13 @@
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
+  const authAside = () => '<aside class="auth-side"><span class="logo"><img src="../images/logo.png" alt=""></span>' +
+    '<div><h2>Orders, leads and production, <em>in one place.</em></h2><p>The Where To Spot team workspace.</p></div>' +
+    '<small>© ' + new Date().getFullYear() + ' Where To Spot</small></aside>';
+
   function renderLogin() {
-    app.innerHTML = '<div class="auth"><form class="auth-card stack" id="f">' +
-      '<div><h1>Team sign in</h1><p>Where To Spot shop dashboard</p></div>' +
+    app.innerHTML = '<div class="auth">' + authAside() + '<form class="auth-card stack" id="f">' +
+      '<div><h1>Welcome back</h1><p>Sign in to the Where To Spot team workspace.</p></div>' +
       '<label class="field">Email<input type="email" name="email" required autocomplete="username"></label>' +
       '<label class="field">Password<input type="password" name="password" required autocomplete="current-password"></label>' +
       '<div class="err" id="err"></div><button class="btn primary" type="submit">Sign in</button></form></div>';
@@ -138,7 +145,7 @@
   }
 
   function renderSetup() {
-    app.innerHTML = '<div class="auth"><form class="auth-card stack" id="f">' +
+    app.innerHTML = '<div class="auth">' + authAside() + '<form class="auth-card stack" id="f">' +
       '<div><h1>Create the owner account</h1><p>First-time setup. Enter the setup key from <code>' + esc(S.meta.setupKeyPath || 'SETUP_KEY.txt') + '</code> on the server (open it in cPanel → File Manager). The key stops working once this account exists.</p></div>' +
       '<label class="field">Setup key<input type="text" name="key" required autocomplete="off"></label>' +
       '<label class="field">Your name<input type="text" name="name" required></label>' +
@@ -164,6 +171,21 @@
       catch (err) { $('#perr').textContent = err.message; }
     };
   }
+
+  // Line icons for the sidebar (24px grid, stroke-based).
+  const ICONS = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    bag: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+    inbox: '<path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+    pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3"/>',
+    logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H4"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  };
+  const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
   function header(title, sub, actions) {
     return '<div class="top"><div><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div><div class="row">' + (actions || '') + '</div></div>';
@@ -348,11 +370,12 @@
     $('#main').innerHTML = header('Orders', open.length + ' open orders' + (can('own_orders') ? ' · only orders credited to you' : ''),
       '<div class="seg" id="view"><button data-v="list">List</button><button data-v="board" class="on">Production board</button></div>' +
       (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
-      '<div style="display:grid;grid-template-columns:repeat(' + BOARD.length + ',minmax(210px,1fr));gap:12px;overflow-x:auto;padding-bottom:10px">' +
+      '<div class="board" style="grid-template-columns:repeat(' + BOARD.length + ',minmax(230px,1fr))">' +
       BOARD.map((st, si) => {
         const list = open.filter((o) => o.status === st);
-        return '<div style="background:#EFEAE3;border-radius:14px;padding:10px;min-height:200px"><div class="row" style="margin-bottom:8px">' + pill(ORDER_TONE, st) + '<span class="spacer"></span><b class="small">' + list.length + '</b></div>' +
-          list.map((o) => '<div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" data-open="' + o.id + '">' +
+        return '<div class="bcol"><div class="bhead">' + pill(ORDER_TONE, st) + '<span class="spacer"></span><span class="bcount">' + list.length + '</span></div>' +
+          (list.length ? '' : '<div class="bempty">No orders</div>') +
+          list.map((o) => '<div class="bcard" data-open="' + o.id + '">' +
             '<div class="row"><b>' + esc(o.number) + '</b><span class="spacer"></span><span class="small muted">' + egp(o.total) + '</span></div>' +
             '<div class="small">' + esc(o.businessName || o.customer) + '</div>' +
             '<div class="small muted" style="margin:4px 0">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</div>' +
@@ -990,7 +1013,7 @@
     const [d] = await Promise.all([api('leads'), loadTeam()]);
     const st = S.leadStatus || '';
     const list = d.leads.filter((l) => !st || l.status === st);
-    $('#main').innerHTML = header('Leads', 'Bulk-order requests from the shop, plus leads your team adds.',
+    $('#main').innerHTML = header('Leads', 'Enquiries from the website chat and quote form, customers from orders, and leads your team adds.',
       '<a class="btn" href="' + API + '?action=leads&format=csv">Export CSV</a><button class="btn primary" id="addLead">+ Add lead</button>') +
       '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + [''].concat(S.meta.leadStatuses).map((t) => '<button data-s="' + t + '" class="' + (t === st ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div></div>' +
       (list.length ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Interest</th><th>Status</th><th>Assigned</th><th>Received</th></tr></thead><tbody>' +
