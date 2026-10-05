@@ -102,7 +102,7 @@
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['products', 'Products', 'box'],
-      ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'],
+      ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'],
     ].filter(([k]) => can(k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
@@ -121,7 +121,7 @@
     $$('#side a.nav').forEach((a) => a.addEventListener('click', () => $('#side').classList.remove('open')));
     $('#outBtn').onclick = async () => { await api('logout', { method: 'POST' }).catch(() => {}); S.user = null; S.csrf = null; render(); };
     $('#pwBtn').onclick = changePassword;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity };
+    const pages = { dashboard: pageDashboard, orders: pageOrders, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
@@ -184,6 +184,13 @@
     key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3"/>',
     logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H4"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>',
+    cart: '<path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
@@ -212,6 +219,7 @@
       kpi('New leads', k.newLeads, can('leads') ? '<a href="#leads">Open leads →</a>' : '') +
       kpi('Live products', k.products, can('products') ? '<a href="#products">Manage →</a>' : '') +
       '</div>' +
+      (can('leads') && (d.followUps || []).length ? '<div style="margin-bottom:16px">' + followUpCard(d.followUps) + '</div>' : '') +
       '<div class="dash"><div class="cards">' +
       '<div class="card"><h2>Daily revenue (EGP)</h2><div class="chart" id="chart"></div></div>' +
       '<div class="card"><h2>Recent orders<span class="spacer"></span>' + (can('orders') ? '<a class="btn sm" href="#orders">All orders</a>' : '') + '</h2>' +
@@ -219,6 +227,9 @@
         '<tr><td><b>' + esc(o.number) + '</b><div class="small muted">' + esc(o.customer) + '</div></td><td>' + pill(ORDER_TONE, o.status) + '</td><td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b></td></tr>').join('') +
         '</tbody></table></div>' : '<div class="empty">No orders yet.</div>') + '</div>' +
       '</div><div class="cards">' +
+      (can('leads') && !(d.followUps || []).length ? followUpCard([]) : '') +
+      (can('backups') ? '<div class="card"><h2>' + icon('shield') + 'Backups<span class="spacer"></span><a class="btn sm" href="#backups">Manage</a></h2><div class="small muted">' +
+        (d.lastBackup ? 'Last copy saved ' + dateTime(d.lastBackup.created) + ' · ' + fmtSize(d.lastBackup.size) : 'The first backup will be saved in a moment.') + '</div></div>' : '') +
       '<div class="card"><h2>Orders by status</h2>' + statuses.map(([s, n]) =>
         '<div class="hbar"><span>' + pill(ORDER_TONE, s) + '</span><div class="track"><div class="fill" style="width:' + (n / maxStatus * 100) + '%"></div></div><span class="num" style="text-align:right">' + n + '</span></div>').join('') + '</div>' +
       '<div class="card"><h2>Top products</h2>' + (d.topProducts.length ? '<div class="list">' + d.topProducts.map((p) =>
@@ -234,6 +245,16 @@
     const tb = $('#setTargets'); if (tb) tb.onclick = () => targetsDrawer(perf.month);
     const pend = $('[data-status=Pending]'); if (pend) pend.onclick = () => { S.orderStatus = 'Pending'; };
     drawChart($('#chart'), d.series);
+    $$('[data-fu]').forEach((r) => r.onclick = (e) => { if (e.target.closest('a')) return; S.leadStatus = 'due'; S.leadView = 'list'; S.openLead = +r.dataset.fu; location.hash = '#leads'; });
+    const fa = $('#fuAll'); if (fa) fa.onclick = () => { S.leadStatus = 'due'; S.leadView = 'list'; };
+  }
+
+  function followUpCard(list) {
+    return '<div class="card"><h2>' + icon('clock') + 'Follow up today' + (list.length ? ' <span class="pill bad">' + list.length + '</span>' : '') + '<span class="spacer"></span>' +
+      (list.length ? '<a class="btn sm" href="#leads" id="fuAll">View all</a>' : '') + '</h2>' +
+      (list.length ? '<div class="list">' + list.map((l) => '<div class="li fu" data-fu="' + l.id + '"><span><b>' + esc(l.name) + '</b><div class="small muted">' + esc(leadInterest(l)) + (l.assigned_name ? ' · ' + esc(l.assigned_name) : '') + '</div></span>' +
+        '<span class="row" style="gap:6px;flex-wrap:nowrap">' + followChip(l) + waBtn(l) + '</span></div>').join('') + '</div>'
+        : '<div class="muted small">Nothing due. Set a follow-up date on a lead and it shows here on that day.</div>') + '</div>';
   }
   const pct = (v, t) => t > 0 ? Math.min(100, Math.round(v / t * 100)) : 0;
   const progress = (v, t) => t > 0 ? '<div class="prog' + (v >= t ? ' done' : '') + '" role="progressbar" aria-valuenow="' + pct(v, t) + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct(v, t) + '%"></i></div>' : '';
@@ -616,7 +637,7 @@
   }
 
   // ---------- team-entered orders ----------
-  async function newOrderDrawer() {
+  async function newOrderDrawer(prefill) {
     const cat = await api('order_catalog');
     const lines = [];
     let area = null; // { districtId, cityId, title, sub }
@@ -625,6 +646,7 @@
     const repOpts = can('targets') ? '<label class="field">Credit this sale to<select name="rep_id">' +
       cat.reps.map((r) => '<option value="' + r.id + '"' + (r.id === S.user.id ? ' selected' : '') + '>' + esc(r.name) + ' (' + esc(r.role) + ')</option>').join('') + '</select></label>' : '';
     const body = '<form id="nf" class="stack">' +
+      (prefill ? '<div class="chosen">' + icon('inbox') + '<span>Order for lead <b>' + esc(prefill.name) + '</b>' + (prefill.interest ? ' · ' + esc(prefill.interest) : '') + '. The lead will be marked Won.</span></div>' : '') +
       '<div class="card stack"><b>Customer</b><div class="grid2"><label class="field">Name<input type="text" name="name" required></label>' +
       '<label class="field">Phone / WhatsApp<input type="tel" name="phone" required placeholder="01xxxxxxxxx"></label></div>' +
       '<label class="field">Email <span class="hint">Optional</span><input type="email" name="email"></label></div>' +
@@ -657,6 +679,11 @@
       '<label class="field">Notes<textarea name="notes" style="min-height:60px" placeholder="e.g. Customer wants delivery after 5pm"></textarea></label></div>' +
       '<div class="card" id="nTotals"></div></form>';
     openDrawer('New order', body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="nf" type="submit" id="nSubmit">Create order</button>');
+    if (prefill) {
+      const f = $('#nf').elements; // .elements: form.name would be the form's own name
+      f.name.value = prefill.name || ''; f.phone.value = prefill.phone || ''; f.email.value = prefill.email || '';
+      if (prefill.interest) f.notes.value = 'Lead asked for: ' + prefill.interest;
+    }
 
     const autoShip = () => {
       const phys = lines.filter((l) => (l.custom ? l.ship : l.p.cat !== 'services')).reduce((s, l) => s + lineCalc(l).total, 0);
@@ -776,6 +803,7 @@
       data.items = lines.map((l) => l.custom ? { custom: 1, name: l.name, price: l.price, qty: l.qty, ship: l.ship ? 1 : 0 } : { id: l.p.id, variant: l.variant, addons: l.addons, qty: l.qty });
       if (area) { data.city_id = area.cityId; data.district_id = area.districtId; }
       if (data.shipping === '') delete data.shipping;
+      if (prefill && prefill.leadId) data.lead_id = prefill.leadId;
       const btn = $('#nSubmit'); btn.disabled = true; btn.textContent = 'Creating…';
       try {
         const r = await api('order_create', { method: 'POST', body: data });
@@ -1009,44 +1037,156 @@
   // ---------- leads ----------
   async function loadTeam() { S.team = (await api('team')).team; }
 
+  // ---------- lead helpers ----------
+  const cairoToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
+  const addDays = (n) => { const d = new Date(cairoToday() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const fmtDay = (s) => new Date(s + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+  const phoneOf = (c) => { const m = String(c || '').match(/\+?\d[\d\s-]{7,}\d/); return m ? m[0].replace(/\D/g, '') : ''; };
+  const emailOf = (c) => (String(c || '').match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [''])[0];
+  const waNumber = (d) => d.startsWith('20') ? d : d.startsWith('0') ? '20' + d.slice(1) : (d.length === 10 && d[0] === '1' ? '20' + d : d);
+  const localPhone = (d) => { const w = waNumber(d); return w.startsWith('20') ? '0' + w.slice(2) : d; };
+  const CAT_NAMES = { nfc: 'NFC review cards & stands', cosmetics: 'skincare & cosmetics', stands: 'exhibition stands', services: 'marketing services' };
+  const leadInterest = (l) => { const m = String(l.notes || '').match(/Needs: (.+)/); return m ? m[1] : (CAT_NAMES[l.cat] || l.cat || ''); };
+  const isDue = (l) => !!l.follow_up && l.follow_up <= cairoToday() && l.status !== 'Won' && l.status !== 'Lost';
+  // WhatsApp link with a ready-made greeting that mentions what they asked for.
+  function leadWa(l) {
+    const p = phoneOf(l.contact);
+    if (!p) return '';
+    const first = String(l.name || '').split(/\s+/)[0];
+    const interest = leadInterest(l);
+    const msg = 'Hello ' + first + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. Thank you for your interest' +
+      (interest ? ' in ' + interest : '') + '. I’d be happy to help. Could you tell me a bit more about what you need?';
+    return 'https://wa.me/' + waNumber(p) + '?text=' + encodeURIComponent(msg);
+  }
+  function followChip(l) {
+    if (!l.follow_up || l.status === 'Won' || l.status === 'Lost') return '<span class="muted">—</span>';
+    const t = cairoToday();
+    if (l.follow_up < t) return '<span class="pill bad">! Overdue · ' + esc(fmtDay(l.follow_up)) + '</span>';
+    if (l.follow_up === t) return '<span class="pill warn">◷ Today</span>';
+    return '<span class="small">' + esc(fmtDay(l.follow_up)) + '</span>';
+  }
+  const waBtn = (l, label) => leadWa(l) ? '<a class="btn sm wa" href="' + esc(leadWa(l)) + '" target="_blank" rel="noopener" title="WhatsApp ' + esc(l.name) + '">' + icon('chat') + (label ? 'WhatsApp' : '') + '</a>' : '';
+
   async function pageLeads() {
     const [d] = await Promise.all([api('leads'), loadTeam()]);
+    S.leads = d.leads;
     const st = S.leadStatus || '';
-    const list = d.leads.filter((l) => !st || l.status === st);
+    const q = (S.leadQ || '').trim().toLowerCase();
+    const board = S.leadView === 'board';
+    const dueCount = d.leads.filter(isDue).length;
+    const match = (l) => !q || (l.name + ' ' + l.contact + ' ' + l.cat + ' ' + l.notes + ' ' + l.source).toLowerCase().includes(q);
+    const list = d.leads.filter((l) => match(l) && (board || (st === 'due' ? isDue(l) : !st || l.status === st)));
+    const tabs = [['', 'All']].concat(S.meta.leadStatuses.map((x) => [x, x]), [['due', 'Follow up due' + (dueCount ? ' · ' + dueCount : '')]]);
     $('#main').innerHTML = header('Leads', 'Enquiries from the website chat and quote form, customers from orders, and leads your team adds.',
+      '<div class="seg" id="lview"><button data-v="list" class="' + (board ? '' : 'on') + '">List</button><button data-v="board" class="' + (board ? 'on' : '') + '">Board</button></div>' +
       '<a class="btn" href="' + API + '?action=leads&format=csv">Export CSV</a><button class="btn primary" id="addLead">+ Add lead</button>') +
-      '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + [''].concat(S.meta.leadStatuses).map((t) => '<button data-s="' + t + '" class="' + (t === st ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div></div>' +
-      (list.length ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Interest</th><th>Status</th><th>Assigned</th><th>Received</th></tr></thead><tbody>' +
-        list.map((l) => '<tr class="click" data-id="' + l.id + '"><td><b>' + esc(l.name) + '</b><div class="small muted">' + esc(l.source) + '</div></td><td>' + esc(l.contact) + '</td><td>' + esc(l.cat) + '</td><td>' + pill(LEAD_TONE, l.status) + '</td><td>' + esc(l.assigned_name || '—') + '</td><td class="small muted">' + dateTime(l.created_at) + '</td></tr>').join('') +
-        '</tbody></table></div>' : '<div class="card empty">No leads here.</div>');
+      '<div class="row" style="margin-bottom:16px">' +
+      (board ? '' : '<div class="seg" id="tabs">' + tabs.map(([v, label]) => '<button data-s="' + v + '" class="' + (v === st ? 'on' : '') + (v === 'due' && dueCount ? ' due' : '') + '">' + esc(label) + '</button>').join('') + '</div>') +
+      '<span class="spacer"></span><input type="search" id="lq" placeholder="Search name, phone, interest…" value="' + esc(S.leadQ || '') + '" style="max-width:280px"></div>' +
+      (board ? leadBoard(list) : list.length ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Interest</th><th>Status</th><th>Follow up</th><th>Assigned</th><th>Received</th></tr></thead><tbody>' +
+        list.map((l) => '<tr class="click" data-id="' + l.id + '"><td><b>' + esc(l.name) + '</b><div class="small muted">' + esc(l.source) + '</div></td>' +
+          '<td><div class="row" style="gap:8px;flex-wrap:nowrap"><span>' + esc(l.contact) + '</span>' + waBtn(l) + '</div></td>' +
+          '<td class="small">' + esc(leadInterest(l)) + '</td><td>' + pill(LEAD_TONE, l.status) + '</td><td>' + followChip(l) + '</td>' +
+          '<td>' + esc(l.assigned_name || '—') + '</td><td class="small muted">' + dateTime(l.created_at) + '</td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="card empty">' + (st === 'due' ? 'No follow-ups due. Nice work.' : 'No leads here.') + '</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.leadStatus = b.dataset.s; pageLeads(); });
+    $$('#lview button').forEach((b) => b.onclick = () => { S.leadView = b.dataset.v; pageLeads(); });
+    let t;
+    $('#lq').oninput = (e) => {
+      clearTimeout(t);
+      t = setTimeout(() => { S.leadQ = e.target.value; pageLeads().then(() => { const i = $('#lq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 250);
+    };
     $('#addLead').onclick = () => leadDrawer(null);
-    $$('tr[data-id]').forEach((tr) => tr.onclick = () => leadDrawer(d.leads.find((l) => l.id === +tr.dataset.id)));
+    $$('[data-id]').forEach((el) => el.onclick = (e) => { if (e.target.closest('a,button')) return; leadDrawer(d.leads.find((l) => l.id === +el.dataset.id)); });
+    $$('[data-lmv]').forEach((b) => b.onclick = async () => {
+      b.disabled = true;
+      try { await api('lead_move', { method: 'POST', body: { id: +b.dataset.lmv, status: b.dataset.to } }); toast('Moved to ' + b.dataset.to); pageLeads(); }
+      catch (err) { toast(err.message, true); b.disabled = false; }
+    });
+    if (S.openLead) { const l = d.leads.find((x) => x.id === S.openLead); S.openLead = null; if (l) leadDrawer(l); }
+  }
+
+  // Pipeline view: one column per status, move leads along with the arrows.
+  function leadBoard(list) {
+    const sts = S.meta.leadStatuses;
+    return '<div class="board" style="grid-template-columns:repeat(' + sts.length + ',minmax(230px,1fr))">' + sts.map((stName, si) => {
+      const col = list.filter((l) => l.status === stName);
+      const shown = col.slice(0, 40);
+      return '<div class="bcol"><div class="bhead">' + pill(LEAD_TONE, stName) + '<span class="spacer"></span><span class="bcount">' + col.length + '</span></div>' +
+        (col.length ? '' : '<div class="bempty">No leads</div>') +
+        shown.map((l) => '<div class="bcard" data-id="' + l.id + '">' +
+          '<div class="row"><b>' + esc(l.name) + '</b><span class="spacer"></span>' + (l.follow_up && stName !== 'Won' && stName !== 'Lost' ? followChip(l) : '') + '</div>' +
+          '<div class="small muted" style="margin:3px 0 2px">' + esc(leadInterest(l) || l.source) + '</div>' +
+          '<div class="small">' + esc(l.contact) + '</div>' +
+          '<div class="row" style="margin-top:10px;gap:6px">' + waBtn(l) +
+          (si > 0 ? '<button class="btn sm" data-lmv="' + l.id + '" data-to="' + sts[si - 1] + '" aria-label="Move back to ' + sts[si - 1] + '">←</button>' : '') +
+          '<span class="spacer"></span>' + (si < sts.length - 1 ? '<button class="btn sm" data-lmv="' + l.id + '" data-to="' + sts[si + 1] + '">' + esc(sts[si + 1]) + ' →</button>' : '') + '</div></div>').join('') +
+        (col.length > shown.length ? '<div class="small muted" style="padding:6px">+ ' + (col.length - shown.length) + ' more in the List view</div>' : '') + '</div>';
+    }).join('') + '</div>';
   }
 
   function leadDrawer(l) {
     const isNew = !l;
-    l = l || { name: '', contact: '', cat: '', status: 'New', notes: '', assigned_to: '' };
+    l = l || { name: '', contact: '', cat: '', status: 'New', notes: '', assigned_to: '', follow_up: '' };
     const teamOpts = '<option value="">— Nobody —</option>' + S.team.filter((u) => u.active !== 0).map((u) => '<option value="' + u.id + '"' + (+l.assigned_to === u.id ? ' selected' : '') + '>' + esc(u.name) + '</option>').join('');
+    const phone = phoneOf(l.contact), email = emailOf(l.contact);
+    const actions = isNew ? '' : '<div class="row lead-actions">' + waBtn(l, true) +
+      (phone ? '<a class="btn sm" href="tel:' + esc(phone) + '">' + icon('phone') + 'Call</a>' : '') +
+      (email ? '<a class="btn sm" href="mailto:' + esc(email) + '">' + icon('mail') + 'Email</a>' : '') +
+      (can('sell') && l.status !== 'Won' ? '<span class="spacer"></span><button type="button" class="btn sm dark" id="convert">' + icon('cart') + 'Convert to order</button>' : '') + '</div>';
     const body = '<form id="lf" class="stack">' +
       (isNew ? '<div class="grid2"><label class="field">Name<input type="text" name="name" required></label><label class="field">Email or phone<input type="text" name="contact" required></label></div>' +
         '<label class="field">Interested in<input type="text" name="cat" placeholder="e.g. NFC cards for 3 branches"></label>'
-        : '<div class="card"><b>' + esc(l.name) + '</b><div>' + esc(l.contact) + '</div><div class="small muted">' + esc(l.cat) + ' · ' + esc(l.source) + ' · ' + dateTime(l.created_at) + '</div></div>') +
-      '<div class="grid2"><label class="field">Status<select name="status">' + S.meta.leadStatuses.map((s) => '<option' + (s === l.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></label>' +
+        : '<div class="card stack" style="gap:12px"><div><b style="font-size:16px">' + esc(l.name) + '</b><div>' + esc(l.contact) + '</div><div class="small muted">' + esc(leadInterest(l)) + ' · ' + esc(l.source) + ' · ' + dateTime(l.created_at) + '</div></div>' + actions + '</div>') +
+      '<div class="grid2"><label class="field">Status<select name="status">' + S.meta.leadStatuses.map((x) => '<option' + (x === l.status ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></label>' +
       '<label class="field">Assigned to<select name="assigned_to">' + teamOpts + '</select></label></div>' +
-      '<label class="field">Notes<textarea name="notes">' + esc(l.notes) + '</textarea></label></form>';
+      '<div class="field">Follow up on <span class="hint">It shows on the dashboard from that day until the lead is moved on or the date is cleared</span>' +
+      '<div class="row"><input type="date" name="follow_up" id="fuDate" value="' + esc(l.follow_up || '') + '" style="max-width:180px">' +
+      [['Tomorrow', 1], ['In 3 days', 3], ['Next week', 7]].map(([t, n]) => '<button type="button" class="btn sm" data-fu-in="' + n + '">' + t + '</button>').join('') +
+      '<button type="button" class="btn sm" data-fu-in="">Clear</button></div></div>' +
+      '<label class="field">Notes<textarea name="notes" style="min-height:140px">' + esc(l.notes) + '</textarea></label></form>';
     openDrawer(isNew ? 'Add lead' : 'Lead', body, (isNew || !can('leads') ? '' : '<button class="btn danger" id="delLead">Delete</button>') + '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="lf" type="submit">Save</button>');
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
+    $$('[data-fu-in]').forEach((b) => b.onclick = () => { $('#fuDate').value = b.dataset.fuIn === '' ? '' : addDays(+b.dataset.fuIn); });
     $('#lf').onsubmit = async (e) => {
       e.preventDefault();
-      try { await api('lead_save', { method: 'POST', body: Object.assign({ id: l.id || 0 }, formData(e.target)) }); closeDrawer(); toast('Lead saved'); pageLeads(); }
-      catch (err) { toast(err.message, true); }
+      try {
+        await api('lead_save', { method: 'POST', body: Object.assign({ id: l.id || 0 }, formData(e.target)) });
+        closeDrawer(); toast('Lead saved');
+        if (S.route === 'leads') pageLeads(); else pageDashboard();
+      } catch (err) { toast(err.message, true); }
     };
+    const cv = $('#convert');
+    if (cv) cv.onclick = () => { closeDrawer(); newOrderDrawer({ leadId: l.id, name: l.name, phone: phone ? localPhone(phone) : '', email, interest: leadInterest(l) }); };
     const del = $('#delLead');
     if (del) del.onclick = async () => {
       if (!confirm('Delete this lead?')) return;
       try { await api('lead_delete', { method: 'POST', body: { id: l.id } }); closeDrawer(); toast('Lead deleted'); pageLeads(); }
       catch (err) { toast(err.message, true); }
+    };
+  }
+
+  // ---------- backups ----------
+  async function pageBackups() {
+    const d = await api('backups');
+    const last = d.backups[0];
+    $('#main').innerHTML = header('Backups', 'A full copy of the database (orders, leads, products, team) is saved automatically every day. The last ' + d.keep + ' days are kept.',
+      '<button class="btn primary" id="bkNow">' + icon('shield') + 'Back up now</button>') +
+      '<div class="kpis"><div class="kpi"><div class="label">Last backup</div><div class="value" style="font-size:22px">' + (last ? dateTime(last.created) : '—') + '</div><div class="note">' + (last ? fmtSize(last.size) : 'None yet') + '</div></div>' +
+      '<div class="kpi"><div class="label">Copies kept</div><div class="value">' + d.backups.length + '</div><div class="note">of ' + d.keep + ' days</div></div></div>' +
+      '<div class="card" style="margin-bottom:16px"><h2>Keep a copy off the server</h2><p class="muted" style="margin:0;line-height:1.6">These copies live on the hosting server, outside the website folder. Once a week, download the latest one and keep it somewhere safe (Google Drive or your computer). If the server is ever lost, that file restores the whole shop.</p></div>' +
+      (d.backups.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Saved</th><th class="num">Size</th><th></th></tr></thead><tbody>' +
+        d.backups.map((b) => '<tr><td><b>' + esc(fmtDay(b.file.slice(5, 15))) + '</b></td><td class="small muted">' + dateTime(b.created) + '</td><td class="num">' + fmtSize(b.size) + '</td>' +
+          '<td class="num"><a class="btn sm" href="' + API + '?action=backup_download&file=' + encodeURIComponent(b.file) + '">' + icon('download') + 'Download</a></td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="card empty">No backups yet. Press “Back up now”.</div>') +
+      '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">How to restore a backup</summary><ol class="muted" style="line-height:1.8;margin:12px 0 0">' +
+      '<li>In cPanel → File Manager, open the <code>wts-shop-data</code> folder.</li><li>Rename <code>shop.sqlite</code> to <code>shop-old.sqlite</code> (keep it until you’re sure).</li>' +
+      '<li>Upload the backup file and rename it to <code>shop.sqlite</code>. Delete any <code>shop.sqlite-wal</code> and <code>shop.sqlite-shm</code> files.</li><li>Reload the dashboard.</li></ol></details>';
+    $('#bkNow').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      try { await api('backup_now', { method: 'POST' }); toast('Backup saved'); pageBackups(); }
+      catch (err) { toast(err.message, true); b.disabled = false; }
     };
   }
 

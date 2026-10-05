@@ -216,3 +216,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .pick .results button{display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--line-2);background:#fff;padding:10px 12px;cursor:pointer}
 .pick .results button:hover{background:#FBF7F3}
 .chosen{border:1.5px solid var(--accent);background:#FBF4EF;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center}
+
+/* leads: WhatsApp actions, follow-ups */
+.btn.wa{background:#E7F5EC;border-color:#CBE8D5;color:#1F7A4D;box-shadow:none}
+.btn.wa:hover{background:#1F7A4D;border-color:#1F7A4D;color:#fff}
+.btn.sm .ic{width:15px;height:15px}
+.lead-actions{gap:8px}
+.li.fu{cursor:pointer;align-items:center;margin:0 -10px;padding:10px;border-radius:10px}
+.li.fu:hover{background:var(--surface-2)}
+.seg button.due:not(.on){color:var(--bad)}
+.card h2 .ic{color:var(--ink-3)}

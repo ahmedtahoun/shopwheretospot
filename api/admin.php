@@ -6,6 +6,7 @@ require __DIR__ . '/bootstrap.php';
 
 $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
+if ($action !== 'backup_download') schedule_daily_backup();
 
 try {
     switch ($action) {
@@ -125,8 +126,19 @@ try {
         }
         $recent = array_map('order_out', $pdo->query('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE 1' . str_replace('rep_id', 'o.rep_id', $scope) . ' ORDER BY o.id DESC LIMIT 6')->fetchAll());
         $month = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m');
+        // Leads due a follow-up today or earlier (sales people: theirs and unassigned ones).
+        $followUps = [];
+        if (in_array('leads', $u['perms'], true)) {
+            $today = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+            $st = $pdo->prepare("SELECT l.id, l.name, l.contact, l.cat, l.notes, l.status, l.follow_up, u.name AS assigned_name FROM leads l LEFT JOIN users u ON u.id = l.assigned_to
+                WHERE l.follow_up IS NOT NULL AND l.follow_up <= ? AND l.status NOT IN ('Won','Lost')" . ($own ? ' AND (l.assigned_to = ' . (int) $u['id'] . ' OR l.assigned_to IS NULL)' : '') . '
+                ORDER BY l.follow_up, l.id LIMIT 12');
+            $st->execute([$today]);
+            $followUps = $st->fetchAll();
+        }
+        $lastBackup = in_array('backups', $u['perms'], true) ? (backup_list()[0] ?? null) : null;
         json_out([
-            'days' => $days, 'own' => $own,
+            'days' => $days, 'own' => $own, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
             'kpi' => [
                 'revenue' => (float) $k['revenue'], 'orders' => (int) $k['n'],
                 'aov' => $k['n'] ? round($k['revenue'] / $k['n']) : 0,
@@ -513,9 +525,10 @@ try {
         $id = (int) ($b['id'] ?? 0);
         $status = in_array($b['status'] ?? '', LEAD_STATUSES, true) ? $b['status'] : 'New';
         $assigned = !empty($b['assigned_to']) ? (int) $b['assigned_to'] : null;
+        $follow = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($b['follow_up'] ?? '')) ? $b['follow_up'] : null;
         if ($id) {
-            db()->prepare('UPDATE leads SET status = ?, notes = ?, assigned_to = ? WHERE id = ?')
-                ->execute([$status, str_in($b['notes'] ?? '', 4000), $assigned, $id]);
+            db()->prepare('UPDATE leads SET status = ?, notes = ?, assigned_to = ?, follow_up = ? WHERE id = ?')
+                ->execute([$status, str_in($b['notes'] ?? '', 4000), $assigned, $follow, $id]);
             log_activity($u, 'Updated lead', '#' . $id . ' → ' . $status);
         } else {
             $name = str_in($b['name'] ?? '', 120);
@@ -525,11 +538,56 @@ try {
             if ($dupe) {
                 fail('This number or email already belongs to “' . $dupe['name'] . '” (' . $dupe['status'] . ($dupe['assigned_name'] ? ', ' . $dupe['assigned_name'] : '') . '). Open that lead and add a note instead.', 409);
             }
-            insert_lead(['name' => $name, 'contact' => $contact, 'cat' => str_in($b['cat'] ?? '', 40), 'source' => str_in($b['source'] ?? 'Added by team', 80),
+            $newId = insert_lead(['name' => $name, 'contact' => $contact, 'cat' => str_in($b['cat'] ?? '', 40), 'source' => str_in($b['source'] ?? 'Added by team', 80),
                 'status' => $status, 'notes' => str_in($b['notes'] ?? '', 2000), 'assigned_to' => $assigned]);
+            if ($follow) db()->prepare('UPDATE leads SET follow_up = ? WHERE id = ?')->execute([$follow, $newId]);
             log_activity($u, 'Added lead', $name);
         }
         json_out(['ok' => true]);
+
+    // Board moves and quick actions: change only the status and/or follow-up date.
+    case 'lead_move':
+        $u = require_perm('leads');
+        $b = body();
+        $id = (int) ($b['id'] ?? 0);
+        $sets = []; $vals = [];
+        if (isset($b['status'])) {
+            if (!in_array($b['status'], LEAD_STATUSES, true)) fail('Unknown status');
+            $sets[] = 'status = ?'; $vals[] = $b['status'];
+        }
+        if (array_key_exists('follow_up', $b)) {
+            $sets[] = 'follow_up = ?';
+            $vals[] = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $b['follow_up']) ? $b['follow_up'] : null;
+        }
+        if (!$id || !$sets) fail('Nothing to change');
+        $vals[] = $id;
+        db()->prepare('UPDATE leads SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($vals);
+        log_activity($u, 'Updated lead', '#' . $id . (isset($b['status']) ? ' → ' . $b['status'] : ' · follow-up ' . ($b['follow_up'] ?: 'cleared')));
+        json_out(['ok' => true]);
+
+    // ---------- backups (owner) ----------
+
+    case 'backups':
+        require_perm('backups');
+        json_out(['backups' => backup_list(), 'keep' => BACKUP_KEEP]);
+
+    case 'backup_now':
+        $u = require_perm('backups');
+        $file = make_backup();
+        log_activity($u, 'Backed up the database', $file);
+        json_out(['ok' => true, 'file' => $file, 'backups' => backup_list()]);
+
+    case 'backup_download':
+        $u = require_perm('backups');
+        $name = (string) ($_GET['file'] ?? '');
+        if (!preg_match('/^shop-\d{4}-\d{2}-\d{2}\.sqlite$/', $name) || !is_file($path = backup_dir() . '/' . $name)) fail('Backup not found', 404);
+        log_activity($u, 'Downloaded a backup', $name);
+        header('Content-Type: application/vnd.sqlite3');
+        header('Content-Disposition: attachment; filename="wheretospot-' . $name . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: no-store');
+        readfile($path);
+        exit;
 
     case 'lead_delete':
         $u = require_perm('leads');

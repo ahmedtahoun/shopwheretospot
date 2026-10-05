@@ -241,6 +241,12 @@ function lead_from_order(array $in, array $order, ?int $repId, string $channel =
     $note = date('Y-m-d') . ' · Order ' . $order['number'] . ' (' . $channel . ') · EGP ' . number_format($order['total']) . ' · ' . $what;
 
     $existing = find_lead(phone_key($phone), email_key($email));
+    if (!$existing && !empty($in['lead_id'])) {
+        // Order created from a lead ("Convert to order") whose contact details differ: still close that lead.
+        $st = db()->prepare('SELECT * FROM leads WHERE id = ?');
+        $st->execute([(int) $in['lead_id']]);
+        $existing = $st->fetch() ?: null;
+    }
     if ($existing) {
         touch_lead($existing, $note, 'Won', $repId, $contact);
         return 'updated';

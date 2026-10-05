@@ -63,6 +63,7 @@ try {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
         $r = create_order($b);
         record_attempt('order');
+        schedule_daily_backup();
         try {
             $st = db()->prepare('SELECT rep_id FROM orders WHERE id = ?');
             $st->execute([$r['id']]);

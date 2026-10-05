@@ -35,7 +35,7 @@ class ShopError extends RuntimeException {}
 
 // 'sell' = can enter orders; 'targets' = can set monthly targets; 'own_orders' = only sees orders credited to them.
 const ROLES = [
-    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity'],
+    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups'],
     'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity'],
     'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
     'staff' => ['dashboard', 'orders', 'sell', 'leads'],
@@ -85,7 +85,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 function db(): PDO
 {
@@ -109,6 +109,56 @@ function db(): PDO
     }
     if (!empty($GLOBALS['backfill_lead_keys']) && function_exists('backfill_lead_keys')) backfill_lead_keys();
     return $pdo;
+}
+
+// ---------- backups ----------
+// One copy of the database per day in <data_dir>/backups (outside the website folder), last 30 kept.
+// Made automatically after the first dashboard or order request of each day, so no cron job is needed.
+const BACKUP_KEEP = 30;
+
+function backup_dir(): string
+{
+    return cfg('data_dir') . '/backups';
+}
+
+function backup_list(): array
+{
+    $files = glob(backup_dir() . '/shop-*.sqlite') ?: [];
+    rsort($files);
+    return array_map(function ($f) {
+        return ['file' => basename($f), 'size' => filesize($f), 'created' => gmdate('Y-m-d H:i:s', filemtime($f))];
+    }, $files);
+}
+
+function make_backup(): string
+{
+    $dir = backup_dir();
+    if (!is_dir($dir)) mkdir($dir, 0750, true);
+    $file = $dir . '/shop-' . date('Y-m-d') . '.sqlite';
+    $tmp = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
+    try {
+        // A consistent copy even while orders are being written.
+        db()->exec('VACUUM INTO ' . db()->quote($tmp));
+    } catch (Throwable $e) {
+        // Very old SQLite: flush the write-ahead log and copy the file instead.
+        db()->exec('PRAGMA wal_checkpoint(FULL)');
+        if (!copy(cfg('data_dir') . '/shop.sqlite', $tmp)) throw new RuntimeException('Could not copy the database');
+    }
+    if (!rename($tmp, $file)) { @unlink($tmp); throw new RuntimeException('Could not save the backup'); }
+    @chmod($file, 0640);
+    foreach (array_slice(glob($dir . '/shop-*.sqlite') ?: [], 0, -BACKUP_KEEP) as $old) @unlink($old);
+    return basename($file);
+}
+
+// Called by the APIs: if today's backup is missing, make it after the response has been sent.
+function schedule_daily_backup(): void
+{
+    if (is_file(backup_dir() . '/shop-' . date('Y-m-d') . '.sqlite')) return;
+    register_shutdown_function(function () {
+        if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        try { make_backup(); } catch (Throwable $e) { error_log('[shop] daily backup failed: ' . $e->getMessage()); }
+    });
 }
 
 function migrate(PDO $pdo): void
@@ -229,6 +279,11 @@ function migrate(PDO $pdo): void
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone_key)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email_key)');
         $GLOBALS['backfill_lead_keys'] = true; // filled in once orders.php (phone_key/email_key) is loaded
+    }
+    // Follow-up reminders: the date someone should contact this lead again.
+    if (!in_array('follow_up', $leadCols, true)) {
+        $pdo->exec('ALTER TABLE leads ADD COLUMN follow_up TEXT DEFAULT NULL');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_leads_follow ON leads(follow_up)');
     }
     $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
