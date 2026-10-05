@@ -226,3 +226,31 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .li.fu:hover{background:var(--surface-2)}
 .seg button.due:not(.on){color:var(--bad)}
 .card h2 .ic{color:var(--ink-3)}
+
+/* payments */
+.pay-ok{color:var(--good);font-weight:600}
+.pay-part{color:var(--warn);font-weight:600}
+.pay-bar{height:8px;background:var(--line-2);border-radius:999px;overflow:hidden}
+.pay-bar > i{display:block;height:100%;background:linear-gradient(90deg,#4E9A6A,var(--good));border-radius:999px}
+.kpi-inline{display:flex;flex-direction:column;gap:2px}
+.kpi-inline b{font-size:26px;font-weight:650;letter-spacing:-.03em}
+
+/* quick search */
+.searchbtn{display:flex;align-items:center;gap:10px;margin:0 0 4px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--ink-3);font-size:13.5px;cursor:pointer;text-align:left}
+.searchbtn:hover{border-color:#D3CEC6;color:var(--ink-2)}
+.searchbtn span{flex:1}
+kbd{font:600 11px/1 'Inter',sans-serif;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px 6px;color:var(--ink-3)}
+#search .scrim{z-index:70}
+.palette{position:fixed;top:12vh;left:50%;transform:translateX(-50%);width:min(620px,calc(100vw - 24px));background:var(--surface);border-radius:18px;z-index:71;box-shadow:0 40px 100px -20px rgba(0,0,0,.45);overflow:hidden;animation:fadeIn .15s ease}
+.pal-in{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);color:var(--ink-3)}
+.pal-in input{border:none !important;box-shadow:none !important;padding:4px 0 !important;font-size:16px;background:none}
+.pal-res{max-height:min(60vh,460px);overflow:auto;padding:8px}
+.pal-hint{padding:18px;color:var(--ink-3);font-size:13.5px;text-align:center}
+.pal-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;background:none;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--ink-2)}
+.pal-item span{flex:1;min-width:0}
+.pal-item b{display:block;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-item small{display:block;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-item em{font-style:normal;font-size:11.5px;font-weight:600;color:var(--ink-3);background:var(--line-2);padding:2px 8px;border-radius:999px}
+.pal-item.on,.pal-item:hover{background:var(--accent-soft)}
+.pal-item.on b{color:var(--accent-2)}
+.hint{font-weight:400;color:var(--ink-3);font-size:12px;line-height:1.5}

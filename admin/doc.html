@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Where To Spot — Document</title>
+<link rel="icon" type="image/png" href="../images/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#E9E6E1;color:#1C1B19;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .bar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 20px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid #E1DDD6}
+  .bar .sp{flex:1}
+  .btn{border:1px solid #E1DDD6;background:#fff;border-radius:10px;padding:8px 14px;font:600 13.5px 'Inter',sans-serif;cursor:pointer;text-decoration:none;color:#1C1B19;display:inline-flex;gap:6px;align-items:center}
+  .btn:hover{background:#FAF9F7}
+  .btn.primary{background:#A8552F;border-color:#A8552F;color:#fff}
+  .btn.wa{background:#1F7A4D;border-color:#1F7A4D;color:#fff}
+  .seg{display:inline-flex;background:#EAE7E2;border-radius:11px;padding:3px}
+  .seg button{border:none;background:none;padding:6px 12px;border-radius:8px;font:500 13px 'Inter',sans-serif;cursor:pointer;color:#5F5B55}
+  .seg button.on{background:#fff;color:#1C1B19;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .page{width:210mm;min-height:297mm;margin:24px auto;background:#fff;padding:18mm 16mm;box-shadow:0 20px 60px -20px rgba(0,0,0,.25);display:flex;flex-direction:column}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:20px;border-bottom:2px solid #1C1B19}
+  .brand{display:flex;gap:14px;align-items:center}
+  .brand .logo{background:#1C1B19;border-radius:12px;padding:8px 10px;display:grid;place-items:center}
+  .brand .logo img{height:30px;display:block}
+  .brand b{display:block;font-family:'Instrument Serif',serif;font-weight:400;font-style:italic;font-size:28px;line-height:1}
+  .brand small{display:block;color:#6B6660;margin-top:4px;font-size:12px}
+  .doc{text-align:right}
+  .doc h1{margin:0;font-size:30px;font-weight:700;letter-spacing:.12em;color:#A8552F}
+  .doc .num{font-size:15px;font-weight:600;margin-top:2px}
+  .meta{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:20px;padding:20px 0}
+  .meta h4{margin:0 0 6px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8E8980}
+  .meta p{margin:0}
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  th{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8E8980;text-align:left;padding:10px 8px;border-bottom:1px solid #1C1B19}
+  td{padding:12px 8px;border-bottom:1px solid #ECE9E4;vertical-align:top}
+  .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .totals{margin-left:auto;width:min(380px,100%);margin-top:16px}
+  .totals div{display:flex;justify-content:space-between;padding:6px 8px}
+  .totals .grand{border-top:2px solid #1C1B19;margin-top:4px;padding-top:10px;font-size:17px;font-weight:700}
+  .totals .due{background:#F7E9E0;border-radius:8px;color:#8E4524;font-weight:700;margin-top:6px}
+  .totals .paid{color:#2F7A4A}
+  .notes{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .notes h4{margin:0 0 6px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8E8980}
+  .edit{min-height:60px;border:1px dashed transparent;border-radius:8px;padding:6px;margin:-6px;white-space:pre-line;outline:none}
+  .edit:hover,.edit:focus{border-color:#D6D1C9;background:#FDFCFA}
+  .foot{margin-top:auto;padding-top:28px;display:flex;justify-content:space-between;gap:20px;color:#8E8980;font-size:11.5px;border-top:1px solid #ECE9E4}
+  .stamp{display:inline-block;margin-top:6px;border:2px solid #2F7A4A;color:#2F7A4A;border-radius:8px;padding:4px 12px;font-weight:700;letter-spacing:.14em;transform:rotate(-4deg)}
+  .hint{font-size:12px;color:#8E8980}
+  .err{max-width:520px;margin:80px auto;background:#fff;border-radius:16px;padding:28px;text-align:center}
+  @media (max-width:860px){.page{width:auto;min-height:0;margin:12px;padding:22px}.meta,.notes{grid-template-columns:1fr}}
+  @media print{
+    @page{size:A4;margin:0}
+    body{background:#fff}
+    .bar,.hint{display:none !important}
+    .page{margin:0;box-shadow:none;width:auto;min-height:297mm}
+    .edit{border:none !important;background:none !important}
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="err">Loading…</div></div>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const id = +params.get('id');
+  let type = params.get('type') === 'invoice' ? 'invoice' : 'quote';
+  const SHOP = { name: 'Where To Spot', address: 'MQR, El Wahat Road, 6th of October City, Giza, Egypt', phone: '+20 127 766 0666', email: 'info@wheretospot.com', web: 'shop.wheretospot.com' };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const egp = (n) => 'EGP ' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const day = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const app = document.getElementById('app');
+  let data;
+
+  async function load() {
+    const res = await fetch('../api/admin.php?action=order_doc&id=' + id, { credentials: 'same-origin' });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { app.innerHTML = '<div class="err"><b>' + esc(j.error || 'Could not load the order') + '</b><p>Sign in to the dashboard first, then open this page from an order.</p><a class="btn" href="./">Open dashboard</a></div>'; return; }
+    data = j; render();
+  }
+
+  function render() {
+    const o = data.order;
+    const isQ = type === 'quote';
+    const no = (isQ ? 'Q-' : 'INV-') + o.number.replace('WTS-', '');
+    const issued = new Date();
+    const valid = new Date(issued.getTime() + 14 * 86400000);
+    const placed = new Date(o.createdAt.replace(' ', 'T') + 'Z');
+    document.title = (isQ ? 'Quote ' : 'Invoice ') + no + ' · ' + o.customer;
+    const phone = (o.phone || '').replace(/\D/g, '');
+    const wa = phone ? 'https://wa.me/' + (phone.startsWith('20') ? phone : '20' + phone.replace(/^0/, '')) + '?text=' + encodeURIComponent(
+      'Hello ' + o.customer.split(/\s+/)[0] + ', here is your ' + (isQ ? 'quote' : 'invoice') + ' ' + no + ' from Where To Spot.\n' +
+      o.items.map((it) => '• ' + it.qty + '× ' + it.name + ': ' + egp(it.total != null ? it.total : it.qty * it.price)).join('\n') +
+      '\nTotal: ' + egp(o.total) + (!isQ && o.paid > 0 ? '\nPaid: ' + egp(o.paid) + '\nBalance due: ' + egp(o.due) : '') + '\n\nThe PDF is attached. Thank you!') : '';
+    app.innerHTML =
+      '<div class="bar"><a class="btn" href="./#orders">← Dashboard</a><div class="seg"><button data-t="quote" class="' + (isQ ? 'on' : '') + '">Quote</button><button data-t="invoice" class="' + (isQ ? '' : 'on') + '">Invoice</button></div>' +
+      '<span class="hint">Click the notes to edit them before printing.</span><span class="sp"></span>' +
+      (wa ? '<a class="btn wa" href="' + esc(wa) + '" target="_blank" rel="noopener">Send on WhatsApp</a>' : '') +
+      '<button class="btn primary" id="print">Print / Save as PDF</button></div>' +
+      '<div class="page">' +
+        '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>' + SHOP.name + '</b><small>Marketing, products &amp; production</small></span></div>' +
+          '<div class="doc"><h1>' + (isQ ? 'QUOTE' : 'INVOICE') + '</h1><div class="num">' + no + '</div></div></div>' +
+        '<div class="meta">' +
+          '<div><h4>' + (isQ ? 'Prepared for' : 'Billed to') + '</h4><p><b>' + esc(o.businessName || o.customer) + '</b></p>' + (o.businessName ? '<p>' + esc(o.customer) + '</p>' : '') +
+            '<p>' + esc(o.phone) + '</p>' + (o.email && o.email.includes('@') ? '<p>' + esc(o.email) + '</p>' : '') + (o.address ? '<p>' + esc(o.address) + '</p>' : '') + '<p>' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</p></div>' +
+          '<div><h4>Date</h4><p>' + day(issued) + '</p>' + (isQ ? '<h4 style="margin-top:12px">Valid until</h4><p>' + day(valid) + '</p>' : '<h4 style="margin-top:12px">Order</h4><p>' + esc(o.number) + ' · ' + day(placed) + '</p>') + '</div>' +
+          '<div><h4>From</h4><p>' + SHOP.address + '</p><p>' + SHOP.phone + '</p><p>' + SHOP.email + '</p></div>' +
+        '</div>' +
+        '<table><thead><tr><th style="width:44px">#</th><th>Item</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>' +
+          o.items.map((it, i) => { const total = it.total != null ? it.total : it.qty * it.price; return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(it.name) + '</b></td><td class="r">' + it.qty + '</td><td class="r">' + egp(total / it.qty) + '</td><td class="r">' + egp(total) + '</td></tr>'; }).join('') +
+        '</tbody></table>' +
+        '<div class="totals"><div><span>Subtotal</span><span class="r">' + egp(o.subtotal) + '</span></div>' +
+          (o.discount ? '<div><span>Discount' + (o.promo ? ' (' + esc(o.promo) + ')' : '') + '</span><span class="r">−' + egp(o.discount) + '</span></div>' : '') +
+          '<div><span>Delivery</span><span class="r">' + (o.shipping ? egp(o.shipping) : 'Free') + '</span></div>' +
+          '<div class="grand"><span>Total</span><span class="r">' + egp(o.total) + '</span></div>' +
+          (!isQ ? data.payments.map((p) => '<div class="paid"><span>' + (p.amount < 0 ? 'Refund' : 'Paid') + ' · ' + esc(p.methodLabel) + ' · ' + esc(new Date(p.at.replace(' ', 'T') + 'Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + '</span><span class="r">−' + egp(p.amount) + '</span></div>').join('') +
+            (o.due > 0 ? '<div class="due"><span>Balance due</span><span class="r">' + egp(o.due) + '</span></div>' : '<div style="justify-content:flex-end"><span class="stamp">PAID</span></div>') : '') +
+        '</div>' +
+        '<div class="notes"><div><h4>' + (isQ ? 'Terms' : 'Payment') + '</h4><div class="edit" contenteditable="true">' + (isQ
+            ? 'All prices are in Egyptian Pounds (EGP).\nThis quote is valid for 14 days.\nDelivery across Egypt.'
+            : 'Payment by cash on delivery, bank transfer or InstaPay.\nAll prices are in Egyptian Pounds (EGP).') + '</div></div>' +
+          '<div><h4>Notes</h4><div class="edit" contenteditable="true">' + esc(o.designNotes || (o.businessName ? 'Personalised for ' + o.businessName + '.' : '')) + '</div></div></div>' +
+        '<div class="foot"><span>' + SHOP.name + ' · ' + SHOP.web + '</span><span>Thank you for your business.</span></div>' +
+      '</div>';
+    document.getElementById('print').onclick = () => window.print();
+    document.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { type = b.dataset.t; history.replaceState(null, '', '?type=' + type + '&id=' + id); render(); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

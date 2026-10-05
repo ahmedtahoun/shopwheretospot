@@ -85,7 +85,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 function db(): PDO
 {
@@ -284,6 +284,25 @@ function migrate(PDO $pdo): void
     if (!in_array('follow_up', $leadCols, true)) {
         $pdo->exec('ALTER TABLE leads ADD COLUMN follow_up TEXT DEFAULT NULL');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_leads_follow ON leads(follow_up)');
+    }
+    // Money received per order: deposits, transfers, cash collected on delivery.
+    $hadPayments = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'payments'")->fetchColumn();
+    $pdo->exec("CREATE TABLE IF NOT EXISTS payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        amount REAL NOT NULL,
+        method TEXT NOT NULL DEFAULT 'cash',
+        note TEXT DEFAULT '',
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)');
+    if (!$hadPayments) {
+        // Existing orders: paid-upfront ones and delivered cash-on-delivery ones count as fully paid.
+        $pdo->exec("INSERT INTO payments (order_id, amount, method, note, created_at)
+            SELECT id, total, payment, 'Paid when the order was placed', created_at FROM orders WHERE payment != 'cod' AND status NOT IN ('Cancelled','Returned')");
+        $pdo->exec("INSERT INTO payments (order_id, amount, method, note, created_at)
+            SELECT id, total, 'cod', 'Collected on delivery', updated_at FROM orders WHERE payment = 'cod' AND status = 'Delivered'");
     }
     $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -505,9 +524,31 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     }
     $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
         ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);
+    // Delivered: whatever was still owed was collected by the courier or in person.
+    if ($status === 'Delivered' && $o['status'] !== 'Delivered') {
+        $due = round((float) $o['total'] - order_paid($id), 2);
+        if ($due > 0) add_payment($id, $due, 'cod', 'Collected on delivery', null);
+    }
     if ($own) tx_commit();
     if ($status !== $o['status']) log_activity(current_user_quiet(), 'Order ' . $status, order_number($id));
     return $o;
+}
+
+// ---------- payments ----------
+const PAYMENT_KINDS = ['cash' => 'Cash', 'bank' => 'Bank transfer', 'wallet' => 'InstaPay / wallet', 'cod' => 'Collected on delivery'];
+
+function order_paid(int $orderId): float
+{
+    $st = db()->prepare('SELECT COALESCE(SUM(amount), 0) FROM payments WHERE order_id = ?');
+    $st->execute([$orderId]);
+    return round((float) $st->fetchColumn(), 2);
+}
+
+function add_payment(int $orderId, float $amount, string $method, string $note, ?int $userId): void
+{
+    if (!array_key_exists($method, PAYMENT_KINDS)) $method = 'cash';
+    db()->prepare('INSERT INTO payments (order_id, amount, method, note, created_by) VALUES (?, ?, ?, ?, ?)')
+        ->execute([$orderId, round($amount, 2), $method, mb_substr($note, 0, 200), $userId]);
 }
 
 // The signed-in team member if there is one, without failing (webhooks have no session).

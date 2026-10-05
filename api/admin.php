@@ -137,8 +137,41 @@ try {
             $followUps = $st->fetchAll();
         }
         $lastBackup = in_array('backups', $u['perms'], true) ? (backup_list()[0] ?? null) : null;
+        // Money still owed on open orders (deposits paid, balance not yet collected).
+        $st = $pdo->query("SELECT COALESCE(SUM(MAX(o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id), 0)), 0) due,
+            SUM(CASE WHEN o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) > 0.5 THEN 1 ELSE 0 END) n
+            FROM orders o WHERE o.status NOT IN ('Cancelled','Returned')" . str_replace('rep_id', 'o.rep_id', $scope));
+        $collect = $st->fetch();
+        // Estimated gross profit for the period, from unit costs (saved on each order line, or the product's current cost).
+        $profit = null;
+        if (!$own) {
+            $costs = [];
+            foreach ($pdo->query('SELECT id, cost FROM products')->fetchAll() as $p) $costs[$p['id']] = (float) $p['cost'];
+            $st = $pdo->prepare("SELECT items, discount FROM orders WHERE $valid AND date(created_at) >= ?");
+            $st->execute([$since]);
+            $rev = 0.0; $cost = 0.0; $covered = 0.0;
+            foreach ($st->fetchAll() as $o) {
+                foreach (json_decode($o['items'], true) ?: [] as $it) {
+                    $lineTotal = (float) ($it['total'] ?? ($it['qty'] * $it['price']));
+                    $unitCost = isset($it['cost']) ? (float) $it['cost'] : ($costs[$it['id'] ?? ''] ?? 0);
+                    if ($unitCost > 0) { $rev += $lineTotal; $cost += $unitCost * (int) $it['qty']; }
+                    $covered += $lineTotal;
+                }
+            }
+            if ($cost > 0) $profit = ['revenue' => round($rev), 'cost' => round($cost), 'profit' => round($rev - $cost), 'margin' => $rev > 0 ? round(($rev - $cost) / $rev * 100) : 0,
+                'coverage' => $covered > 0 ? round($rev / $covered * 100) : 0];
+        }
+        // Where leads come from, and how many became customers.
+        $leadSources = [];
+        if (in_array('leads', $u['perms'], true)) {
+            $st = $pdo->prepare("SELECT CASE WHEN source LIKE 'Order %' THEN 'Orders (customers)' WHEN source LIKE 'Shop%' THEN 'Quote form' WHEN source = '' THEN 'Other' ELSE source END AS src,
+                COUNT(*) n, SUM(status = 'Won') won FROM leads WHERE date(created_at) >= ? GROUP BY src ORDER BY n DESC");
+            $st->execute([$since]);
+            $leadSources = array_map(function ($r) { return ['source' => $r['src'], 'n' => (int) $r['n'], 'won' => (int) $r['won']]; }, $st->fetchAll());
+        }
         json_out([
             'days' => $days, 'own' => $own, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
+            'toCollect' => ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']], 'profit' => $profit, 'leadSources' => $leadSources,
             'kpi' => [
                 'revenue' => (float) $k['revenue'], 'orders' => (int) $k['n'],
                 'aov' => $k['n'] ? round($k['revenue'] / $k['n']) : 0,
@@ -194,6 +227,7 @@ try {
             'by_team' => true, 'rep_id' => $repId, 'created_by' => (int) $u['id'],
             'source' => $b['source'] ?? 'Phone', 'payment' => $b['payment'] ?? 'cod', 'status' => $b['status'] ?? 'Pending',
             'discount' => $b['discount'] ?? 0, 'shipping' => $b['shipping'] ?? null, 'notes' => $b['notes'] ?? '',
+            'paid_now' => $b['paid_now'] ?? '', 'deposit_method' => $b['deposit_method'] ?? 'cash',
         ]);
         log_activity($u, 'Created order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']) . ' · ' . ($b['source'] ?? 'Phone'));
         try {
@@ -361,7 +395,7 @@ try {
         $u = current_user();
         if (in_array('own_orders', $u['perms'], true)) { $where[] = 'o.rep_id = ?'; $args[] = (int) $u['id']; }
         if (!empty($_GET['rep'])) { $where[] = 'o.rep_id = ?'; $args[] = (int) $_GET['rep']; }
-        $sql = 'SELECT o.*, u.name AS rep_name, c.name AS created_by_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id LEFT JOIN users c ON c.id = o.created_by'
+        $sql = 'SELECT o.*, u.name AS rep_name, c.name AS created_by_name, (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) AS paid FROM orders o LEFT JOIN users u ON u.id = o.rep_id LEFT JOIN users c ON c.id = o.created_by'
             . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY o.id DESC LIMIT 500';
         $st = db()->prepare($sql);
         $st->execute($args);
@@ -565,6 +599,127 @@ try {
         log_activity($u, 'Updated lead', '#' . $id . (isset($b['status']) ? ' → ' . $b['status'] : ' · follow-up ' . ($b['follow_up'] ?: 'cleared')));
         json_out(['ok' => true]);
 
+    // ---------- payments ----------
+
+    case 'order_payments':
+        $u = require_perm('orders');
+        $o = load_order((int) ($_GET['id'] ?? 0));
+        assert_order_access($u, $o);
+        json_out(['payments' => order_payments((int) $o['id']), 'kinds' => PAYMENT_KINDS]);
+
+    case 'payment_add':
+        $u = require_perm('orders');
+        $b = body();
+        $o = load_order((int) ($b['order_id'] ?? 0));
+        assert_order_access($u, $o);
+        $amount = round((float) ($b['amount'] ?? 0), 2);
+        if ($amount == 0 || abs($amount) > 1000000) fail('Enter the amount received (use a minus amount for a refund).');
+        add_payment((int) $o['id'], $amount, (string) ($b['method'] ?? 'cash'), str_in($b['note'] ?? '', 200), (int) $u['id']);
+        log_activity($u, $amount > 0 ? 'Payment received' : 'Refund recorded', order_number((int) $o['id']) . ' · EGP ' . number_format($amount));
+        $o2 = order_out(load_order((int) $o['id']));
+        json_out(['payments' => order_payments((int) $o['id']), 'paid' => $o2['paid'], 'due' => $o2['due']]);
+
+    case 'payment_delete':
+        $u = require_perm('products'); // owners and managers only
+        $b = body();
+        $st = db()->prepare('SELECT * FROM payments WHERE id = ?');
+        $st->execute([(int) ($b['id'] ?? 0)]);
+        $pay = $st->fetch();
+        if (!$pay) fail('Payment not found.', 404);
+        db()->prepare('DELETE FROM payments WHERE id = ?')->execute([(int) $pay['id']]);
+        log_activity($u, 'Deleted a payment', order_number((int) $pay['order_id']) . ' · EGP ' . number_format((float) $pay['amount']));
+        $o2 = order_out(load_order((int) $pay['order_id']));
+        json_out(['payments' => order_payments((int) $pay['order_id']), 'paid' => $o2['paid'], 'due' => $o2['due']]);
+
+    // Everything the printable quote / invoice needs.
+    case 'order_doc':
+        $u = require_perm('orders');
+        $o = load_order((int) ($_GET['id'] ?? 0));
+        assert_order_access($u, $o);
+        json_out(['order' => order_out($o), 'payments' => order_payments((int) $o['id']), 'kinds' => PAYMENT_KINDS, 'me' => $u['name']]);
+
+    // ---------- customers ----------
+    // Customers are grouped from orders by phone (last 9 digits), falling back to email.
+
+    case 'customers':
+        $u = require_perm('orders');
+        $own = in_array('own_orders', $u['perms'], true);
+        $rows = db()->query('SELECT o.id, o.customer, o.email, o.phone, o.total, o.status, o.created_at, o.business_name, o.city, o.district,
+            (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) AS paid FROM orders o' . ($own ? ' WHERE o.rep_id = ' . (int) $u['id'] : '') . ' ORDER BY o.id')->fetchAll();
+        $map = [];
+        foreach ($rows as $r) {
+            $key = phone_key((string) $r['phone']) ?: (email_key((string) $r['email']) ?: 'order-' . $r['id']);
+            $closed = in_array($r['status'], ['Cancelled', 'Returned'], true);
+            if (!isset($map[$key])) $map[$key] = ['key' => $key, 'name' => $r['customer'], 'phone' => $r['phone'], 'email' => $r['email'], 'business' => '', 'city' => '',
+                'orders' => 0, 'spent' => 0.0, 'due' => 0.0, 'first' => $r['created_at'], 'last' => $r['created_at']];
+            $c = &$map[$key];
+            $c['name'] = $r['customer']; // latest name wins
+            if ($r['phone']) $c['phone'] = $r['phone'];
+            if ($r['email'] && strpos($r['email'], '@') !== false) $c['email'] = $r['email'];
+            if ($r['business_name']) $c['business'] = $r['business_name'];
+            if ($r['district'] || $r['city']) $c['city'] = trim($r['district'] . ($r['district'] && $r['city'] ? ', ' : '') . $r['city']);
+            $c['last'] = $r['created_at'];
+            if (!$closed) {
+                $c['orders']++;
+                $c['spent'] += (float) $r['total'];
+                $c['due'] += max(0, (float) $r['total'] - (float) $r['paid']);
+            }
+            unset($c);
+        }
+        $list = array_values($map);
+        usort($list, function ($a, $b) { return strcmp($b['last'], $a['last']); });
+        json_out(['customers' => $list]);
+
+    case 'customer':
+        $u = require_perm('orders');
+        $key = preg_replace('/[^\w.@+-]/', '', (string) ($_GET['key'] ?? ''));
+        if ($key === '') fail('Customer not found.', 404);
+        $own = in_array('own_orders', $u['perms'], true);
+        $isPhone = ctype_digit($key);
+        $st = db()->prepare('SELECT o.*, u.name AS rep_name, (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) AS paid
+            FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE ' . ($isPhone ? 'o.phone LIKE ?' : 'o.email = ? COLLATE NOCASE') . ($own ? ' AND o.rep_id = ' . (int) $u['id'] : '') . ' ORDER BY o.id DESC');
+        $st->execute([$isPhone ? '%' . substr($key, -4) : $key]);
+        $orders = array_values(array_filter(array_map('order_out', $st->fetchAll()), function ($o) use ($key, $isPhone) {
+            return $isPhone ? phone_key($o['phone']) === $key : true;
+        }));
+        $lead = in_array('leads', $u['perms'], true) ? find_lead($isPhone ? $key : null, $isPhone ? null : $key) : null;
+        json_out(['orders' => $orders, 'lead' => $lead]);
+
+    // ---------- quick search ----------
+
+    case 'search':
+        $u = require_perm('dashboard');
+        $q = trim(str_in($_GET['q'] ?? '', 60));
+        if (mb_strlen($q) < 2) json_out(['results' => []]);
+        $like = '%' . $q . '%';
+        $digits = preg_replace('/\D/', '', $q);
+        $out = [];
+        if (in_array('orders', $u['perms'], true)) {
+            $own = in_array('own_orders', $u['perms'], true) ? ' AND rep_id = ' . (int) $u['id'] : '';
+            $num = preg_match('/^(wts-?)?(\d{4,})$/i', $q, $m) ? (int) $m[2] - 1000 : 0;
+            $st = db()->prepare("SELECT id, customer, phone, total, status, business_name FROM orders WHERE (id = ? OR customer LIKE ? OR email LIKE ? OR business_name LIKE ?" .
+                (strlen($digits) >= 4 ? ' OR replace(replace(phone, \' \', \'\'), \'-\', \'\') LIKE ?' : '') . ")$own ORDER BY id DESC LIMIT 8");
+            $args = [$num, $like, $like, $like];
+            if (strlen($digits) >= 4) $args[] = '%' . $digits . '%';
+            $st->execute($args);
+            foreach ($st->fetchAll() as $r) $out[] = ['type' => 'order', 'id' => (int) $r['id'], 'title' => order_number((int) $r['id']) . ' · ' . $r['customer'],
+                'sub' => trim(($r['business_name'] ? $r['business_name'] . ' · ' : '') . $r['phone'] . ' · EGP ' . number_format((float) $r['total']) . ' · ' . $r['status'])];
+        }
+        if (in_array('leads', $u['perms'], true)) {
+            $st = db()->prepare('SELECT id, name, contact, status, source FROM leads WHERE name LIKE ? OR contact LIKE ? OR notes LIKE ?' .
+                (strlen($digits) >= 4 ? ' OR phone_key LIKE ?' : '') . ' ORDER BY id DESC LIMIT 6');
+            $args = [$like, $like, $like];
+            if (strlen($digits) >= 4) $args[] = '%' . substr($digits, -9) . '%';
+            $st->execute($args);
+            foreach ($st->fetchAll() as $r) $out[] = ['type' => 'lead', 'id' => (int) $r['id'], 'title' => $r['name'], 'sub' => $r['contact'] . ' · ' . $r['status'] . ' · ' . $r['source']];
+        }
+        if (in_array('products', $u['perms'], true)) {
+            $st = db()->prepare('SELECT id, name, sku, price FROM products WHERE name LIKE ? OR sku LIKE ? OR id LIKE ? ORDER BY sort LIMIT 5');
+            $st->execute([$like, $like, $like]);
+            foreach ($st->fetchAll() as $r) $out[] = ['type' => 'product', 'id' => $r['id'], 'title' => $r['name'], 'sub' => $r['sku'] . ' · EGP ' . number_format((float) $r['price'])];
+        }
+        json_out(['results' => $out]);
+
     // ---------- backups (owner) ----------
 
     case 'backups':
@@ -644,6 +799,25 @@ try {
 
 // ---------- helpers ----------
 
+function load_order(int $id): array
+{
+    $st = db()->prepare('SELECT o.*, u.name AS rep_name, c.name AS created_by_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id LEFT JOIN users c ON c.id = o.created_by WHERE o.id = ?');
+    $st->execute([$id]);
+    $o = $st->fetch();
+    if (!$o) fail('Order not found.', 404);
+    return $o;
+}
+
+function order_payments(int $orderId): array
+{
+    $st = db()->prepare('SELECT p.id, p.amount, p.method, p.note, p.created_at, u.name AS by_name FROM payments p LEFT JOIN users u ON u.id = p.created_by WHERE p.order_id = ? ORDER BY p.id');
+    $st->execute([$orderId]);
+    return array_map(function ($p) {
+        return ['id' => (int) $p['id'], 'amount' => (float) $p['amount'], 'method' => $p['method'], 'methodLabel' => PAYMENT_KINDS[$p['method']] ?? $p['method'],
+            'note' => $p['note'], 'at' => $p['created_at'], 'by' => $p['by_name']];
+    }, $st->fetchAll());
+}
+
 function order_accessible(array $u, array $o): bool
 {
     return !in_array('own_orders', $u['perms'], true) || (int) $o['rep_id'] === (int) $u['id'];
@@ -656,7 +830,10 @@ function assert_order_access(array $u, array $o): void
 
 function order_out(array $o): array
 {
+    $paid = array_key_exists('paid', $o) ? round((float) $o['paid'], 2) : order_paid((int) $o['id']);
+    $closed = in_array($o['status'], ['Cancelled', 'Returned'], true);
     return [
+        'paid' => $paid, 'due' => $closed ? 0 : max(0, round((float) $o['total'] - $paid, 2)),
         'id' => (int) $o['id'], 'number' => order_number((int) $o['id']), 'customer' => $o['customer'], 'email' => $o['email'],
         'phone' => $o['phone'], 'address' => $o['address'], 'city' => $o['city'], 'items' => json_decode($o['items'], true) ?: [],
         'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'shipping' => (float) $o['shipping'],

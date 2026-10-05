@@ -50,6 +50,12 @@
   const ORDER_TONE = { Pending: ['warn', '●'], Confirmed: ['info', '◆'], Designing: ['accent', '✎'], 'Awaiting approval': ['warn', '⏳'], 'In production': ['accent', '⚙'], Ready: ['good', '▣'], Shipped: ['info', '➜'], Delivered: ['good', '✓'], Cancelled: ['bad', '✕'], Returned: ['bad', '↩'] };
   const LEAD_TONE = { New: ['accent', '●'], Contacted: ['info', '◆'], Quoted: ['warn', '✎'], Won: ['good', '✓'], Lost: ['bad', '✕'] };
   const PRODUCT_TONE = { Active: ['good', '✓'], Draft: ['warn', '✎'], Archived: ['bad', '▪'] };
+  // Under an order total: paid, deposit with balance, or amount still to collect.
+  const payState = (o) => {
+    if (o.status === 'Cancelled' || o.status === 'Returned' || o.due == null) return '';
+    if (o.due <= 0) return '<div class="small pay-ok">✓ Paid</div>';
+    return '<div class="small ' + (o.paid > 0 ? 'pay-part' : 'muted') + '">' + (o.paid > 0 ? 'Deposit · ' : '') + egp(o.due) + ' due</div>';
+  };
   const pill = (map, s) => { const t = map[s] || ['', '•']; return '<span class="pill ' + t[0] + '">' + t[1] + ' ' + esc(s) + '</span>'; };
   const ROLE_INFO = { sales: 'Enters orders, sees only their own orders, targets and leads', owner: 'Everything, including team and settings', manager: 'Products, orders, leads and activity', staff: 'Orders and leads only' };
 
@@ -101,15 +107,16 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['products', 'Products', 'box'],
+      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'],
       ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'],
-    ].filter(([k]) => can(k));
+    ].filter(([k]) => can(k === 'customers' ? 'orders' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
       '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">' + icon('menu') + '</button><span class="brand-mark"><img src="../images/logo.png" alt="">Where To Spot</span></div>' +
       '<div class="shell"><nav class="side" id="side">' +
       '<div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>Where To Spot</b><small>Team workspace</small></span></div>' +
+      '<button class="searchbtn" id="searchBtn">' + icon('search') + '<span>Search</span><kbd>/</kbd></button>' +
       '<div class="nav-label">Workspace</div>' +
       nav.map(([k, label, ic]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '">' + icon(ic) + '<span>' + label + '</span></a>').join('') +
       '<div class="nav-label">Shop</div>' +
@@ -121,7 +128,8 @@
     $$('#side a.nav').forEach((a) => a.addEventListener('click', () => $('#side').classList.remove('open')));
     $('#outBtn').onclick = async () => { await api('logout', { method: 'POST' }).catch(() => {}); S.user = null; S.csrf = null; render(); };
     $('#pwBtn').onclick = changePassword;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
+    $('#searchBtn').onclick = openSearch;
+    const pages = { dashboard: pageDashboard, orders: pageOrders, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
@@ -191,6 +199,8 @@
     cart: '<path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
@@ -215,6 +225,7 @@
       '<div class="kpis">' +
       kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') +
       kpi('Orders', k.orders, 'avg ' + egp(k.aov)) +
+      (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance' : 'everything is paid') : '') +
       kpi('Waiting to confirm', k.pending, can('orders') ? '<a href="#orders" data-status="Pending">View pending →</a>' : 'orders') +
       kpi('New leads', k.newLeads, can('leads') ? '<a href="#leads">Open leads →</a>' : '') +
       kpi('Live products', k.products, can('products') ? '<a href="#products">Manage →</a>' : '') +
@@ -230,6 +241,12 @@
       (can('leads') && !(d.followUps || []).length ? followUpCard([]) : '') +
       (can('backups') ? '<div class="card"><h2>' + icon('shield') + 'Backups<span class="spacer"></span><a class="btn sm" href="#backups">Manage</a></h2><div class="small muted">' +
         (d.lastBackup ? 'Last copy saved ' + dateTime(d.lastBackup.created) + ' · ' + fmtSize(d.lastBackup.size) : 'The first backup will be saved in a moment.') + '</div></div>' : '') +
+      (d.profit ? '<div class="card"><h2>Estimated profit<span class="spacer"></span><span class="pill good">' + d.profit.margin + '% margin</span></h2>' +
+        '<div class="kpi-inline"><b>' + egp(d.profit.profit) + '</b><span class="small muted">from ' + egp(d.profit.revenue) + ' sales − ' + egp(d.profit.cost) + ' cost</span></div>' +
+        (d.profit.coverage < 100 ? '<div class="hint" style="margin-top:8px">Covers ' + d.profit.coverage + '% of sales. Add cost prices to the remaining products for a full picture.</div>' : '') + '</div>'
+        : can('products') ? '<div class="card"><h2>Estimated profit</h2><div class="small muted">Add a cost price to your products (Products → edit → Cost) and profit for this period appears here.</div></div>' : '') +
+      (d.leadSources && d.leadSources.length ? '<div class="card"><h2>Where leads come from</h2><div class="list">' + d.leadSources.map((r) =>
+        '<div class="li"><span>' + esc(r.source) + ' <span class="muted small">' + r.n + ' lead' + (r.n > 1 ? 's' : '') + '</span></span><span class="small"><b>' + r.won + '</b> won · ' + Math.round(r.won / r.n * 100) + '%</span></div>').join('') + '</div></div>' : '') +
       '<div class="card"><h2>Orders by status</h2>' + statuses.map(([s, n]) =>
         '<div class="hbar"><span>' + pill(ORDER_TONE, s) + '</span><div class="track"><div class="fill" style="width:' + (n / maxStatus * 100) + '%"></div></div><span class="num" style="text-align:right">' + n + '</span></div>').join('') + '</div>' +
       '<div class="card"><h2>Top products</h2>' + (d.topProducts.length ? '<div class="list">' + d.topProducts.map((p) =>
@@ -365,7 +382,7 @@
           '<td><b>' + esc(o.number) + '</b></td><td>' + esc(o.customer) + '<div class="small muted">' + esc(o.phone) + ' · ' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
           '<td class="small">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td><td>' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
           (bosta.enabled ? '<td>' + bostaPill(o) + '</td>' : '') +
-          '<td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b></td></tr>').join('') +
+          '<td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b>' + payState(o) + '</td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
     const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
@@ -478,6 +495,41 @@
       '<div><button class="btn primary" type="submit" id="bCreate">Create Bosta shipment</button></div></form>';
   }
 
+  // Payments on an order: deposits, transfers, cash on delivery, refunds (negative amounts).
+  async function paymentsCard(o) {
+    const box = $('#oPay');
+    if (!box) return;
+    let d;
+    try { d = await api('order_payments', { query: '&id=' + o.id }); } catch (err) { box.innerHTML = '<div class="err">' + esc(err.message) + '</div>'; return; }
+    const draw = (payments, paid, due) => {
+      const closed = o.status === 'Cancelled' || o.status === 'Returned';
+      box.innerHTML = '<h2>Payments<span class="spacer"></span>' + (closed ? '' : due <= 0 ? '<span class="pill good">✓ Paid in full</span>' : paid > 0 ? '<span class="pill warn">◐ ' + egp(due) + ' due</span>' : '<span class="pill">' + egp(due) + ' to collect</span>') + '</h2>' +
+        '<div class="pay-bar"><i style="width:' + Math.min(100, o.total > 0 ? paid / o.total * 100 : 0) + '%"></i></div>' +
+        '<div class="row small muted" style="margin:6px 0 10px"><span>Paid ' + egp(paid) + '</span><span class="spacer"></span><span>Total ' + egp(o.total) + '</span></div>' +
+        (payments.length ? '<div class="list">' + payments.map((p) => '<div class="li"><span><b>' + egp(p.amount) + '</b> · ' + esc(p.methodLabel) + (p.note ? ' · ' + esc(p.note) : '') +
+          '<div class="small muted">' + dateTime(p.at) + (p.by ? ' · ' + esc(p.by) : '') + '</div></span>' +
+          (can('products') ? '<button type="button" class="btn sm" data-pdel="' + p.id + '" aria-label="Delete payment">✕</button>' : '') + '</div>').join('') + '</div>' : '<div class="small muted">No payments recorded yet.</div>') +
+        (closed ? '' : '<div class="row" style="margin-top:12px"><input type="number" id="pAmt" step="0.01" placeholder="Amount" value="' + (due > 0 ? due : '') + '" style="width:120px" aria-label="Amount received">' +
+          '<select id="pMethod" style="width:auto">' + Object.entries(d.kinds).map(([k, v]) => '<option value="' + k + '"' + (k === 'cash' ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>' +
+          '<input type="text" id="pNote" placeholder="Note (optional)" style="flex:1;min-width:120px"><button type="button" class="btn sm primary" id="pAdd">Record payment</button></div>' +
+          '<div class="hint" style="margin-top:6px">Deposit, transfer or cash received. Use a minus amount for a refund. When the order is marked Delivered, any balance is recorded as collected.</div>');
+      $$('[data-pdel]', box).forEach((b) => b.onclick = async () => {
+        if (!confirm('Delete this payment?')) return;
+        try { const r = await api('payment_delete', { method: 'POST', body: { id: +b.dataset.pdel } }); o.paid = r.paid; o.due = r.due; draw(r.payments, r.paid, r.due); }
+        catch (err) { toast(err.message, true); }
+      });
+      const add = $('#pAdd', box);
+      if (add) add.onclick = async () => {
+        add.disabled = true;
+        try {
+          const r = await api('payment_add', { method: 'POST', body: { order_id: o.id, amount: $('#pAmt').value, method: $('#pMethod').value, note: $('#pNote').value } });
+          o.paid = r.paid; o.due = r.due; draw(r.payments, r.paid, r.due); toast('Payment recorded');
+        } catch (err) { toast(err.message, true); add.disabled = false; }
+      };
+    };
+    draw(d.payments, o.paid, o.due);
+  }
+
   async function orderDrawer(o) {
     const bosta = await bostaInfo();
     const body = '<div class="stack">' +
@@ -489,6 +541,7 @@
       (o.discount ? '<div class="li muted"><span>Promo ' + esc(o.promo) + '</span><span>−' + egp(o.discount) + '</span></div>' : '') +
       '<div class="li muted"><span>Delivery</span><span>' + (o.shipping ? egp(o.shipping) : 'Free') + '</span></div>' +
       '<div class="li"><b>Total</b><b>' + egp(o.total) + '</b></div></div></div>' +
+      '<div class="card" id="oPay"><div class="muted small">Loading payments…</div></div>' +
       bostaSection(o, bosta) +
       '<form id="of" class="stack">' +
       '<div class="card stack"><b>Personalisation</b>' +
@@ -504,7 +557,9 @@
       '<label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
       '<span class="hint">Cancelling or returning puts the items back in stock.' + (o.tracking ? ' Bosta updates move this to Shipped, Delivered or Returned automatically.' : '') + '</span></label>' +
       '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone">' + esc(o.notes) + '</textarea></label></form></div>';
-    openDrawer('Order ' + o.number, body, '<span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" form="of" type="submit">Save</button>');
+    openDrawer('Order ' + o.number, body, '<a class="btn" href="doc.html?type=quote&id=' + o.id + '" target="_blank" rel="noopener">Quote</a><a class="btn" href="doc.html?type=invoice&id=' + o.id + '" target="_blank" rel="noopener">Invoice</a>' +
+      '<span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" form="of" type="submit">Save</button>');
+    paymentsCard(o);
     const reopen = async () => { await pageOrders(); const fresh = S.orders.find((x) => x.id === o.id); if (fresh) orderDrawer(fresh); };
     $('#of').onsubmit = async (e) => {
       e.preventDefault();
@@ -673,6 +728,8 @@
       '<label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
       '<label class="field">Payment<select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label>' +
       '<label class="field">Status<select name="status"><option>Pending</option><option selected>Confirmed</option></select></label></div>' +
+      '<div class="grid3"><label class="field">Paid now (EGP) <span class="hint">Deposit, or leave empty</span><input type="number" name="paid_now" min="0" step="1" placeholder="0"></label>' +
+      '<label class="field">Deposit paid by<select name="deposit_method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="wallet">InstaPay / wallet</option></select></label><span></span></div>' +
       '<div class="grid3"><label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label>' +
       repOpts + '</div>' +
@@ -844,6 +901,7 @@
     const a2 = $('#addBtn2'); if (a2) a2.onclick = () => productDrawer(null);
     $('#catsBtn').onclick = categoriesDrawer;
     $$('tr[data-id]').forEach((tr) => tr.onclick = () => productDrawer(S.products.find((p) => p.id === tr.dataset.id)));
+    if (S.openProduct) { const p = S.products.find((x) => x.id === S.openProduct); S.openProduct = null; if (p) productDrawer(p); }
   }
 
   function productDrawer(p) {
@@ -1067,6 +1125,97 @@
     return '<span class="small">' + esc(fmtDay(l.follow_up)) + '</span>';
   }
   const waBtn = (l, label) => leadWa(l) ? '<a class="btn sm wa" href="' + esc(leadWa(l)) + '" target="_blank" rel="noopener" title="WhatsApp ' + esc(l.name) + '">' + icon('chat') + (label ? 'WhatsApp' : '') + '</a>' : '';
+
+  // ---------- customers ----------
+  async function pageCustomers() {
+    const d = await api('customers');
+    S.customers = d.customers;
+    const q = (S.custQ || '').trim().toLowerCase();
+    const list = d.customers.filter((c) => !q || (c.name + ' ' + c.phone + ' ' + c.email + ' ' + c.business + ' ' + c.city).toLowerCase().includes(q));
+    const repeat = d.customers.filter((c) => c.orders > 1).length;
+    $('#main').innerHTML = header('Customers', d.customers.length + ' customers · ' + repeat + ' ordered more than once' + (can('own_orders') ? ' · your orders only' : ''), '') +
+      '<div class="row" style="margin-bottom:16px"><input type="search" id="cq" placeholder="Search name, phone, business, area…" value="' + esc(S.custQ || '') + '" style="max-width:340px"></div>' +
+      (list.length ? '<div class="table-wrap"><table><thead><tr><th>Customer</th><th>Area</th><th class="num">Orders</th><th class="num">Spent</th><th class="num">Balance due</th><th>Last order</th></tr></thead><tbody>' +
+        list.map((c, i) => '<tr class="click" data-c="' + esc(c.key) + '"><td><b>' + esc(c.name) + '</b>' + (c.orders > 1 ? ' <span class="pill accent">↻ Repeat</span>' : '') +
+          '<div class="small muted">' + esc([c.business, c.phone].filter(Boolean).join(' · ')) + '</div></td><td class="small">' + esc(c.city || '—') + '</td>' +
+          '<td class="num">' + c.orders + '</td><td class="num"><b>' + egp(c.spent) + '</b></td><td class="num">' + (c.due > 0.5 ? '<span class="pay-part">' + egp(c.due) + '</span>' : '<span class="muted">—</span>') + '</td>' +
+          '<td class="small muted">' + dateTime(c.last) + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="card empty">' + (q ? 'No customers match.' : 'Customers appear here once orders come in.') + '</div>');
+    let t;
+    $('#cq').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.custQ = e.target.value; pageCustomers().then(() => { const i = $('#cq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 200); };
+    $$('tr[data-c]').forEach((tr) => tr.onclick = () => customerDrawer(d.customers.find((c) => c.key === tr.dataset.c)));
+  }
+
+  async function customerDrawer(c) {
+    const d = await api('customer', { query: '&key=' + encodeURIComponent(c.key) });
+    const phone = phoneOf(c.phone);
+    const wa = phone ? 'https://wa.me/' + waNumber(phone) + '?text=' + encodeURIComponent('Hello ' + c.name.split(/\s+/)[0] + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. ') : '';
+    const avg = c.orders ? c.spent / c.orders : 0;
+    const body = '<div class="stack">' +
+      '<div class="card stack" style="gap:12px"><div class="row" style="align-items:flex-start"><span class="avatar" style="width:46px;height:46px;font-size:15px">' + esc(c.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()) + '</span>' +
+      '<div style="flex:1"><b style="font-size:17px">' + esc(c.name) + '</b>' + (c.business ? '<div>' + esc(c.business) + '</div>' : '') + '<div class="small muted">' + esc([c.phone, c.email && c.email.includes('@') ? c.email : '', c.city].filter(Boolean).join(' · ')) + '</div></div></div>' +
+      '<div class="row lead-actions">' + (wa ? '<a class="btn sm wa" href="' + esc(wa) + '" target="_blank" rel="noopener">' + icon('chat') + 'WhatsApp</a>' : '') + (phone ? '<a class="btn sm" href="tel:' + esc(c.phone) + '">' + icon('phone') + 'Call</a>' : '') +
+      (can('sell') ? '<span class="spacer"></span><button class="btn sm dark" id="cNew">' + icon('cart') + 'New order</button>' : '') + '</div></div>' +
+      '<div class="kpis" style="margin:0"><div class="kpi"><div class="label">Orders</div><div class="value">' + c.orders + '</div><div class="note">since ' + dateTime(c.first).split(',')[0] + '</div></div>' +
+      '<div class="kpi"><div class="label">Total spent</div><div class="value">' + egp(c.spent) + '</div><div class="note">avg ' + egp(avg) + '</div></div>' +
+      '<div class="kpi"><div class="label">Balance due</div><div class="value">' + egp(c.due) + '</div><div class="note">' + (c.due > 0.5 ? 'still to collect' : 'nothing owed') + '</div></div></div>' +
+      (d.lead ? '<div class="card"><h2>Lead<span class="spacer"></span>' + pill(LEAD_TONE, d.lead.status) + '</h2><div class="small" style="white-space:pre-line;max-height:160px;overflow:auto">' + esc(d.lead.notes || 'No notes.') + '</div></div>' : '') +
+      '<div class="card"><h2>Orders</h2><div class="list">' + d.orders.map((o) => '<div class="li fu" data-o="' + o.id + '"><span><b>' + esc(o.number) + '</b> · ' + dateTime(o.createdAt) +
+        '<div class="small muted">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join(', ') + '</div></span><span style="text-align:right">' + pill(ORDER_TONE, o.status) + '<div class="small"><b>' + egp(o.total) + '</b></div>' + payState(o) + '</span></div>').join('') + '</div></div></div>';
+    openDrawer('Customer', body, '<span class="spacer"></span><button class="btn" data-close>Close</button>');
+    $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
+    $$('[data-o]').forEach((r) => r.onclick = () => orderDrawer(d.orders.find((o) => o.id === +r.dataset.o)));
+    const cn = $('#cNew');
+    if (cn) cn.onclick = () => { closeDrawer(); newOrderDrawer({ name: c.name, phone: phone ? localPhone(phone) : '', email: c.email && c.email.includes('@') ? c.email : '' }); };
+  }
+
+  // ---------- quick search ( / or Ctrl+K ) ----------
+  function openSearch() {
+    if ($('#search')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'search';
+    wrap.innerHTML = '<div class="scrim" data-sclose></div><div class="palette" role="dialog" aria-label="Search"><div class="pal-in">' + icon('search') +
+      '<input type="search" id="sq" placeholder="Search orders, customers, phone numbers, leads, products…" autocomplete="off"><kbd>Esc</kbd></div><div class="pal-res" id="sres"><div class="pal-hint">Type a name, phone number, order number (e.g. 1001) or product.</div></div></div>';
+    document.body.appendChild(wrap);
+    const close = () => wrap.remove();
+    $$('[data-sclose]', wrap).forEach((e) => e.onclick = close);
+    const inp = $('#sq'); inp.focus();
+    let results = [], sel = 0, t, seq = 0;
+    const TYPE = { order: ['bag', 'Order'], lead: ['inbox', 'Lead'], product: ['box', 'Product'] };
+    const draw = () => {
+      $('#sres').innerHTML = results.length ? results.map((r, i) => '<button class="pal-item' + (i === sel ? ' on' : '') + '" data-i="' + i + '">' + icon(TYPE[r.type][0]) +
+        '<span><b>' + esc(r.title) + '</b><small>' + esc(r.sub) + '</small></span><em>' + TYPE[r.type][1] + '</em></button>').join('')
+        : '<div class="pal-hint">' + (inp.value.trim().length < 2 ? 'Type at least 2 characters.' : 'Nothing found.') + '</div>';
+      $$('.pal-item', wrap).forEach((b) => b.onclick = () => go(results[+b.dataset.i]));
+    };
+    const go = async (r) => {
+      close();
+      if (r.type === 'order') {
+        const d = await api('orders', { query: '&q=' + encodeURIComponent('WTS-' + (1000 + r.id)) });
+        const o = d.orders.find((x) => x.id === r.id); if (o) orderDrawer(o);
+      } else if (r.type === 'lead') { S.openLead = r.id; S.leadStatus = ''; S.leadQ = ''; S.leadView = 'list'; if (S.route === 'leads') pageLeads(); else location.hash = '#leads'; }
+      else if (r.type === 'product') { S.openProduct = r.id; if (S.route === 'products') pageProducts(); else location.hash = '#products'; }
+    };
+    inp.oninput = () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const my = ++seq;
+        const q = inp.value.trim();
+        if (q.length < 2) { results = []; return draw(); }
+        try { const d = await api('search', { query: '&q=' + encodeURIComponent(q) }); if (my !== seq) return; results = d.results; sel = 0; draw(); } catch (e) { /* keep typing */ }
+      }, 180);
+    };
+    inp.onkeydown = (e) => {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(results.length - 1, sel + 1); draw(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); draw(); }
+      else if (e.key === 'Enter' && results[sel]) { e.preventDefault(); go(results[sel]); }
+    };
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!S.user) return;
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+    if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); openSearch(); }
+  });
 
   async function pageLeads() {
     const [d] = await Promise.all([api('leads'), loadTeam()]);

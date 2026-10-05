@@ -68,6 +68,7 @@ function create_order(array $in, array $opts = []): array
                 throw new ShopError($lineName . ': only ' . variant_stock($p, $variant) . ' left in stock.');
             }
             $line = ['id' => $p['id'], 'name' => $lineName, 'qty' => $qty, 'price' => $unit, 'total' => $lineTotal, 'cat' => $p['cat']];
+            if ((float) $p['cost'] > 0) $line['cost'] = (float) $p['cost']; // unit cost at the time of sale, for profit
             if ($variant) $line['variant'] = (string) $variant['id'];
             if ($addons) $line['addons'] = $addons;
             $lines[] = $line;
@@ -116,6 +117,10 @@ function create_order(array $in, array $opts = []): array
                 $subtotal, $discount, $shipping, $total, $promo, $payment, $repId, $source, $opts['created_by'] ?? null, $status, str_in($opts['notes'] ?? '', 2000),
                 $biz, str_in($in['review_link'] ?? '', 500), str_in($in['links'] ?? '', 1000), str_in($in['design_notes'] ?? '', 2000), json_encode($files, JSON_UNESCAPED_UNICODE)]);
         $id = (int) $pdo->lastInsertId();
+        // Money received now: full amount for paid-upfront orders, or a deposit the team entered.
+        $paidNow = isset($opts['paid_now']) && $opts['paid_now'] !== '' ? max(0, min($total, (float) $opts['paid_now'])) : ($payment !== 'cod' ? $total : 0);
+        if ($paidNow > 0) add_payment($id, $paidNow, $payment === 'cod' ? ($opts['deposit_method'] ?? 'cash') : $payment,
+            $paidNow < $total ? 'Deposit' : 'Paid when the order was placed', $opts['created_by'] ?? null);
         foreach ($lines as $l) {
             if ($l['id'] === 'custom') continue;
             adjust_stock($pdo, $l['id'], $l['variant'] ?? null, -$l['qty']);
