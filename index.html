@@ -29,13 +29,121 @@
   a.link{transition:color 0.15s ease}
   a.link:hover{color:var(--accent)}
   image-slot{display:block}
-  /* Product & category photos: show the whole product, never cropped */
+  /* Product photos: show the whole product, never cropped */
   .media{position:relative;width:100%;background:#F6F2EC;display:grid;place-items:center;overflow:hidden}
   .media img{width:100%;height:100%;object-fit:contain;display:block;transition:transform .35s ease}
   .media .ph{color:#B7AFA3;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:8px}
-  .pcard:hover .media img,.ccard:hover .media img{transform:scale(1.04)}
+  .pcard:hover .media img{transform:scale(1.04)}
+
+  /* Layout rhythm shared by the home-page sections */
+  .wrap{max-width:1280px;margin:0 auto;padding-left:28px;padding-right:28px}
+  .sec{padding-bottom:clamp(88px,10vw,136px)}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+  .h2{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(32px,4.4vw,52px);line-height:1.04;letter-spacing:-.01em;margin:0}
+  .h2 em,.hero h1 em{font-style:italic;color:var(--accent)}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px 48px;flex-wrap:wrap;margin-bottom:clamp(28px,4vw,48px)}
+  .sec-lede{margin:0;max-width:42ch;font-size:15.5px;line-height:1.65;color:#6B6660}
+  .img-cover{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+
+  /* Hero */
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(40px,6vw,88px);align-items:center;padding-top:clamp(48px,7vw,96px);padding-bottom:clamp(72px,9vw,120px)}
+  .hero h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(46px,6.6vw,88px);line-height:.98;letter-spacing:-.015em;margin:0}
+  .hero-lede{margin:28px 0 0;max-width:44ch;font-size:17.5px;line-height:1.6;color:#5F5A54}
+  .hero-ctas{margin-top:36px;display:flex;gap:12px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:16px 28px;border-radius:999px;font-size:15px;font-weight:600;transition:transform .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;border:1px solid transparent;cursor:pointer}
+  .btn-accent{background:var(--accent);color:#fff}
+  .btn-accent:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px var(--accent)}
+  .btn-line{border-color:#22201D;color:#22201D}
+  .btn-line:hover{background:#22201D;color:#F7F3ED}
+  .btn-dark{background:#22201D;color:#F7F3ED}
+  .btn-dark:hover{transform:translateY(-1px);box-shadow:0 10px 24px -12px rgba(20,18,16,.6)}
+  .proof{list-style:none;margin:40px 0 0;padding:26px 0 0;border-top:1px solid #DDD6CC;display:flex;flex-wrap:wrap;gap:12px 28px;font-size:13.5px;color:#5F5A54;max-width:560px}
+  .proof li{display:flex;align-items:center;gap:8px}
+  .proof li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+  .hero-art{position:relative;padding:0 0 9% 0}
+  .hero-main{margin-left:14%;aspect-ratio:4/5;border-radius:28px;overflow:hidden;background:#EAE3D9;box-shadow:0 40px 80px -40px rgba(34,32,29,.45)}
+  .hero-inset{position:absolute;left:0;bottom:0;width:50%;aspect-ratio:4/3;border-radius:20px;overflow:hidden;border:6px solid #F7F3ED;background:#EAE3D9;box-shadow:0 24px 48px -24px rgba(34,32,29,.5)}
+  .hero-badge{position:absolute;top:7%;left:2%;background:#fff;border-radius:16px;padding:14px 18px;box-shadow:0 18px 40px -18px rgba(34,32,29,.4);max-width:230px}
+  .hero-badge b{display:block;font-family:'Instrument Serif',serif;font-weight:400;font-size:30px;line-height:1}
+  .hero-badge span{display:block;margin-top:4px;font-size:12.5px;line-height:1.4;color:#6B6660}
+
+  /* Categories */
+  .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(20px,2.4vw,32px)}
+  .ccard{display:block;color:inherit}
+  .cimg{aspect-ratio:1/1;border-radius:24px;overflow:hidden;background:#EFE9E1;display:grid;place-items:center;color:#B7AFA3;font-size:13px}
+  .ccard:hover .img-cover{transform:scale(1.05)}
+  .cmeta{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 4px 0}
+  .ctitle{font-family:'Instrument Serif',serif;font-size:30px;line-height:1.05}
+  .cdesc{margin-top:6px;font-size:14.5px;color:#6B6660;line-height:1.5}
+  .ccount{margin-top:10px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8F877C}
+  .carrow{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid #CFC7BB;display:grid;place-items:center;font-size:18px;transition:background .2s ease,color .2s ease,border-color .2s ease,transform .2s ease}
+  .ccard:hover .carrow{background:#22201D;border-color:#22201D;color:#F7F3ED;transform:translateX(3px)}
+
+  /* Services */
+  .sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(18px,2vw,28px)}
+  .scard{display:flex;flex-direction:column;background:#fff;border:1px solid #E4DDD2;border-radius:24px;overflow:hidden;color:inherit;transition:transform .25s ease,box-shadow .25s ease}
+  .scard:hover{transform:translateY(-4px);box-shadow:0 28px 50px -30px rgba(34,32,29,.45)}
+  .scard:hover .img-cover{transform:scale(1.05)}
+  .simg{aspect-ratio:3/2;overflow:hidden;background:#EAE3D9}
+  .sbody{padding:24px 26px 28px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px}
+  .snum{grid-row:span 2;font-family:'Instrument Serif',serif;font-style:italic;font-size:22px;color:var(--accent);line-height:1.2}
+  .sname{font-size:18px;font-weight:600;line-height:1.3}
+  .sdesc{font-size:14.5px;color:#6B6660;line-height:1.55}
+  .sec-foot{margin-top:36px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;font-size:14px;color:#6B6660}
+
+  /* About */
+  .about{display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(40px,6vw,96px);align-items:center}
+  .about p{margin:22px 0 0;font-size:16.5px;line-height:1.7;color:#5F5A54;max-width:50ch}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+  .chips span{border:1px solid #D6CEC2;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:500;color:#3E3A35}
+  .mosaic{display:grid;grid-template-columns:1.15fr 1fr;grid-template-rows:1fr 1fr;gap:16px;aspect-ratio:1/1}
+  .mosaic div{border-radius:22px;overflow:hidden;background:#EAE3D9}
+  .mosaic div:first-child{grid-row:span 2}
+  .text-link{display:inline-flex;align-items:center;gap:8px;margin-top:30px;font-weight:600;color:#22201D;border-bottom:1px solid currentColor;padding-bottom:3px;transition:color .15s ease}
+  .text-link:hover{color:var(--accent)}
+
+  /* Client logos: dark band with a slow, pausable scroll */
+  .clients{background:#22201D;color:#F7F3ED;padding:clamp(48px,6vw,72px) 0}
+  .clients-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px 32px;flex-wrap:wrap;margin-bottom:clamp(28px,4vw,44px)}
+  .clients-head .h2{font-size:clamp(26px,3vw,36px)}
+  .clients-head span{font-size:14px;color:#A49D92}
+  .marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+  .track{display:flex;align-items:center;gap:clamp(48px,6vw,80px);width:max-content;animation:marquee 60s linear infinite}
+  .marquee:hover .track{animation-play-state:paused}
+  .track img{display:block;width:auto;opacity:.72;transition:opacity .2s ease}
+  .track img:hover{opacity:1}
+  @keyframes marquee{to{transform:translateX(-50%)}}
+  @media (prefers-reduced-motion: reduce){.track{animation:none;flex-wrap:wrap;justify-content:center;width:auto;row-gap:32px}.marquee{-webkit-mask-image:none;mask-image:none}}
+
+  /* Corporate / bulk enquiry */
+  .bulk{display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);background:#fff;border:1px solid #E4DDD2;border-radius:32px;padding:clamp(28px,5vw,64px)}
+  .bulk p{margin:18px 0 0;font-size:16px;line-height:1.65;color:#5F5A54;max-width:44ch}
+  .ticks{list-style:none;margin:28px 0 0;padding:0;display:grid;gap:12px;font-size:15px}
+  .ticks li{display:flex;gap:12px;align-items:flex-start}
+  .ticks li::before{content:'✓';flex:none;width:24px;height:24px;border-radius:50%;background:#F3E6DF;color:var(--accent);font-size:12px;font-weight:700;display:grid;place-items:center;margin-top:-1px}
+  .bulk-form{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:center}
+  .field{display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;color:#3E3A35}
+  .field.full{grid-column:1/-1}
+  .field input,.field select{font:inherit;font-size:15px;font-weight:400;color:#22201D;background:#F7F3ED;border:1px solid #DDD6CC;border-radius:14px;padding:15px 16px;width:100%;transition:border-color .15s ease,background .15s ease}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);background:#fff}
+  .bulk-form .btn{grid-column:1/-1;justify-content:center;border:none;font-family:inherit;margin-top:4px}
+  .bulk-done{align-self:center;background:#F7F3ED;border-radius:20px;padding:32px;font-size:15.5px;line-height:1.6}
+  .bulk-done b{display:block;font-family:'Instrument Serif',serif;font-weight:400;font-size:30px;margin-bottom:6px}
+
+  @media (max-width: 980px){
+    .hero,.about,.bulk{grid-template-columns:1fr}
+    .hero-art{max-width:560px}
+    .sgrid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width: 620px){
+    .wrap{padding-left:20px;padding-right:20px}
+    .sgrid,.cgrid{grid-template-columns:1fr}
+    .bulk-form{grid-template-columns:1fr}
+    .hero-badge{padding:10px 14px}
+    .hero-badge b{font-size:24px}
+    .mosaic{gap:10px}
+  }
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:26px}
-  .cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:20px}
   button{font-family:inherit}
   ::selection{background:#A8552F;color:#fff}
   .desktop-nav{display:flex}
@@ -119,30 +227,49 @@
     </sc-if>
   </nav>
 
-  <header id="top" style="max-width:1280px;margin:0 auto;padding:clamp(56px,9vw,110px) 28px clamp(40px,6vw,70px);display:grid;grid-template-columns:1.1fr 0.9fr;gap:48px;align-items:center" class="hero-grid">
+  <header id="top" class="wrap hero">
     <div>
-      <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:22px">Where To Spot · Giza, Egypt</div>
-      <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(42px,6.5vw,76px);line-height:1.02;letter-spacing:-0.01em;margin:0">Get found.<br>Get reviewed.<br>Get customers.</h1>
-      <p style="margin:26px 0 0;max-width:46ch;font-size:17px;line-height:1.6;color:#6B6660">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivery across Egypt, cash on delivery.</p>
-      <div style="margin-top:36px;display:flex;gap:14px;flex-wrap:wrap">
-        <a href="#products" style="background:var(--accent);color:#fff;padding:15px 28px;border-radius:999px;font-size:15px;font-weight:600;transition:transform 0.15s ease,box-shadow 0.15s ease" style-hover="{{ ctaHover }}">Shop products</a>
-        <a href="plans.html" style="border:1px solid #22201D;color:#22201D;padding:14px 26px;border-radius:999px;font-size:15px;font-weight:600">See marketing plans</a>
+      <div class="eyebrow">Where To Spot · Giza, Egypt</div>
+      <h1>Get found.<br>Get reviewed.<br><em>Get customers.</em></h1>
+      <p class="hero-lede">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivered across Egypt.</p>
+      <div class="hero-ctas">
+        <a href="#products" class="btn btn-accent">Shop products <span aria-hidden="true">→</span></a>
+        <a href="plans.html" class="btn btn-line">See marketing plans</a>
       </div>
+      <ul class="proof">
+        <li>Delivery across Egypt in 2–5 days</li>
+        <li>Cash on delivery</li>
+        <li>14-day returns</li>
+      </ul>
     </div>
-    <image-slot id="hero-shot" src="api/img.php?src=images/nfc-review-black-lifestyle.png&amp;w=1000&amp;v=2" shape="rounded" radius="28" placeholder="lifestyle hero photo — mixed products" style="width:100%;aspect-ratio:4/5"></image-slot>
+    <div class="hero-art">
+      <div class="hero-main"><img class="img-cover" src="api/img.php?src=images/nfc-review-black-lifestyle.png&amp;w=1000&amp;v=2" alt="Where To Spot NFC Google review card on a café table" fetchpriority="high"></div>
+      <div class="hero-inset"><img class="img-cover" src="api/img.php?src=images/work/nfc-multi-brand-stands.jpeg&amp;w=600&amp;v=2" alt="Google review stands made for different brands" loading="lazy"></div>
+      <div class="hero-badge"><b>20+ brands</b><span>Samsung, Vodafone, Pandora and more work with us</span></div>
+    </div>
   </header>
 
-  <section id="categories" style="max-width:1280px;margin:0 auto;padding:0 28px 80px">
+  <section id="categories" class="wrap sec">
+    <div class="sec-head">
+      <div>
+        <div class="eyebrow">Shop by category</div>
+        <h2 class="h2">Made for businesses <em>that want to be found</em></h2>
+      </div>
+    </div>
     <div class="cgrid">
-      <sc-for list="{{ catCards }}" as="c" hint-placeholder-count="5">
-        <a href="#products" onClick="{{ c.onClick }}" class="ccard" style="display:flex;flex-direction:column;gap:16px;border:1px solid #DDD6CC;border-radius:22px;padding:16px;background:#fff;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
-          <div class="media" style="aspect-ratio:4/3;border-radius:16px">
-            <sc-if value="{{ c.img }}" hint-placeholder-val="{{ '' }}"><img src="{{ c.img }}" alt="{{ c.label }}" loading="lazy"></sc-if>
-            <sc-if value="{{ c.noImg }}" hint-placeholder-val="{{ false }}"><div class="ph">No photo yet</div></sc-if>
+      <sc-for list="{{ catCards }}" as="c" hint-placeholder-count="3">
+        <a href="#products" onClick="{{ c.onClick }}" class="ccard">
+          <div class="cimg">
+            <sc-if value="{{ c.img }}" hint-placeholder-val="{{ '' }}"><img class="img-cover" src="{{ c.img }}" alt="{{ c.label }}" loading="lazy"></sc-if>
+            <sc-if value="{{ c.noImg }}" hint-placeholder-val="{{ false }}"><span>No photo yet</span></sc-if>
           </div>
-          <div style="padding:0 4px 4px">
-            <div style="font-weight:600;font-size:18px">{{ c.label }}</div>
-            <div style="font-size:14px;color:#6B6660;margin-top:5px;line-height:1.45">{{ c.desc }}</div>
+          <div class="cmeta">
+            <div>
+              <div class="ctitle">{{ c.label }}</div>
+              <div class="cdesc">{{ c.desc }}</div>
+              <div class="ccount">{{ c.count }}</div>
+            </div>
+            <span class="carrow" aria-hidden="true">→</span>
           </div>
         </a>
       </sc-for>
@@ -240,57 +367,94 @@
     </sc-if>
   </section>
 
-  <section id="services" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
-    <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Custom work</div>
-    <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0 0 26px">Creative & production services</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px">
-      <sc-for list="{{ customServices }}" as="cs" hint-placeholder-count="6">
-        <div style="border:1px solid #DDD6CC;border-radius:16px;padding:20px;background:#fff">
-          <div style="font-weight:600;font-size:15.5px">{{ cs.name }}</div>
-          <div style="font-size:13.5px;color:#6B6660;margin-top:6px;line-height:1.5">{{ cs.desc }}</div>
-        </div>
-      </sc-for>
-    </div>
-    <p style="margin:18px 0 0;font-size:14px;color:#6B6660">These are quoted per project in EGP. <a href="contact.html" style="color:var(--accent);font-weight:600;text-decoration:underline">Request a quote</a> and we’ll reply within one business day.</p>
-  </section>
-
-  <section id="about" style="max-width:1280px;margin:0 auto;padding:0 28px 90px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center" class="hero-grid">
+  <section id="services" class="wrap sec">
+    <div class="sec-head">
       <div>
-        <div style="font-size:12.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">About us</div>
-        <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,40px);margin:0">One team for print, products, digital and AI.</h2>
-        <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#6B6660">Where To Spot is a marketing and creative studio based in 6th of October City, Giza, Egypt. We help businesses get found and win customers: lead-generation campaigns, NFC review tools, printing and acrylic fabrication, events, video and websites.</p>
-        <a href="about.html" style="display:inline-block;margin-top:20px;font-weight:600;color:var(--accent);text-decoration:underline">Read more about us →</a>
+        <div class="eyebrow">Custom work</div>
+        <h2 class="h2">Creative &amp; production <em>services</em></h2>
       </div>
-      <image-slot id="about-shot" src="api/img.php?src=images/work/acrylic-display-foodcourt.jpeg&amp;w=1000&amp;v=2" shape="rounded" radius="22" placeholder="about photo" style="width:100%;aspect-ratio:4/3"></image-slot>
+      <p class="sec-lede">From a single shop sign to a full exhibition booth. Every project is quoted in EGP and handled by one team, from design to installation.</p>
     </div>
-    <div style="margin-top:40px;font-size:13px;font-weight:600;color:#6B6660;text-align:center">Trusted by businesses across Egypt and the region</div>
-    <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:22px 34px;justify-content:center;align-items:center;opacity:0.8">
-      <sc-for list="{{ clientLogos }}" as="lg" hint-placeholder-count="10">
-        <img src="{{ lg }}" alt="Client logo" loading="lazy" style="height:38px;width:auto;max-width:110px;object-fit:contain;filter:grayscale(1)">
+    <div class="sgrid">
+      <sc-for list="{{ customServices }}" as="cs" hint-placeholder-count="6">
+        <a href="contact.html" class="scard">
+          <div class="simg"><img class="img-cover" src="{{ cs.img }}" alt="{{ cs.alt }}" loading="lazy"></div>
+          <div class="sbody">
+            <span class="snum">{{ cs.num }}</span>
+            <div class="sname">{{ cs.name }}</div>
+            <div class="sdesc">{{ cs.desc }}</div>
+          </div>
+        </a>
       </sc-for>
+    </div>
+    <div class="sec-foot">
+      <a href="contact.html" class="btn btn-dark">Request a quote <span aria-hidden="true">→</span></a>
+      <span>We reply within one business day.</span>
     </div>
   </section>
 
-  <section style="max-width:1280px;margin:0 auto;padding:0 28px 60px">
-    <div style="background:#22201D;color:#F7F3ED;border-radius:24px;padding:clamp(28px,5vw,48px);display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between">
-      <div style="max-width:38ch">
-        <div style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(22px,3vw,28px)">Bulk or corporate order?</div>
-        <p style="margin:10px 0 0;font-size:14px;color:#C9C3B8;line-height:1.6">Leave your details and our team will follow up with pricing.</p>
+  <section id="about" class="wrap sec">
+    <div class="about">
+      <div>
+        <div class="eyebrow">About us</div>
+        <h2 class="h2">One team for print, products, <em>digital and AI.</em></h2>
+        <p>Where To Spot is a marketing and creative studio in 6th of October City, Giza. We help businesses get found and win customers, with lead-generation campaigns, NFC review tools, printing and acrylic fabrication, events, video and websites.</p>
+        <div class="chips"><span>Lead generation</span><span>NFC review tools</span><span>Printing</span><span>Acrylic</span><span>Events</span><span>Video</span><span>Websites</span></div>
+        <a href="about.html" class="text-link">Read more about us <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="mosaic">
+        <div><img class="img-cover" src="api/img.php?src=images/work/pandora-display-case.jpeg&amp;w=1000&amp;v=2" alt="Pandora store display and wall graphics" loading="lazy"></div>
+        <div><img class="img-cover" src="api/img.php?src=images/work/huawei-booth-1.png&amp;w=600&amp;v=2" alt="Huawei exhibition booth" loading="lazy"></div>
+        <div><img class="img-cover" src="api/img.php?src=images/work/boblioca-kiosk-corner.jpeg&amp;w=600&amp;v=2" alt="Branded kiosk for Boblioca" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="clients" aria-label="Our clients">
+    <div class="wrap clients-head">
+      <h2 class="h2">Trusted by brands across Egypt and the region</h2>
+      <span>From neighbourhood cafés to global names</span>
+    </div>
+    <div class="marquee">
+      <div class="track">
+        <sc-for list="{{ clientLogos }}" as="lg" hint-placeholder-count="12">
+          <img src="{{ lg.src }}" alt="{{ lg.alt }}" loading="lazy" style="height:{{ lg.h }}px">
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" style="padding-top:clamp(88px,10vw,136px);padding-bottom:clamp(64px,8vw,104px)">
+    <div class="bulk">
+      <div>
+        <div class="eyebrow">Corporate &amp; bulk orders</div>
+        <h2 class="h2">Ordering for a team, a chain or an event?</h2>
+        <p>Tell us what you need and our team will send you a quote, usually the same day.</p>
+        <ul class="ticks">
+          <li>Lower prices as quantities go up</li>
+          <li>Your logo and brand colours on every piece</li>
+          <li>One contact from design to delivery</li>
+        </ul>
       </div>
       <sc-if value="{{ leadSent }}" hint-placeholder-val="{{ false }}">
-        <div style="font-size:14px;font-weight:600;color:#fff">Thanks — we'll be in touch shortly ✓</div>
+        <div class="bulk-done"><b>Thank you.</b>We’ve got your details and will be in touch shortly.</div>
       </sc-if>
       <sc-if value="{{ leadFormVisible }}" hint-placeholder-val="{{ true }}">
-        <form onSubmit="{{ submitLead }}" style="display:flex;flex-wrap:wrap;gap:10px;flex:1;min-width:280px;max-width:560px">
-          <input required="{{ true }}" value="{{ leadForm.name }}" onChange="{{ setLeadName }}" placeholder="Your name" style="flex:1;min-width:130px;padding:12px 14px;border:1px solid #4A4640;border-radius:999px;font-size:14px;background:#2E2B27;color:#fff"/>
-          <input required="{{ true }}" value="{{ leadForm.contact }}" onChange="{{ setLeadContact }}" placeholder="Email or phone" style="flex:1;min-width:150px;padding:12px 14px;border:1px solid #4A4640;border-radius:999px;font-size:14px;background:#2E2B27;color:#fff"/>
-          <select value="{{ leadForm.cat }}" onChange="{{ setLeadCat }}" style="padding:12px 14px;border:1px solid #4A4640;border-radius:999px;font-size:14px;background:#2E2B27;color:#fff">
-            <sc-for list="{{ leadCatOptions }}" as="co" hint-placeholder-count="5">
-              <option value="{{ co.value }}">{{ co.label }}</option>
-            </sc-for>
-          </select>
-          <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Send</button>
+        <form onSubmit="{{ submitLead }}" class="bulk-form">
+          <label class="field">Your name
+            <input required="{{ true }}" value="{{ leadForm.name }}" onChange="{{ setLeadName }}" placeholder="Full name" autocomplete="name"/>
+          </label>
+          <label class="field">Phone or email
+            <input required="{{ true }}" value="{{ leadForm.contact }}" onChange="{{ setLeadContact }}" placeholder="01x xxxx xxxx" autocomplete="tel"/>
+          </label>
+          <label class="field full">Interested in
+            <select value="{{ leadForm.cat }}" onChange="{{ setLeadCat }}">
+              <sc-for list="{{ leadCatOptions }}" as="co" hint-placeholder-count="4">
+                <option value="{{ co.value }}">{{ co.label }}</option>
+              </sc-for>
+            </select>
+          </label>
+          <button type="submit" class="btn btn-accent">Request a quote</button>
         </form>
       </sc-if>
     </div>
@@ -622,15 +786,44 @@ class Component extends DCLogic {
   ];
 
   customServices = [
-    { name: 'Printing & signage', desc: 'Banners, stickers, menus, business cards and shop signs.' },
-    { name: 'Acrylic & fabrication', desc: 'Display stands, product cases, kiosks and branded fixtures.' },
-    { name: 'Events & activations', desc: 'Exhibition booths, launch events and on-site branding.' },
-    { name: 'Video & photo production', desc: 'Promo videos, reels and product photography.' },
-    { name: 'Social media & ads', desc: 'Content, community management and paid campaigns.' },
-    { name: 'Websites & AI tools', desc: 'Websites, online stores, chat assistants and automation.' }
-  ];
+    { name: 'Printing & signage', desc: 'Banners, stickers, menus, business cards, shop signs and vehicle wraps.', img: 'api/img.php?src=images/work/h5-truck.png&w=600&v=2', alt: 'Branded truck wrap' },
+    { name: 'Acrylic & fabrication', desc: 'Display stands, product cases, kiosks and branded fixtures.', img: 'api/img.php?src=images/work/wildhoof-acrylic-stand.jpeg&w=600&v=2', alt: 'Branded acrylic QR stand' },
+    { name: 'Events & activations', desc: 'Exhibition booths, launch events and on-site branding.', img: 'api/img.php?src=images/work/enppi-booth-1.png&w=600&v=2', alt: 'Exhibition booth' },
+    { name: 'Video & photo production', desc: 'Promo videos, reels, event coverage and product photography.', img: 'api/img.php?src=images/work/elaraby-filming.png&w=600&v=2', alt: 'Filming at an event' },
+    { name: 'Social media & ads', desc: 'Content, community management and paid campaigns.', img: 'api/img.php?src=images/work/xfit-gym.png&w=600&v=2', alt: 'Social media design for a gym' },
+    { name: 'Websites & AI tools', desc: 'Websites, online stores, chat assistants and automation.', img: 'api/img.php?src=images/work/aregypt-store.png&w=600&v=2', alt: 'Online store design' }
+  ].map((s, i) => ({ ...s, num: String(i + 1).padStart(2, '0') }));
 
-  clientLogos = Array.from({ length: 12 }, (_, i) => 'images/clients/logo-' + String(i + 1).padStart(2, '0') + '.png');
+  // White client logos for the dark band. Listed twice so the scroll loops seamlessly;
+  // the second copy has no alt text so screen readers hear each name once.
+  clientLogos = (() => {
+    const list = [
+      { src: 'images/clients/band/wm-17.png', alt: 'Samsung', h: 31 },
+      { src: 'images/clients/band/wm-18.png', alt: 'Vodafone', h: 30 },
+      { src: 'images/clients/band/wm-20.png', alt: 'Coca-Cola', h: 30 },
+      { src: 'images/clients/band/wm-01.png', alt: 'Pandora', h: 30 },
+      { src: 'images/clients/band/wm-06.png', alt: 'KFC', h: 52 },
+      { src: 'images/clients/band/wm-14.png', alt: 'Holiday Inn', h: 50 },
+      { src: 'images/clients/band/wm-23.png', alt: 'Bosch', h: 30 },
+      { src: 'images/clients/band/wm-22.png', alt: 'Mondelēz', h: 30 },
+      { src: 'images/clients/band/wm-19.png', alt: 'e& etisalat', h: 50 },
+      { src: 'images/clients/band/wm-21.png', alt: 'Rosatom', h: 52 },
+      { src: 'images/clients/band/wm-05.png', alt: 'PC Center', h: 44 },
+      { src: 'images/clients/band/wm-07.png', alt: 'Elezaby Pharmacy', h: 30 },
+      { src: 'images/clients/band/wm-11.png', alt: 'Dancing Goat Coffee', h: 32 },
+      { src: 'images/clients/band/wm-02.png', alt: 'Wildhoof', h: 37 },
+      { src: 'images/clients/band/wm-03.png', alt: 'Hegazi', h: 36 },
+      { src: 'images/clients/band/wm-04.png', alt: 'Al-Aziz Bellah Jewelry', h: 48 },
+      { src: 'images/clients/band/wm-08.png', alt: 'Bañox', h: 33 },
+      { src: 'images/clients/band/wm-09.png', alt: 'October Town', h: 58 },
+      { src: 'images/clients/band/wm-10.png', alt: 'Paradigm', h: 50 },
+      { src: 'images/clients/band/wm-12.png', alt: 'VelvetCare', h: 40 },
+      { src: 'images/clients/band/wm-13.png', alt: 'Suppliers', h: 50 },
+      { src: 'images/clients/band/wm-15.png', alt: 'R9R', h: 40 },
+      { src: 'images/clients/band/wm-16.png', alt: 'Crystal White Dental Clinic', h: 58 }
+    ];
+    return [...list, ...list.map(l => ({ ...l, alt: '' }))];
+  })();
 
   // Only list shop categories that currently have active products.
   activeCategories() {
@@ -952,7 +1145,8 @@ class Component extends DCLogic {
       mobileNavCats: this.categories.map(c => ({ key: c.key, label: c.label, onClick: this.setCatMobile(c.key) })),
       catCards: cats.map(c => {
         const first = active.find(p => p.cat === c.key && this._sd && (this._sd.PRODUCT_IMAGES[p.id] || []).length);
-        return { key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, noImg: !first, img: first ? this._sd.img(this._sd.PRODUCT_IMAGES[first.id][0], 300) : '', onClick: this.setCat(c.key) };
+        const n = active.filter(p => p.cat === c.key).length;
+        return { key: c.key, label: c.label, desc: c.desc, placeholder: c.placeholder, imgId: 'cat-' + c.key, noImg: !first, img: first ? this._sd.img(this._sd.PRODUCT_IMAGES[first.id][0], 600) : '', count: n + (n === 1 ? ' product' : ' products'), onClick: this.setCat(c.key) };
       }),
       filterTabs,
       customServices: this.customServices, clientLogos: this.clientLogos,
