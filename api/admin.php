@@ -137,6 +137,14 @@ try {
             $followUps = $st->fetchAll();
         }
         $lastBackup = in_array('backups', $u['perms'], true) ? (backup_list()[0] ?? null) : null;
+        // Quotes waiting for the customer's answer (not expired).
+        $openQuotes = null;
+        if (in_array('sell', $u['perms'], true)) {
+            $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total), 0) v FROM quotes WHERE status IN ('Draft','Sent') AND (valid_until IS NULL OR valid_until >= ?)" . str_replace('rep_id', 'quotes.rep_id', $scope));
+            $st->execute([(new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d')]);
+            $oq = $st->fetch();
+            $openQuotes = ['n' => (int) $oq['n'], 'value' => round((float) $oq['v'])];
+        }
         // Money still owed on open orders (deposits paid, balance not yet collected).
         $st = $pdo->query("SELECT COALESCE(SUM(MAX(o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id), 0)), 0) due,
             SUM(CASE WHEN o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) > 0.5 THEN 1 ELSE 0 END) n
@@ -172,6 +180,7 @@ try {
         json_out([
             'days' => $days, 'own' => $own, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
             'toCollect' => ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']], 'profit' => $profit, 'leadSources' => $leadSources,
+            'openQuotes' => $openQuotes,
             'kpi' => [
                 'revenue' => (float) $k['revenue'], 'orders' => (int) $k['n'],
                 'aov' => $k['n'] ? round($k['revenue'] / $k['n']) : 0,
@@ -230,6 +239,15 @@ try {
             'paid_now' => $b['paid_now'] ?? '', 'deposit_method' => $b['deposit_method'] ?? 'cash',
         ]);
         log_activity($u, 'Created order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']) . ' · ' . ($b['source'] ?? 'Phone'));
+        if (!empty($b['quote_id'])) {
+            // Order made from a quote: mark the quote accepted and remember which order it became.
+            db()->prepare("UPDATE quotes SET status = 'Accepted', order_id = ?, updated_at = datetime('now') WHERE id = ? AND order_id IS NULL")->execute([$r['id'], (int) $b['quote_id']]);
+            if (empty($b['lead_id'])) {
+                $st = db()->prepare('SELECT lead_id FROM quotes WHERE id = ?');
+                $st->execute([(int) $b['quote_id']]);
+                if ($lid = $st->fetchColumn()) $b['lead_id'] = (int) $lid;
+            }
+        }
         try {
             $r['lead'] = lead_from_order($b, $r, $repId, in_array($b['source'] ?? '', ORDER_SOURCES, true) ? $b['source'] : 'Phone');
         } catch (Throwable $e) {
@@ -685,6 +703,90 @@ try {
         $lead = in_array('leads', $u['perms'], true) ? find_lead($isPhone ? $key : null, $isPhone ? null : $key) : null;
         json_out(['orders' => $orders, 'lead' => $lead]);
 
+    // ---------- quotes ----------
+
+    case 'quotes':
+        $u = require_perm('sell');
+        $own = in_array('own_orders', $u['perms'], true);
+        $rows = db()->query('SELECT q.*, u.name AS rep_name FROM quotes q LEFT JOIN users u ON u.id = q.rep_id' . ($own ? ' WHERE q.rep_id = ' . (int) $u['id'] : '') . ' ORDER BY q.id DESC LIMIT 500')->fetchAll();
+        json_out(['quotes' => array_map('quote_out', $rows), 'statuses' => QUOTE_STATUSES]);
+
+    case 'quote_save':
+        $u = require_perm('sell');
+        $b = body();
+        $id = (int) ($b['id'] ?? 0);
+        if ($id) {
+            $q = load_quote($id);
+            assert_quote_access($u, $q);
+            if ($q['status'] === 'Accepted') fail('This quote was accepted and turned into an order, so it can’t be changed.');
+        }
+        $name = str_in($b['name'] ?? '', 120);
+        if ($name === '') fail('Enter the customer’s name.');
+        $email = str_in($b['email'] ?? '', 160);
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) fail('That email doesn’t look right — fix it or leave it empty.');
+        [$lines, $clean, $subtotal, $physical] = price_quote_items(is_array($b['items'] ?? null) ? $b['items'] : []);
+        $discount = min($subtotal, max(0, round((float) ($b['discount'] ?? 0), 2)));
+        $shipping = isset($b['shipping']) && $b['shipping'] !== '' ? max(0, round((float) $b['shipping'], 2))
+            : ($physical > 0 && $physical < cfg('free_shipping_threshold') ? (float) cfg('shipping_fee') : 0.0);
+        $total = round($subtotal - $discount + $shipping, 2);
+        $cityId = str_in($b['city_id'] ?? '', 40); $districtId = str_in($b['district_id'] ?? '', 40); $city = ''; $district = '';
+        if ($cityId && $districtId) {
+            try { $area = bosta_find_area($cityId, $districtId); if ($area) { $city = $area['city']['name']; $district = $area['district']['name']; } else { $cityId = $districtId = ''; } }
+            catch (Throwable $e) { $cityId = $districtId = ''; }
+        }
+        $valid = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($b['valid_until'] ?? '')) ? $b['valid_until'] : date('Y-m-d', time() + 14 * 86400);
+        $repId = in_array('targets', $u['perms'], true) && !empty($b['rep_id']) ? (int) $b['rep_id'] : ($id ? (int) $q['rep_id'] : (int) $u['id']);
+        $leadId = !empty($b['lead_id']) ? (int) $b['lead_id'] : ($id ? $q['lead_id'] : null);
+        $vals = [$leadId, $name, str_in($b['phone'] ?? '', 40), $email, str_in($b['business_name'] ?? '', 120), str_in($b['review_link'] ?? '', 500), str_in($b['links'] ?? '', 1000),
+            str_in($b['design_notes'] ?? '', 2000), str_in($b['address'] ?? '', 500), $city, $district, $cityId ?: null, $districtId ?: null,
+            json_encode($clean, JSON_UNESCAPED_UNICODE), json_encode($lines, JSON_UNESCAPED_UNICODE), $subtotal, $discount, $shipping, $total, $valid,
+            str_in($b['terms'] ?? '', 2000), str_in($b['notes'] ?? '', 2000), $repId ?: null];
+        $cols = 'lead_id, customer, phone, email, business_name, review_link, links, design_notes, address, city, district, city_id, district_id, items_in, items, subtotal, discount, shipping, total, valid_until, terms, notes, rep_id';
+        if ($id) {
+            db()->prepare('UPDATE quotes SET ' . implode(' = ?, ', explode(', ', $cols)) . " = ?, updated_at = datetime('now') WHERE id = ?")->execute(array_merge($vals, [$id]));
+            log_activity($u, 'Updated quote', quote_number($id) . ' · EGP ' . number_format($total));
+        } else {
+            db()->prepare("INSERT INTO quotes ($cols, created_by) VALUES (" . rtrim(str_repeat('?, ', 23), ', ') . ', ?)')->execute(array_merge($vals, [(int) $u['id']]));
+            $id = (int) db()->lastInsertId();
+            log_activity($u, 'Created quote', quote_number($id) . ' · ' . $name . ' · EGP ' . number_format($total));
+            // The lead moves to Quoted, with the quote noted on it.
+            $lead = $leadId ? (function ($lid) { $st = db()->prepare('SELECT * FROM leads WHERE id = ?'); $st->execute([$lid]); return $st->fetch() ?: null; })($leadId) : null;
+            if (!$lead) $lead = find_lead(phone_key($vals[2]), email_key($email));
+            if ($lead) {
+                touch_lead($lead, date('Y-m-d') . ' · Quote ' . quote_number($id) . ' · EGP ' . number_format($total), in_array($lead['status'], ['New', 'Contacted'], true) ? 'Quoted' : null, (int) $u['id']);
+                db()->prepare('UPDATE quotes SET lead_id = ? WHERE id = ?')->execute([(int) $lead['id'], $id]);
+            }
+        }
+        json_out(['quote' => quote_out(load_quote($id))]);
+
+    case 'quote_status':
+        $u = require_perm('sell');
+        $b = body();
+        $q = load_quote((int) ($b['id'] ?? 0));
+        assert_quote_access($u, $q);
+        $status = (string) ($b['status'] ?? '');
+        if (!in_array($status, ['Draft', 'Sent', 'Declined'], true)) fail('Unknown status');
+        if ($q['status'] === 'Accepted') fail('This quote is already accepted.');
+        db()->prepare("UPDATE quotes SET status = ?, sent_at = CASE WHEN ? = 'Sent' THEN COALESCE(sent_at, datetime('now')) ELSE sent_at END, updated_at = datetime('now') WHERE id = ?")
+            ->execute([$status, $status, (int) $q['id']]);
+        log_activity($u, 'Quote ' . strtolower($status), quote_number((int) $q['id']));
+        json_out(['quote' => quote_out(load_quote((int) $q['id']))]);
+
+    case 'quote_delete':
+        $u = require_perm('sell');
+        $q = load_quote((int) (body()['id'] ?? 0));
+        assert_quote_access($u, $q);
+        if ($q['status'] === 'Accepted') fail('Accepted quotes are kept with their order.');
+        db()->prepare('DELETE FROM quotes WHERE id = ?')->execute([(int) $q['id']]);
+        log_activity($u, 'Deleted quote', quote_number((int) $q['id']));
+        json_out(['ok' => true]);
+
+    case 'quote_doc':
+        $u = require_perm('sell');
+        $q = load_quote((int) ($_GET['id'] ?? 0));
+        assert_quote_access($u, $q);
+        json_out(['quote' => quote_out($q), 'me' => $u['name']]);
+
     // ---------- quick search ----------
 
     case 'search':
@@ -798,6 +900,37 @@ try {
 }
 
 // ---------- helpers ----------
+
+function load_quote(int $id): array
+{
+    $st = db()->prepare('SELECT q.*, u.name AS rep_name FROM quotes q LEFT JOIN users u ON u.id = q.rep_id WHERE q.id = ?');
+    $st->execute([$id]);
+    $q = $st->fetch();
+    if (!$q) fail('Quote not found.', 404);
+    return $q;
+}
+
+function assert_quote_access(array $u, array $q): void
+{
+    if (in_array('own_orders', $u['perms'], true) && (int) $q['rep_id'] !== (int) $u['id']) fail('Quote not found.', 404);
+}
+
+function quote_out(array $q): array
+{
+    $today = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+    $expired = in_array($q['status'], ['Draft', 'Sent'], true) && $q['valid_until'] && $q['valid_until'] < $today;
+    return [
+        'id' => (int) $q['id'], 'number' => quote_number((int) $q['id']), 'leadId' => $q['lead_id'] === null ? null : (int) $q['lead_id'],
+        'orderId' => $q['order_id'] === null ? null : (int) $q['order_id'], 'orderNumber' => $q['order_id'] ? order_number((int) $q['order_id']) : null,
+        'customer' => $q['customer'], 'phone' => $q['phone'], 'email' => $q['email'], 'businessName' => $q['business_name'], 'reviewLink' => $q['review_link'],
+        'links' => $q['links'], 'designNotes' => $q['design_notes'], 'address' => $q['address'], 'city' => $q['city'], 'district' => $q['district'],
+        'cityId' => $q['city_id'], 'districtId' => $q['district_id'],
+        'itemsIn' => json_decode($q['items_in'], true) ?: [], 'items' => json_decode($q['items'], true) ?: [],
+        'subtotal' => (float) $q['subtotal'], 'discount' => (float) $q['discount'], 'shipping' => (float) $q['shipping'], 'total' => (float) $q['total'],
+        'status' => $expired ? 'Expired' : $q['status'], 'savedStatus' => $q['status'], 'validUntil' => $q['valid_until'], 'terms' => $q['terms'], 'notes' => $q['notes'],
+        'rep' => $q['rep_name'] ?? null, 'repId' => $q['rep_id'] === null ? null : (int) $q['rep_id'], 'sentAt' => $q['sent_at'], 'createdAt' => $q['created_at'],
+    ];
+}
 
 function load_order(int $id): array
 {

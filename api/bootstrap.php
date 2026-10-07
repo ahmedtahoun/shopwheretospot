@@ -85,7 +85,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 function db(): PDO
 {
@@ -304,6 +304,39 @@ function migrate(PDO $pdo): void
         $pdo->exec("INSERT INTO payments (order_id, amount, method, note, created_at)
             SELECT id, total, 'cod', 'Collected on delivery', updated_at FROM orders WHERE payment = 'cod' AND status = 'Delivered'");
     }
+    // Quotes: priced offers that don't touch stock or revenue until the customer accepts.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS quotes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+        order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+        customer TEXT NOT NULL,
+        phone TEXT DEFAULT '',
+        email TEXT DEFAULT '',
+        business_name TEXT DEFAULT '',
+        review_link TEXT DEFAULT '',
+        links TEXT DEFAULT '',
+        design_notes TEXT DEFAULT '',
+        address TEXT DEFAULT '',
+        city TEXT DEFAULT '',
+        district TEXT DEFAULT '',
+        city_id TEXT DEFAULT NULL,
+        district_id TEXT DEFAULT NULL,
+        items_in TEXT NOT NULL DEFAULT '[]',
+        items TEXT NOT NULL DEFAULT '[]',
+        subtotal REAL NOT NULL DEFAULT 0,
+        discount REAL NOT NULL DEFAULT 0,
+        shipping REAL NOT NULL DEFAULT 0,
+        total REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'Draft',
+        valid_until TEXT DEFAULT NULL,
+        terms TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        rep_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        sent_at TEXT DEFAULT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         month TEXT NOT NULL,

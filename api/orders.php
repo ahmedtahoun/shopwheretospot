@@ -261,6 +261,48 @@ function lead_from_order(array $in, array $order, ?int $repId, string $channel =
     return 'created';
 }
 
+// ---------- quotes ----------
+const QUOTE_STATUSES = ['Draft', 'Sent', 'Accepted', 'Declined'];
+
+function quote_number(int $id): string
+{
+    return 'Q-' . (1000 + $id);
+}
+
+// Price quote lines with the same rules as orders (sizes, quantity tiers, extras, custom lines),
+// without checking or reserving stock.
+function price_quote_items(array $items): array
+{
+    if (!$items || count($items) > 50) throw new ShopError('Add at least one product.');
+    $get = db()->prepare("SELECT * FROM products WHERE id = ? AND status = 'Active'");
+    $lines = []; $clean = []; $subtotal = 0.0; $physical = 0.0;
+    foreach ($items as $it) {
+        $qty = max(1, min(99999, (int) ($it['qty'] ?? 1)));
+        if (!empty($it['custom'])) {
+            $cname = str_in($it['name'] ?? '', 160);
+            $cprice = round((float) ($it['price'] ?? 0), 2);
+            if ($cname === '' || $cprice <= 0) throw new ShopError('Custom items need a description and a price.');
+            $lineTotal = round($cprice * $qty);
+            $ship = !isset($it['ship']) || !empty($it['ship']);
+            $lines[] = ['id' => 'custom', 'name' => $cname, 'qty' => $qty, 'price' => $cprice, 'total' => $lineTotal, 'cat' => $ship ? 'custom' : 'services'];
+            $clean[] = ['custom' => 1, 'name' => $cname, 'price' => $cprice, 'qty' => $qty, 'ship' => $ship ? 1 : 0];
+            $subtotal += $lineTotal;
+            if ($ship) $physical += $lineTotal;
+            continue;
+        }
+        $get->execute([(string) ($it['id'] ?? '')]);
+        $p = $get->fetch();
+        if (!$p) throw new ShopError('A product in the quote is no longer available.');
+        $addonIds = array_values(array_map('strval', (array) ($it['addons'] ?? [])));
+        [$unit, $lineTotal, $variant, $addons, $lineName] = price_line($p, isset($it['variant']) ? (string) $it['variant'] : null, $addonIds, $qty);
+        $lines[] = ['id' => $p['id'], 'name' => $lineName, 'qty' => $qty, 'price' => $unit, 'total' => $lineTotal, 'cat' => $p['cat']];
+        $clean[] = ['id' => $p['id'], 'variant' => $variant ? (string) $variant['id'] : null, 'addons' => $addonIds, 'qty' => $qty];
+        $subtotal += $lineTotal;
+        if ($p['cat'] !== 'services') $physical += $lineTotal;
+    }
+    return [$lines, $clean, round($subtotal, 2), $physical];
+}
+
 // Customer logos and design files for an order: images or PDF, random file names, no scripts.
 function store_order_file(array $f, string $prefix): string
 {

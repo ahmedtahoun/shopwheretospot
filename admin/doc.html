@@ -67,7 +67,8 @@
 (function () {
   const params = new URLSearchParams(location.search);
   const id = +params.get('id');
-  let type = params.get('type') === 'invoice' ? 'invoice' : 'quote';
+  const quoteId = +params.get('quote');
+  let type = quoteId || params.get('type') === 'quote' ? 'quote' : 'invoice';
   const SHOP = { name: 'Where To Spot', address: 'MQR, El Wahat Road, 6th of October City, Giza, Egypt', phone: '+20 127 766 0666', email: 'info@wheretospot.com', web: 'shop.wheretospot.com' };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const egp = (n) => 'EGP ' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -76,27 +77,31 @@
   let data;
 
   async function load() {
-    const res = await fetch('../api/admin.php?action=order_doc&id=' + id, { credentials: 'same-origin' });
+    const res = await fetch('../api/admin.php?action=' + (quoteId ? 'quote_doc&id=' + quoteId : 'order_doc&id=' + id), { credentials: 'same-origin' });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok) { app.innerHTML = '<div class="err"><b>' + esc(j.error || 'Could not load the order') + '</b><p>Sign in to the dashboard first, then open this page from an order.</p><a class="btn" href="./">Open dashboard</a></div>'; return; }
-    data = j; render();
+    if (!res.ok) { app.innerHTML = '<div class="err"><b>' + esc(j.error || 'Could not load the document') + '</b><p>Sign in to the dashboard first, then open this page from an order or a quote.</p><a class="btn" href="./">Open dashboard</a></div>'; return; }
+    // A saved quote has its own number, validity date and terms.
+    data = quoteId ? { order: j.quote, payments: [], saved: true } : j;
+    render();
   }
 
   function render() {
     const o = data.order;
     const isQ = type === 'quote';
-    const no = (isQ ? 'Q-' : 'INV-') + o.number.replace('WTS-', '');
-    const issued = new Date();
-    const valid = new Date(issued.getTime() + 14 * 86400000);
+    const saved = !!data.saved;
+    const no = saved ? o.number : (isQ ? 'Q-' : 'INV-') + o.number.replace('WTS-', '');
+    const issued = saved ? new Date(o.createdAt.replace(' ', 'T') + 'Z') : new Date();
+    const valid = saved && o.validUntil ? new Date(o.validUntil + 'T12:00:00Z') : new Date(issued.getTime() + 14 * 86400000);
     const placed = new Date(o.createdAt.replace(' ', 'T') + 'Z');
     document.title = (isQ ? 'Quote ' : 'Invoice ') + no + ' · ' + o.customer;
     const phone = (o.phone || '').replace(/\D/g, '');
     const wa = phone ? 'https://wa.me/' + (phone.startsWith('20') ? phone : '20' + phone.replace(/^0/, '')) + '?text=' + encodeURIComponent(
       'Hello ' + o.customer.split(/\s+/)[0] + ', here is your ' + (isQ ? 'quote' : 'invoice') + ' ' + no + ' from Where To Spot.\n' +
       o.items.map((it) => '• ' + it.qty + '× ' + it.name + ': ' + egp(it.total != null ? it.total : it.qty * it.price)).join('\n') +
-      '\nTotal: ' + egp(o.total) + (!isQ && o.paid > 0 ? '\nPaid: ' + egp(o.paid) + '\nBalance due: ' + egp(o.due) : '') + '\n\nThe PDF is attached. Thank you!') : '';
+      (o.discount ? '\nDiscount: −' + egp(o.discount) : '') + '\nTotal: ' + egp(o.total) + (isQ ? '\nValid until ' + day(valid) + '.' : '') + (!isQ && o.paid > 0 ? '\nPaid: ' + egp(o.paid) + '\nBalance due: ' + egp(o.due) : '') + '\n\nThe PDF is attached. Thank you!') : '';
     app.innerHTML =
-      '<div class="bar"><a class="btn" href="./#orders">← Dashboard</a><div class="seg"><button data-t="quote" class="' + (isQ ? 'on' : '') + '">Quote</button><button data-t="invoice" class="' + (isQ ? '' : 'on') + '">Invoice</button></div>' +
+      '<div class="bar"><a class="btn" href="./#' + (saved ? 'quotes' : 'orders') + '">← Dashboard</a>' +
+      (saved ? '' : '<div class="seg"><button data-t="quote" class="' + (isQ ? 'on' : '') + '">Quote</button><button data-t="invoice" class="' + (isQ ? '' : 'on') + '">Invoice</button></div>') +
       '<span class="hint">Click the notes to edit them before printing.</span><span class="sp"></span>' +
       (wa ? '<a class="btn wa" href="' + esc(wa) + '" target="_blank" rel="noopener">Send on WhatsApp</a>' : '') +
       '<button class="btn primary" id="print">Print / Save as PDF</button></div>' +
@@ -120,7 +125,7 @@
             (o.due > 0 ? '<div class="due"><span>Balance due</span><span class="r">' + egp(o.due) + '</span></div>' : '<div style="justify-content:flex-end"><span class="stamp">PAID</span></div>') : '') +
         '</div>' +
         '<div class="notes"><div><h4>' + (isQ ? 'Terms' : 'Payment') + '</h4><div class="edit" contenteditable="true">' + (isQ
-            ? 'All prices are in Egyptian Pounds (EGP).\nThis quote is valid for 14 days.\nDelivery across Egypt.'
+            ? (saved && o.terms ? esc(o.terms) : 'All prices are in Egyptian Pounds (EGP).\nThis quote is valid until ' + day(valid) + '.\nDelivery across Egypt.')
             : 'Payment by cash on delivery, bank transfer or InstaPay.\nAll prices are in Egyptian Pounds (EGP).') + '</div></div>' +
           '<div><h4>Notes</h4><div class="edit" contenteditable="true">' + esc(o.designNotes || (o.businessName ? 'Personalised for ' + o.businessName + '.' : '')) + '</div></div></div>' +
         '<div class="foot"><span>' + SHOP.name + ' · ' + SHOP.web + '</span><span>Thank you for your business.</span></div>' +

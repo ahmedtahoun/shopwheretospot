@@ -48,6 +48,8 @@
   }
 
   const ORDER_TONE = { Pending: ['warn', '●'], Confirmed: ['info', '◆'], Designing: ['accent', '✎'], 'Awaiting approval': ['warn', '⏳'], 'In production': ['accent', '⚙'], Ready: ['good', '▣'], Shipped: ['info', '➜'], Delivered: ['good', '✓'], Cancelled: ['bad', '✕'], Returned: ['bad', '↩'] };
+  const QUOTE_TONE = { Draft: ['', '✎'], Sent: ['info', '➜'], Accepted: ['good', '✓'], Declined: ['bad', '✕'], Expired: ['warn', '◷'] };
+  const QUOTE_TERMS = 'All prices are in Egyptian Pounds (EGP).\nThis quote is valid until the date shown.\nDelivery across Egypt.';
   const LEAD_TONE = { New: ['accent', '●'], Contacted: ['info', '◆'], Quoted: ['warn', '✎'], Won: ['good', '✓'], Lost: ['bad', '✕'] };
   const PRODUCT_TONE = { Active: ['good', '✓'], Draft: ['warn', '✎'], Archived: ['bad', '▪'] };
   // Under an order total: paid, deposit with balance, or amount still to collect.
@@ -107,9 +109,9 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'],
+      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'],
       ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'],
-    ].filter(([k]) => can(k === 'customers' ? 'orders' : k));
+    ].filter(([k]) => can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -129,7 +131,7 @@
     $('#outBtn').onclick = async () => { await api('logout', { method: 'POST' }).catch(() => {}); S.user = null; S.csrf = null; render(); };
     $('#pwBtn').onclick = changePassword;
     $('#searchBtn').onclick = openSearch;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
+    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
@@ -200,6 +202,7 @@
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
     person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
@@ -226,6 +229,7 @@
       kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') +
       kpi('Orders', k.orders, 'avg ' + egp(k.aov)) +
       (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance' : 'everything is paid') : '') +
+      (d.openQuotes ? kpi('Open quotes', d.openQuotes.n, d.openQuotes.n ? egp(d.openQuotes.value) + ' waiting · <a href="#quotes">View →</a>' : '<a href="#quotes">Make a quote →</a>') : '') +
       kpi('Waiting to confirm', k.pending, can('orders') ? '<a href="#orders" data-status="Pending">View pending →</a>' : 'orders') +
       kpi('New leads', k.newLeads, can('leads') ? '<a href="#leads">Open leads →</a>' : '') +
       kpi('Live products', k.products, can('products') ? '<a href="#products">Manage →</a>' : '') +
@@ -557,7 +561,7 @@
       '<label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
       '<span class="hint">Cancelling or returning puts the items back in stock.' + (o.tracking ? ' Bosta updates move this to Shipped, Delivered or Returned automatically.' : '') + '</span></label>' +
       '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone">' + esc(o.notes) + '</textarea></label></form></div>';
-    openDrawer('Order ' + o.number, body, '<a class="btn" href="doc.html?type=quote&id=' + o.id + '" target="_blank" rel="noopener">Quote</a><a class="btn" href="doc.html?type=invoice&id=' + o.id + '" target="_blank" rel="noopener">Invoice</a>' +
+    openDrawer('Order ' + o.number, body, '<a class="btn" href="doc.html?type=invoice&id=' + o.id + '" target="_blank" rel="noopener">' + icon('file') + 'Invoice</a>' +
       '<span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" form="of" type="submit">Save</button>');
     paymentsCard(o);
     const reopen = async () => { await pageOrders(); const fresh = S.orders.find((x) => x.id === o.id); if (fresh) orderDrawer(fresh); };
@@ -692,7 +696,12 @@
   }
 
   // ---------- team-entered orders ----------
+  // New order, or (prefill.mode === 'quote') a new / edited quote. prefill can carry the customer,
+  // items in input form ({id, variant, addons, qty} or {custom, name, price, qty, ship}), discount,
+  // delivery, area, personalisation, leadId and quoteId.
   async function newOrderDrawer(prefill) {
+    prefill = prefill || null;
+    const isQuote = !!(prefill && prefill.mode === 'quote');
     const cat = await api('order_catalog');
     const lines = [];
     let area = null; // { districtId, cityId, title, sub }
@@ -701,7 +710,8 @@
     const repOpts = can('targets') ? '<label class="field">Credit this sale to<select name="rep_id">' +
       cat.reps.map((r) => '<option value="' + r.id + '"' + (r.id === S.user.id ? ' selected' : '') + '>' + esc(r.name) + ' (' + esc(r.role) + ')</option>').join('') + '</select></label>' : '';
     const body = '<form id="nf" class="stack">' +
-      (prefill ? '<div class="chosen">' + icon('inbox') + '<span>Order for lead <b>' + esc(prefill.name) + '</b>' + (prefill.interest ? ' · ' + esc(prefill.interest) : '') + '. The lead will be marked Won.</span></div>' : '') +
+      (prefill && prefill.quoteId && !isQuote ? '<div class="chosen">' + icon('file') + '<span>Order from quote <b>' + esc(prefill.quoteNumber || '') + '</b>. Check the delivery area, then create it — the quote will be marked Accepted.</span></div>'
+        : prefill && prefill.leadId ? '<div class="chosen">' + icon('inbox') + '<span>' + (isQuote ? 'Quote' : 'Order') + ' for lead <b>' + esc(prefill.name) + '</b>' + (prefill.interest ? ' · ' + esc(prefill.interest) : '') + (isQuote ? '. The lead will move to Quoted.' : '. The lead will be marked Won.') + '</span></div>' : '') +
       '<div class="card stack"><b>Customer</b><div class="grid2"><label class="field">Name<input type="text" name="name" required></label>' +
       '<label class="field">Phone / WhatsApp<input type="tel" name="phone" required placeholder="01xxxxxxxxx"></label></div>' +
       '<label class="field">Email <span class="hint">Optional</span><input type="email" name="email"></label></div>' +
@@ -721,9 +731,10 @@
       '<label class="field">Social links / website<textarea name="links" style="min-height:50px" placeholder="One per line"></textarea></label>' +
       '<label class="field">Design notes<textarea name="design_notes" style="min-height:50px" placeholder="Colours, text, logo comes on WhatsApp…"></textarea></label>' +
       '<span class="hint">You can upload the logo and design files on the order after it’s created.</span></div>' +
-      '<div class="card stack" id="nDelivery"><b>Delivery</b>' +
+      '<div class="card stack" id="nDelivery"><b>Delivery' + (isQuote ? ' <span class="hint">optional on a quote</span>' : '') + '</b>' +
       '<label class="field">Street address<textarea name="address" id="nAddr" style="min-height:60px" placeholder="Street, building, floor, apartment"></textarea></label>' +
       '<div class="field">Area <span class="hint">Search in English or Arabic, e.g. Nasr City / مدينة نصر</span><div class="pick" id="nPick"></div></div></div>' +
+(isQuote ? '' :
       '<div class="card stack"><b>Sale details</b><div class="grid3">' +
       '<label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
       '<label class="field">Payment<select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label>' +
@@ -733,13 +744,35 @@
       '<div class="grid3"><label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label>' +
       repOpts + '</div>' +
-      '<label class="field">Notes<textarea name="notes" style="min-height:60px" placeholder="e.g. Customer wants delivery after 5pm"></textarea></label></div>' +
+      '<label class="field">Notes<textarea name="notes" style="min-height:60px" placeholder="e.g. Customer wants delivery after 5pm"></textarea></label></div>') +
+      (isQuote ?
+      '<div class="card stack"><b>Quote details</b><div class="grid3">' +
+      '<label class="field">Valid until<input type="date" name="valid_until" value="' + addDays(14) + '"></label>' +
+      '<label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
+      '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label></div>' +
+      '<label class="field">Terms <span class="hint">Printed on the quote</span><textarea name="terms" style="min-height:70px">' + esc(QUOTE_TERMS) + '</textarea></label>' +
+      '<label class="field">Internal notes <span class="hint">Not printed</span><textarea name="notes" style="min-height:50px"></textarea></label></div>' : '') +
       '<div class="card" id="nTotals"></div></form>';
-    openDrawer('New order', body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="nf" type="submit" id="nSubmit">Create order</button>');
+    const submitLabel = isQuote ? (prefill.quoteId ? 'Save quote' : 'Create quote') : 'Create order';
+    openDrawer(isQuote ? (prefill.quoteId ? 'Edit quote ' + (prefill.quoteNumber || '') : 'New quote') : 'New order', body,
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="nf" type="submit" id="nSubmit">' + submitLabel + '</button>');
     if (prefill) {
       const f = $('#nf').elements; // .elements: form.name would be the form's own name
       f.name.value = prefill.name || ''; f.phone.value = prefill.phone || ''; f.email.value = prefill.email || '';
       if (prefill.interest) f.notes.value = 'Lead asked for: ' + prefill.interest;
+      ['business_name', 'review_link', 'links', 'design_notes', 'address', 'terms', 'valid_until'].forEach((k) => { if (prefill[k] != null && f[k]) f[k].value = prefill[k]; });
+      if (prefill.notes != null && f.notes) f.notes.value = prefill.notes;
+      if (prefill.discount) f.discount.value = prefill.discount;
+      if (prefill.shipping != null && prefill.shipping !== '') f.shipping.value = prefill.shipping;
+      if (prefill.districtId && prefill.cityId) area = { districtId: prefill.districtId, cityId: prefill.cityId, title: prefill.district || 'Saved area', sub: prefill.city || '' };
+      const missing = [];
+      (prefill.items || []).forEach((it, i) => {
+        if (it.custom) { lines.push({ custom: true, key: 'c' + i + Date.now(), name: it.name, price: +it.price, qty: +it.qty, ship: !!+it.ship }); return; }
+        const p = cat.products.find((x) => x.id === it.id);
+        if (!p) { missing.push(it.id); return; }
+        lines.push({ key: p.id + '|' + (it.variant || '') + '|' + (it.addons || []).slice().sort().join('+'), p, variant: it.variant || ((p.variants || [])[0] || {}).id, addons: it.addons || [], qty: +it.qty || 1 });
+      });
+      if (missing.length) toast(missing.length + ' item(s) from the quote are no longer in the catalog — add them again', true);
     }
 
     const autoShip = () => {
@@ -752,12 +785,12 @@
       const shipVal = $('#nShip').value;
       const ship = shipVal === '' ? autoShip() : +shipVal;
       $('#nShipHint').textContent = 'Auto: ' + (autoShip() ? egp(autoShip()) : 'free');
-      const cod = $('#nPay').value === 'cod';
+      const cod = $('#nPay') ? $('#nPay').value === 'cod' : null;
       $('#nTotals').innerHTML = '<div class="list"><div class="li muted"><span>Subtotal</span><span>' + egp(sub) + '</span></div>' +
         (disc ? '<div class="li muted"><span>Discount</span><span>−' + egp(disc) + '</span></div>' : '') +
         '<div class="li muted"><span>Delivery</span><span>' + (ship ? egp(ship) : 'Free') + '</span></div>' +
         '<div class="li"><b>Total</b><b>' + egp(sub - disc + ship) + '</b></div>' +
-        '<div class="li small muted"><span>' + (cod ? 'Customer pays on delivery' : 'Already paid — courier collects nothing') + '</span><span></span></div></div>';
+        (cod === null ? '' : '<div class="li small muted"><span>' + (cod ? 'Customer pays on delivery' : 'Already paid — courier collects nothing') + '</span><span></span></div>') + '</div>';
       $('#nDelivery').style.opacity = lines.length && !physicalProducts() ? '.55' : '1';
     };
     const renderLines = () => {
@@ -810,7 +843,7 @@
       $('#cName').value = ''; $('#cPrice').value = ''; $('#cQty').value = 1;
       renderLines();
     };
-    ['#nDisc', '#nShip', '#nPay'].forEach((sel) => { $(sel).oninput = renderTotals; $(sel).onchange = renderTotals; });
+    ['#nDisc', '#nShip', '#nPay'].forEach((sel) => { const el = $(sel); if (el) { el.oninput = renderTotals; el.onchange = renderTotals; } });
     renderLines();
 
     // Area picker: search + suggestions from the address, same engine as the shop checkout.
@@ -855,13 +888,23 @@
     $('#nf').onsubmit = async (e) => {
       e.preventDefault();
       if (!lines.length) return toast('Add at least one product', true);
-      if (physicalProducts() && !area) return toast('Choose the delivery area', true);
+      if (!isQuote && physicalProducts() && !area) return toast('Choose the delivery area', true);
       const data = formData(e.target);
       data.items = lines.map((l) => l.custom ? { custom: 1, name: l.name, price: l.price, qty: l.qty, ship: l.ship ? 1 : 0 } : { id: l.p.id, variant: l.variant, addons: l.addons, qty: l.qty });
       if (area) { data.city_id = area.cityId; data.district_id = area.districtId; }
       if (data.shipping === '') delete data.shipping;
       if (prefill && prefill.leadId) data.lead_id = prefill.leadId;
-      const btn = $('#nSubmit'); btn.disabled = true; btn.textContent = 'Creating…';
+      const btn = $('#nSubmit'); btn.disabled = true; btn.textContent = 'Saving…';
+      if (isQuote) {
+        if (prefill.quoteId) data.id = prefill.quoteId;
+        try {
+          const r = await api('quote_save', { method: 'POST', body: data });
+          closeDrawer(); toast('Quote ' + r.quote.number + ' saved · ' + egp(r.quote.total));
+          if (S.route === 'quotes') { await pageQuotes(); quoteDrawer(r.quote); } else { S.openQuote = r.quote.id; location.hash = '#quotes'; }
+        } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = submitLabel; }
+        return;
+      }
+      if (prefill && prefill.quoteId) data.quote_id = prefill.quoteId;
       try {
         const r = await api('order_create', { method: 'POST', body: data });
         closeDrawer();
@@ -1126,6 +1169,87 @@
   }
   const waBtn = (l, label) => leadWa(l) ? '<a class="btn sm wa" href="' + esc(leadWa(l)) + '" target="_blank" rel="noopener" title="WhatsApp ' + esc(l.name) + '">' + icon('chat') + (label ? 'WhatsApp' : '') + '</a>' : '';
 
+  // ---------- quotes ----------
+  async function pageQuotes() {
+    const d = await api('quotes');
+    S.quotes = d.quotes;
+    const st = S.quoteStatus || '';
+    const list = d.quotes.filter((q) => !st || q.status === st);
+    const open = d.quotes.filter((q) => q.status === 'Draft' || q.status === 'Sent');
+    const accepted = d.quotes.filter((q) => q.status === 'Accepted').length;
+    const decided = accepted + d.quotes.filter((q) => q.status === 'Declined' || q.status === 'Expired').length;
+    $('#main').innerHTML = header('Quotes', 'Prices you offer before an order. Nothing is taken from stock or counted as a sale until the customer accepts.', '<button class="btn primary" id="newQuote">+ New quote</button>') +
+      '<div class="kpis"><div class="kpi"><div class="label">Open quotes</div><div class="value">' + open.length + '</div><div class="note">' + egp(open.reduce((a, q) => a + q.total, 0)) + ' waiting for an answer</div></div>' +
+      '<div class="kpi"><div class="label">Accepted</div><div class="value">' + accepted + '</div><div class="note">' + (decided ? Math.round(accepted / decided * 100) + '% of answered quotes' : 'no answers yet') + '</div></div></div>' +
+      '<div class="row" style="margin-bottom:16px"><div class="seg" id="qtabs">' + ['', 'Draft', 'Sent', 'Accepted', 'Declined', 'Expired'].map((t) => '<button data-s="' + t + '" class="' + (t === st ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div></div>' +
+      (list.length ? '<div class="table-wrap"><table><thead><tr><th>Quote</th><th>Customer</th><th>Items</th><th>Status</th><th>Valid until</th><th class="num">Total</th></tr></thead><tbody>' +
+        list.map((q) => '<tr class="click" data-q="' + q.id + '"><td><b>' + esc(q.number) + '</b><div class="small muted">' + dateTime(q.createdAt) + (q.rep ? ' · ' + esc(q.rep) : '') + '</div></td>' +
+          '<td>' + esc(q.customer) + '<div class="small muted">' + esc([q.businessName, q.phone].filter(Boolean).join(' · ')) + '</div></td>' +
+          '<td class="small">' + q.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td>' +
+          '<td>' + pill(QUOTE_TONE, q.status) + (q.orderNumber ? '<div class="small muted">→ ' + esc(q.orderNumber) + '</div>' : '') + '</td>' +
+          '<td class="small' + (q.status === 'Expired' ? ' pay-part' : '') + '">' + (q.validUntil ? esc(fmtDay(q.validUntil)) : '—') + '</td><td class="num"><b>' + egp(q.total) + '</b></td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="card empty">' + (st ? 'No ' + st.toLowerCase() + ' quotes.' : 'No quotes yet. Create one here, or from a lead with “Create quote”.') + '</div>');
+    $$('#qtabs button').forEach((b) => b.onclick = () => { S.quoteStatus = b.dataset.s; pageQuotes(); });
+    $('#newQuote').onclick = () => newOrderDrawer({ mode: 'quote' });
+    $$('tr[data-q]').forEach((tr) => tr.onclick = () => quoteDrawer(d.quotes.find((q) => q.id === +tr.dataset.q)));
+    if (S.openQuote) { const q = d.quotes.find((x) => x.id === S.openQuote); S.openQuote = null; if (q) quoteDrawer(q); }
+  }
+
+  // Quote -> prefill for the editor or for the order it turns into.
+  const quotePrefill = (q, mode) => ({
+    mode, quoteId: q.id, quoteNumber: q.number, leadId: q.leadId, name: q.customer, phone: q.phone, email: q.email,
+    business_name: q.businessName, review_link: q.reviewLink, links: q.links, design_notes: q.designNotes, address: q.address,
+    cityId: q.cityId, districtId: q.districtId, city: q.city, district: q.district, items: q.itemsIn, discount: q.discount,
+    shipping: q.shipping, notes: mode === 'quote' ? q.notes : 'From quote ' + q.number + (q.notes ? ' · ' + q.notes : ''),
+    terms: q.terms, valid_until: q.validUntil,
+  });
+
+  function quoteDrawer(q) {
+    const open = q.savedStatus !== 'Accepted' && q.status !== 'Declined';
+    const phone = phoneOf(q.phone);
+    const waText = 'Hello ' + q.customer.split(/\s+/)[0] + ', here is your quote ' + q.number + ' from Where To Spot:\n' +
+      q.items.map((it) => '• ' + it.qty + '× ' + it.name + ': ' + egp(it.total)).join('\n') +
+      (q.discount ? '\nDiscount: −' + egp(q.discount) : '') + '\nDelivery: ' + (q.shipping ? egp(q.shipping) : 'Free') + '\nTotal: ' + egp(q.total) +
+      (q.validUntil ? '\nValid until ' + fmtDay(q.validUntil) + '.' : '') + '\n\nThe PDF is attached. Just reply to confirm and we’ll start.';
+    const wa = phone ? 'https://wa.me/' + waNumber(phone) + '?text=' + encodeURIComponent(waText) : '';
+    const body = '<div class="stack">' +
+      '<div class="card stack" style="gap:12px"><div class="row" style="align-items:flex-start"><div style="flex:1"><b style="font-size:16px">' + esc(q.customer) + '</b>' + (q.businessName ? '<div>' + esc(q.businessName) + '</div>' : '') +
+        '<div class="small muted">' + esc([q.phone, q.email, [q.district, q.city].filter(Boolean).join(', ')].filter(Boolean).join(' · ')) + '</div></div>' + pill(QUOTE_TONE, q.status) + '</div>' +
+        '<div class="small muted">Created ' + dateTime(q.createdAt) + (q.rep ? ' by ' + esc(q.rep) : '') + (q.sentAt ? ' · sent ' + dateTime(q.sentAt) : '') + (q.validUntil ? ' · valid until ' + esc(fmtDay(q.validUntil)) : '') + '</div>' +
+        (q.orderNumber ? '<div class="chosen">' + icon('bag') + '<span>Accepted — became order <b>' + esc(q.orderNumber) + '</b></span><span class="spacer"></span><button class="btn sm" id="qOrder">Open order</button></div>' : '') + '</div>' +
+      '<div class="card"><div class="list">' + q.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + '<div class="small muted">' + egp(it.total / it.qty) + ' each</div></span><span>' + egp(it.total) + '</span></div>').join('') +
+        '<div class="li muted"><span>Subtotal</span><span>' + egp(q.subtotal) + '</span></div>' +
+        (q.discount ? '<div class="li muted"><span>Discount</span><span>−' + egp(q.discount) + '</span></div>' : '') +
+        '<div class="li muted"><span>Delivery</span><span>' + (q.shipping ? egp(q.shipping) : 'Free') + '</span></div>' +
+        '<div class="li"><b>Total</b><b>' + egp(q.total) + '</b></div></div></div>' +
+      (q.notes ? '<div class="card"><b class="small">Internal notes</b><div class="small" style="white-space:pre-line;margin-top:6px">' + esc(q.notes) + '</div></div>' : '') +
+      (open ? '<div class="card stack" style="gap:10px"><b>Next step</b><div class="row">' +
+        '<a class="btn" href="doc.html?quote=' + q.id + '" target="_blank" rel="noopener">' + icon('file') + 'Open PDF</a>' +
+        (wa ? '<a class="btn wa" href="' + esc(wa) + '" target="_blank" rel="noopener" id="qWa">' + icon('chat') + 'Send on WhatsApp</a>' : '') +
+        (q.savedStatus === 'Draft' ? '<button class="btn" data-qs="Sent">➜ Mark as sent</button>' : '') + '</div>' +
+        '<div class="row"><button class="btn dark" id="qConvert">' + icon('cart') + 'Customer accepted — create order</button><button class="btn" data-qs="Declined">✕ Declined</button></div>' +
+        '<div class="hint">Send the PDF with WhatsApp: open the PDF, save it, then attach it in the chat that opens. Sending marks the quote as Sent.</div></div>'
+        : '<div class="row"><a class="btn" href="doc.html?quote=' + q.id + '" target="_blank" rel="noopener">' + icon('file') + 'Open PDF</a>' + (q.status === 'Declined' ? '<button class="btn" data-qs="Draft">Reopen as draft</button>' : '') + '</div>') +
+      '</div>';
+    openDrawer('Quote ' + q.number, body, (q.savedStatus !== 'Accepted' ? '<button class="btn danger" id="qDel">Delete</button>' : '') + '<span class="spacer"></span>' +
+      (q.savedStatus !== 'Accepted' ? '<button class="btn" id="qCopy">Duplicate</button><button class="btn primary" id="qEdit">Edit</button>' : '<button class="btn" id="qCopy">Duplicate</button>'));
+    const setStatus = async (status) => {
+      try { const r = await api('quote_status', { method: 'POST', body: { id: q.id, status } }); toast('Quote ' + status.toLowerCase()); if (S.route === 'quotes') await pageQuotes(); quoteDrawer(r.quote); }
+      catch (err) { toast(err.message, true); }
+    };
+    $$('[data-qs]').forEach((b) => b.onclick = () => setStatus(b.dataset.qs));
+    const w = $('#qWa'); if (w) w.addEventListener('click', () => { if (q.savedStatus === 'Draft') setTimeout(() => setStatus('Sent'), 300); });
+    const cv = $('#qConvert'); if (cv) cv.onclick = () => { closeDrawer(); newOrderDrawer(quotePrefill(q, 'order')); };
+    const ed = $('#qEdit'); if (ed) ed.onclick = () => { closeDrawer(); newOrderDrawer(quotePrefill(q, 'quote')); };
+    $('#qCopy').onclick = () => { closeDrawer(); const p = quotePrefill(q, 'quote'); delete p.quoteId; delete p.quoteNumber; p.valid_until = addDays(14); newOrderDrawer(p); };
+    const del = $('#qDel'); if (del) del.onclick = async () => {
+      if (!confirm('Delete quote ' + q.number + '?')) return;
+      try { await api('quote_delete', { method: 'POST', body: { id: q.id } }); closeDrawer(); toast('Quote deleted'); pageQuotes(); }
+      catch (err) { toast(err.message, true); }
+    };
+    const oo = $('#qOrder'); if (oo) oo.onclick = async () => { const d = await api('orders', { query: '&q=' + encodeURIComponent(q.orderNumber) }); const o = d.orders.find((x) => x.id === q.orderId); if (o) orderDrawer(o); };
+  }
+
   // ---------- customers ----------
   async function pageCustomers() {
     const d = await api('customers');
@@ -1283,7 +1407,7 @@
     const actions = isNew ? '' : '<div class="row lead-actions">' + waBtn(l, true) +
       (phone ? '<a class="btn sm" href="tel:' + esc(phone) + '">' + icon('phone') + 'Call</a>' : '') +
       (email ? '<a class="btn sm" href="mailto:' + esc(email) + '">' + icon('mail') + 'Email</a>' : '') +
-      (can('sell') && l.status !== 'Won' ? '<span class="spacer"></span><button type="button" class="btn sm dark" id="convert">' + icon('cart') + 'Convert to order</button>' : '') + '</div>';
+      (can('sell') && l.status !== 'Won' ? '<span class="spacer"></span><button type="button" class="btn sm" id="mkQuote">' + icon('file') + 'Create quote</button><button type="button" class="btn sm dark" id="convert">' + icon('cart') + 'Convert to order</button>' : '') + '</div>';
     const body = '<form id="lf" class="stack">' +
       (isNew ? '<div class="grid2"><label class="field">Name<input type="text" name="name" required></label><label class="field">Email or phone<input type="text" name="contact" required></label></div>' +
         '<label class="field">Interested in<input type="text" name="cat" placeholder="e.g. NFC cards for 3 branches"></label>'
@@ -1306,6 +1430,8 @@
         if (S.route === 'leads') pageLeads(); else pageDashboard();
       } catch (err) { toast(err.message, true); }
     };
+    const mq = $('#mkQuote');
+    if (mq) mq.onclick = () => { closeDrawer(); newOrderDrawer({ mode: 'quote', leadId: l.id, name: l.name, phone: phone ? localPhone(phone) : '', email, interest: leadInterest(l), notes: 'Lead asked for: ' + leadInterest(l) }); };
     const cv = $('#convert');
     if (cv) cv.onclick = () => { closeDrawer(); newOrderDrawer({ leadId: l.id, name: l.name, phone: phone ? localPhone(phone) : '', email, interest: leadInterest(l) }); };
     const del = $('#delLead');
