@@ -221,7 +221,7 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
         <sc-for list="{{ recentOthers }}" as="rv" hint-placeholder-count="3">
           <a href="{{ rv.href }}" style="border:1px solid #DDD6CC;border-radius:14px;overflow:hidden;background:#fff;display:block;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
-            <image-slot id="{{ rv.imgId }}" shape="rect" placeholder="{{ rv.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
+            <image-slot id="{{ rv.imgId }}" src="{{ rv.img }}" fit="contain" shape="rect" placeholder="{{ rv.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
             <div style="padding:10px 12px"><div style="font-weight:600;font-size:13px">{{ rv.name }}</div></div>
           </a>
         </sc-for>
@@ -446,7 +446,7 @@ class Component extends DCLogic {
       reviewForm: this.state.reviewForm, setReviewName: this.setReviewField('name'), setReviewText: this.setReviewField('text'),
       starOptions: [1, 2, 3, 4, 5].map(n => ({ n, onClick: this.setReviewRating(n), color: n <= this.state.reviewForm.rating ? accent : '#DDD6CC' })),
       submitReview: this.submitReview, reviewSent: this.state.reviewSent,
-      recentOthers: recentOthers.map(r => ({ ...r, imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id })),
+      recentOthers: recentOthers.map(r => ({ ...r, img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id })),
       recentOthersCount: recentOthers.length,
       lightboxOpen: this.state.lightboxOpen, openLightbox: this.openLightbox, closeLightbox: this.closeLightbox,
       buyNow: this.buyNow, onPrevImg: this.prevImg, onNextImg: this.nextImg,

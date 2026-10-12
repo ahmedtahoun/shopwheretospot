@@ -172,6 +172,8 @@
   .pprice{display:flex;align-items:center;gap:6px;color:#8A8478}
   .pprice input,.pfilters select{border:1px solid #DDD6CC;background:transparent;border-radius:999px;padding:8px 12px;font:inherit;font-size:13px;color:#22201D;width:96px}
   .pfilters select{width:auto;padding-right:28px;cursor:pointer}
+  .thumb{width:60px;height:60px;flex:none;border-radius:10px;overflow:hidden;background:#EFE9E1;display:grid;place-items:center}
+  .thumb img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:48px 28px}
   .pcard{display:flex;flex-direction:column}
   .pmedia{position:relative;border-radius:22px;overflow:hidden;background:#EFE9E1}
@@ -618,7 +620,7 @@
         </sc-if>
         <sc-for list="{{ wishItems }}" as="w" hint-placeholder-count="0">
           <div style="display:flex;gap:12px;align-items:center;border-bottom:1px solid #EFEAE3;padding-bottom:14px">
-            <image-slot id="{{ w.imgId }}" shape="rounded" radius="10" placeholder="item" style="width:60px;height:60px;flex:none"></image-slot>
+            <div class="thumb"><sc-if value="{{ w.thumb }}" hint-placeholder-val="{{ '' }}"><img src="{{ w.thumb }}" alt="" loading="lazy"></sc-if></div>
             <div style="flex:1">
               <div style="font-size:14px;font-weight:600">{{ w.name }}</div>
               <div style="font-size:12.5px;color:#6B6660;margin-top:2px">{{ w.priceFmt }}</div>
@@ -655,7 +657,7 @@
           </sc-if>
           <sc-for list="{{ cartItems }}" as="i" hint-placeholder-count="0">
             <div style="display:flex;gap:12px;align-items:center;border-bottom:1px solid #EFEAE3;padding-bottom:14px">
-              <image-slot id="{{ i.imgId }}" shape="rounded" radius="10" placeholder="item" style="width:60px;height:60px;flex:none"></image-slot>
+              <div class="thumb"><sc-if value="{{ i.thumb }}" hint-placeholder-val="{{ '' }}"><img src="{{ i.thumb }}" alt="" loading="lazy"></sc-if></div>
               <div style="flex:1">
                 <div style="font-size:14px;font-weight:600">{{ i.name }}</div>
                 <div style="font-size:12.5px;color:#6B6660;margin-top:2px">{{ i.priceFmt }} · qty</div>
@@ -925,6 +927,9 @@ class Component extends DCLogic {
     const inv = this.state.inventory.filter(p => p.status === 'Active');
     return this.categories.filter(c => inv.some(p => p.cat === c.key));
   }
+
+  // First photo of a product, sized for the cart and wishlist thumbnails.
+  thumbFor(id) { const imgs = this._sd && this._sd.PRODUCT_IMAGES[id]; return imgs && imgs.length ? this._sd.img(imgs[0], 120) : ''; }
 
   catLabel(key) { const c = this.categories.find(c => c.key === key); return c ? c.label : key; }
 
@@ -1319,7 +1324,7 @@ class Component extends DCLogic {
       wishItems: s.wishlist.map(id => active.find(p => p.id === id)).filter(Boolean).map(p => {
         const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
         const opts = this._sd && this._sd.hasOptions(p);
-        return { ...p, priceFmt: (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), imgId: 'prod-photo-' + p.id + '-0', addLabel: opts ? 'Choose' : 'Add to cart', onAdd: this.addToCart(p), onRemove: this.toggleWish(p.id) };
+        return { ...p, priceFmt: (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), imgId: 'prod-photo-' + p.id + '-0', thumb: this.thumbFor(p.id), addLabel: opts ? 'Choose' : 'Add to cart', onAdd: this.addToCart(p), onRemove: this.toggleWish(p.id) };
       }),
       productCards: filtered.slice(0, s.visibleCount).map(p => {
         const salePrice = p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100) * 100) / 100 : p.price;
@@ -1333,7 +1338,7 @@ class Component extends DCLogic {
       cartTitle: s.checkoutStep === 'success' ? 'Order placed' : s.checkoutStep === 'info' ? 'Checkout' : 'Your cart',
       isStepCart: s.checkoutStep === 'cart', isStepInfo: s.checkoutStep === 'info', isStepSuccess: s.checkoutStep === 'success',
       cartEmpty: s.cart.length === 0,
-      cartItems: s.cart.map(i => { const lt = i.total != null ? i.total : i.price * i.qty; return { ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', lineTotal: lt, lineTotalFmt: fmt(lt), onInc: this.incItem(i.key), onDec: this.decItem(i.key), onRemove: this.removeItem(i.key) }; }),
+      cartItems: s.cart.map(i => { const lt = i.total != null ? i.total : i.price * i.qty; return { ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', thumb: this.thumbFor(i.id), lineTotal: lt, lineTotalFmt: fmt(lt), onInc: this.incItem(i.key), onDec: this.decItem(i.key), onRemove: this.removeItem(i.key) }; }),
       cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartItemsTotalFmt: fmt(cartItemsTotal), shippingFmt: shipping ? fmt(shipping) : 'Free', cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
       promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
       appliedPromo: s.appliedPromo, promoDiscountFmt: s.appliedPromo ? fmt(cartSubtotal - cartTotal) : '',
