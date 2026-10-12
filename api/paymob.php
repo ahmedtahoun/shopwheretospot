@@ -65,11 +65,14 @@ function paymob_checkout_url(int $orderId, string $method): string
             'apartment' => 'NA', 'city' => $o['district'] ?: ($o['city'] ?: 'NA'), 'state' => $o['city'] ?: 'NA', 'country' => 'EG',
         ],
         // Unique per attempt (Paymob refuses a reused reference); the order id is the part before the dash.
-        'special_reference' => $number . '-' . bin2hex(random_bytes(3)),
+        'special_reference' => $ref = $number . '-' . bin2hex(random_bytes(3)),
         'notification_url' => $site . '/api/paymob-webhook.php',
         'redirection_url' => $site . '/api/paymob-return.php',
         'extras' => ['order_id' => $orderId],
     ];
+    // Remember the reference: order numbers can be reused after test orders are deleted, so a payment
+    // only counts for the order whose own payment session it came from.
+    db()->prepare("UPDATE orders SET pay_refs = TRIM(COALESCE(pay_refs, '') || ' ' || ?) WHERE id = ?")->execute([$ref, $orderId]);
     $res = paymob_request('POST', '/v1/intention/', $body);
     if (empty($res['client_secret'])) throw new ShopError('Paymob did not start the payment. Please try again or choose cash on delivery.');
     return $c['base_url'] . '/unifiedcheckout/?publicKey=' . rawurlencode($c['public_key']) . '&clientSecret=' . rawurlencode($res['client_secret']);
@@ -128,14 +131,18 @@ function paymob_order_id(string $merchantRef): int
 }
 
 // Record a successful transaction on the order, once. Returns true if the order is now fully paid.
-function paymob_record(int $orderId, string $txnId, int $amountCents, string $label): bool
+function paymob_record(int $orderId, string $txnId, int $amountCents, string $label, string $ref = ''): bool
 {
     if ($orderId <= 0 || $txnId === '') return false;
     $pdo = db();
-    $st = $pdo->prepare('SELECT id, status FROM orders WHERE id = ?');
+    $st = $pdo->prepare('SELECT id, status, pay_refs FROM orders WHERE id = ?');
     $st->execute([$orderId]);
     $o = $st->fetch();
     if (!$o) return false;
+    if ($ref === '' || !in_array($ref, preg_split('/\s+/', trim((string) $o['pay_refs'])), true)) {
+        log_activity(null, 'Online payment not matched', 'Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · EGP ' . number_format($amountCents / 100) . ' — check in Paymob');
+        return false;
+    }
     tx_begin();
     try {
         $dupe = $pdo->prepare("SELECT 1 FROM payments WHERE order_id = ? AND method = 'paymob' AND note LIKE ?");

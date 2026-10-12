@@ -14,7 +14,7 @@ $success = ($q['success'] ?? '') === 'true' && ($q['pending'] ?? '') !== 'true';
 if ($valid && $success && $orderId) {
     try {
         $label = 'Paid online · ' . trim(($q['source_data_sub_type'] ?? ($q['source_data.sub_type'] ?? '')) . ' ' . (($pan = $q['source_data_pan'] ?? ($q['source_data.pan'] ?? '')) ? '•••• ' . $pan : ''));
-        paymob_record($orderId, (string) ($q['id'] ?? ''), (int) ($q['amount_cents'] ?? 0), $label);
+        paymob_record($orderId, (string) ($q['id'] ?? ''), (int) ($q['amount_cents'] ?? 0), $label, (string) ($q['merchant_order_id'] ?? ''));
     } catch (Throwable $e) {
         error_log('[paymob] return error: ' . $e->getMessage());
     }

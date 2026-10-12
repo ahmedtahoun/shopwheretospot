@@ -566,6 +566,8 @@ try {
             log_activity($u, 'Deleted order', order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
             $deleted[] = order_number($id);
         }
+        // Let numbering carry on from the last order that's left (deleted test orders at the end don't leave a gap).
+        $pdo->exec("UPDATE sqlite_sequence SET seq = (SELECT COALESCE(MAX(id), 0) FROM orders) WHERE name = 'orders'");
         json_out(['deleted' => $deleted]);
 
     case 'bosta_sync':

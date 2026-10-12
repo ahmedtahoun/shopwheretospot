@@ -25,7 +25,7 @@ try {
     if ($ok && $orderId) {
         $src = $t['source_data'] ?? [];
         $label = 'Paid online · ' . trim(($src['sub_type'] ?? '') . ' ' . (!empty($src['pan']) ? '•••• ' . $src['pan'] : ''));
-        paymob_record($orderId, (string) $t['id'], (int) $t['amount_cents'], $label);
+        paymob_record($orderId, (string) $t['id'], (int) $t['amount_cents'], $label, (string) ($t['order']['merchant_order_id'] ?? ''));
     } elseif ($orderId && empty($t['pending'])) {
         log_activity(null, 'Online payment failed', order_number($orderId) . ' · ' . mb_substr((string) ($t['data']['message'] ?? 'declined'), 0, 80));
     }
