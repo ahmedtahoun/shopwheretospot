@@ -158,15 +158,22 @@ function notify_order(int $id): void
 
 // The customer paid online (or switched to cash on delivery): the order becomes a normal new order,
 // the team is alerted and the customer is recorded as a won lead. Safe to call more than once.
-function confirm_online_order(int $id, string $why): void
+// Paid online → 'Confirmed' (the customer has paid, nothing left to confirm); switched to cash → 'Pending'.
+function confirm_online_order(int $id, string $why, string $status = 'Pending'): void
 {
     $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
     $st->execute([$id]);
     $o = $st->fetch();
     if (!$o) return;
+    // An order placed before payments were held back (already announced as Pending) just moves on to Confirmed.
+    if ($o['status'] === 'Pending' && $status === 'Confirmed') {
+        set_order_status($id, 'Confirmed');
+        log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
+        return;
+    }
     $expired = $o['status'] === 'Cancelled' && strpos((string) $o['notes'], UNPAID_EXPIRED_NOTE) !== false;
     if ($o['status'] !== 'Awaiting payment' && !$expired) return;
-    set_order_status($id, 'Pending', $expired ? trim(str_replace(UNPAID_EXPIRED_NOTE, '', (string) $o['notes'])) : null);
+    set_order_status($id, $status, $expired ? trim(str_replace(UNPAID_EXPIRED_NOTE, '', (string) $o['notes'])) : null);
     log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
     notify_order($id);
     try {

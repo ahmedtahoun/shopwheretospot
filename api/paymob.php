@@ -135,11 +135,14 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
 {
     if ($orderId <= 0 || $txnId === '') return false;
     $pdo = db();
-    $st = $pdo->prepare('SELECT id, status, pay_refs FROM orders WHERE id = ?');
+    $st = $pdo->prepare('SELECT id, status, pay_refs, payment FROM orders WHERE id = ?');
     $st->execute([$orderId]);
     $o = $st->fetch();
     if (!$o) return false;
-    if ($ref === '' || !in_array($ref, preg_split('/\s+/', trim((string) $o['pay_refs'])), true)) {
+    // Orders whose payment page was opened before references were saved have none; they're accepted if they were
+    // online-payment orders (a reused number always gets references, and a cash order never takes Paymob money).
+    $legacy = trim((string) $o['pay_refs']) === '' && strpos((string) $o['payment'], 'paymob_') === 0;
+    if (!$legacy && ($ref === '' || !in_array($ref, preg_split('/\s+/', trim((string) $o['pay_refs'])), true))) {
         log_activity(null, 'Online payment not matched', 'Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · EGP ' . number_format($amountCents / 100) . ' — check in Paymob');
         return false;
     }
@@ -159,6 +162,6 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
     $st = $pdo->prepare('SELECT total FROM orders WHERE id = ?');
     $st->execute([$orderId]);
     $full = order_paid($orderId) >= (float) $st->fetchColumn() - 0.5;
-    if ($full) confirm_online_order($orderId, 'New order · paid online');
+    if ($full) confirm_online_order($orderId, 'New order · paid online', 'Confirmed');
     return $full;
 }
