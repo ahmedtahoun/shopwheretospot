@@ -52,6 +52,7 @@
   .panel{position:fixed;right:22px;bottom:22px;z-index:85;width:min(390px,calc(100vw - 32px));height:min(620px,calc(100vh - 44px));
     background:#F7F3ED;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;
     box-shadow:0 40px 90px -30px rgba(20,18,16,.55),0 0 0 1px rgba(34,32,29,.06);animation:up .3s cubic-bezier(.2,.8,.2,1)}
+  @keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
   @keyframes up{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
   .head{background:#22201D;color:#F7F3ED;padding:18px 18px 18px 20px;display:flex;align-items:center;gap:12px}
   .av{width:42px;height:42px;border-radius:50%;background:#F7F3ED;display:grid;place-items:center;flex:none;overflow:hidden}
@@ -86,8 +87,14 @@
   .send:disabled{opacity:.4;cursor:default}
   .err{color:#A13F3F;font-size:12.5px;padding:0 18px 8px}
   .fine{font-size:11.5px;color:#8A8478;text-align:center;padding:0 16px 10px;background:#fff}
+  .scrim{display:none}
+  .grab{display:none}
   @media (max-width:520px){
-    .panel{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}
+    /* A sheet over the shop (not a separate screen), so it is clear the shop is still there behind it */
+    .scrim{display:block;position:fixed;inset:0;z-index:84;background:rgba(20,18,16,.45);animation:fade .2s ease}
+    .panel{right:0;left:0;bottom:0;width:100vw;height:88dvh;border-radius:22px 22px 0 0;animation:sheet .3s cubic-bezier(.2,.8,.2,1)}
+    .grab{display:block;position:absolute;top:7px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:4px;background:rgba(255,255,255,.35)}
+    .head{position:relative;padding-top:22px}
     .launch{right:16px;bottom:calc(16px + var(--wts-chat-offset, 0px));padding:8px}
     .launch .txt{display:none}
     .tease{right:16px;bottom:calc(76px + var(--wts-chat-offset, 0px))}
@@ -208,9 +215,9 @@
     const p = prompt(st.step);
     const showChips = !typing && !st.done && p.chips;
     const showInput = !st.done && p.input && !typing;
-    r.innerHTML =
+    r.innerHTML = '<div class="scrim" id="scrim"></div>' +
       '<section class="panel' + (AR ? ' rtl' : '') + '" dir="' + (AR ? 'rtl' : 'ltr') + '" role="dialog" aria-label="' + L('Chat with Where To Spot', 'تحدث مع Where To Spot') + '">' +
-        '<div class="head"><div class="av"><img src="images/logo.png" alt=""></div>' +
+        '<div class="head"><span class="grab"></span><div class="av"><img src="images/logo.png" alt=""></div>' +
           '<div class="who"><b>Where To Spot</b><span>' + L('Usually replies within a few hours', 'عادةً نرد خلال ساعات قليلة') + '</span></div>' +
           '<button class="hbtn" id="rs" title="' + L('Start over', 'ابدأ من جديد') + '" aria-label="' + L('Start over', 'ابدأ من جديد') + '">↺</button>' +
           '<button class="hbtn" id="cl" title="' + L('Close', 'إغلاق') + '" aria-label="' + L('Close chat', 'إغلاق المحادثة') + '">✕</button></div>' +
@@ -225,11 +232,18 @@
         (showInput ? '<form id="f"><input id="in" autocomplete="off" ' + (p.type ? 'type="' + p.type + '" inputmode="' + (st.step === 'phone' ? 'tel' : 'text') + '"' : '') + ' placeholder="' + esc(p.input) + '" aria-label="' + esc(p.input) + '"' + (st.step === 'phone' ? ' dir="ltr"' : '') + '><button class="send" ' + (busy ? 'disabled' : '') + ' aria-label="' + L('Send', 'إرسال') + '"' + (AR ? ' style="transform:scaleX(-1)"' : '') + '>' + sendIcon + '</button></form>' : '') +
         '<div class="fine">' + (st.done ? L('Thanks for reaching out.', 'شكرًا لتواصلك معنا.') : L('We only use your details to reply to you.', 'نستخدم بياناتك فقط للرد عليك.')) + '</div>' +
       '</section>';
-    root.getElementById('cl').onclick = () => { open = false; render(); };
+    root.getElementById('cl').onclick = closeChat;
+    root.getElementById('scrim').onclick = closeChat;
     root.getElementById('rs').onclick = restart;
     root.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => answer(b.dataset.c)));
     const again = root.getElementById('again'); if (again) again.onclick = restart;
-    const shop = root.getElementById('shop'); if (shop) shop.onclick = () => { open = false; render(); };
+    const shop = root.getElementById('shop');
+    if (shop) shop.onclick = (e) => {
+      e.preventDefault();
+      const el = document.getElementById('products');
+      closeChat();
+      setTimeout(() => { if (el) el.scrollIntoView({ behavior: 'smooth' }); else location.href = 'index.html#products'; }, 80);
+    };
     const f = root.getElementById('f');
     if (f) {
       const inp = root.getElementById('in');
@@ -241,7 +255,19 @@
     if (msgs) { msgs.scrollTop = msgs.scrollHeight; requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; }); }
   }
 
+  // The phone's Back button closes the chat instead of leaving the site: opening adds a step to the
+  // browser history, Back removes it, and closing with ✕ removes it too.
+  const ours = () => history.state && history.state.wtsChat;
+  function closeChat() {
+    if (!open) return;
+    open = false; render();
+    if (ours()) history.back();
+  }
+  window.addEventListener('popstate', () => { if (open && !ours()) { open = false; render(); } });
+
   function openChat() {
+    if (open) return;
+    if (!ours()) { try { history.pushState({ ...(history.state || {}), wtsChat: 1 }, ''); } catch (e) {} }
     open = true; markSeen(); host.dataset.tease = '0';
     if (!st.log.length) { render(); botTurn('need'); } else render(true);
   }

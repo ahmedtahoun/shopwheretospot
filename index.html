@@ -1107,6 +1107,7 @@ class Component extends DCLogic {
   catLabel(key) { const c = this.categories.find(c => c.key === key); return c ? c.label : key; }
 
   async componentDidMount() {
+    window.addEventListener('popstate', this.onPopState);
     const mod = await import('./shop-data.js');
     this._sd = mod;
     const live = await mod.fetchCatalog();
@@ -1144,6 +1145,21 @@ class Component extends DCLogic {
     this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 12,
       ...(payResult ? { payResult, orderNumber: params.get('order') || '', payReason: params.get('reason') || '' } : {}) });
   }
+
+  // The phone's Back button closes an open panel (cart, checkout, wishlist, filters, order tracking)
+  // instead of leaving the shop: opening one adds a step to the browser history, closing removes it.
+  _panelOpen = () => { const s = this.state; return !!(s.cartOpen || s.wishPanelOpen || s.filtersOpen || s.trackOpen); };
+  _ourStep = () => !!(history.state && history.state.wtsPanel);
+  _syncHistory = () => {
+    if (this._backing) return;
+    const open = this._panelOpen();
+    if (open && !this._ourStep()) { try { history.pushState({ ...(history.state || {}), wtsPanel: 1 }, ''); } catch (e) {} }
+    else if (!open && this._ourStep() && !(history.state && history.state.wtsChat)) { this._backing = true; history.back(); }
+  };
+  onPopState = () => {
+    if (this._backing) { this._backing = false; this._syncHistory(); return; }
+    if (this._panelOpen() && !this._ourStep()) this.setState({ cartOpen: false, wishPanelOpen: false, filtersOpen: false, trackOpen: false });
+  };
 
   showToast = (msg) => {
     clearTimeout(this._toastTimer);
@@ -1502,6 +1518,7 @@ class Component extends DCLogic {
     }));
 
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
+    Promise.resolve().then(this._syncHistory); // after this render: keep the Back button in step with open panels
     const AR = window.WTS_LANG === 'ar';
     const T = window.WTS_T || ((x) => x);
     const sorts = [['popular', 'Popular'], ['new', 'Newest'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low']];
