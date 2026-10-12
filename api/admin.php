@@ -749,8 +749,24 @@ try {
             }
             unset($c);
         }
-        $list = array_values($map);
-        usort($list, function ($a, $b) { return strcmp($b['last'], $a['last']); });
+        // Shop accounts (customers who signed in on the website), matched by email or phone.
+        $byEmail = $byPhone = [];
+        foreach ($map as $k => $c) {
+            if ($e = email_key((string) $c['email'])) $byEmail[$e] = $k;
+            if ($ph = phone_key((string) $c['phone'])) $byPhone[$ph] = $k;
+        }
+        foreach (db()->query('SELECT * FROM customers ORDER BY id')->fetchAll() as $a) {
+            $acct = ['since' => $a['created_at'], 'lastLogin' => $a['last_login'], 'offers' => (bool) $a['offers'], 'contact' => $a['contact_pref'], 'lang' => $a['lang']];
+            $k = $byEmail[email_key((string) $a['email'])] ?? (phone_key((string) $a['phone']) ? ($byPhone[phone_key((string) $a['phone'])] ?? null) : null);
+            if ($k !== null) { $map[$k]['account'] = $acct; if (!$map[$k]['email']) $map[$k]['email'] = $a['email']; continue; }
+            if ($own) continue; // people limited to their own orders don't see sign-ups without orders
+            $key = email_key((string) $a['email']);
+            $map[$key] = ['key' => $key, 'name' => $a['name'] ?: explode('@', $a['email'])[0], 'phone' => $a['phone'], 'email' => $a['email'], 'business' => '',
+                'city' => trim(($a['district'] ?: '') . ($a['district'] && $a['city'] ? ', ' : '') . ($a['city'] ?: '')), 'orders' => 0, 'spent' => 0.0, 'due' => 0.0,
+                'first' => $a['created_at'], 'last' => $a['last_login'] ?: $a['created_at'], 'account' => $acct];
+        }
+        $list = array_values(array_map(function ($c) { return $c + ['account' => null]; }, $map));
+        usort($list, function ($a, $b) { return strcmp((string) $b['last'], (string) $a['last']); });
         json_out(['customers' => $list]);
 
     case 'customer':

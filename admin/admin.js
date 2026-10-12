@@ -1311,18 +1311,25 @@
     const d = await api('customers');
     S.customers = d.customers;
     const q = (S.custQ || '').trim().toLowerCase();
-    const list = d.customers.filter((c) => !q || (c.name + ' ' + c.phone + ' ' + c.email + ' ' + c.business + ' ' + c.city).toLowerCase().includes(q));
+    const view = S.custView || '';
+    const FILTERS = { account: (c) => !!c.account, guest: (c) => !c.account, offers: (c) => !!(c.account && c.account.offers), repeat: (c) => c.orders > 1 };
+    const list = d.customers.filter((c) => (!view || FILTERS[view](c)) && (!q || (c.name + ' ' + c.phone + ' ' + c.email + ' ' + c.business + ' ' + c.city).toLowerCase().includes(q)));
     const repeat = d.customers.filter((c) => c.orders > 1).length;
-    $('#main').innerHTML = header('Customers', d.customers.length + ' customers · ' + repeat + ' ordered more than once' + (can('own_orders') ? ' · your orders only' : ''), '') +
-      '<div class="row" style="margin-bottom:16px"><input type="search" id="cq" placeholder="Search name, phone, business, area…" value="' + esc(S.custQ || '') + '" style="max-width:340px"></div>' +
+    const withAcct = d.customers.filter((c) => c.account).length;
+    const tabs = [['', 'All', d.customers.length], ['account', 'With shop account', withAcct], ['guest', 'No account', d.customers.length - withAcct],
+      ['offers', 'Want offers', d.customers.filter(FILTERS.offers).length], ['repeat', 'Repeat', repeat]];
+    $('#main').innerHTML = header('Customers', d.customers.length + ' customers · ' + withAcct + ' with a shop account · ' + repeat + ' ordered more than once' + (can('own_orders') ? ' · your orders only' : ''), '') +
+      '<div class="row" style="margin-bottom:16px"><div class="seg" id="ctabs">' + tabs.map(([k, l, n]) => '<button data-v="' + k + '" class="' + (k === view ? 'on' : '') + '">' + esc(l) + ' <span class="muted">' + n + '</span></button>').join('') + '</div>' +
+      '<span class="spacer"></span><input type="search" id="cq" placeholder="Search name, phone, business, area…" value="' + esc(S.custQ || '') + '" style="max-width:300px"></div>' +
       (list.length ? '<div class="table-wrap"><table><thead><tr><th>Customer</th><th>Area</th><th class="num">Orders</th><th class="num">Spent</th><th class="num">Balance due</th><th>Last order</th></tr></thead><tbody>' +
-        list.map((c, i) => '<tr class="click" data-c="' + esc(c.key) + '"><td><b>' + esc(c.name) + '</b>' + (c.orders > 1 ? ' <span class="pill accent">↻ Repeat</span>' : '') +
+        list.map((c, i) => '<tr class="click" data-c="' + esc(c.key) + '"><td><b>' + esc(c.name) + '</b>' + (c.account ? ' <span class="pill good" title="Signed up on the website">● Account</span>' : '') + (c.orders > 1 ? ' <span class="pill accent">↻ Repeat</span>' : '') +
           '<div class="small muted">' + esc([c.business, c.phone].filter(Boolean).join(' · ')) + '</div></td><td class="small">' + esc(c.city || '—') + '</td>' +
           '<td class="num">' + c.orders + '</td><td class="num"><b>' + egp(c.spent) + '</b></td><td class="num">' + (c.due > 0.5 ? '<span class="pay-part">' + egp(c.due) + '</span>' : '<span class="muted">—</span>') + '</td>' +
           '<td class="small muted">' + dateTime(c.last) + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="card empty">' + (q ? 'No customers match.' : 'Customers appear here once orders come in.') + '</div>');
     let t;
     $('#cq').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.custQ = e.target.value; pageCustomers().then(() => { const i = $('#cq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 200); };
     $$('tr[data-c]').forEach((tr) => tr.onclick = () => customerDrawer(d.customers.find((c) => c.key === tr.dataset.c)));
+    $$('#ctabs button').forEach((b) => b.onclick = () => { S.custView = b.dataset.v; pageCustomers(); });
   }
 
   async function customerDrawer(c) {
@@ -1338,8 +1345,15 @@
       '<div class="kpis" style="margin:0"><div class="kpi"><div class="label">Orders</div><div class="value">' + c.orders + '</div><div class="note">since ' + dateTime(c.first).split(',')[0] + '</div></div>' +
       '<div class="kpi"><div class="label">Total spent</div><div class="value">' + egp(c.spent) + '</div><div class="note">avg ' + egp(avg) + '</div></div>' +
       '<div class="kpi"><div class="label">Balance due</div><div class="value">' + egp(c.due) + '</div><div class="note">' + (c.due > 0.5 ? 'still to collect' : 'nothing owed') + '</div></div></div>' +
+      (c.account ? '<div class="card"><h2>' + icon('person') + 'Shop account<span class="spacer"></span><span class="pill good">● Signed up</span></h2><div class="list">' +
+        '<div class="li"><span class="muted">Since</span><span>' + dateTime(c.account.since) + '</span></div>' +
+        '<div class="li"><span class="muted">Last signed in</span><span>' + (c.account.lastLogin ? dateTime(c.account.lastLogin) : '—') + '</span></div>' +
+        '<div class="li"><span class="muted">Contact about orders by</span><span>' + esc({ whatsapp: 'WhatsApp', call: 'Phone call', email: 'Email' }[c.account.contact] || 'WhatsApp') + '</span></div>' +
+        '<div class="li"><span class="muted">Offers</span><span>' + (c.account.offers ? '<span class="pill good">✓ Wants offers</span>' : 'No') + '</span></div>' +
+        '<div class="li"><span class="muted">Language</span><span>' + (c.account.lang === 'ar' ? 'العربية' : c.account.lang === 'en' ? 'English' : '—') + '</span></div></div></div>'
+        : '<div class="card small muted">No shop account yet — they check out as a guest. After their next order the shop offers to create one.</div>') +
       (d.lead ? '<div class="card"><h2>Lead<span class="spacer"></span>' + pill(LEAD_TONE, d.lead.status) + '</h2><div class="small" style="white-space:pre-line;max-height:160px;overflow:auto">' + esc(d.lead.notes || 'No notes.') + '</div></div>' : '') +
-      '<div class="card"><h2>Orders</h2><div class="list">' + d.orders.map((o) => '<div class="li fu" data-o="' + o.id + '"><span><b>' + esc(o.number) + '</b> · ' + dateTime(o.createdAt) +
+      '<div class="card"><h2>Orders</h2>' + (d.orders.length ? '' : '<div class="muted small">No orders yet.</div>') + '<div class="list">' + d.orders.map((o) => '<div class="li fu" data-o="' + o.id + '"><span><b>' + esc(o.number) + '</b> · ' + dateTime(o.createdAt) +
         '<div class="small muted">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join(', ') + '</div></span><span style="text-align:right">' + pill(ORDER_TONE, o.status) + '<div class="small"><b>' + egp(o.total) + '</b></div>' + payState(o) + '</span></div>').join('') + '</div></div></div>';
     openDrawer('Customer', body, '<span class="spacer"></span><button class="btn" data-close>Close</button>');
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
