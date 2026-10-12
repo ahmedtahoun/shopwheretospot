@@ -185,6 +185,51 @@
   .pfilters select{width:auto;padding-right:28px;cursor:pointer}
   .thumb{width:60px;height:60px;flex:none;border-radius:10px;overflow:hidden;background:#EFE9E1;display:grid;place-items:center}
   .thumb img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
+
+  /* ---------- checkout (mobile-first) ---------- */
+  .co{flex:1;display:flex;flex-direction:column;min-height:0}
+  .co-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px 22px 24px;display:flex;flex-direction:column;gap:14px}
+  .co-sum{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;background:#F7F3ED;border-radius:14px;padding:12px 14px;font-size:13px;color:#6B6660}
+  .co-sum b{font-size:17px;color:#22201D}
+  .co-sum small{font-size:12px}
+  .co-sum button{margin-left:auto;border:none;background:none;color:var(--accent);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;padding:0}
+  .co-step{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;margin-top:8px}
+  .co-n{width:26px;height:26px;border-radius:50%;background:#22201D;color:#fff;font-size:13px;display:grid;place-items:center;flex:none}
+  .co-h{font-size:12px;font-weight:500;color:#8A8478}
+  .co-f{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
+  .co-in{display:block;width:100%;padding:13px 14px;border:1px solid #D6CEC2;border-radius:12px;font:inherit;font-size:16px;font-weight:400;background:#fff;color:#22201D;-webkit-appearance:none;appearance:none}
+  .co-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,47,.14)}
+  .co-pay{display:flex;flex-direction:column;gap:10px}
+  .co-opt{display:flex;align-items:center;gap:12px;border:1.5px solid #DDD6CC;border-radius:14px;padding:14px;cursor:pointer;background:#fff}
+  .co-opt input{width:20px;height:20px;accent-color:var(--accent);flex:none;margin:0}
+  .co-opt-t{flex:1;font-size:15px;font-weight:600;display:flex;flex-direction:column;gap:2px}
+  .co-opt-t small{font-size:12.5px;font-weight:400;color:#6B6660}
+  .co-lock{font-size:13px}
+  .co-more summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--accent);list-style:none}
+  .co-more summary::-webkit-details-marker{display:none}
+  .co-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#4A4640;line-height:1.5;cursor:pointer}
+  .co-check input{width:20px;height:20px;accent-color:var(--accent);flex:none;margin:0}
+  .co-foot{display:flex;align-items:center;gap:14px;padding:12px 22px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #DDD6CC;background:#fff}
+  .co-foot-t{display:flex;flex-direction:column;line-height:1.2}
+  .co-foot-t span{font-size:11.5px;color:#8A8478;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  .co-foot-t b{font-size:17px}
+  .co-go{flex:1;background:var(--accent);color:#fff;border:none;padding:16px;border-radius:999px;font:inherit;font-size:15.5px;font-weight:700;cursor:pointer}
+  .co-go:disabled{opacity:.6}
+  @media (max-width: 760px){
+    /* iPhone zooms into any field with text under 16px — keep every field at 16px */
+    input,select,textarea{font-size:16px !important}
+    .sheet{width:100vw !important;height:100dvh;top:auto !important}
+    .sheet-head{padding:14px 18px !important}
+    .co-body{padding:14px 18px 22px}
+    .co-foot{padding-left:18px;padding-right:18px}
+    .qbtn{width:34px !important;height:34px !important;font-size:16px}
+    .mmenu{padding:6px 20px 18px !important;gap:0 !important;font-size:17px !important}
+    .mmenu > a,.mmenu > button{padding:14px 0 !important;border-bottom:1px solid #EFEAE3;font-size:17px !important}
+    .mmenu > div{padding-top:16px !important;gap:22px !important}
+    .pprice{display:none}
+    .pfilters{width:100%;justify-content:space-between;padding-bottom:12px}
+    .ptoolbar{margin-bottom:22px}
+  }
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:48px 28px}
   .pcard{display:flex;flex-direction:column}
   .pmedia{position:relative;border-radius:22px;overflow:hidden;background:#EFE9E1}
@@ -286,7 +331,7 @@
       </button>
     </div>
     <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="{{ false }}">
-      <div style="border-top:1px solid #DDD6CC;padding:14px 24px 20px;display:flex;flex-direction:column;gap:12px;font-size:14.5px;font-weight:500">
+      <div class="mmenu" style="border-top:1px solid #DDD6CC;padding:14px 24px 20px;display:flex;flex-direction:column;gap:12px;font-size:14.5px;font-weight:500">
         <a href="#products" class="link" onClick="{{ toggleMobileMenu }}">Shop</a>
         <a href="plans.html" class="link">Marketing plans</a>
         <a href="#services" class="link" onClick="{{ toggleMobileMenu }}">Services</a>
@@ -626,8 +671,8 @@
 
   <sc-if value="{{ cartOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeCart }}" style="position:fixed;inset:0;background:rgba(20,18,16,0.4);z-index:90"></div>
-    <div style="position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:#fff;z-index:91;box-shadow:-20px 0 60px rgba(0,0,0,0.15);display:flex;flex-direction:column">
-      <div style="padding:22px 24px;border-bottom:1px solid #DDD6CC;display:flex;align-items:center;justify-content:space-between">
+    <div class="sheet" style="position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);background:#fff;z-index:91;box-shadow:-20px 0 60px rgba(0,0,0,0.15);display:flex;flex-direction:column">
+      <div class="sheet-head" style="padding:18px 22px;border-bottom:1px solid #DDD6CC;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-weight:700;font-size:17px">{{ cartTitle }}</div>
           <button onClick="{{ closeCart }}" style="border:none;background:none;color:#6B6660;font-size:12.5px;cursor:pointer;padding:0;margin-top:2px;text-decoration:underline">← Continue shopping</button>
@@ -653,9 +698,9 @@
                 <div style="font-size:14px;font-weight:600">{{ i.name }}</div>
                 <div style="font-size:12.5px;color:#6B6660;margin-top:2px">{{ i.priceFmt }} · qty</div>
                 <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-                  <button onClick="{{ i.onDec }}" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">–</button>
+                  <button onClick="{{ i.onDec }}" class="qbtn" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">–</button>
                   <span style="font-size:13px;min-width:16px;text-align:center">{{ i.qty }}</span>
-                  <button onClick="{{ i.onInc }}" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">+</button>
+                  <button onClick="{{ i.onInc }}" class="qbtn" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">+</button>
                   <button onClick="{{ i.onRemove }}" style="margin-left:auto;font-size:12px;color:#6B6660;background:none;border:none;cursor:pointer;text-decoration:underline">remove</button>
                 </div>
               </div>
@@ -682,16 +727,14 @@
       </sc-if>
 
       <sc-if value="{{ isStepInfo }}" hint-placeholder-val="{{ false }}">
-        <form onSubmit="{{ submitInfo }}" style="flex:1;overflow:auto;padding:22px 24px;display:flex;flex-direction:column;gap:14px">
-          <div style="font-size:13px;color:#6B6660">Order total: <strong style="color:#22201D">{{ cartTotalFmt }}</strong> (incl. delivery {{ shippingFmt }}) — enter your details to place the order.</div>
-          <div style="display:flex;border:1px solid #DDD6CC;border-radius:999px;padding:3px">
-            <button type="button" onClick="{{ setGuestMode }}" style="flex:1;border:none;background:{{ guestBg }};color:{{ guestFg }};padding:9px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer">Checkout as guest</button>
-            <button type="button" onClick="{{ setSaveInfoMode }}" style="flex:1;border:none;background:{{ saveInfoBg }};color:{{ saveInfoFg }};padding:9px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer">Save my info</button>
-          </div>
-          <label style="font-size:13px;font-weight:600">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
-          <label style="font-size:13px;font-weight:600">Email<input required="{{ true }}" type="email" value="{{ form.email }}" onChange="{{ setEmail }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
-          <label style="font-size:13px;font-weight:600">Phone (for delivery confirmation)<input required="{{ true }}" type="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
-          <label style="font-size:13px;font-weight:600">Street address (street, building, floor, apartment)<textarea required="{{ true }}" value="{{ form.address }}" onChange="{{ onAddress }}" placeholder="e.g. 12 Abbas El Akkad St, building 4, floor 2" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:70px;font-family:inherit"></textarea></label>
+        <form onSubmit="{{ submitInfo }}" class="co">
+        <div class="co-body">
+          <div class="co-sum"><span>Order total</span><b>{{ cartTotalFmt }}</b><small>incl. delivery {{ shippingFmt }}</small><button type="button" onClick="{{ backToCart }}">Edit cart</button></div>
+          <div class="co-step"><span class="co-n">1</span>Your details</div>
+          <label class="co-f">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" autocomplete="name" enterkeyhint="next" class="co-in"/></label>
+          <label class="co-f">Mobile number <span class="co-h">we call or WhatsApp to confirm</span><input required="{{ true }}" type="tel" inputmode="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" autocomplete="tel" placeholder="01x xxxx xxxx" enterkeyhint="next" class="co-in"/></label>
+          <label class="co-f">Email <span class="co-h">for your receipt</span><input required="{{ true }}" type="email" inputmode="email" value="{{ form.email }}" onChange="{{ setEmail }}" autocomplete="email" autocapitalize="off" enterkeyhint="next" class="co-in"/></label>
+          <div class="co-step"><span class="co-n">2</span>Delivery <span class="co-h">anywhere in Egypt</span></div>
           <sc-if value="{{ areaSearchMode }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;flex-direction:column;gap:8px">
               <div style="font-size:13px;font-weight:600">Delivery area <span style="color:#8A8478;font-weight:500">— so the courier finds you</span></div>
@@ -760,9 +803,10 @@
               </label>
             </sc-if>
           </sc-if>
+          <label class="co-f">Street address <span class="co-h">street, building, floor, flat</span><textarea required="{{ true }}" value="{{ form.address }}" onChange="{{ onAddress }}" autocomplete="street-address" placeholder="e.g. 12 Abbas El Akkad St, building 4, floor 2" class="co-in" style="min-height:76px"></textarea></label>
           <sc-if value="{{ needsPersonalization }}" hint-placeholder-val="{{ false }}">
             <div style="border:1px solid #DDD6CC;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;background:#FBF8F4">
-              <div><div style="font-size:14px;font-weight:700">Personalise your items</div><div style="font-size:12.5px;color:#6B6660;margin-top:2px">We print these on your stands and cards. We’ll send you the design to approve before production.</div></div>
+              <div><div style="font-size:15px;font-weight:700">3 · Personalise your items</div><div style="font-size:12.5px;color:#6B6660;margin-top:2px">We print these on your stands and cards. We’ll send you the design to approve before production.</div></div>
               <label style="font-size:13px;font-weight:600">Business / brand name<input required="{{ true }}" value="{{ form.businessName }}" onChange="{{ setBusinessName }}" placeholder="As it should appear on the design" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
               <label style="font-size:13px;font-weight:600">Google review link <span style="color:#8A8478;font-weight:500">(optional — we can find it for you)</span><input type="url" value="{{ form.reviewLink }}" onChange="{{ setReviewLink }}" placeholder="https://g.page/r/… or your Google Maps link" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/></label>
               <label style="font-size:13px;font-weight:600">Instagram / Facebook / TikTok / website <span style="color:#8A8478;font-weight:500">(optional)</span><textarea value="{{ form.links }}" onChange="{{ setLinks }}" placeholder="One link per line" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:56px;font-family:inherit"></textarea></label>
@@ -778,43 +822,42 @@
               <label style="font-size:13px;font-weight:600">Design notes <span style="color:#8A8478;font-weight:500">(optional)</span><textarea value="{{ form.designNotes }}" onChange="{{ setDesignNotes }}" placeholder="Colours, text, anything we should know" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;min-height:56px;font-family:inherit"></textarea></label>
             </div>
           </sc-if>
-          <label style="font-size:13px;font-weight:600">Country<input value="{{ form.country }}" disabled="{{ true }}" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;background:#F7F3ED;color:#6B6660"/></label>
-          <label style="font-size:13px;font-weight:600">Referral code <span style="color:#8A8478;font-weight:500">(optional)</span>
+          <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
+            <div style="color:#4C6B4F;font-size:12.5px;background:#EFF3EE;border-radius:10px;padding:10px 13px">Promo {{ appliedPromo.code }} applied (-{{ appliedPromo.pct }}%)</div>
+          </sc-if>
+          <div class="co-step"><span class="co-n">{{ payStepNo }}</span>Payment</div>
+          <div class="co-pay">
+            <sc-if value="{{ hasCardPay }}" hint-placeholder-val="{{ false }}">
+              <label class="co-opt" style="border-color:{{ payCardBorder }}"><input type="radio" name="payment" checked="{{ isPayCard }}" onChange="{{ setPaymentPayCard }}"/><span class="co-opt-t">Pay now by card<small>Visa, Mastercard or Meeza · secure Paymob page</small></span><span class="co-lock">🔒</span></label>
+            </sc-if>
+            <sc-if value="{{ hasWalletPay }}" hint-placeholder-val="{{ false }}">
+              <label class="co-opt" style="border-color:{{ payWalletBorder }}"><input type="radio" name="payment" checked="{{ isPayWallet }}" onChange="{{ setPaymentPayWallet }}"/><span class="co-opt-t">Mobile wallet<small>Vodafone Cash, Etisalat Cash, Orange Cash and others</small></span><span class="co-lock">🔒</span></label>
+            </sc-if>
+            <label class="co-opt" style="border-color:{{ codBorder }}"><input type="radio" name="payment" checked="{{ isCod }}" onChange="{{ setPaymentCod }}"/><span class="co-opt-t">Cash on delivery<small>Pay the courier when your order arrives</small></span></label>
+            <sc-if value="{{ payTestMode }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px;color:#8A5A00;background:#FBEFD5;border-radius:8px;padding:8px 10px">Test mode: online payments use Paymob test cards. No real money is charged.</div>
+            </sc-if>
+          </div>
+          <details class="co-more"><summary>Have a referral code?</summary>
+          <label class="co-f" style="margin-top:10px">Referral code
             <input value="{{ referralCode }}" onChange="{{ setReferralCode }}" placeholder="Got a code from a rep?" style="display:block;width:100%;margin-top:6px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px"/>
             <sc-if value="{{ referralError }}" hint-placeholder-val="{{ false }}">
               <div style="color:#A13F3F;font-size:12px;margin-top:5px">Code not recognized — check it and try again, or leave it blank.</div>
             </sc-if>
           </label>
-          <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
-            <div style="color:#4C6B4F;font-size:12.5px;background:#EFF3EE;border-radius:10px;padding:10px 13px">Promo {{ appliedPromo.code }} applied (-{{ appliedPromo.pct }}%)</div>
-          </sc-if>
-          <div style="font-size:13px;font-weight:600">Payment method
-            <div style="display:flex;gap:10px;margin-top:8px">
-              <sc-if value="{{ noOnlinePay }}" hint-placeholder-val="{{ false }}">
-                <label style="flex:1;border:1px solid #DDD6CC;border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:not-allowed;display:flex;align-items:center;gap:8px;opacity:0.55;background:#F7F3ED"><input type="radio" name="payment" disabled="{{ true }}" style="pointer-events:none"/>Card or wallet <span style="font-size:11px;color:#6B6660;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">— Coming soon</span></label>
-              </sc-if>
-              <label style="flex:1;border:1px solid {{ codBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCod }}" onChange="{{ setPaymentCod }}"/>Cash on delivery</label>
-            </div>
-            <sc-if value="{{ hasCardPay }}" hint-placeholder-val="{{ false }}">
-              <label style="margin-top:8px;border:1px solid {{ payCardBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px"><input type="radio" name="payment" checked="{{ isPayCard }}" onChange="{{ setPaymentPayCard }}"/><span style="flex:1">Pay now by card<span style="display:block;font-size:12px;color:#6B6660;font-weight:400">Visa, Mastercard or Meeza · secure Paymob page</span></span><span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B6660">🔒</span></label>
-            </sc-if>
-            <sc-if value="{{ hasWalletPay }}" hint-placeholder-val="{{ false }}">
-              <label style="margin-top:8px;border:1px solid {{ payWalletBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px"><input type="radio" name="payment" checked="{{ isPayWallet }}" onChange="{{ setPaymentPayWallet }}"/><span style="flex:1">Pay now with a mobile wallet<span style="display:block;font-size:12px;color:#6B6660;font-weight:400">Vodafone Cash, Etisalat Cash, Orange Cash and other wallets</span></span><span style="font-size:11px;font-weight:700;color:#6B6660">🔒</span></label>
-            </sc-if>
-            <sc-if value="{{ payTestMode }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top:8px;font-size:12px;color:#8A5A00;background:#FBEFD5;border-radius:8px;padding:8px 10px">Test mode: online payments use Paymob test cards. No real money is charged.</div>
-            </sc-if>
-          </div>
-          <label style="font-size:12.5px;color:#6B6660;display:flex;gap:8px;align-items:flex-start;line-height:1.5">
-            <input type="checkbox" required="{{ true }}" style="margin-top:3px"/>
+          </details>
+          <label class="co-check"><input type="checkbox" checked="{{ rememberMe }}" onChange="{{ toggleRemember }}"/><span>Remember my details on this device</span></label>
+          <label class="co-check">
+            <input type="checkbox" required="{{ true }}" />
             <span>I agree to the <a href="terms.html" target="_blank" style="text-decoration:underline">Terms</a>, <a href="refund-policy.html" target="_blank" style="text-decoration:underline">Refund & Cancellation</a>, <a href="shipping-policy.html" target="_blank" style="text-decoration:underline">Delivery</a> and <a href="privacy-policy.html" target="_blank" style="text-decoration:underline">Privacy</a> policies.</span>
           </label>
           <sc-if value="{{ orderError }}" hint-placeholder-val="{{ '' }}">
             <div style="color:#A13F3F;font-size:13px;background:#F7E1E1;border-radius:10px;padding:10px 13px">{{ orderError }}</div>
           </sc-if>
-          <div style="display:flex;gap:10px;margin-top:auto;padding-top:10px">
-            <button type="button" onClick="{{ backToCart }}" style="flex:1;background:#fff;border:1px solid #DDD6CC;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Back</button>
-            <button type="submit" style="flex:2;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer" disabled="{{ placing }}">{{ placeLabel }}</button>
+        </div>
+          <div class="co-foot">
+            <div class="co-foot-t"><span>Total</span><b>{{ cartTotalFmt }}</b></div>
+            <button type="submit" class="co-go" disabled="{{ placing }}">{{ placeLabel }}</button>
           </div>
         </form>
       </sc-if>
@@ -861,7 +904,7 @@ class Component extends DCLogic {
     sortKey: 'popular', inStockOnly: false, priceMin: '', priceMax: '',
     isLoading: true, toast: '',
     promoInput: '', appliedPromo: null, promoError: false,
-    checkoutMode: 'guest', stockWarning: '', visibleCount: 9
+    checkoutMode: 'save', stockWarning: '', visibleCount: 9
   };
 
   categories = [
@@ -1008,6 +1051,7 @@ class Component extends DCLogic {
   };
   setGuestMode = () => this.setState({ checkoutMode: 'guest' });
   setSaveInfoMode = () => this.setState({ checkoutMode: 'save' });
+  toggleRemember = () => this.setState(s => ({ checkoutMode: s.checkoutMode === 'save' ? 'guest' : 'save' }));
   // Cart lines are keyed by product + size + extras, and re-priced on every change (quantity prices).
   _persistCart = (cart) => {
     if (!this._sd) return cart;
@@ -1207,7 +1251,7 @@ class Component extends DCLogic {
         window.location.href = res.payUrl;
         return;
       }
-      if (s.checkoutMode === 'save') { try { localStorage.setItem('spotshop_saved_contact', JSON.stringify(s.form)); } catch {} }
+      try { if (s.checkoutMode === 'save') localStorage.setItem('spotshop_saved_contact', JSON.stringify({ name: s.form.name, email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city, cityId: s.form.cityId, districtId: s.form.districtId, zoneId: s.form.zoneId, areaTitle: s.form.areaTitle, areaSub: s.form.areaSub })); else localStorage.removeItem('spotshop_saved_contact'); } catch {}
       const inventory = (await this._sd.fetchCatalog()) || s.inventory;
       this._sd.saveCart([]);
       this.setState(st => ({ form: { ...st.form, logoToken: '', logoName: '', designNotes: '' } }));
@@ -1340,6 +1384,7 @@ class Component extends DCLogic {
       promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
       appliedPromo: s.appliedPromo, promoDiscountFmt: s.appliedPromo ? fmt(cartSubtotal - cartTotal) : '',
       goInfo: this.goInfo, backToCart: this.backToCart, submitInfo: this.submitInfo, newOrder: this.newOrder,
+      rememberMe: s.checkoutMode === 'save', payStepNo: s.cart.some(i => i.personalized) ? 4 : 3,
       guestBg: s.checkoutMode === 'guest' ? accent : 'transparent', guestFg: s.checkoutMode === 'guest' ? '#fff' : '#22201D',
       saveInfoBg: s.checkoutMode === 'save' ? accent : 'transparent', saveInfoFg: s.checkoutMode === 'save' ? '#fff' : '#22201D',
       setGuestMode: this.setGuestMode, setSaveInfoMode: this.setSaveInfoMode,

@@ -33,7 +33,7 @@
   const css = `
   :host{all:initial}
   *{box-sizing:border-box;font-family:'Work Sans',system-ui,-apple-system,sans-serif}
-  .launch{position:fixed;right:22px;bottom:22px;z-index:80;display:flex;align-items:center;gap:10px;border:none;cursor:pointer;
+  .launch{position:fixed;right:22px;bottom:calc(22px + var(--wts-chat-offset, 0px));z-index:80;display:flex;align-items:center;gap:10px;border:none;cursor:pointer;
     background:#22201D;color:#F7F3ED;border-radius:999px;padding:8px 20px 8px 8px;font-size:14.5px;font-weight:600;
     box-shadow:0 18px 40px -16px rgba(20,18,16,.55);transition:transform .2s ease,box-shadow .2s ease}
   .launch:hover{transform:translateY(-2px);box-shadow:0 22px 44px -16px rgba(20,18,16,.6)}
@@ -82,9 +82,9 @@
   .fine{font-size:11.5px;color:#8A8478;text-align:center;padding:0 16px 10px;background:#fff}
   @media (max-width:520px){
     .panel{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}
-    .launch{right:16px;bottom:16px;padding:8px}
+    .launch{right:16px;bottom:calc(16px + var(--wts-chat-offset, 0px));padding:8px}
     .launch .txt{display:none}
-    .tease{right:16px;bottom:76px}
+    .tease{right:16px;bottom:calc(76px + var(--wts-chat-offset, 0px))}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   `;

@@ -44,6 +44,14 @@
   @media (max-width: 760px){
     .pdp-grid{grid-template-columns:1fr !important}
   }
+  @media (max-width: 760px){
+    input,select,textarea{font-size:16px !important}
+    .buyrow{flex-wrap:wrap;gap:10px !important}
+    .buyrow .qtybox{width:100%;justify-content:space-between}
+    .buyrow .qtybox button{width:52px !important;height:46px !important}
+    .buyrow > button{flex:1 1 40% !important;padding:15px 10px !important;white-space:nowrap}
+    :root{--wts-chat-offset:78px}
+  }
 </style>
 <script src="image-slot.js"></script>
 </helmet>
@@ -51,7 +59,10 @@
   <nav style="border-bottom:1px solid #DDD6CC;background:#fff">
     <div style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between">
       <a href="index.html" style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px">Where To Spot</a>
-      <a href="index.html" class="link" style="font-size:13.5px;font-weight:600;color:#6B6660">← Back to shop</a>
+      <div style="display:flex;align-items:center;gap:14px">
+        <a href="index.html" class="link" style="font-size:13.5px;font-weight:600;color:#6B6660">← Shop</a>
+        <a href="index.html?cart=1" style="border:1px solid #DDD6CC;background:#fff;padding:9px 14px;border-radius:999px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px">Cart<sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}"><span style="background:var(--accent);color:#fff;border-radius:999px;font-size:11.5px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px">{{ cartCount }}</span></sc-if></a>
+      </div>
     </div>
   </nav>
 
@@ -96,8 +107,8 @@
         <span style="display:inline-block;margin-top:12px;background:{{ badgeBg }};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.03em">{{ product.label }}</span>
       </sc-if>
       <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
-        <span style="color:var(--accent);font-size:15px;letter-spacing:2px">{{ starsFmt }}</span>
         <sc-if value="{{ hasReviews }}" hint-placeholder-val="{{ false }}">
+          <span style="color:var(--accent);font-size:15px;letter-spacing:2px">{{ starsFmt }}</span>
           <a href="#reviews" class="link" style="font-size:12.5px;color:#6B6660">{{ ratingAvg }} ({{ ratingCount }} reviews)</a>
         </sc-if>
       </div>
@@ -138,8 +149,8 @@
         </div>
       </sc-if>
       <div style="margin-top:16px;font-size:14px;color:#6B6660">{{ totalLine }}</div>
-      <div style="display:flex;align-items:center;gap:14px;margin-top:30px">
-        <div style="display:flex;align-items:center;border:1px solid #DDD6CC;border-radius:999px">
+      <div class="buyrow" style="display:flex;align-items:center;gap:14px;margin-top:30px">
+        <div class="qtybox" style="display:flex;align-items:center;border:1px solid #DDD6CC;border-radius:999px">
           <button onClick="{{ decQty }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;border-radius:999px 0 0 999px;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">–</button>
           <input type="number" min="1" value="{{ qty }}" onChange="{{ setQty }}" aria-label="Quantity" style="width:56px;text-align:center;font-weight:600;border:none;background:transparent;font-size:15px;font-family:inherit"/>
           <button onClick="{{ incQty }}" disabled="{{ atStockLimit }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;opacity:{{ incQtyOpacity }};border-radius:0 999px 999px 0;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">+</button>
@@ -431,6 +442,7 @@ class Component extends DCLogic {
         return { qty: next ? t.min + (next.min - 1 > t.min ? '–' + (next.min - 1) : '') + ' pcs' : t.min + '+ pcs', price: fmt(t.price) + ' each', weight: on ? 700 : 400, bg: on ? '#FBF3EE' : '#fff' }; }),
       totalLine: 'Total for ' + qty + (qty === 1 ? ' piece' : ' pieces') + ': ' + fmt(line.total),
       related: this.state.related.map(r => { const rp = this._sd ? this._sd.salePrice(r) : r.price; return { ...r, price: rp, priceFmt: (r.variants && r.variants.length) || (r.tiers && r.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(r)) : fmt(rp), img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id }; }),
+      cartCount: this._sd ? this._sd.loadCart().reduce((n, i) => n + i.qty, 0) : 0,
       qty: this.state.qty, incQty: this.incQty, decQty: this.decQty, setQty: this.setQty, addToCart: this.addToCart,
       added: this.state.added,
       addBtnLabel: this.state.added ? 'Added ✓' : stock <= 0 ? 'Out of stock' : 'Add to cart',
