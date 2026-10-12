@@ -364,6 +364,23 @@
   .acct-area span{font-weight:600}.acct-area small{color:#8A8478}
   .acct-pref{padding:6px 0}
   .acct-out{margin-top:8px;align-self:flex-start;border:1px solid #DDD6CC;background:#fff;border-radius:999px;padding:10px 18px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;color:#6B6660}
+  .phone-in{display:flex;gap:8px;align-items:stretch}
+  .phone-in select{flex:none;width:auto;max-width:118px;border:1px solid #D6CEC2;border-radius:12px;background:#fff;padding:0 8px;font:inherit;font-size:16px;color:#22201D;direction:ltr}
+  .phone-in input{flex:1;min-width:0;direction:ltr}
+  [dir=rtl] .phone-in{flex-direction:row-reverse}
+  .acct-done{display:flex;flex-direction:column;gap:4px;background:#F7F3ED;border-radius:14px;padding:14px 16px;font-size:14px;color:#4A4640;line-height:1.5}
+  .acct-done b{font-size:16px;color:#22201D}
+  .acct-addr{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto auto;gap:2px 12px;align-items:center;border:1px solid #E4DDD2;border-radius:14px;padding:12px 14px}
+  .acct-addr-t{font-size:12px;font-weight:700;color:#8A8478;grid-column:1}
+  .acct-addr b{grid-column:1;font-size:14px;line-height:1.4}
+  .acct-addr small{grid-column:1;font-size:12.5px;color:#6B6660}
+  .acct-addr button{grid-column:2;grid-row:1/4;border:1px solid #DDD6CC;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .acct-old{display:flex;align-items:center;gap:10px;border:1px solid #E4DDD2;border-radius:12px;padding:10px 12px;margin-top:8px}
+  .acct-old span{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13.5px}
+  .acct-old small{color:#6B6660;font-size:12px}
+  .acct-old button{border:1px solid #22201D;background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;flex:none}
+  .acct-old[data-on="true"]{border-color:var(--accent);background:#FBF3EE}
+  .acct-old[data-on="true"] button{border-color:transparent;background:none;color:#2F6B3A}
   .co-acct{display:flex;gap:8px;align-items:flex-start;background:#EFF3EE;color:#2F5A36;border-radius:12px;padding:10px 13px;font-size:13px;line-height:1.5}
   .co-signin{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:1.5px dashed var(--accent);background:#FBF3EE;border-radius:12px;padding:12px 14px;font:inherit;font-size:13.5px;font-weight:600;color:#22201D;cursor:pointer;text-align:start}
   .co-signin b{color:var(--accent)}
@@ -887,7 +904,7 @@
           <sc-if value="{{ acctSignedOut }}"><button type="button" class="co-signin" onClick="{{ openAccount }}"><span>Have an account? Sign in and we’ll fill this in for you</span><b aria-hidden="true">→</b></button></sc-if>
           <div class="co-step"><span class="co-n">1</span>Your details</div>
           <label class="co-f">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" autocomplete="name" enterkeyhint="next" class="co-in"/></label>
-          <label class="co-f">Mobile number <span class="co-h">we call or WhatsApp to confirm</span><input required="{{ true }}" type="tel" inputmode="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" autocomplete="tel" placeholder="01x xxxx xxxx" enterkeyhint="next" class="co-in"/></label>
+          <label class="co-f">Mobile number <span class="co-h">we call or WhatsApp to confirm</span><span class="phone-in"><select value="{{ form.phoneCc }}" onChange="{{ setPhoneCc }}" aria-label="Country code"><sc-for list="{{ countryOptions }}" as="cc" hint-placeholder-count="3"><option value="{{ cc.value }}">{{ cc.label }}</option></sc-for></select><input required="{{ true }}" type="tel" inputmode="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" autocomplete="tel-national" placeholder="{{ phonePh }}" enterkeyhint="next" class="co-in"/></span></label>
           <label class="co-f">Email <span class="co-h">for your receipt</span><input required="{{ true }}" type="email" inputmode="email" value="{{ form.email }}" onChange="{{ setEmail }}" autocomplete="email" autocapitalize="off" enterkeyhint="next" class="co-in"/></label>
           <div class="co-step"><span class="co-n">2</span>Delivery <span class="co-h">anywhere in Egypt</span></div>
           <sc-if value="{{ areaSearchMode }}" hint-placeholder-val="{{ false }}">
@@ -1066,8 +1083,22 @@
           <p class="acct-note">Didn’t get it? Check your spam folder. The code works for 15 minutes.</p>
         </sc-if>
         <sc-if value="{{ acctMsg }}" hint-placeholder-val="{{ '' }}"><div class="acct-msg">{{ acctMsg }}</div></sc-if>
-        <sc-if value="{{ acctSignedIn }}">
+        <sc-if value="{{ acctNeedsProfile }}">
+          <div class="acct-done"><b>One last step</b><span>Add your name and mobile number so we can confirm your orders and the courier can reach you.</span></div>
+          <form onSubmit="{{ saveProfile }}" class="acct-form">
+            <label class="co-f">Full name<input required="{{ true }}" value="{{ acctForm.name }}" onChange="{{ setAcctName }}" autocomplete="name" class="co-in"/></label>
+            <label class="co-f">Mobile number<span class="phone-in"><select value="{{ acctForm.phoneCc }}" onChange="{{ setAcctCc }}" aria-label="Country code"><sc-for list="{{ countryOptions }}" as="cc" hint-placeholder-count="3"><option value="{{ cc.value }}">{{ cc.label }}</option></sc-for></select><input required="{{ true }}" type="tel" inputmode="tel" value="{{ acctForm.phone }}" onChange="{{ setAcctPhone }}" autocomplete="tel-national" placeholder="{{ acctPhonePh }}" class="co-in"/></span></label>
+            <button type="submit" class="co-go" disabled="{{ acctBusy }}">Save and continue</button>
+          </form>
+        </sc-if>
+        <sc-if value="{{ acctReady }}">
           <div class="acct-hi"><span class="acct-av">{{ acctInitial }}</span><span><b>{{ acctName }}</b><small translate="no">{{ acctEmailShown }}</small></span></div>
+          <div class="acct-addr">
+            <span class="acct-addr-t">Delivery address</span>
+            <sc-if value="{{ acctHasAddress }}"><b>{{ acctAddressLine }}</b><small>{{ acctAreaLine }}</small></sc-if>
+            <sc-if value="{{ acctNoAddress }}"><small>Saved automatically with your first order.</small></sc-if>
+            <sc-if value="{{ acctManyAddresses }}"><button onClick="{{ showAddresses }}">Change</button></sc-if>
+          </div>
           <div class="acct-tabs">
             <sc-for list="{{ acctTabs }}" as="at" hint-placeholder-count="3"><button onClick="{{ at.onClick }}" data-on="{{ at.on }}">{{ at.label }}</button></sc-for>
           </div>
@@ -1089,9 +1120,16 @@
           <sc-if value="{{ tabDetails }}">
             <form onSubmit="{{ saveDetails }}" class="acct-form">
               <label class="co-f">Full name<input value="{{ acctForm.name }}" onChange="{{ setAcctName }}" autocomplete="name" class="co-in"/></label>
-              <label class="co-f">Mobile number<input type="tel" inputmode="tel" value="{{ acctForm.phone }}" onChange="{{ setAcctPhone }}" autocomplete="tel" class="co-in"/></label>
+              <label class="co-f">Mobile number<span class="phone-in"><select value="{{ acctForm.phoneCc }}" onChange="{{ setAcctCc }}" aria-label="Country code"><sc-for list="{{ countryOptions }}" as="cc" hint-placeholder-count="3"><option value="{{ cc.value }}">{{ cc.label }}</option></sc-for></select><input type="tel" inputmode="tel" value="{{ acctForm.phone }}" onChange="{{ setAcctPhone }}" autocomplete="tel-national" placeholder="{{ acctPhonePh }}" class="co-in"/></span></label>
               <label class="co-f">Street address<textarea value="{{ acctForm.address }}" onChange="{{ setAcctAddress }}" class="co-in" style="min-height:76px"></textarea></label>
               <div class="acct-area"><span>Delivery area</span><b>{{ acctAreaLine }}</b><small>Change it at checkout — we save the area you choose.</small></div>
+              <sc-if value="{{ acctManyAddresses }}">
+                <div class="acct-pref"><div class="fs-t">Addresses you used before</div>
+                  <sc-for list="{{ acctAddresses }}" as="ad" hint-placeholder-count="0">
+                    <div class="acct-old" data-on="{{ ad.on }}"><span><b>{{ ad.address }}</b><small>{{ ad.area }}</small></span><button type="button" onClick="{{ ad.onUse }}">{{ ad.btn }}</button></div>
+                  </sc-for>
+                </div>
+              </sc-if>
               <button type="submit" class="co-go" disabled="{{ acctBusy }}">Save details</button>
             </form>
           </sc-if>
@@ -1100,8 +1138,8 @@
             <div class="acct-pref"><div class="fs-t">How should we contact you about orders?</div><div class="fs-pills"><sc-for list="{{ prefContacts }}" as="pc" hint-placeholder-count="3"><button onClick="{{ pc.onClick }}" class="fs-pill" data-on="{{ pc.on }}">{{ pc.label }}</button></sc-for></div></div>
             <label class="fs-check acct-pref"><input type="checkbox" checked="{{ prefOffers }}" onChange="{{ togglePrefOffers }}"/><span>Send me offers and new products (a few times a month)</span></label>
           </sc-if>
-          <button onClick="{{ signOut }}" class="acct-out">Sign out</button>
         </sc-if>
+        <sc-if value="{{ acctSignedIn }}"><button onClick="{{ signOut }}" class="acct-out">Sign out</button></sc-if>
       </div>
     </div>
   </sc-if>
@@ -1150,7 +1188,7 @@ class Component extends DCLogic {
     cart: [],
     cartOpen: false,
     checkoutStep: 'cart',
-    form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' },
+    form: { name: '', email: '', phone: '', phoneCc: '+20', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' },
     referralCode: '', referralError: false,
     promo: '',
     leadForm: { name: '', contact: '', cat: 'nfc' },
@@ -1162,7 +1200,29 @@ class Component extends DCLogic {
     promoInput: '', appliedPromo: null, promoError: '',
     checkoutMode: 'save', stockWarning: '', visibleCount: 12, filtersOpen: false,
     account: null, acctOrdersList: [], accountOpen: false, acctStep: 'email', acctEmail: '', acctCode: '', acctMsg: '', acctBusy: false, acctTab: 'orders',
-    acctForm: { name: '', phone: '', address: '' }
+    acctForm: { name: '', phone: '', phoneCc: '+20', address: '' }
+  };
+
+  // Phone numbers: a country picker (flag + code) and the number. Egyptian numbers are kept in the local
+  // 01x format couriers use; other countries as "+code number".
+  COUNTRIES = [['🇪🇬', '+20'], ['🇸🇦', '+966'], ['🇦🇪', '+971'], ['🇰🇼', '+965'], ['🇶🇦', '+974'], ['🇧🇭', '+973'], ['🇴🇲', '+968'], ['🇯🇴', '+962'],
+    ['🇱🇧', '+961'], ['🇮🇶', '+964'], ['🇵🇸', '+970'], ['🇱🇾', '+218'], ['🇸🇩', '+249'], ['🇲🇦', '+212'], ['🇹🇳', '+216'], ['🇩🇿', '+213'], ['🇾🇪', '+967'],
+    ['🇸🇾', '+963'], ['🇹🇷', '+90'], ['🇬🇧', '+44'], ['🇺🇸', '+1'], ['🇩🇪', '+49'], ['🇫🇷', '+33'], ['🇮🇹', '+39'], ['🇨🇳', '+86']];
+  splitPhone = (p) => {
+    const raw = String(p || '').trim().replace(/^00/, '+');
+    if (raw.charAt(0) !== '+') return { phoneCc: '+20', phone: raw };
+    const digits = raw.replace(/[^\d+]/g, '');
+    const hit = this.COUNTRIES.map(c => c[1]).sort((a, b) => b.length - a.length).find(cc => digits.indexOf(cc) === 0);
+    if (!hit) return { phoneCc: '+20', phone: raw };
+    let rest = digits.slice(hit.length);
+    if (hit === '+20' && rest && rest.charAt(0) !== '0') rest = '0' + rest;
+    return { phoneCc: hit, phone: rest };
+  };
+  joinPhone = (cc, nat) => {
+    const n = String(nat || '').replace(/[^\d]/g, '');
+    if (!n) return '';
+    if ((cc || '+20') === '+20') return n.charAt(0) === '0' ? n : (n.indexOf('20') === 0 && n.length === 12 ? '0' + n.slice(2) : '0' + n);
+    return cc + ' ' + n.replace(/^0+/, '');
   };
 
   categories = [
@@ -1265,8 +1325,9 @@ class Component extends DCLogic {
       const c = acct.customer;
       form = { ...form, name: c.name || form.name, phone: c.phone || form.phone, email: c.email, address: c.address || form.address,
         ...(c.districtId ? { city: c.city, cityId: c.cityId, districtId: c.districtId, zoneId: c.zoneId || '', areaTitle: c.areaTitle || '', areaSub: c.areaSub || '' } : {}) };
-      this.setState({ account: c, acctOrdersList: acct.orders || [], acctStep: 'view', acctForm: { name: c.name, phone: c.phone, address: c.address } });
+      this.setState({ account: c, acctOrdersList: acct.orders || [], acctStep: 'view', acctForm: { name: c.name, address: c.address, ...this.splitPhone(c.phone) } });
     }
+    form = { ...form, ...this.splitPhone(form.phone) };
     this.loadAreas();
     cart0 = mod.repriceCart(cart0, inventory);
     mod.saveCart(cart0);
@@ -1318,12 +1379,12 @@ class Component extends DCLogic {
     if (!r) return;
     const c = r.customer;
     this.setState(s => ({
-      account: c, acctOrdersList: r.orders || [], acctStep: 'view', acctTab: 'orders', acctCode: '', acctForm: { name: c.name, phone: c.phone, address: c.address },
+      account: c, acctOrdersList: r.orders || [], acctStep: 'view', acctTab: 'orders', acctCode: '', acctForm: { name: c.name, address: c.address, ...this.splitPhone(c.phone) },
       // Fill checkout with the saved details (keeps anything already typed when the account has nothing yet).
-      form: { ...s.form, name: c.name || s.form.name, phone: c.phone || s.form.phone, email: c.email, address: c.address || s.form.address,
+      form: { ...s.form, name: c.name || s.form.name, ...(c.phone ? this.splitPhone(c.phone) : {}), email: c.email, address: c.address || s.form.address,
         ...(c.districtId ? { city: c.city, cityId: c.cityId, districtId: c.districtId, zoneId: c.zoneId || '', areaTitle: c.areaTitle || '', areaSub: c.areaSub || '' } : {}) },
-      // Signed in from checkout: go straight back to it.
-      accountOpen: !(s.cartOpen && s.checkoutStep === 'info'),
+      // Signed in from checkout: go straight back to it (unless name/phone are still missing).
+      accountOpen: !(s.cartOpen && s.checkoutStep === 'info') || !c.name || !c.phone,
     }), () => { if (c.cityId) this.loadZones(c.cityId); });
     this.showToast(window.WTS_T ? window.WTS_T('Signed in') : 'Signed in');
   };
@@ -1336,11 +1397,36 @@ class Component extends DCLogic {
     this.showToast(window.WTS_T ? window.WTS_T('Signed out') : 'Signed out');
   };
   setAcctTab = (t) => () => this.setState({ acctTab: t, acctMsg: '' });
+  setPhoneCc = (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, phoneCc: v } })); };
+  setAcctCc = (e) => { const v = e.target.value; this.setState(s => ({ acctForm: { ...s.acctForm, phoneCc: v } })); };
+  // Right after the first sign-in: name and mobile number are required.
+  saveProfile = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const f = this.state.acctForm;
+    const phone = this.joinPhone(f.phoneCc, f.phone);
+    if (!f.name.trim() || phone.replace(/\D/g, '').length < 8) { this.setState({ acctMsg: window.WTS_T ? window.WTS_T('Please enter your name and a valid mobile number.') : 'Please enter your name and a valid mobile number.' }); return; }
+    const r = await this._acctPost('account_save', { name: f.name.trim(), phone });
+    if (!r) return;
+    this.setState(s => ({ account: r.customer, form: { ...s.form, name: r.customer.name, ...this.splitPhone(r.customer.phone) },
+      accountOpen: !(s.cartOpen && s.checkoutStep === 'info') }));
+    this.showToast(window.WTS_T ? window.WTS_T('Details saved') : 'Details saved');
+  };
+  showAddresses = () => this.setState({ acctTab: 'details' });
+  useAddress = (ad) => async () => {
+    const r = await this._acctPost('account_save', { address: ad.address, city: ad.city, cityId: ad.cityId || '', districtId: ad.districtId || '', district: ad.district || '' });
+    if (!r) return;
+    const c = r.customer;
+    this.setState(s => ({ account: c, acctForm: { ...s.acctForm, address: c.address },
+      form: { ...s.form, address: c.address, ...(c.districtId ? { city: c.city, cityId: c.cityId, districtId: c.districtId, zoneId: '', areaTitle: c.areaTitle || '', areaSub: c.areaSub || '' } : {}) } }),
+      () => { if (c.cityId) this.loadZones(c.cityId); });
+    this.showToast(window.WTS_T ? window.WTS_T('Address saved') : 'Address saved');
+  };
   setAcctField = (f) => (e) => { const v = e.target.value; this.setState(s => ({ acctForm: { ...s.acctForm, [f]: v } })); };
   saveDetails = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const r = await this._acctPost('account_save', this.state.acctForm);
-    if (r) { this.setState(s => ({ account: r.customer, form: { ...s.form, name: r.customer.name, phone: r.customer.phone, address: r.customer.address } })); this.showToast(window.WTS_T ? window.WTS_T('Details saved') : 'Details saved'); }
+    const f = this.state.acctForm;
+    const r = await this._acctPost('account_save', { name: f.name, address: f.address, phone: this.joinPhone(f.phoneCc, f.phone) });
+    if (r) { this.setState(s => ({ account: r.customer, form: { ...s.form, name: r.customer.name, ...this.splitPhone(r.customer.phone), address: r.customer.address } })); this.showToast(window.WTS_T ? window.WTS_T('Details saved') : 'Details saved'); }
   };
   savePref = (patch) => async () => {
     const r = await this._acctPost('account_save', patch);
@@ -1625,7 +1711,7 @@ class Component extends DCLogic {
     this.setState({ placing: true, orderError: '', referralError: false });
     try {
       const res = await this._sd.postJSON('order', {
-        name: s.form.name, email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city,
+        name: s.form.name, email: s.form.email, phone: this.joinPhone(s.form.phoneCc, s.form.phone), address: s.form.address, city: s.form.city,
         city_id: s.form.cityId || '', district_id: s.form.districtId || '',
         items: s.cart.map(i => ({ id: i.id, variant: i.variant, addons: i.addons || [], qty: i.qty })),
         business_name: s.form.businessName || '', review_link: s.form.reviewLink || '', links: s.form.links || '', design_notes: s.form.designNotes || '',
@@ -1642,7 +1728,7 @@ class Component extends DCLogic {
         window.location.href = res.payUrl;
         return;
       }
-      try { if (s.checkoutMode === 'save') localStorage.setItem('spotshop_saved_contact', JSON.stringify({ name: s.form.name, email: s.form.email, phone: s.form.phone, address: s.form.address, city: s.form.city, cityId: s.form.cityId, districtId: s.form.districtId, zoneId: s.form.zoneId, areaTitle: s.form.areaTitle, areaSub: s.form.areaSub })); else localStorage.removeItem('spotshop_saved_contact'); } catch {}
+      try { if (s.checkoutMode === 'save') localStorage.setItem('spotshop_saved_contact', JSON.stringify({ name: s.form.name, email: s.form.email, phone: this.joinPhone(s.form.phoneCc, s.form.phone), address: s.form.address, city: s.form.city, cityId: s.form.cityId, districtId: s.form.districtId, zoneId: s.form.zoneId, areaTitle: s.form.areaTitle, areaSub: s.form.areaSub })); else localStorage.removeItem('spotshop_saved_contact'); } catch {}
       const inventory = (await this._sd.fetchCatalog()) || s.inventory;
       this._sd.saveCart([]);
       this.setState(st => ({ form: { ...st.form, logoToken: '', logoName: '', designNotes: '' } }));
@@ -1652,7 +1738,7 @@ class Component extends DCLogic {
       this.setState({ placing: false, orderError: msg, referralError: /referral/i.test(msg) });
     }
   };
-  newOrder = () => { this._persistCart([]); this.setState({ cart: [], checkoutStep: 'cart', cartOpen: false, orderError: '', appliedPromo: null, promoInput: '', referralCode: '', referralError: false, form: { name: '', email: '', phone: '', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' } }); };
+  newOrder = () => { this._persistCart([]); this.setState({ cart: [], checkoutStep: 'cart', cartOpen: false, orderError: '', appliedPromo: null, promoInput: '', referralCode: '', referralError: false, form: { name: '', email: '', phone: '', phoneCc: '+20', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' } }); };
   setLeadField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ leadForm: { ...s.leadForm, [field]: v } })); };
   submitLead = async (e) => {
     e.preventDefault();
@@ -1758,10 +1844,20 @@ class Component extends DCLogic {
       };
     });
     const acctSignedIn = !!acc;
+    const needsProfile = !!acc && (!acc.name || !acc.phone);
+    const addrs = (acc && acc.addresses) || [];
+    const ccOptions = this.COUNTRIES.map(([f, d]) => ({ value: d, label: f + ' ' + d }));
     return {
+      countryOptions: ccOptions, setPhoneCc: this.setPhoneCc, setAcctCc: this.setAcctCc,
+      phonePh: (s.form.phoneCc || '+20') === '+20' ? '01x xxxx xxxx' : T('Phone number'), acctPhonePh: (s.acctForm.phoneCc || '+20') === '+20' ? '01x xxxx xxxx' : T('Phone number'),
+      acctNeedsProfile: needsProfile, acctReady: acctSignedIn && !needsProfile, saveProfile: this.saveProfile,
+      acctHasAddress: !!(acc && acc.address), acctNoAddress: !(acc && acc.address), acctAddressLine: acc ? acc.address : '',
+      acctManyAddresses: addrs.length > 1 || (addrs.length === 1 && !addrs[0].current), showAddresses: this.showAddresses,
+      acctAddresses: addrs.map(ad => ({ address: ad.address, area: [ad.district, ad.city].filter(Boolean).join(', '), on: ad.current ? 'true' : 'false',
+        btn: ad.current ? T('✓ Default') : T('Use this'), onUse: this.useAddress(ad) })),
       account: acc, acctSignedIn, acctSignedOut: !acc, accountOpen: s.accountOpen, openAccount: this.openAccount, closeAccount: this.closeAccount, openAccountOrders: this.openAccountOrders,
       accountNavLabel: acc ? 'My account' : 'Sign in', accountTabLabel: acc ? 'Account' : 'Sign in',
-      accountTitle: acc ? 'My account' : 'Sign in',
+      accountTitle: needsProfile ? 'Complete your profile' : acc ? 'My account' : 'Sign in',
       acctStepEmail: !acc && s.acctStep === 'email', acctStepCode: !acc && s.acctStep === 'code',
       acctEmail: s.acctEmail, setAcctEmail: this.setAcctEmail, acctCode: s.acctCode, setAcctCode: this.setAcctCode,
       sendCode: this.sendCode, resendCode: this.resendCode, changeEmail: this.changeEmail, verifyCode: this.verifyCode, signOut: this.signOut,

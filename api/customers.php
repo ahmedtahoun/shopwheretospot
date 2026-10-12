@@ -106,7 +106,27 @@ function customer_out(array $c): array
 {
     return ['email' => $c['email'], 'name' => $c['name'], 'phone' => $c['phone'], 'address' => $c['address'], 'city' => $c['city'],
         'cityId' => $c['city_id'], 'districtId' => $c['district_id'], 'zoneId' => $c['zone_id'], 'areaTitle' => $c['area_title'], 'areaSub' => $c['area_sub'],
-        'lang' => $c['lang'], 'contact' => $c['contact_pref'], 'offers' => (bool) $c['offers'], 'since' => substr((string) $c['created_at'], 0, 10)];
+        'lang' => $c['lang'], 'contact' => $c['contact_pref'], 'offers' => (bool) $c['offers'], 'since' => substr((string) $c['created_at'], 0, 10),
+        'addresses' => customer_addresses($c)];
+}
+
+// Delivery addresses used on the account's orders (newest first, no repeats).
+function customer_addresses(array $c): array
+{
+    $st = db()->prepare("SELECT address, city, district, city_id, district_id FROM orders WHERE (customer_id = ? OR email = ? COLLATE NOCASE)
+        AND TRIM(address) != '' ORDER BY id DESC LIMIT 40");
+    $st->execute([$c['id'], $c['email']]);
+    $out = [];
+    $seen = [];
+    foreach ($st->fetchAll() as $r) {
+        $k = mb_strtolower(preg_replace('/\s+/', ' ', trim($r['address']))) . '|' . $r['district_id'];
+        if (isset($seen[$k])) continue;
+        $seen[$k] = true;
+        $out[] = ['address' => $r['address'], 'city' => $r['city'], 'district' => $r['district'], 'cityId' => $r['city_id'], 'districtId' => $r['district_id'],
+            'current' => trim($r['address']) === trim((string) $c['address']) && (string) $r['district_id'] === (string) $c['district_id']];
+        if (count($out) >= 5) break;
+    }
+    return $out;
 }
 
 // Orders on the account: placed while signed in, or with the account's email.
@@ -145,6 +165,12 @@ function customer_save(array $c, array $b): array
     db()->prepare('UPDATE customers SET name = ?, phone = ?, address = ?, contact_pref = ?, lang = ?, offers = ? WHERE id = ?')
         ->execute([$name, $phone, str_in($b['address'] ?? $c['address'], 500), $contact, $lang,
             array_key_exists('offers', $b) ? (empty($b['offers']) ? 0 : 1) : (int) $c['offers'], $c['id']]);
+    // "Use this address": an earlier delivery area becomes the default too.
+    if (array_key_exists('districtId', $b)) {
+        db()->prepare("UPDATE customers SET city = ?, city_id = ?, district_id = ?, district = ?, zone_id = NULL, area_title = ?, area_sub = ? WHERE id = ?")
+            ->execute([str_in($b['city'] ?? '', 80), str_in($b['cityId'] ?? '', 40) ?: null, str_in($b['districtId'] ?? '', 40) ?: null, str_in($b['district'] ?? '', 120),
+                str_in($b['district'] ?? '', 120), str_in($b['city'] ?? '', 80), $c['id']]);
+    }
     $st = db()->prepare('SELECT * FROM customers WHERE id = ?');
     $st->execute([$c['id']]);
     return $st->fetch();

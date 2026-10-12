@@ -198,6 +198,10 @@
     'We just sent a code — please check your email (and spam), or wait a minute to get a new one.': 'أرسلنا الكود للتو — راجع بريدك (وSpam)، أو انتظر دقيقة لطلب كود جديد.',
     'This code has expired. Please ask for a new one.': 'انتهت صلاحية الكود. اطلب كودًا جديدًا.', 'Too many wrong codes. Please ask for a new one.': 'أكواد خاطئة كثيرة. اطلب كودًا جديدًا.',
     'That code isn’t right. Check the latest email we sent.': 'الكود غير صحيح. راجع آخر رسالة أرسلناها.', 'Please sign in again.': 'من فضلك سجّل الدخول مرة أخرى.',
+    'One last step': 'خطوة أخيرة', 'Add your name and mobile number so we can confirm your orders and the courier can reach you.': 'أضف اسمك ورقم موبايلك لنؤكد طلباتك ويستطيع المندوب الوصول إليك.',
+    'Save and continue': 'حفظ ومتابعة', 'Complete your profile': 'أكمل بياناتك', 'Delivery address': 'عنوان التوصيل', 'Saved automatically with your first order.': 'يُحفظ تلقائيًا مع أول طلب.',
+    'Addresses you used before': 'عناوين استخدمتها من قبل', 'Use this': 'استخدم هذا', '✓ Default': '✓ الافتراضي', 'Address saved': 'تم حفظ العنوان', 'Country code': 'كود الدولة',
+    'Phone number': 'رقم الهاتف', 'Please enter your name and a valid mobile number.': 'من فضلك أدخل اسمك ورقم موبايل صحيح.',
     'In transit between hubs': 'في الطريق بين المخازن', 'Out for delivery': 'خرج للتوصيل', 'Pickup requested': 'في انتظار الاستلام من المخزن', 'Received at warehouse': 'وصل المخزن',
 
     // pieces of sentences that have a price, code or count in the middle
