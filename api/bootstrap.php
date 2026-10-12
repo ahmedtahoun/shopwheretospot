@@ -41,8 +41,9 @@ const ROLES = [
     'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups', 'revenue'],
     'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity', 'revenue'],
     'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
-    'staff' => ['dashboard', 'orders', 'sell', 'leads'],
-    'telesales' => ['dashboard', 'orders', 'sell', 'orders_only'],
+    // Everyone except owner and manager sees only the orders credited to them (the ones they entered).
+    'staff' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
+    'telesales' => ['dashboard', 'orders', 'sell', 'orders_only', 'own_orders'],
 ];
 // Order lifecycle, including production of personalised items. Cancelled/Returned put stock back.
 // 'Awaiting payment': an online-payment order whose payment Paymob hasn't confirmed yet (hidden from lists and totals).

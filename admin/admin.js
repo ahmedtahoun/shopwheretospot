@@ -68,7 +68,8 @@
   const itemHtml = (it) => { const [a, b] = splitName(it.name); return '<span class="it"><b class="it-q">' + esc(it.qty) + '×</b> ' + esc(a) + (b ? ' <span class="it-sz">' + esc(b) + '</span>' : '') + '</span>'; };
   const pill = (map, s) => { const t = map[s] || ['', '•']; return '<span class="pill ' + t[0] + '">' + t[1] + ' ' + esc(s) + '</span>'; };
   const ROLE_INFO = { owner: 'Everything, including team, settings and revenue', manager: 'Products, orders, leads, activity and revenue',
-    sales: 'Enters orders, sees only their own orders and leads · no revenue', staff: 'Orders and leads · no revenue', telesales: 'Orders only (view, enter and update) · order counts, no revenue' };
+    sales: 'Enters orders and leads · sees only their own orders · no revenue', staff: 'Enters orders and leads · sees only their own orders · no revenue',
+    telesales: 'Orders only · sees only the orders they entered · order counts, no revenue' };
 
   // ---------- drawer ----------
   function openDrawer(title, bodyHtml, footHtml) {
