@@ -788,6 +788,60 @@ try {
         log_activity($u, 'Deleted quote', quote_number((int) $q['id']));
         json_out(['ok' => true]);
 
+    // ---------- promo codes ----------
+
+    case 'promos':
+        require_perm('products');
+        $rows = db()->query("SELECT p.*, (SELECT COUNT(*) FROM orders o WHERE o.promo = p.code COLLATE NOCASE AND o.status != 'Cancelled') AS uses,
+            (SELECT COALESCE(SUM(o.discount), 0) FROM orders o WHERE o.promo = p.code COLLATE NOCASE AND o.status != 'Cancelled') AS given,
+            (SELECT COALESCE(SUM(o.total), 0) FROM orders o WHERE o.promo = p.code COLLATE NOCASE AND o.status NOT IN ('Cancelled','Returned')) AS sales
+            FROM promos p ORDER BY p.active DESC, p.id DESC")->fetchAll();
+        json_out(['promos' => array_map(function ($p) {
+            return ['id' => (int) $p['id'], 'code' => $p['code'], 'kind' => $p['kind'], 'value' => (float) $p['value'], 'minOrder' => (float) $p['min_order'],
+                'maxUses' => $p['max_uses'] === null ? null : (int) $p['max_uses'], 'startsAt' => $p['starts_at'], 'expiresAt' => $p['expires_at'],
+                'active' => (bool) $p['active'], 'note' => $p['note'], 'uses' => (int) $p['uses'], 'given' => (float) $p['given'], 'sales' => (float) $p['sales'],
+                'label' => promo_label($p), 'createdAt' => $p['created_at']];
+        }, $rows)]);
+
+    case 'promo_save':
+        $u = require_perm('products');
+        $b = body();
+        $id = (int) ($b['id'] ?? 0);
+        $code = strtoupper(preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($b['code'] ?? '')));
+        if (strlen($code) < 3 || strlen($code) > 30) fail('Use 3 to 30 letters or numbers for the code (no spaces).');
+        $kind = ($b['kind'] ?? '') === 'fixed' ? 'fixed' : 'percent';
+        $value = round((float) ($b['value'] ?? 0), 2);
+        if ($value <= 0) fail('Enter the discount amount.');
+        if ($kind === 'percent' && $value > 100) fail('A percentage can be at most 100.');
+        $date = function ($v) { $v = trim((string) $v); return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null; };
+        $max = ($b['max_uses'] ?? '') === '' || $b['max_uses'] === null ? null : max(1, (int) $b['max_uses']);
+        $vals = [$code, $kind, $value, max(0, round((float) ($b['min_order'] ?? 0), 2)), $max, $date($b['starts_at'] ?? ''), $date($b['expires_at'] ?? ''),
+            empty($b['active']) ? 0 : 1, str_in($b['note'] ?? '', 200)];
+        $dupe = db()->prepare('SELECT id FROM promos WHERE code = ? COLLATE NOCASE AND id != ?');
+        $dupe->execute([$code, $id]);
+        if ($dupe->fetchColumn()) fail('There is already a promo code called ' . $code . '.');
+        if ($id) {
+            db()->prepare('UPDATE promos SET code = ?, kind = ?, value = ?, min_order = ?, max_uses = ?, starts_at = ?, expires_at = ?, active = ?, note = ? WHERE id = ?')
+                ->execute(array_merge($vals, [$id]));
+            log_activity($u, 'Updated promo code', $code);
+        } else {
+            db()->prepare('INSERT INTO promos (code, kind, value, min_order, max_uses, starts_at, expires_at, active, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute(array_merge($vals, [$u['id']]));
+            log_activity($u, 'Created promo code', $code);
+        }
+        json_out(['ok' => true]);
+
+    case 'promo_delete':
+        $u = require_perm('products');
+        $st = db()->prepare('SELECT code FROM promos WHERE id = ?');
+        $st->execute([(int) (body()['id'] ?? 0)]);
+        $code = $st->fetchColumn();
+        if ($code === false) fail('Promo code not found.', 404);
+        if (promo_uses($code) > 0) fail('This code was used on orders, so it is kept for the records. Switch it off instead.');
+        db()->prepare('DELETE FROM promos WHERE code = ?')->execute([$code]);
+        log_activity($u, 'Deleted promo code', $code);
+        json_out(['ok' => true]);
+
     case 'quote_doc':
         $u = require_perm('sell');
         $q = load_quote((int) ($_GET['id'] ?? 0));

@@ -110,9 +110,9 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'],
+      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['promos', 'Promo codes', 'tag'],
       ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k));
+    ].filter(([k]) => can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -134,7 +134,7 @@
     $('#pwBtn').onclick = changePassword;
     $('#searchBtn').onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, promos: pagePromos, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
@@ -206,6 +206,7 @@
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
     person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
@@ -1502,6 +1503,67 @@
       '<div class="hint">Secret values are never shown here. The connection test asks Paymob to prepare a EGP 1 payment that nobody pays — nothing is charged.</div></div>';
     $('#psRe').onclick = () => pageSettings(false);
     const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
+  }
+
+  // ---------- promo codes ----------
+  async function pagePromos() {
+    const d = await api('promos');
+    const today = new Date().toISOString().slice(0, 10);
+    const state = (p) => !p.active ? ['', 'Off'] : p.expiresAt && p.expiresAt < today ? ['bad', 'Expired'] : p.startsAt && p.startsAt > today ? ['warn', 'Starts ' + fmtDay(p.startsAt)]
+      : p.maxUses != null && p.uses >= p.maxUses ? ['bad', 'Used up'] : ['good', 'Live'];
+    const live = d.promos.filter((p) => state(p)[1] === 'Live').length;
+    $('#main').innerHTML = header('Promo codes', 'Codes customers type at checkout. Changes work on the shop straight away.',
+      '<button class="btn primary" id="newPromo">+ New promo code</button>') +
+      '<div class="kpis"><div class="kpi"><div class="label">Live codes</div><div class="value">' + live + '</div></div>' +
+      '<div class="kpi"><div class="label">Orders with a code</div><div class="value">' + d.promos.reduce((a, p) => a + p.uses, 0) + '</div></div>' +
+      '<div class="kpi"><div class="label">Discounts given</div><div class="value">' + egp(d.promos.reduce((a, p) => a + p.given, 0)) + '</div></div></div>' +
+      (d.promos.length ? '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Discount</th><th>Rules</th><th>Status</th><th class="num">Used</th><th class="num">Sales</th></tr></thead><tbody>' +
+        d.promos.map((p) => { const [tone, label] = state(p);
+          return '<tr class="click" data-id="' + p.id + '"><td><b style="font-family:ui-monospace,monospace;letter-spacing:.04em">' + esc(p.code) + '</b>' + (p.note ? '<div class="small muted">' + esc(p.note) + '</div>' : '') + '</td>' +
+            '<td>' + esc(p.label) + '</td><td class="small muted">' + ([p.minOrder ? 'Min. ' + egp(p.minOrder) : '', p.maxUses != null ? 'Max ' + p.maxUses + ' uses' : '', p.expiresAt ? 'Until ' + fmtDay(p.expiresAt) : ''].filter(Boolean).join(' · ') || 'No limits') + '</td>' +
+            '<td><span class="pill ' + tone + '">' + esc(label) + '</span></td><td class="num">' + p.uses + (p.maxUses != null ? ' / ' + p.maxUses : '') + '</td><td class="num">' + egp(p.sales) + '</td></tr>'; }).join('') +
+        '</tbody></table></div>' : '<div class="card empty">No promo codes yet. Press “New promo code”.</div>');
+    $('#newPromo').onclick = () => promoDrawer();
+    $$('tr[data-id]').forEach((tr) => { tr.onclick = () => promoDrawer(d.promos.find((p) => p.id === +tr.dataset.id)); });
+  }
+
+  function promoDrawer(p) {
+    p = p || { code: '', kind: 'percent', value: '', minOrder: 0, maxUses: null, startsAt: '', expiresAt: '', active: true, note: '', uses: 0 };
+    const w = openDrawer(p.id ? 'Promo code ' + p.code : 'New promo code',
+      '<form id="prf" class="stack">' +
+      '<label class="field">Code <span class="hint">What the customer types, e.g. RAMADAN15</span><input name="code" required maxlength="30" value="' + esc(p.code) + '" style="text-transform:uppercase;font-family:ui-monospace,monospace;letter-spacing:.05em" autocomplete="off"></label>' +
+      '<div class="grid2"><label class="field">Type<select name="kind"><option value="percent"' + (p.kind === 'percent' ? ' selected' : '') + '>Percentage off (%)</option><option value="fixed"' + (p.kind === 'fixed' ? ' selected' : '') + '>Fixed amount off (EGP)</option></select></label>' +
+      '<label class="field"><span id="valLabel">Discount</span><input name="amount" type="number" min="1" step="any" required value="' + esc(p.value) + '"></label></div>' +
+      '<div class="grid2"><label class="field">Minimum order (EGP) <span class="hint">Optional</span><input name="min_order" type="number" min="0" step="1" value="' + (p.minOrder || '') + '" placeholder="No minimum"></label>' +
+      '<label class="field">Max uses <span class="hint">Optional, all customers together</span><input name="max_uses" type="number" min="1" step="1" value="' + (p.maxUses == null ? '' : p.maxUses) + '" placeholder="Unlimited"></label></div>' +
+      '<div class="grid2"><label class="field">Starts <span class="hint">Optional</span><input name="starts_at" type="date" value="' + esc(p.startsAt || '') + '"></label>' +
+      '<label class="field">Ends (last day) <span class="hint">Optional</span><input name="expires_at" type="date" value="' + esc(p.expiresAt || '') + '"></label></div>' +
+      '<label class="field">Note for the team <span class="hint">Optional, e.g. Instagram campaign</span><input name="note" maxlength="200" value="' + esc(p.note || '') + '"></label>' +
+      '<label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" name="active"' + (p.active ? ' checked' : '') + '> Active (customers can use it)</label>' +
+      '<p class="small muted" id="prPreview" style="margin:0"></p></form>',
+      (p.id && !p.uses ? '<button class="btn danger" id="prDel">Delete</button>' : '') + '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="prf" type="submit">Save</button>');
+    $$('[data-close]', w).forEach((b) => b.addEventListener('click', closeDrawer));
+    const f = $('#prf'), el = f.elements;
+    const preview = () => {
+      const v = +el.amount.value || 0, fixed = el.kind.value === 'fixed';
+      $('#valLabel').textContent = fixed ? 'Amount off (EGP)' : 'Percent off (%)';
+      $('#prPreview').textContent = v ? 'On an ' + egp(1000) + ' order the customer saves ' + egp(fixed ? Math.min(v, 1000) : 1000 * Math.min(v, 100) / 100) + '.' : '';
+    };
+    el.kind.onchange = preview; el.amount.oninput = preview; preview();
+    el.code.oninput = () => { el.code.value = el.code.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''); };
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const body = { id: p.id || 0, code: el.code.value, kind: el.kind.value, value: el.amount.value, min_order: el.min_order.value, max_uses: el.max_uses.value,
+        starts_at: el.starts_at.value, expires_at: el.expires_at.value, note: el.note.value, active: el.active.checked };
+      try { await api('promo_save', { method: 'POST', body }); toast('Promo code saved'); closeDrawer(); pagePromos(); }
+      catch (err) { toast(err.message, true); }
+    };
+    const del = $('#prDel');
+    if (del) del.onclick = async () => {
+      if (!confirm('Delete promo code ' + p.code + '?')) return;
+      try { await api('promo_delete', { method: 'POST', body: { id: p.id } }); toast('Deleted'); closeDrawer(); pagePromos(); }
+      catch (err) { toast(err.message, true); }
+    };
   }
 
   // ---------- backups ----------

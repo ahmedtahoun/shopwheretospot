@@ -82,8 +82,11 @@ function create_order(array $in, array $opts = []): array
         if ($physical > 0 && mb_strlen($address) < 6) throw new ShopError($team ? 'Enter the delivery address.' : 'Please enter your delivery address.');
 
         $promo = strtoupper(str_in($in['promo'] ?? '', 40));
-        $codes = cfg('promo_codes');
-        $discount = isset($codes[$promo]) ? round($subtotal * $codes[$promo] / 100, 2) : 0.0;
+        $discount = 0.0;
+        if ($promo !== '') {
+            try { [$pr, $discount] = promo_check($promo, $subtotal); $promo = $pr['code']; }
+            catch (ShopError $e) { if (!$team) throw $e; $promo = ''; }
+        }
         if (!$discount) $promo = '';
         if ($team && isset($opts['discount']) && (float) $opts['discount'] > 0) {
             $discount = min($subtotal, round((float) $opts['discount'], 2));

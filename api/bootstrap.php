@@ -86,7 +86,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 function db(): PDO
 {
@@ -338,6 +338,25 @@ function migrate(PDO $pdo): void
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )");
+    // Promo codes the team manages in the dashboard (they used to be fixed in the code).
+    if (!$pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='promos'")->fetchColumn()) {
+        $pdo->exec("CREATE TABLE promos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            kind TEXT NOT NULL DEFAULT 'percent',
+            value REAL NOT NULL DEFAULT 0,
+            min_order REAL NOT NULL DEFAULT 0,
+            max_uses INTEGER DEFAULT NULL,
+            starts_at TEXT DEFAULT NULL,
+            expires_at TEXT DEFAULT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            note TEXT DEFAULT '',
+            created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )");
+        $ins = $pdo->prepare("INSERT OR IGNORE INTO promos (code, kind, value, note) VALUES (?, 'percent', ?, 'Original code')");
+        foreach ((array) cfg('promo_codes') as $c => $pct) $ins->execute([strtoupper($c), (float) $pct]);
+    }
     $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         month TEXT NOT NULL,
@@ -572,6 +591,37 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     if ($own) tx_commit();
     if ($status !== $o['status']) log_activity(current_user_quiet(), 'Order ' . $status, order_number($id));
     return $o;
+}
+
+// ---------- promo codes ----------
+function promo_uses(string $code): int
+{
+    $st = db()->prepare("SELECT COUNT(*) FROM orders WHERE promo = ? COLLATE NOCASE AND status != 'Cancelled'");
+    $st->execute([$code]);
+    return (int) $st->fetchColumn();
+}
+
+// Check a code against an items subtotal. Returns [promo row, discount]; throws ShopError with a clear reason.
+function promo_check(string $code, float $subtotal): array
+{
+    $code = strtoupper(trim($code));
+    $st = db()->prepare('SELECT * FROM promos WHERE code = ? COLLATE NOCASE');
+    $st->execute([$code]);
+    $p = $st->fetch();
+    if (!$p || !(int) $p['active']) throw new ShopError('This promo code is not valid.');
+    $today = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+    if ($p['starts_at'] && $today < $p['starts_at']) throw new ShopError('This promo code is not active yet.');
+    if ($p['expires_at'] && $today > $p['expires_at']) throw new ShopError('This promo code has expired.');
+    if ($p['max_uses'] !== null && promo_uses($p['code']) >= (int) $p['max_uses']) throw new ShopError('This promo code has been fully used.');
+    if ((float) $p['min_order'] > 0 && $subtotal > 0 && $subtotal < (float) $p['min_order'])
+        throw new ShopError('This code needs an order of EGP ' . number_format((float) $p['min_order']) . ' or more.');
+    $discount = $p['kind'] === 'fixed' ? min($subtotal, (float) $p['value']) : round($subtotal * min(100, (float) $p['value']) / 100, 2);
+    return [$p, round($discount, 2)];
+}
+
+function promo_label(array $p): string
+{
+    return $p['kind'] === 'fixed' ? 'EGP ' . number_format((float) $p['value']) . ' off' : rtrim(rtrim(number_format((float) $p['value'], 2), '0'), '.') . '% off';
 }
 
 // ---------- payments ----------

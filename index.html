@@ -713,11 +713,11 @@
             <input value="{{ promoInput }}" onChange="{{ setPromoInput }}" placeholder="Promo code" style="flex:1;border:1px solid #DDD6CC;padding:10px 13px;border-radius:10px;font-size:13.5px;font-family:inherit"/>
             <button onClick="{{ applyPromoCode }}" style="border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Apply</button>
           </div>
-          <sc-if value="{{ promoError }}" hint-placeholder-val="{{ false }}">
-            <div style="font-size:12.5px;color:#A13F3F;margin-bottom:10px">Invalid promo code.</div>
+          <sc-if value="{{ promoError }}" hint-placeholder-val="{{ '' }}">
+            <div style="font-size:12.5px;color:#A13F3F;margin-bottom:10px">{{ promoError }}</div>
           </sc-if>
           <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
-            <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4C6B4F;margin-bottom:6px"><span>Promo {{ appliedPromo.code }} (-{{ appliedPromo.pct }}%)</span><span>-{{ promoDiscountFmt }}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4C6B4F;margin-bottom:6px"><span>Promo {{ appliedPromo.code }} ({{ appliedPromo.label }})</span><span>-{{ promoDiscountFmt }}</span></div>
           </sc-if>
           <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:6px"><span>Subtotal</span><span>{{ cartItemsTotalFmt }}</span></div>
           <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:8px"><span>Delivery</span><span>{{ shippingFmt }}</span></div>
@@ -823,7 +823,7 @@
             </div>
           </sc-if>
           <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
-            <div style="color:#4C6B4F;font-size:12.5px;background:#EFF3EE;border-radius:10px;padding:10px 13px">Promo {{ appliedPromo.code }} applied (-{{ appliedPromo.pct }}%)</div>
+            <div style="color:#4C6B4F;font-size:12.5px;background:#EFF3EE;border-radius:10px;padding:10px 13px">Promo {{ appliedPromo.code }} applied ({{ appliedPromo.label }})</div>
           </sc-if>
           <div class="co-step"><span class="co-n">{{ payStepNo }}</span>Payment</div>
           <div class="co-pay">
@@ -903,7 +903,7 @@ class Component extends DCLogic {
     mobileMenuOpen: false, wishPanelOpen: false, wishlist: [],
     sortKey: 'popular', inStockOnly: false, priceMin: '', priceMax: '',
     isLoading: true, toast: '',
-    promoInput: '', appliedPromo: null, promoError: false,
+    promoInput: '', appliedPromo: null, promoError: '',
     checkoutMode: 'save', stockWarning: '', visibleCount: 9
   };
 
@@ -1041,13 +1041,14 @@ class Component extends DCLogic {
   toggleInStockOnly = (e) => this.setState({ inStockOnly: e.target.checked });
   setPriceMin = (e) => this.setState({ priceMin: e.target.value });
   setPriceMax = (e) => this.setState({ priceMax: e.target.value });
-  setPromoInput = (e) => this.setState({ promoInput: e.target.value, promoError: false });
+  setPromoInput = (e) => this.setState({ promoInput: e.target.value, promoError: '' });
   applyPromoCode = async () => {
     if (!this._sd || !this.state.promoInput.trim()) return;
     try {
-      const result = await this._sd.postJSON('promo', { code: this.state.promoInput });
-      this.setState({ appliedPromo: result, promoError: false }); this.showToast('Promo applied');
-    } catch (e) { this.setState({ promoError: true, appliedPromo: null }); }
+      const sub = this.state.cart.reduce((sum, i) => sum + (i.total != null ? i.total : i.price * i.qty), 0);
+      const result = await this._sd.postJSON('promo', { code: this.state.promoInput, subtotal: sub });
+      this.setState({ appliedPromo: result, promoError: '' }); this.showToast('Promo applied');
+    } catch (e) { this.setState({ promoError: (e && e.message) || 'This promo code is not valid.', appliedPromo: null }); }
   };
   setGuestMode = () => this.setState({ checkoutMode: 'guest' });
   setSaveInfoMode = () => this.setState({ checkoutMode: 'save' });
@@ -1317,7 +1318,9 @@ class Component extends DCLogic {
       return { title: d.name + (d.ar ? ' · ' + d.ar : ''), sub: (d.name === currentZone.name ? '' : currentZone.name + ', ') + cityName };
     })();
     const cartSubtotal = s.cart.reduce((sum, i) => sum + (i.total != null ? i.total : i.price * i.qty), 0);
-    const cartItemsTotal = s.appliedPromo ? Math.round(cartSubtotal * (1 - s.appliedPromo.pct / 100) * 100) / 100 : cartSubtotal;
+    const promoOff = !s.appliedPromo || cartSubtotal < (s.appliedPromo.min || 0) ? 0
+      : s.appliedPromo.kind === 'fixed' ? Math.min(cartSubtotal, s.appliedPromo.value) : Math.round(cartSubtotal * Math.min(100, s.appliedPromo.pct) / 100 * 100) / 100;
+    const cartItemsTotal = cartSubtotal - promoOff;
     const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
     const cartTotal = cartItemsTotal + shipping;
     const cartCount = s.cart.reduce((sum, i) => sum + i.qty, 0);

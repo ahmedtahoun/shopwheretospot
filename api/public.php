@@ -53,10 +53,12 @@ try {
     }
 
     if ($action === 'promo') {
-        $code = strtoupper(str_in($b['code'] ?? '', 40));
-        $codes = cfg('promo_codes');
-        if (!isset($codes[$code])) fail('Invalid promo code', 404);
-        json_out(['code' => $code, 'pct' => $codes[$code]]);
+        if (too_many_attempts('promo', 30, 3600)) fail('Too many tries. Please wait a while.', 429);
+        record_attempt('promo');
+        try { [$p] = promo_check(str_in($b['code'] ?? '', 40), (float) ($b['subtotal'] ?? 0)); }
+        catch (ShopError $e) { fail($e->getMessage(), 404); }
+        json_out(['code' => $p['code'], 'kind' => $p['kind'], 'value' => (float) $p['value'], 'min' => (float) $p['min_order'],
+            'pct' => $p['kind'] === 'percent' ? (float) $p['value'] : 0, 'label' => promo_label($p)]);
     }
 
     if ($action === 'order') {
