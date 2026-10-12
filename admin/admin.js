@@ -59,6 +59,13 @@
     if (o.due <= 0) return '<div class="small pay-ok">✓ Paid</div>';
     return '<div class="small ' + (o.paid > 0 ? 'pay-part' : 'muted') + '">' + (o.paid > 0 ? 'Deposit · ' : '') + egp(o.due) + ' due</div>';
   };
+  // "Acrylic Stand A4(21cm * 29.7cm)" → main name + the size/detail part shown in colour.
+  const splitName = (n) => {
+    n = String(n || '');
+    const m = n.match(/^(.*?)\s*(\(.*\)|—\s*.+)$/);
+    return m && m[1] ? [m[1], m[2].replace(/^—\s*/, '')] : [n, ''];
+  };
+  const itemHtml = (it) => { const [a, b] = splitName(it.name); return '<span class="it"><b class="it-q">' + esc(it.qty) + '×</b> ' + esc(a) + (b ? ' <span class="it-sz">' + esc(b) + '</span>' : '') + '</span>'; };
   const pill = (map, s) => { const t = map[s] || ['', '•']; return '<span class="pill ' + t[0] + '">' + t[1] + ' ' + esc(s) + '</span>'; };
   const ROLE_INFO = { sales: 'Enters orders, sees only their own orders, targets and leads', owner: 'Everything, including team and settings', manager: 'Products, orders, leads and activity', staff: 'Orders and leads only' };
 
@@ -389,13 +396,13 @@
       (selectable ? '<div class="row card" id="bulk" style="display:none;margin-bottom:14px;padding:12px 16px"><b id="selCount"></b><span class="spacer"></span>' +
         (bosta.enabled ? '<button class="btn primary sm" id="bulkShip">🚚 Create Bosta shipments</button><button class="btn sm" id="bulkAwb">🖨 Print waybills</button>' : '') +
         (can('team') ? '<button class="btn sm danger" id="bulkDel" title="Delete test or mistaken orders for good">Delete</button>' : '') + '</div>' : '') +
-      (d.orders.length ? '<div class="table-wrap"><table><thead><tr>' + (selectable ? '<th style="width:34px"><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
+      (d.orders.length ? '<div class="table-wrap"><table class="otable"><thead><tr>' + (selectable ? '<th style="width:34px"><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
         '<th>Order</th><th>Customer</th><th>Items</th><th>Status</th>' + (bosta.enabled ? '<th>Bosta</th>' : '') + '<th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
-        d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (selectable ? '<td data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
-          '<td><b>' + esc(o.number) + '</b></td><td>' + esc(o.customer) + '<div class="small muted">' + esc(o.phone) + ' · ' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
-          '<td class="small">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td><td>' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
-          (bosta.enabled ? '<td>' + bostaPill(o) + '</td>' : '') +
-          '<td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b>' + payState(o) + '</td></tr>').join('') +
+        d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (selectable ? '<td class="o-sel" data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
+          '<td class="o-num"><b>' + esc(o.number) + '</b></td><td class="o-cust"><b class="o-name">' + esc(o.customer) + '</b><div class="small muted o-phone">' + esc(o.phone) + '</div><div class="small muted">' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
+          '<td class="small o-items">' + o.items.map(itemHtml).join('') + '</td><td class="o-st">' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
+          (bosta.enabled ? '<td class="o-bosta">' + bostaPill(o) + '</td>' : '') +
+          '<td class="small muted o-date">' + dateTime(o.createdAt) + '</td><td class="num o-tot"><b>' + egp(o.total) + '</b>' + payState(o) + '</td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
     const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
@@ -740,9 +747,9 @@
       '<div class="card stack"><b>Customer</b><div class="grid2"><label class="field">Name<input type="text" name="name" required></label>' +
       '<label class="field">Phone / WhatsApp<input type="tel" name="phone" required placeholder="01xxxxxxxxx"></label></div>' +
       '<label class="field">Email <span class="hint">Optional</span><input type="email" name="email"></label></div>' +
-      '<div class="card stack"><b>Products</b><div class="row"><select id="nProd" style="flex:1;min-width:200px"><option value="">Choose a product…</option>' +
-      cat.products.map((p) => '<option value="' + esc(p.id) + '">' + esc(p.name) + ' — ' + ((p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? 'from ' + egp(p.fromPrice) : egp(p.price)) + (p.cat === 'services' ? ' / month' : ' · ' + p.stock + ' in stock') + '</option>').join('') +
-      '</select><input type="number" id="nQty" min="1" value="1" style="width:80px" aria-label="Quantity"><button type="button" class="btn" id="nAdd">Add</button></div>' +
+      '<div class="card stack"><b>Products</b><input type="hidden" id="nProd">' +
+      '<input type="search" id="nPQ" placeholder="Search products…" autocomplete="off"><div class="pp-list" id="nPL"></div>' +
+      '<div class="row" id="nAddRow" style="display:none"><span class="small" id="nChosen" style="flex:1;min-width:0"></span><input type="number" id="nQty" min="1" value="1" style="width:80px" aria-label="Quantity"><button type="button" class="btn primary" id="nAdd">Add</button></div>' +
       '<div class="row" id="nOpts"></div><div class="small muted" id="nPreview"></div>' +
       '<div class="lines" id="nLines"></div>' +
       '<details id="nCustomBox"><summary class="small" style="cursor:pointer;font-weight:600">＋ Custom item (anything not in the catalog)</summary>' +
@@ -750,12 +757,7 @@
       '<input type="number" id="cQty" min="1" value="1" style="width:70px" aria-label="Custom quantity"><span class="small">× EGP</span><input type="number" id="cPrice" min="0" step="0.01" style="width:100px" placeholder="each" aria-label="Price each">' +
       '<label class="row small"><input type="checkbox" id="cShip" checked> needs delivery</label><button type="button" class="btn sm" id="cAdd">Add</button></div>' +
       '<div class="small muted" style="margin-top:4px">Tip: for "30 for EGP 7,000" enter 30 × 233.33 — totals round to whole pounds.</div></details></div>' +
-      '<div class="card stack" id="nPers"><b>Personalisation</b> <span class="hint">What to print — shown on the order for the design team</span>' +
-      '<div class="grid2"><label class="field">Business / brand name<input type="text" name="business_name"></label>' +
-      '<label class="field">Google review link<input type="url" name="review_link" placeholder="https://g.page/r/…"></label></div>' +
-      '<label class="field">Social links / website<textarea name="links" style="min-height:50px" placeholder="One per line"></textarea></label>' +
-      '<label class="field">Design notes<textarea name="design_notes" style="min-height:50px" placeholder="Colours, text, logo comes on WhatsApp…"></textarea></label>' +
-      '<span class="hint">You can upload the logo and design files on the order after it’s created.</span></div>' +
+
       '<div class="card stack" id="nDelivery"><b>Delivery' + (isQuote ? ' <span class="hint">optional on a quote</span>' : '') + '</b>' +
       '<label class="field">Street address<textarea name="address" id="nAddr" style="min-height:60px" placeholder="Street, building, floor, apartment"></textarea></label>' +
       '<div class="field">Area <span class="hint">Search in English or Arabic, e.g. Nasr City / مدينة نصر</span><div class="pick" id="nPick"></div></div></div>' +
@@ -820,7 +822,8 @@
     };
     const renderLines = () => {
       $('#nLines').innerHTML = lines.length ? lines.map((l, i) => { const c = lineCalc(l);
-        return '<div class="line"><span>' + esc(c.name) + (l.custom ? ' <span class="pill">custom</span>' : '') + '<div class="small muted">' + egp(c.total / l.qty) + ' each</div></span>' +
+        const [ln1, ln2] = splitName(c.name);
+        return '<div class="line"><span><b>' + esc(ln1) + '</b>' + (ln2 ? ' <span class="it-sz">' + esc(ln2) + '</span>' : '') + (l.custom ? ' <span class="pill">custom</span>' : '') + '<div class="small muted">' + egp(c.total / l.qty) + ' each</div></span>' +
         '<input type="number" min="1" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity">' +
         '<b style="text-align:right">' + egp(c.total) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button></div>'; }).join('')
         : '<div class="small muted" style="padding:6px 0">No products yet.</div>';
@@ -843,7 +846,25 @@
       const stock = c.p.cat === 'services' ? null : (r.variant ? r.variant.stock : c.p.stock);
       $('#nPreview').textContent = c.qty + ' × ' + r.name + ' = ' + egp(r.total) + ' (' + egp(r.unit) + ' each)' + (stock !== null ? ' · ' + stock + ' in stock' : '');
     };
+    // Visual product picker: photo, short name, size in colour, price and stock; tap to choose.
+    const pickList = () => {
+      const q = ($('#nPQ').value || '').trim().toLowerCase();
+      const chosen = $('#nProd').value;
+      const list = cat.products.filter((p) => !q || (p.name + ' ' + (p.sub || '')).toLowerCase().includes(q));
+      $('#nPL').innerHTML = list.length ? list.map((p) => { const [a, b] = splitName(p.name); const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
+        return '<button type="button" class="pp' + (p.id === chosen ? ' on' : '') + '" data-pid="' + esc(p.id) + '">' +
+          '<span class="pp-img">' + (p.image ? '<img src="' + esc(thumb(p.image, 120)) + '" alt="" loading="lazy">' : icon('box')) + '</span>' +
+          '<span class="pp-t"><b>' + esc(a) + '</b>' + (b ? '<span class="it-sz">' + esc(b) + '</span>' : '') +
+          '<span class="pp-m"><b class="pp-price">' + (ranged ? 'from ' : '') + egp(ranged ? p.fromPrice : p.price) + (p.cat === 'services' ? ' / month' : '') + '</b>' +
+          (p.cat === 'services' ? '' : '<span class="' + (p.stock <= 5 ? 'pp-low' : '') + '">' + p.stock + ' in stock</span>') + '</span></span></button>'; }).join('')
+        : '<div class="small muted" style="padding:8px">No product matches.</div>';
+      $$('[data-pid]', $('#nPL')).forEach((b) => b.onclick = () => { $('#nProd').value = b.dataset.pid; pickList(); $('#nProd').onchange(); });
+    };
+    $('#nPQ').oninput = pickList;
     $('#nProd').onchange = () => {
+      const pp = cat.products.find((x) => x.id === $('#nProd').value);
+      $('#nAddRow').style.display = pp ? 'flex' : 'none';
+      $('#nChosen').innerHTML = pp ? '<b>' + esc(splitName(pp.name)[0]) + '</b>' : '';
       const p = cat.products.find((x) => x.id === $('#nProd').value);
       $('#nOpts').innerHTML = !p ? '' :
         ((p.variants || []).length > 1 ? '<label class="field" style="flex:1">Size<select id="nVariant">' + p.variants.map((v) => '<option value="' + esc(v.id) + '">' + esc(v.label) + ' · ' + v.stock + ' in stock</option>').join('') + '</select></label>' : '') +
@@ -858,9 +879,10 @@
       const key = c.p.id + '|' + (c.variant || '') + '|' + c.addons.slice().sort().join('+');
       const existing = lines.find((l) => l.key === key);
       if (existing) existing.qty += c.qty; else lines.push({ key, p: c.p, variant: c.variant, addons: c.addons, qty: c.qty });
-      $('#nProd').value = ''; $('#nQty').value = 1; $('#nOpts').innerHTML = ''; preview();
+      $('#nProd').value = ''; $('#nQty').value = 1; $('#nOpts').innerHTML = ''; $('#nPQ').value = ''; $('#nAddRow').style.display = 'none'; preview(); pickList();
       renderLines();
     };
+    pickList();
     $('#cAdd').onclick = () => {
       const name = $('#cName').value.trim(), price = +$('#cPrice').value, qty = Math.max(1, +$('#cQty').value || 1);
       if (!name || !(price > 0)) return toast('Enter a description and a price for the custom item', true);

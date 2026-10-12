@@ -264,3 +264,45 @@ kbd{font:600 11px/1 'Inter',sans-serif;border:1px solid var(--line);background:v
   .mobilebar{padding-top:max(10px, env(safe-area-inset-top))}
   .main{padding-bottom:max(64px, env(safe-area-inset-bottom))}
 }
+
+/* order items: quantity, name, size in colour */
+.o-items .it,.it{display:block;line-height:1.45}
+.it-q{color:var(--ink);margin-right:2px}
+.it-sz{color:var(--accent);font-weight:600;white-space:nowrap}
+.o-cust .o-name{font-weight:600}
+
+/* new order: product picker with photos */
+.pp-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px;background:var(--surface-2,#FAF8F5)}
+.pp{display:flex;align-items:center;gap:10px;text-align:left;width:100%;border:1.5px solid transparent;background:var(--surface);border-radius:10px;padding:6px 8px;cursor:pointer;font:inherit;color:inherit}
+.pp:hover{border-color:var(--line)}
+.pp.on{border-color:var(--accent);background:#FBF3EE}
+.pp-img{width:46px;height:46px;flex:none;border-radius:8px;background:#F1EDE6;display:grid;place-items:center;overflow:hidden;color:var(--ink-3)}
+.pp-img img{width:100%;height:100%;object-fit:contain}
+.pp-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:13.5px;line-height:1.3}
+.pp-t > b{font-weight:600}
+.pp-m{display:flex;gap:8px;font-size:12px;color:var(--ink-3)}
+.pp-price{color:var(--accent);font-weight:700}
+.pp-low{color:var(--bad)}
+
+/* phones: orders as cards (details stacked), status tabs in one swipeable row */
+@media (max-width:760px){
+  .seg#tabs{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+  .seg#tabs::-webkit-scrollbar{display:none}
+  .seg#tabs button{white-space:nowrap}
+  .table-wrap:has(.otable){border:none;background:none;box-shadow:none;overflow:visible}
+  .otable thead{display:none}
+  .otable,.otable tbody{display:block}
+  .otable tr{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"sel num tot" "sel cust cust" "sel items items" "sel st st" "sel bosta date";
+    gap:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:var(--shadow-sm)}
+  .otable td{display:block;padding:0;border:none}
+  .otable .o-sel{grid-area:sel;padding-top:2px}
+  .otable .o-num{grid-area:num;font-size:15px}
+  .otable .o-tot{grid-area:tot;text-align:right}
+  .otable .o-cust{grid-area:cust;font-size:14.5px}
+  .otable .o-items{grid-area:items;background:#FAF8F5;border-radius:10px;padding:8px 10px}
+  .otable .o-st{grid-area:st;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .otable .o-bosta{grid-area:bosta}
+  .otable .o-date{grid-area:date;text-align:right;align-self:end}
+  .otable tr:not(:has(.o-sel)){grid-template-columns:1fr auto;grid-template-areas:"num tot" "cust cust" "items items" "st st" "bosta date"}
+  .lines .line{grid-template-columns:1fr 60px 80px 30px}
+}
