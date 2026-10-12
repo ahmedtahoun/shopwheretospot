@@ -19,11 +19,17 @@
 <meta name="twitter:description" content="Terms and conditions for buying from Where To Spot.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
 <link rel="icon" type="image/png" href="images/logo.png">
-<link rel="apple-touch-icon" href="images/og-square.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22201D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Where To Spot">
+<link rel="apple-touch-icon" href="images/app/apple-touch-icon.png">
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
 </head>
 <body>
 <div class="bar">All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery</div>
@@ -61,7 +67,7 @@
 <footer><div class="in">
 <span>© 2026 Where To Spot · MQR, El Wahat Road, 6th of October City, Giza, Egypt · <a href="mailto:info@wheretospot.com">info@wheretospot.com</a> · <a href="tel:+201277660666">+20 127 766 0666</a></span>
 <a href="about.html">About us</a><a href="contact.html">Contact us</a><a href="privacy-policy.html">Privacy policy</a><a href="refund-policy.html">Refund & cancellation</a><a href="shipping-policy.html">Delivery & shipping</a><a href="terms.html">Terms & conditions</a>
-</div></footer>
+</div><div class="in pay-row"><span>We accept</span><img src="images/pay/paymob.svg" alt="Secured by Paymob" width="63" height="30" loading="lazy"><img src="images/pay/visa.svg" alt="Visa" width="47" height="30" loading="lazy"><img src="images/pay/mastercard.svg" alt="Mastercard" width="47" height="30" loading="lazy"><img src="images/pay/meeza.svg" alt="Meeza" width="47" height="30" loading="lazy"><img src="images/pay/wallet.svg" alt="Mobile wallets" width="47" height="30" loading="lazy"><img src="images/pay/cod.svg" alt="Cash on delivery" width="47" height="30" loading="lazy"><span class="pay-note">Secure online payments by Paymob</span></div></footer>
 <script src="chat.js" defer></script>
 </body>
 </html>

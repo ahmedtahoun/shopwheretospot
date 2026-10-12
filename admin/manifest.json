@@ -1,0 +1,22 @@
+{
+  "name": "Where To Spot Team",
+  "short_name": "WTS Team",
+  "description": "Orders, quotes, leads and production for the Where To Spot team.",
+  "id": "/admin/",
+  "start_url": "/admin/#dashboard",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#F4F3F0",
+  "theme_color": "#1C1B19",
+  "lang": "en",
+  "icons": [
+    { "src": "../images/app/team-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../images/app/team-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "../images/app/team-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New order", "url": "/admin/#orders" },
+    { "name": "Quotes", "url": "/admin/#quotes" },
+    { "name": "Leads", "url": "/admin/#leads" }
+  ]
+}

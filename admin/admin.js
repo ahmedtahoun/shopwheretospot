@@ -123,6 +123,7 @@
       nav.map(([k, label, ic]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '">' + icon(ic) + '<span>' + label + '</span></a>').join('') +
       '<div class="nav-label">Shop</div>' +
       '<a class="nav" href="../index.html" target="_blank" rel="noopener">' + icon('external') + '<span>View shop</span></a>' +
+      (isStandalone() ? '' : '<button class="nav" id="installBtn"' + (installEvt || isIOS() ? '' : ' hidden') + '>' + icon('download') + '<span>Install the app</span></button>') +
       '<div class="foot"><div class="me-card"><span class="avatar">' + esc(initials) + '</span><span class="who"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.role) + '</small></span></div>' +
       '<div class="foot-actions"><button id="pwBtn">' + icon('key') + 'Password</button><button id="outBtn">' + icon('logout') + 'Sign out</button></div></div>' +
       '</nav><main class="main" id="main"><div class="boot">Loading…</div></main></div>';
@@ -131,6 +132,7 @@
     $('#outBtn').onclick = async () => { await api('logout', { method: 'POST' }).catch(() => {}); S.user = null; S.csrf = null; render(); };
     $('#pwBtn').onclick = changePassword;
     $('#searchBtn').onclick = openSearch;
+    const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
     const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
@@ -1290,6 +1292,21 @@
     $$('[data-o]').forEach((r) => r.onclick = () => orderDrawer(d.orders.find((o) => o.id === +r.dataset.o)));
     const cn = $('#cNew');
     if (cn) cn.onclick = () => { closeDrawer(); newOrderDrawer({ name: c.name, phone: phone ? localPhone(phone) : '', email: c.email && c.email.includes('@') ? c.email : '' }); };
+  }
+
+  // ---------- install as an app (PWA) ----------
+  let installEvt = null;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; const b = $('#installBtn'); if (b) b.hidden = false; });
+  window.addEventListener('appinstalled', () => { installEvt = null; const b = $('#installBtn'); if (b) b.remove(); toast('App installed — find “WTS Team” on your home screen'); });
+  async function installApp() {
+    if (installEvt) { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; return; }
+    openDrawer('Install the team app', '<div class="stack"><div class="card stack" style="gap:10px"><b>On iPhone or iPad (Safari)</b>' +
+      '<ol class="muted" style="margin:0;padding-left:18px;line-height:1.9"><li>Tap the <b>Share</b> button (the square with an arrow).</li><li>Choose <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. “WTS Team” appears on your home screen.</li></ol></div>' +
+      '<div class="card stack" style="gap:10px"><b>On Android (Chrome)</b><ol class="muted" style="margin:0;padding-left:18px;line-height:1.9"><li>Tap the <b>⋮</b> menu.</li><li>Choose <b>Install app</b> or <b>Add to Home screen</b>.</li></ol></div>' +
+      '<div class="hint">The app opens full-screen, signs you in like the website, and always shows live data.</div></div>', '<span class="spacer"></span><button class="btn" data-close>Done</button>');
+    $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
   }
 
   // ---------- quick search ( / or Ctrl+K ) ----------

@@ -20,6 +20,13 @@
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
 <script src="./support.js"></script>
 <script src="./chat.js" defer></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22201D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Where To Spot">
+<link rel="apple-touch-icon" href="images/app/apple-touch-icon.png">
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
 </head>
 <body>
 <x-dc>
@@ -199,6 +206,12 @@
   .foot-col h4{margin:0 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8A8478}
   .foot-col a,.foot-col button{color:#C9C3B8;background:none;border:none;padding:0;font:inherit;text-align:left;cursor:pointer}
   .foot-col a:hover,.foot-col button:hover{color:#F7F3ED}
+  .foot-pay{display:flex;align-items:center;gap:12px 18px;flex-wrap:wrap;border-top:1px solid #3A3631;padding-top:22px;padding-bottom:22px;font-size:12.5px;color:#A49D92}
+  .foot-pay > span:first-child{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8A8478}
+  .pay-badges{display:flex;gap:8px;flex-wrap:wrap}
+  .pay-badges img{display:block;height:30px;width:auto;border-radius:6px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+  .pay-note{flex:1;min-width:220px;text-align:right}
+  @media (max-width: 760px){.pay-note{text-align:left}}
   .foot-bottom{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid #3A3631;padding-top:22px;padding-bottom:28px;font-size:12.5px;color:#8A8478}
   @media (max-width: 980px){.foot-top{grid-template-columns:1fr 1fr}}
   @media (max-width: 620px){.foot-top{grid-template-columns:1fr}.psearch{min-width:0;width:100%}.pgrid{gap:36px}}
@@ -551,6 +564,7 @@
         <a class="link" href="terms.html">Terms &amp; conditions</a>
       </div>
     </div>
+    <div class="wrap foot-pay"><span>We accept</span><div class="pay-badges"><img src="images/pay/paymob.svg" alt="Secured by Paymob" width="63" height="30" loading="lazy"><img src="images/pay/visa.svg" alt="Visa" width="47" height="30" loading="lazy"><img src="images/pay/mastercard.svg" alt="Mastercard" width="47" height="30" loading="lazy"><img src="images/pay/meeza.svg" alt="Meeza" width="47" height="30" loading="lazy"><img src="images/pay/wallet.svg" alt="Mobile wallets" width="47" height="30" loading="lazy"><img src="images/pay/cod.svg" alt="Cash on delivery" width="47" height="30" loading="lazy"></div><span class="pay-note">Online payments are processed securely by Paymob. We never see or store your card details.</span></div>
     <div class="wrap foot-bottom">
       <span>© 2026 Where To Spot. All rights reserved.</span>
       <span>Cash on delivery · Delivery across Egypt · 14-day returns</span>

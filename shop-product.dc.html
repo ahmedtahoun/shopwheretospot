@@ -19,6 +19,13 @@
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
 <script src="./support.js"></script>
 <script src="./chat.js" defer></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22201D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Where To Spot">
+<link rel="apple-touch-icon" href="images/app/apple-touch-icon.png">
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
 </head>
 <body>
 <x-dc>
@@ -148,7 +155,8 @@
       </sc-if>
 
       <ul style="margin:36px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:13.5px;color:#6B6660;border-top:1px solid #DDD6CC;padding-top:24px">
-        <li>Price in Egyptian Pounds (EGP) · Cash on delivery</li>
+        <li>Price in Egyptian Pounds (EGP) · pay online by card or wallet, or cash on delivery</li>
+        <li style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><img src="images/pay/paymob.svg" alt="Secured by Paymob" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/visa.svg" alt="Visa" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/mastercard.svg" alt="Mastercard" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/meeza.svg" alt="Meeza" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/wallet.svg" alt="Mobile wallets" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/cod.svg" alt="Cash on delivery" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"></li>
         <li>Delivery across Egypt: 1–3 business days in Cairo & Giza, 3–7 elsewhere — <a href="shipping-policy.html" style="text-decoration:underline">delivery policy</a></li>
         <li>14-day returns on unused items — <a href="refund-policy.html" style="text-decoration:underline">refund policy</a></li>
         <li>Questions? <a href="contact.html" style="text-decoration:underline">Contact us</a> · +20 127 766 0666</li>
@@ -259,6 +267,7 @@
       <a class="link" href="shipping-policy.html">Delivery & shipping</a>
       <a class="link" href="terms.html">Terms</a>
     </div>
+    <div style="max-width:1200px;margin:0 auto;padding:0 28px 26px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:#8A8478"><span style="font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-right:6px">We accept</span><img src="images/pay/paymob.svg" alt="Secured by Paymob" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/visa.svg" alt="Visa" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/mastercard.svg" alt="Mastercard" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/meeza.svg" alt="Meeza" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/wallet.svg" alt="Mobile wallets" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"><img src="images/pay/cod.svg" alt="Cash on delivery" style="height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2"></div>
   </footer>
 </div>
 

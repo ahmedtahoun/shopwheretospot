@@ -254,3 +254,13 @@ kbd{font:600 11px/1 'Inter',sans-serif;border:1px solid var(--line);background:v
 .pal-item.on,.pal-item:hover{background:var(--accent-soft)}
 .pal-item.on b{color:var(--accent-2)}
 .hint{font-weight:400;color:var(--ink-3);font-size:12px;line-height:1.5}
+
+/* sidebar buttons look like the nav links */
+.side button.nav{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;border:none;background:none;color:var(--ink-2);font-weight:500;cursor:pointer;text-align:left;width:100%}
+.side button.nav:hover{background:var(--surface-2);color:var(--ink)}
+.side button.nav[hidden]{display:none}
+/* installed app: respect the phone's notch and home bar */
+@media (display-mode: standalone){
+  .mobilebar{padding-top:max(10px, env(safe-area-inset-top))}
+  .main{padding-bottom:max(64px, env(safe-area-inset-bottom))}
+}
