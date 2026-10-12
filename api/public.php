@@ -5,6 +5,7 @@
 //   POST ?action=lead     -> bulk / corporate enquiry
 //   POST ?action=track    -> order status by order number + email
 //   POST ?action=promo    -> validate a promo code
+//   ?action=account / account_code / account_verify / account_save / account_logout -> customer accounts (api/customers.php)
 
 require __DIR__ . '/bootstrap.php';
 
@@ -39,6 +40,12 @@ try {
         json_out(['results' => area_suggest(str_in($_GET['text'] ?? '', 300))], 200, 3600);
     }
 
+    // Signed-in customer: profile and orders (never cached).
+    if ($action === 'account' && $method === 'GET') {
+        $c = current_customer();
+        json_out($c ? ['customer' => customer_out($c), 'orders' => customer_orders($c)] : ['customer' => null]);
+    }
+
     if ($method !== 'POST') fail('Not found', 404);
     $b = body();
 
@@ -70,6 +77,13 @@ try {
         $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0, 'status' => 'Awaiting payment']);
         record_attempt('order');
         schedule_daily_backup();
+        if ($cust = current_customer()) {
+            db()->prepare('UPDATE orders SET customer_id = ? WHERE id = ?')->execute([$cust['id'], $r['id']]);
+            $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+            $st->execute([$r['id']]);
+            customer_remember_order((int) $cust['id'], $st->fetch(), ['zone_id' => str_in($b['zone_id'] ?? '', 40) ?: null,
+                'area_title' => str_in($b['area_title'] ?? '', 160) ?: null, 'area_sub' => str_in($b['area_sub'] ?? '', 160) ?: null]);
+        }
         if ($pay === 'cod') try {
             $st = db()->prepare('SELECT rep_id FROM orders WHERE id = ?');
             $st->execute([$r['id']]);
@@ -149,6 +163,25 @@ try {
         record_attempt('lead');
         log_activity(null, 'New lead', $name . ' · ' . $source);
         notify_new_lead(['name' => $name, 'contact' => $contact, 'cat' => $cat, 'source' => $source, 'notes' => $details]);
+        json_out(['ok' => true]);
+    }
+
+    // ---------- customer accounts ----------
+    if ($action === 'account_code') {
+        customer_send_code(str_in($b['email'] ?? '', 160), ($b['lang'] ?? '') === 'ar' ? 'ar' : 'en');
+        json_out(['ok' => true]);
+    }
+    if ($action === 'account_verify') {
+        $c = customer_verify(str_in($b['email'] ?? '', 160), str_in($b['code'] ?? '', 12));
+        json_out(['customer' => customer_out($c), 'orders' => customer_orders($c)]);
+    }
+    if ($action === 'account_save') {
+        $c = current_customer();
+        if (!$c) fail('Please sign in again.', 401);
+        json_out(['customer' => customer_out(customer_save($c, $b))]);
+    }
+    if ($action === 'account_logout') {
+        customer_logout();
         json_out(['ok' => true]);
     }
 

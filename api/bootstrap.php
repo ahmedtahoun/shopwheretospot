@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 function db(): PDO
 {
@@ -265,7 +265,7 @@ function migrate(PDO $pdo): void
     $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
     $add = ['source' => "TEXT DEFAULT 'Website'", 'created_by' => 'INTEGER', 'city_id' => 'TEXT', 'district_id' => 'TEXT', 'district' => "TEXT DEFAULT ''", 'bosta_id' => 'TEXT', 'tracking_number' => 'TEXT',
         'bosta_state' => 'INTEGER', 'bosta_note' => "TEXT DEFAULT ''", 'bosta_cod' => 'REAL', 'bosta_updated_at' => 'TEXT',
-        'pay_refs' => "TEXT DEFAULT ''"]; // Paymob references created for this order (a payment must match one)
+        'pay_refs' => "TEXT DEFAULT ''", 'customer_id' => 'INTEGER']; // Paymob references created for this order (a payment must match one)
     foreach ($add as $col => $type) {
         if (!in_array($col, $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type");
     }
@@ -374,6 +374,18 @@ function migrate(PDO $pdo): void
         $ins = $pdo->prepare("INSERT OR IGNORE INTO promos (code, kind, value, note) VALUES (?, 'percent', ?, 'Original code')");
         foreach ((array) cfg('promo_codes') as $c => $pct) $ins->execute([strtoupper($c), (float) $pct]);
     }
+    // Shop customer accounts (sign-in by emailed code; see api/customers.php).
+    $pdo->exec("CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '',
+        city TEXT DEFAULT '', city_id TEXT, district_id TEXT, zone_id TEXT, district TEXT DEFAULT '', area_title TEXT DEFAULT '', area_sub TEXT DEFAULT '',
+        lang TEXT DEFAULT '', contact_pref TEXT DEFAULT 'whatsapp', offers INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')), last_login TEXT
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS customer_codes (email TEXT PRIMARY KEY COLLATE NOCASE, code_hash TEXT NOT NULL, expires INTEGER NOT NULL,
+        tries INTEGER NOT NULL DEFAULT 0, sent_at INTEGER NOT NULL DEFAULT 0, sends INTEGER NOT NULL DEFAULT 0)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS customer_sessions (token_hash TEXT PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE, expires INTEGER NOT NULL)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS targets (
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         month TEXT NOT NULL,
@@ -424,6 +436,7 @@ require __DIR__ . '/pricing.php';
 require __DIR__ . '/bosta.php';
 require __DIR__ . '/orders.php';
 require __DIR__ . '/paymob.php';
+require __DIR__ . '/customers.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

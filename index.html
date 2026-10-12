@@ -328,6 +328,48 @@
   @keyframes fsfade{from{opacity:0}}
   @keyframes fsup{from{transform:translateY(100%)}}
   .bnav{display:none}
+  /* customer account */
+  .acct-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:20px 22px 28px;display:flex;flex-direction:column;gap:14px}
+  .acct-lede{margin:0;font-size:15px;line-height:1.6;color:#3E3A35}
+  .acct-why{list-style:none;margin:0;padding:14px 16px;background:#F7F3ED;border-radius:14px;display:grid;gap:8px;font-size:14px}
+  .acct-why li::before{content:'✓';color:var(--accent);font-weight:700;margin-inline-end:8px}
+  .acct-form{display:flex;flex-direction:column;gap:12px}
+  .acct-code{font-size:26px !important;letter-spacing:10px;text-align:center;font-weight:700;direction:ltr}
+  .acct-links{display:flex;gap:16px;flex-wrap:wrap}
+  .acct-links button,.co-join-link{border:none;background:none;color:var(--accent);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;cursor:pointer;padding:0}
+  .acct-note{margin:0;font-size:12.5px;color:#8A8478}
+  .acct-msg{background:#F7E1E1;color:#A13F3F;border-radius:10px;padding:10px 13px;font-size:13.5px}
+  .acct-hi{display:flex;align-items:center;gap:12px}
+  .acct-hi b{display:block;font-size:16px}
+  .acct-hi small{display:block;font-size:12.5px;color:#6B6660}
+  .acct-av{width:46px;height:46px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px;flex:none}
+  .acct-tabs{display:flex;background:#F3EFE8;border-radius:12px;padding:4px;gap:4px}
+  .acct-tabs button{flex:1;border:none;background:none;border-radius:9px;padding:10px 6px;font:inherit;font-size:13.5px;font-weight:600;color:#6B6660;cursor:pointer}
+  .acct-tabs button[data-on="true"]{background:#fff;color:#22201D;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .acct-empty{color:#6B6660;font-size:14px;line-height:1.6;padding:24px 4px;text-align:center}
+  .ao{border:1px solid #E4DDD2;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+  .ao-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .ao-st{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:#F3EFE8;color:#4A4640}
+  .ao-st[data-tone="good"]{background:#E7F1E8;color:#2F6B3A}.ao-st[data-tone="info"]{background:#E4EDF7;color:#2C5A8C}.ao-st[data-tone="bad"]{background:#F7E1E1;color:#A13F3F}.ao-st[data-tone="warn"]{background:#FBEFD5;color:#8A5A00}
+  .ao-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:#6B6660}
+  .ao-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .ao-steps div{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#8A8478}
+  .ao-steps i{height:5px;border-radius:5px;background:#E4DDD2}
+  .ao-steps div[data-on="true"]{color:#22201D;font-weight:600}
+  .ao-steps div[data-on="true"] i{background:var(--accent)}
+  .ao-track{font-size:13px;background:#F7F3ED;border-radius:10px;padding:9px 12px;text-decoration:none !important}
+  .ao-items{font-size:13.5px;color:#3E3A35;line-height:1.5}
+  .ao-again{align-self:flex-start;border:1.5px solid #22201D;background:#fff;border-radius:999px;padding:9px 16px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
+  .acct-area{display:flex;flex-direction:column;gap:2px;background:#F7F3ED;border-radius:12px;padding:12px 14px;font-size:13px}
+  .acct-area span{font-weight:600}.acct-area small{color:#8A8478}
+  .acct-pref{padding:6px 0}
+  .acct-out{margin-top:8px;align-self:flex-start;border:1px solid #DDD6CC;background:#fff;border-radius:999px;padding:10px 18px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;color:#6B6660}
+  .co-acct{display:flex;gap:8px;align-items:flex-start;background:#EFF3EE;color:#2F5A36;border-radius:12px;padding:10px 13px;font-size:13px;line-height:1.5}
+  .co-signin{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:1.5px dashed var(--accent);background:#FBF3EE;border-radius:12px;padding:12px 14px;font:inherit;font-size:13.5px;font-weight:600;color:#22201D;cursor:pointer;text-align:start}
+  .co-signin b{color:var(--accent)}
+  .co-join{display:flex;flex-direction:column;gap:6px;background:#F7F3ED;border-radius:16px;padding:16px;max-width:340px;text-align:center;font-size:13.5px;color:#4A4640}
+  .co-join b{color:#22201D;font-size:15px}
+  .co-join button{margin-top:6px;border:none;background:var(--accent);color:#fff;border-radius:999px;padding:12px 18px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
   @media (max-width: 760px){
     /* Phone layout, after the big shops: thumb-reach bottom bar, sticky search, two-column grid, filters in a sheet */
     body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
@@ -391,6 +433,7 @@
         <a href="about.html" class="link" style="white-space:nowrap">About us</a>
         <a href="contact.html" class="link" style="white-space:nowrap">Contact</a>
         <button onClick="{{ toggleWishPanel }}" style="border:none;background:none;color:#22201D;font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0">Wishlist{{ wishBadge }}</button>
+        <button onClick="{{ openAccount }}" style="border:none;background:none;color:#22201D;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:0">{{ accountNavLabel }}</button>
         <div style="display:flex;align-items:center;gap:14px;padding-left:4px;border-left:1px solid #DDD6CC">
           <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
@@ -423,6 +466,7 @@
         <a href="about.html" class="link">About us</a>
         <a href="contact.html" class="link">Contact</a>
         <button onClick="{{ openWishFromMobile }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">Wishlist{{ wishBadge }}</button>
+        <button onClick="{{ openAccount }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">{{ accountNavLabel }}</button>
         <div style="display:flex;align-items:center;gap:16px;padding-top:6px">
           <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
@@ -838,7 +882,9 @@
       <sc-if value="{{ isStepInfo }}" hint-placeholder-val="{{ false }}">
         <form onSubmit="{{ submitInfo }}" class="co">
         <div class="co-body">
-          <div class="co-sum"><span>Order total</span><b>{{ cartTotalFmt }}</b><small>incl. delivery {{ shippingFmt }}</small><button type="button" onClick="{{ backToCart }}">Edit cart</button></div>
+          <div class="co-sum"><span>Order total</span><b>{{ cartTotalFmt }}</b><small>{{ deliveryNote }}</small><button type="button" onClick="{{ backToCart }}">Edit cart</button></div>
+          <sc-if value="{{ acctSignedIn }}"><div class="co-acct"><span aria-hidden="true">✓</span><span>Signed in as <b>{{ acctEmailShown }}</b> — your details are filled in and saved for next time.</span></div></sc-if>
+          <sc-if value="{{ acctSignedOut }}"><button type="button" class="co-signin" onClick="{{ openAccount }}"><span>Have an account? Sign in and we’ll fill this in for you</span><b aria-hidden="true">→</b></button></sc-if>
           <div class="co-step"><span class="co-n">1</span>Your details</div>
           <label class="co-f">Full name<input required="{{ true }}" value="{{ form.name }}" onChange="{{ setName }}" autocomplete="name" enterkeyhint="next" class="co-in"/></label>
           <label class="co-f">Mobile number <span class="co-h">we call or WhatsApp to confirm</span><input required="{{ true }}" type="tel" inputmode="tel" value="{{ form.phone }}" onChange="{{ setPhone }}" autocomplete="tel" placeholder="01x xxxx xxxx" enterkeyhint="next" class="co-in"/></label>
@@ -955,7 +1001,7 @@
             </sc-if>
           </label>
           </details>
-          <label class="co-check"><input type="checkbox" checked="{{ rememberMe }}" onChange="{{ toggleRemember }}"/><span>Remember my details on this device</span></label>
+          <sc-if value="{{ acctSignedOut }}"><label class="co-check"><input type="checkbox" checked="{{ rememberMe }}" onChange="{{ toggleRemember }}"/><span>Remember my details on this device</span></label></sc-if>
           <label class="co-check">
             <input type="checkbox" required="{{ true }}" />
             <span>I agree to the <a href="terms.html" target="_blank" style="text-decoration:underline">Terms</a>, <a href="refund-policy.html" target="_blank" style="text-decoration:underline">Refund & Cancellation</a>, <a href="shipping-policy.html" target="_blank" style="text-decoration:underline">Delivery</a> and <a href="privacy-policy.html" target="_blank" style="text-decoration:underline">Privacy</a> policies.</span>
@@ -984,9 +1030,79 @@
             <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your order number</div>
             <div style="font-family:'Instrument Serif',serif;font-size:26px;color:var(--accent);margin-top:4px">{{ orderNumber }}</div>
           </div>
+          <sc-if value="{{ offerAccount }}">
+            <div class="co-join"><b>Track this order and check out faster next time</b><span>Create a free account with {{ form.email }} — we’ll send you a code, no password.</span><button onClick="{{ joinAfterOrder }}">Create my account</button></div>
+          </sc-if>
+          <sc-if value="{{ acctSignedIn }}"><button onClick="{{ openAccountOrders }}" class="co-join-link">See this order in my account →</button></sc-if>
           <button onClick="{{ newOrder }}" style="margin-top:10px;background:#22201D;color:#fff;border:none;padding:13px 26px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Continue shopping</button>
         </div>
       </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ accountOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAccount }}" style="position:fixed;inset:0;background:rgba(20,18,16,0.4);z-index:96"></div>
+    <div class="sheet acct" role="dialog" aria-modal="true" aria-label="{{ accountTitle }}" style="position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);background:#fff;z-index:97;box-shadow:-20px 0 60px rgba(0,0,0,0.15);display:flex;flex-direction:column">
+      <div class="sheet-head" style="padding:18px 22px;border-bottom:1px solid #DDD6CC;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:700;font-size:17px">{{ accountTitle }}</div>
+        <button onClick="{{ closeAccount }}" aria-label="Close" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6B6660">✕</button>
+      </div>
+      <div class="acct-body">
+        <sc-if value="{{ acctStepEmail }}">
+          <p class="acct-lede">Sign in with your email. We’ll send you a 6-digit code — no password to remember.</p>
+          <ul class="acct-why"><li>Checkout in seconds — your details are saved</li><li>Track every order and its delivery</li><li>See what you bought and buy again in one tap</li></ul>
+          <form onSubmit="{{ sendCode }}" class="acct-form">
+            <label class="co-f">Email<input type="email" required="{{ true }}" value="{{ acctEmail }}" onChange="{{ setAcctEmail }}" autocomplete="email" inputmode="email" autocapitalize="off" class="co-in"/></label>
+            <button type="submit" class="co-go" disabled="{{ acctBusy }}">{{ sendCodeLabel }}</button>
+          </form>
+        </sc-if>
+        <sc-if value="{{ acctStepCode }}">
+          <p class="acct-lede">Enter the 6-digit code we sent to <b translate="no">{{ acctEmail }}</b></p>
+          <form onSubmit="{{ verifyCode }}" class="acct-form">
+            <input class="co-in acct-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" value="{{ acctCode }}" onChange="{{ setAcctCode }}" placeholder="••••••" aria-label="Sign-in code"/>
+            <button type="submit" class="co-go" disabled="{{ acctBusy }}">{{ verifyLabel }}</button>
+          </form>
+          <div class="acct-links"><button onClick="{{ resendCode }}">Send a new code</button><button onClick="{{ changeEmail }}">Use a different email</button></div>
+          <p class="acct-note">Didn’t get it? Check your spam folder. The code works for 15 minutes.</p>
+        </sc-if>
+        <sc-if value="{{ acctMsg }}" hint-placeholder-val="{{ '' }}"><div class="acct-msg">{{ acctMsg }}</div></sc-if>
+        <sc-if value="{{ acctSignedIn }}">
+          <div class="acct-hi"><span class="acct-av">{{ acctInitial }}</span><span><b>{{ acctName }}</b><small translate="no">{{ acctEmailShown }}</small></span></div>
+          <div class="acct-tabs">
+            <sc-for list="{{ acctTabs }}" as="at" hint-placeholder-count="3"><button onClick="{{ at.onClick }}" data-on="{{ at.on }}">{{ at.label }}</button></sc-for>
+          </div>
+          <sc-if value="{{ tabOrders }}">
+            <sc-if value="{{ noAcctOrders }}"><div class="acct-empty">No orders yet. When you order while signed in (or with this email), they appear here with their tracking.</div></sc-if>
+            <sc-for list="{{ acctOrders }}" as="ao" hint-placeholder-count="0">
+              <div class="ao">
+                <div class="ao-top"><b translate="no">{{ ao.number }}</b><span class="ao-st" data-tone="{{ ao.tone }}">{{ ao.status }}</span></div>
+                <div class="ao-meta"><span>{{ ao.date }}</span><span>{{ ao.totalFmt }}</span><span>{{ ao.payLine }}</span></div>
+                <sc-if value="{{ ao.showSteps }}">
+                  <div class="ao-steps"><sc-for list="{{ ao.steps }}" as="st" hint-placeholder-count="4"><div data-on="{{ st.on }}"><i></i><span>{{ st.label }}</span></div></sc-for></div>
+                </sc-if>
+                <sc-if value="{{ ao.tracking }}"><a class="ao-track" href="{{ ao.trackUrl }}" target="_blank" rel="noopener"><span>Tracking number</span> <b translate="no">{{ ao.tracking }}</b> <span>· {{ ao.shipment }} ↗</span></a></sc-if>
+                <div class="ao-items">{{ ao.itemsLine }}</div>
+                <sc-if value="{{ ao.canReorder }}"><button onClick="{{ ao.onReorder }}" class="ao-again">Buy again</button></sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ tabDetails }}">
+            <form onSubmit="{{ saveDetails }}" class="acct-form">
+              <label class="co-f">Full name<input value="{{ acctForm.name }}" onChange="{{ setAcctName }}" autocomplete="name" class="co-in"/></label>
+              <label class="co-f">Mobile number<input type="tel" inputmode="tel" value="{{ acctForm.phone }}" onChange="{{ setAcctPhone }}" autocomplete="tel" class="co-in"/></label>
+              <label class="co-f">Street address<textarea value="{{ acctForm.address }}" onChange="{{ setAcctAddress }}" class="co-in" style="min-height:76px"></textarea></label>
+              <div class="acct-area"><span>Delivery area</span><b>{{ acctAreaLine }}</b><small>Change it at checkout — we save the area you choose.</small></div>
+              <button type="submit" class="co-go" disabled="{{ acctBusy }}">Save details</button>
+            </form>
+          </sc-if>
+          <sc-if value="{{ tabPrefs }}">
+            <div class="acct-pref"><div class="fs-t">Language</div><div class="fs-pills"><sc-for list="{{ prefLangs }}" as="pl" hint-placeholder-count="2"><button onClick="{{ pl.onClick }}" class="fs-pill" data-on="{{ pl.on }}">{{ pl.label }}</button></sc-for></div></div>
+            <div class="acct-pref"><div class="fs-t">How should we contact you about orders?</div><div class="fs-pills"><sc-for list="{{ prefContacts }}" as="pc" hint-placeholder-count="3"><button onClick="{{ pc.onClick }}" class="fs-pill" data-on="{{ pc.on }}">{{ pc.label }}</button></sc-for></div></div>
+            <label class="fs-check acct-pref"><input type="checkbox" checked="{{ prefOffers }}" onChange="{{ togglePrefOffers }}"/><span>Send me offers and new products (a few times a month)</span></label>
+          </sc-if>
+          <button onClick="{{ signOut }}" class="acct-out">Sign out</button>
+        </sc-if>
+      </div>
     </div>
   </sc-if>
 
@@ -1015,7 +1131,7 @@
   <div class="bnav" aria-label="Shop navigation">
     <button onClick="{{ bnavHome }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></button>
     <button onClick="{{ openFilters }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>Categories</span></button>
-    <button onClick="{{ focusSearch }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></button>
+    <button onClick="{{ openAccount }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>{{ accountTabLabel }}</span></button>
     <button onClick="{{ toggleWishPanel }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-9-8.8C1.6 8 3.6 4.5 7 4.5c2 0 3.4 1 4.2 2.3h1.6c.8-1.3 2.2-2.3 4.2-2.3 3.4 0 5.4 3.5 4 6.7C19 15.6 12 20 12 20z"/></svg><span>Wishlist</span><sc-if value="{{ wishCount }}" hint-placeholder-val="{{ 0 }}"><b class="bn-n">{{ wishCount }}</b></sc-if></button>
     <button onClick="{{ toggleCart }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Cart</span><sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}"><b class="bn-n">{{ cartCount }}</b></sc-if></button>
   </div>
@@ -1044,7 +1160,9 @@ class Component extends DCLogic {
     sortKey: 'popular', inStockOnly: false, priceMin: '', priceMax: '',
     isLoading: true, toast: '',
     promoInput: '', appliedPromo: null, promoError: '',
-    checkoutMode: 'save', stockWarning: '', visibleCount: 12, filtersOpen: false
+    checkoutMode: 'save', stockWarning: '', visibleCount: 12, filtersOpen: false,
+    account: null, acctOrdersList: [], accountOpen: false, acctStep: 'email', acctEmail: '', acctCode: '', acctMsg: '', acctBusy: false, acctTab: 'orders',
+    acctForm: { name: '', phone: '', address: '' }
   };
 
   categories = [
@@ -1114,7 +1232,7 @@ class Component extends DCLogic {
     window.addEventListener('popstate', this.onPopState);
     const mod = await import('./shop-data.js');
     this._sd = mod;
-    const live = await mod.fetchCatalog();
+    const [live, acct] = await Promise.all([mod.fetchCatalog(), fetch('api/public.php?action=account', { credentials: 'same-origin' }).then(r => r.json()).catch(() => null)]);
     const inventory = live || mod.loadInventory();
     if (mod.CATEGORIES) {
       this.categories = mod.CATEGORIES.filter(c => c.key !== 'services').map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.label + ' photo' }));
@@ -1143,6 +1261,12 @@ class Component extends DCLogic {
       const saved = JSON.parse(localStorage.getItem('spotshop_saved_contact') || 'null');
       if (saved) { form = { ...form, ...saved }; checkoutMode = 'save'; }
     } catch {}
+    if (acct && acct.customer) {
+      const c = acct.customer;
+      form = { ...form, name: c.name || form.name, phone: c.phone || form.phone, email: c.email, address: c.address || form.address,
+        ...(c.districtId ? { city: c.city, cityId: c.cityId, districtId: c.districtId, zoneId: c.zoneId || '', areaTitle: c.areaTitle || '', areaSub: c.areaSub || '' } : {}) };
+      this.setState({ account: c, acctOrdersList: acct.orders || [], acctStep: 'view', acctForm: { name: c.name, phone: c.phone, address: c.address } });
+    }
     this.loadAreas();
     cart0 = mod.repriceCart(cart0, inventory);
     mod.saveCart(cart0);
@@ -1152,7 +1276,7 @@ class Component extends DCLogic {
 
   // The phone's Back button closes an open panel (cart, checkout, wishlist, filters, order tracking)
   // instead of leaving the shop: opening one adds a step to the browser history, closing removes it.
-  _panelOpen = () => { const s = this.state; return !!(s.cartOpen || s.wishPanelOpen || s.filtersOpen || s.trackOpen); };
+  _panelOpen = () => { const s = this.state; return !!(s.cartOpen || s.wishPanelOpen || s.filtersOpen || s.trackOpen || s.accountOpen); };
   _ourStep = () => !!(history.state && history.state.wtsPanel);
   _syncHistory = () => {
     if (this._backing) return;
@@ -1162,7 +1286,84 @@ class Component extends DCLogic {
   };
   onPopState = () => {
     if (this._backing) { this._backing = false; this._syncHistory(); return; }
-    if (this._panelOpen() && !this._ourStep()) this.setState({ cartOpen: false, wishPanelOpen: false, filtersOpen: false, trackOpen: false });
+    if (this._panelOpen() && !this._ourStep()) this.setState(s => s.accountOpen ? { accountOpen: false } : { cartOpen: false, wishPanelOpen: false, filtersOpen: false, trackOpen: false });
+  };
+
+  // ---------- customer account (sign in with an emailed code) ----------
+  openAccount = (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ accountOpen: true, mobileMenuOpen: false, acctMsg: '' }); };
+  openAccountOrders = () => this.setState({ accountOpen: true, acctTab: 'orders', cartOpen: false }, this.refreshAccount);
+  closeAccount = () => this.setState({ accountOpen: false });
+  setAcctEmail = (e) => this.setState({ acctEmail: e.target.value, acctMsg: '' });
+  setAcctCode = (e) => this.setState({ acctCode: e.target.value, acctMsg: '' });
+  _acctPost = async (action, body) => {
+    this.setState({ acctBusy: true, acctMsg: '' });
+    try { const r = await this._sd.postJSON(action, body); this.setState({ acctBusy: false }); return r; }
+    catch (err) { this.setState({ acctBusy: false, acctMsg: (window.WTS_T ? window.WTS_T(err.message) : err.message) }); return null; }
+  };
+  sendCode = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const email = this.state.acctEmail.trim();
+    if (!email || !this._sd) return;
+    const r = await this._acctPost('account_code', { email, lang: window.WTS_LANG || 'en' });
+    if (r) this.setState({ acctStep: 'code', acctCode: '' });
+  };
+  resendCode = () => this.sendCode();
+  changeEmail = () => this.setState({ acctStep: 'email', acctCode: '', acctMsg: '' });
+  verifyCode = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const r = await this._acctPost('account_verify', { email: this.state.acctEmail.trim(), code: this.state.acctCode });
+    if (!r) return;
+    const c = r.customer;
+    this.setState(s => ({
+      account: c, acctOrdersList: r.orders || [], acctStep: 'view', acctTab: 'orders', acctCode: '', acctForm: { name: c.name, phone: c.phone, address: c.address },
+      // Fill checkout with the saved details (keeps anything already typed when the account has nothing yet).
+      form: { ...s.form, name: c.name || s.form.name, phone: c.phone || s.form.phone, email: c.email, address: c.address || s.form.address,
+        ...(c.districtId ? { city: c.city, cityId: c.cityId, districtId: c.districtId, zoneId: c.zoneId || '', areaTitle: c.areaTitle || '', areaSub: c.areaSub || '' } : {}) },
+      // Signed in from checkout: go straight back to it.
+      accountOpen: !(s.cartOpen && s.checkoutStep === 'info'),
+    }), () => { if (c.cityId) this.loadZones(c.cityId); });
+    this.showToast(window.WTS_T ? window.WTS_T('Signed in') : 'Signed in');
+  };
+  refreshAccount = async () => {
+    try { const r = await (await fetch('api/public.php?action=account', { credentials: 'same-origin' })).json(); if (r.customer) this.setState({ account: r.customer, acctOrdersList: r.orders || [] }); } catch (e) {}
+  };
+  signOut = async () => {
+    await this._acctPost('account_logout', {});
+    this.setState({ account: null, acctOrdersList: [], acctStep: 'email', acctEmail: '', accountOpen: false });
+    this.showToast(window.WTS_T ? window.WTS_T('Signed out') : 'Signed out');
+  };
+  setAcctTab = (t) => () => this.setState({ acctTab: t, acctMsg: '' });
+  setAcctField = (f) => (e) => { const v = e.target.value; this.setState(s => ({ acctForm: { ...s.acctForm, [f]: v } })); };
+  saveDetails = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const r = await this._acctPost('account_save', this.state.acctForm);
+    if (r) { this.setState(s => ({ account: r.customer, form: { ...s.form, name: r.customer.name, phone: r.customer.phone, address: r.customer.address } })); this.showToast(window.WTS_T ? window.WTS_T('Details saved') : 'Details saved'); }
+  };
+  savePref = (patch) => async () => {
+    const r = await this._acctPost('account_save', patch);
+    if (!r) return;
+    this.setState({ account: r.customer });
+    if (patch.lang && patch.lang !== (window.WTS_LANG || 'en') && window.WTS_I18N) window.WTS_I18N.set(patch.lang);
+    else this.showToast(window.WTS_T ? window.WTS_T('Preferences saved') : 'Preferences saved');
+  };
+  togglePrefOffers = (e) => this.savePref({ offers: e.target.checked })();
+  // After a guest order: create the account with the email they just used.
+  joinAfterOrder = () => this.setState({ acctEmail: this.state.form.email || '', accountOpen: true, acctStep: 'email' }, () => this.sendCode());
+  // "Buy again": put the order's items back in the cart (only those still on sale).
+  reorder = (o) => () => {
+    const items = o.items.filter(i => i.available);
+    if (!items.length) { this.showToast(window.WTS_T ? window.WTS_T('These products are no longer available') : 'These products are no longer available'); return; }
+    this.setState(s => {
+      let cart = s.cart;
+      items.forEach(it => {
+        const p = s.inventory.find(x => x.id === it.id);
+        if (!p) return;
+        const key = this._sd.lineKey(p.id, it.variant || undefined, it.addons || []);
+        const ex = cart.find(i => i.key === key);
+        cart = ex ? cart.map(i => i.key === key ? { ...i, qty: i.qty + it.qty } : i) : [...cart, { key, id: p.id, variant: it.variant || undefined, addons: it.addons || [], name: p.name, price: p.price, cat: p.cat, qty: it.qty }];
+      });
+      return { cart: this._persistCart(cart), accountOpen: false, cartOpen: true, checkoutStep: 'cart' };
+    });
   };
 
   showToast = (msg) => {
@@ -1427,8 +1628,10 @@ class Component extends DCLogic {
         business_name: s.form.businessName || '', review_link: s.form.reviewLink || '', links: s.form.links || '', design_notes: s.form.designNotes || '',
         logo_token: s.form.logoToken || '', logo_name: s.form.logoName || '',
         promo: s.appliedPromo ? s.appliedPromo.code : '', ref: (s.referralCode || '').trim(),
-        payment: s.form.payment || 'cod'
+        payment: s.form.payment || 'cod',
+        zone_id: s.form.zoneId || '', area_title: s.form.areaTitle || '', area_sub: s.form.areaSub || ''
       });
+      if (s.account) this.refreshAccount();
       if (res.payUrl || res.payError) this.rememberOrder(res.number);
       if (res.payUrl) {
         // Off to Paymob's secure page; the cart is emptied because the order already exists.
@@ -1536,7 +1739,41 @@ class Component extends DCLogic {
       ...(term ? [{ label: '“' + s.search.trim() + '”', onClear: () => this.setState({ search: '' }) }] : []),
     ];
     const nLabel = (n) => n + (n === 1 ? ' product' : ' products');
+    // Account panel
+    const acc = s.account;
+    const STAGE = { 'Awaiting payment': 0, Pending: 0, Confirmed: 1, Designing: 1, 'Awaiting approval': 1, 'In production': 1, Ready: 1, Shipped: 2, Delivered: 3 };
+    const TONE = { Delivered: 'good', Shipped: 'info', Confirmed: 'info', Cancelled: 'bad', Returned: 'bad', 'Awaiting payment': 'warn', Pending: 'warn' };
+    const acctOrders = (s.acctOrdersList || []).map(o => {
+      const stage = STAGE[o.status];
+      return {
+        number: o.number, status: o.status, tone: TONE[o.status] || 'info', date: new Date(o.date + 'T12:00:00').toLocaleDateString(AR ? 'ar-EG-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        totalFmt: fmt(o.total), payLine: o.paid ? T('Paid') : o.status === 'Cancelled' || o.status === 'Returned' ? '' : T('Pay on delivery') + ' ' + fmt(o.due),
+        showSteps: stage != null, steps: ['Placed', 'Confirmed', 'Shipped', 'Delivered'].map((l, i) => ({ label: l, on: stage != null && i <= stage ? 'true' : 'false' })),
+        tracking: o.tracking, shipment: o.shipment, trackUrl: 'https://bosta.co/tracking-shipments?shipment-number=' + encodeURIComponent(o.tracking || ''),
+        itemsLine: o.items.map(i => i.qty + '× ' + i.name).join(' · '),
+        canReorder: o.items.some(i => i.available), onReorder: this.reorder(o),
+      };
+    });
+    const acctSignedIn = !!acc;
     return {
+      account: acc, acctSignedIn, acctSignedOut: !acc, accountOpen: s.accountOpen, openAccount: this.openAccount, closeAccount: this.closeAccount, openAccountOrders: this.openAccountOrders,
+      accountNavLabel: acc ? 'My account' : 'Sign in', accountTabLabel: acc ? 'Account' : 'Sign in',
+      accountTitle: acc ? 'My account' : 'Sign in',
+      acctStepEmail: !acc && s.acctStep === 'email', acctStepCode: !acc && s.acctStep === 'code',
+      acctEmail: s.acctEmail, setAcctEmail: this.setAcctEmail, acctCode: s.acctCode, setAcctCode: this.setAcctCode,
+      sendCode: this.sendCode, resendCode: this.resendCode, changeEmail: this.changeEmail, verifyCode: this.verifyCode, signOut: this.signOut,
+      acctBusy: !!s.acctBusy, acctMsg: s.acctMsg, sendCodeLabel: s.acctBusy ? 'Sending…' : 'Email me a code', verifyLabel: s.acctBusy ? 'Checking…' : 'Sign in',
+      acctName: acc ? (acc.name || acc.email.split('@')[0]) : '', acctEmailShown: acc ? acc.email : '', acctInitial: acc ? (acc.name || acc.email).trim().charAt(0).toUpperCase() : '',
+      acctTabs: [['orders', 'My orders'], ['details', 'My details'], ['prefs', 'Preferences']].map(([k, l]) => ({ label: l, on: s.acctTab === k ? 'true' : 'false', onClick: this.setAcctTab(k) })),
+      tabOrders: s.acctTab === 'orders', tabDetails: s.acctTab === 'details', tabPrefs: s.acctTab === 'prefs',
+      acctOrders, noAcctOrders: acctOrders.length === 0,
+      acctForm: s.acctForm, setAcctName: this.setAcctField('name'), setAcctPhone: this.setAcctField('phone'), setAcctAddress: this.setAcctField('address'), saveDetails: this.saveDetails,
+      acctAreaLine: acc && acc.areaTitle ? acc.areaTitle + (acc.areaSub ? ' — ' + acc.areaSub : '') : acc && acc.city ? acc.city : T('Not chosen yet'),
+      prefLangs: [['ar', 'العربية'], ['en', 'English']].map(([k, l]) => ({ label: l, on: (acc && acc.lang ? acc.lang : (window.WTS_LANG || 'en')) === k ? 'true' : 'false', onClick: this.savePref({ lang: k }) })),
+      prefContacts: [['whatsapp', 'WhatsApp'], ['call', 'Phone call'], ['email', 'Email']].map(([k, l]) => ({ label: l, on: acc && acc.contact === k ? 'true' : 'false', onClick: this.savePref({ contact: k }) })),
+      prefOffers: !!(acc && acc.offers), togglePrefOffers: this.togglePrefOffers,
+      offerAccount: !acc && s.checkoutStep === 'success' && !!s.form.email && !s.payResult, joinAfterOrder: this.joinAfterOrder,
+      deliveryNote: shipping ? 'incl. delivery ' + fmt(shipping) : 'Free delivery',
       langLabel: AR ? 'EN' : 'ع', langTitle: AR ? 'English' : 'العربية',
       filtersOpen: s.filtersOpen, openFilters: this.openFilters, closeFilters: this.closeFilters, applyFilters: this.applyFilters, clearFilters: this.clearFilters,
       bnavHome: this.bnavHome, focusSearch: this.focusSearch,
@@ -1587,7 +1824,7 @@ class Component extends DCLogic {
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,
-      cartTitle: s.checkoutStep === 'success' ? 'Order placed' : s.checkoutStep === 'info' ? 'Checkout' : 'Your cart',
+      cartTitle: s.checkoutStep === 'success' ? 'Your order' : s.checkoutStep === 'info' ? 'Checkout' : 'Your cart',
       isStepCart: s.checkoutStep === 'cart', isStepInfo: s.checkoutStep === 'info', isStepSuccess: s.checkoutStep === 'success',
       cartEmpty: s.cart.length === 0,
       cartItems: s.cart.map(i => { const lt = i.total != null ? i.total : i.price * i.qty; return { ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', thumb: this.thumbFor(i.id), lineTotal: lt, lineTotalFmt: fmt(lt), onInc: this.incItem(i.key), onDec: this.decItem(i.key), onRemove: this.removeItem(i.key) }; }),
