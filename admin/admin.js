@@ -242,9 +242,11 @@
       '<div class="dash"><div class="cards">' +
       '<div class="card"><h2>Daily revenue (EGP)</h2><div class="chart" id="chart"></div></div>' +
       '<div class="card"><h2>Recent orders<span class="spacer"></span>' + (can('orders') ? '<a class="btn sm" href="#orders">All orders</a>' : '') + '</h2>' +
-      (d.recentOrders.length ? '<div class="table-wrap" style="border:none"><table><tbody>' + d.recentOrders.map((o) =>
-        '<tr><td><b>' + esc(o.number) + '</b><div class="small muted">' + esc(o.customer) + '</div></td><td>' + pill(ORDER_TONE, o.status) + '</td><td class="small muted">' + dateTime(o.createdAt) + '</td><td class="num"><b>' + egp(o.total) + '</b></td></tr>').join('') +
-        '</tbody></table></div>' : '<div class="empty">No orders yet.</div>') + '</div>' +
+      // A two-column list (not a table) so it stays readable on a phone.
+      (d.recentOrders.length ? '<div class="list">' + d.recentOrders.map((o) =>
+        '<div class="li" style="align-items:flex-start;gap:12px;padding:12px 0"><span style="min-width:0"><b>' + esc(o.number) + '</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(o.customer) + '</div><div class="small muted">' + dateTime(o.createdAt) + '</div></span>' +
+        '<span style="text-align:right;flex-shrink:0"><b>' + egp(o.total) + '</b><div style="margin-top:4px">' + pill(ORDER_TONE, o.status) + '</div></span></div>').join('') +
+        '</div>' : '<div class="empty">No orders yet.</div>') + '</div>' +
       '</div><div class="cards">' +
       (can('leads') && !(d.followUps || []).length ? followUpCard([]) : '') +
       (can('backups') ? '<div class="card"><h2>' + icon('shield') + 'Backups<span class="spacer"></span><a class="btn sm" href="#backups">Manage</a></h2><div class="small muted">' +
