@@ -36,10 +36,13 @@ class ShopError extends RuntimeException {}
 
 // 'sell' = can enter orders; 'targets' = can set monthly targets; 'own_orders' = only sees orders credited to them.
 const ROLES = [
-    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups'],
-    'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity'],
+    // 'revenue': sales totals, profit and money figures (owner and managers only).
+    // 'orders_only': telesales — orders and the order counts, nothing else.
+    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups', 'revenue'],
+    'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity', 'revenue'],
     'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
     'staff' => ['dashboard', 'orders', 'sell', 'leads'],
+    'telesales' => ['dashboard', 'orders', 'sell', 'orders_only'],
 ];
 // Order lifecycle, including production of personalised items. Cancelled/Returned put stock back.
 // 'Awaiting payment': an online-payment order whose payment Paymob hasn't confirmed yet (hidden from lists and totals).

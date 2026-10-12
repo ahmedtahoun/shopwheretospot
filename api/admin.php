@@ -11,6 +11,11 @@ if (!in_array($action, ['backup_download', 'bosta_awb', 'bosta_sync'], true)) sc
 if (in_array($action, ['dashboard', 'orders'], true)) expire_unpaid_orders();
 
 try {
+    // Telesales see orders only: quotes, customers and the search across leads/products are closed to them.
+    if (preg_match('/^(quote|customer|search)/', $action) && !in_array($action, ['session'], true)) {
+        $cu = current_user();
+        if ($cu && in_array('orders_only', $cu['perms'], true)) fail('This isn’t available for your role.', 403);
+    }
     switch ($action) {
 
     // ---------- session ----------
@@ -83,6 +88,8 @@ try {
 
     case 'dashboard':
         $u = require_perm('dashboard');
+        $money = in_array('revenue', $u['perms'], true);
+        $ordersOnly = in_array('orders_only', $u['perms'], true);
         $days = max(7, min(365, (int) ($_GET['days'] ?? 30)));
         $pdo = db();
         $own = in_array('own_orders', $u['perms'], true);
@@ -118,7 +125,7 @@ try {
         $st->execute([$since]);
         $sources = $st->fetchAll();
         $lowStock = [];
-        if (!$own) {
+        if (!$own && !$ordersOnly) {
             foreach ($pdo->query("SELECT id, name, stock, variants FROM products WHERE status = 'Active' AND cat != 'services'")->fetchAll() as $p) {
                 $vs = product_json($p, 'variants');
                 if ($vs) { foreach ($vs as $v) if ((int) $v['stock'] <= 5) $lowStock[] = ['id' => $p['id'], 'name' => $p['name'] . ' — ' . $v['label'], 'stock' => (int) $v['stock']]; }
@@ -141,7 +148,7 @@ try {
         $lastBackup = in_array('backups', $u['perms'], true) ? (backup_list()[0] ?? null) : null;
         // Quotes waiting for the customer's answer (not expired).
         $openQuotes = null;
-        if (in_array('sell', $u['perms'], true)) {
+        if (in_array('sell', $u['perms'], true) && !$ordersOnly) {
             $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total), 0) v FROM quotes WHERE status IN ('Draft','Sent') AND (valid_until IS NULL OR valid_until >= ?)" . str_replace('rep_id', 'quotes.rep_id', $scope));
             $st->execute([(new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d')]);
             $oq = $st->fetch();
@@ -154,7 +161,7 @@ try {
         $collect = $st->fetch();
         // Estimated gross profit for the period, from unit costs (saved on each order line, or the product's current cost).
         $profit = null;
-        if (!$own) {
+        if ($money) {
             $costs = [];
             foreach ($pdo->query('SELECT id, cost FROM products')->fetchAll() as $p) $costs[$p['id']] = (float) $p['cost'];
             $st = $pdo->prepare("SELECT items, discount FROM orders WHERE $valid AND date(created_at) >= ?");
@@ -179,20 +186,35 @@ try {
             $st->execute([$since]);
             $leadSources = array_map(function ($r) { return ['source' => $r['src'], 'n' => (int) $r['n'], 'won' => (int) $r['won']]; }, $st->fetchAll());
         }
+        // Only the owner and managers see money totals; everyone else gets the counts.
+        $perf = team_performance($month, $own ? (int) $u['id'] : null);
+        if (!$money) {
+            $k['revenue'] = null;
+            foreach ($series as &$x) unset($x['revenue']);
+            unset($x);
+            foreach ($top as &$x) unset($x['revenue']);
+            unset($x);
+            usort($top, function ($a, $b) { return $b['qty'] <=> $a['qty']; });
+            $sources = array_map(function ($r) { unset($r['revenue']); return $r; }, $sources);
+            if ($openQuotes) unset($openQuotes['value']);
+            $perf['members'] = array_map(function ($m) { unset($m['revenue'], $m['revenue_target']); return $m; }, $perf['members']);
+        }
         json_out([
-            'days' => $days, 'own' => $own, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
-            'toCollect' => ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']], 'profit' => $profit, 'leadSources' => $leadSources,
+            'days' => $days, 'own' => $own, 'money' => $money, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
+            'toCollect' => $money ? ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']] : null, 'profit' => $profit, 'leadSources' => $leadSources,
             'openQuotes' => $openQuotes,
             'kpi' => [
-                'revenue' => (float) $k['revenue'], 'orders' => (int) $k['n'],
-                'aov' => $k['n'] ? round($k['revenue'] / $k['n']) : 0,
+                'revenue' => $money ? (float) $k['revenue'] : null, 'orders' => (int) $k['n'],
+                'aov' => $money && $k['n'] ? round($k['revenue'] / $k['n']) : null,
+                'shipped' => (int) ($status['Shipped'] ?? 0), 'delivered' => (int) ($status['Delivered'] ?? 0),
+                'lost' => (int) ($status['Cancelled'] ?? 0) + (int) ($status['Returned'] ?? 0),
                 'pending' => (int) ($status['Pending'] ?? 0),
                 'newLeads' => (int) $pdo->query("SELECT COUNT(*) FROM leads WHERE status = 'New'")->fetchColumn(),
                 'products' => (int) $pdo->query("SELECT COUNT(*) FROM products WHERE status = 'Active'")->fetchColumn(),
             ],
             'series' => $series, 'statusCounts' => $status, 'topProducts' => array_slice($top, 0, 5), 'sources' => $sources,
             'lowStock' => $lowStock, 'recentOrders' => $recent,
-            'performance' => team_performance($month, $own ? (int) $u['id'] : null),
+            'performance' => $perf,
         ]);
 
     // ---------- targets ----------
