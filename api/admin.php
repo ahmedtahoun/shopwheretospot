@@ -7,6 +7,7 @@ require __DIR__ . '/bootstrap.php';
 $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 if ($action !== 'backup_download') schedule_daily_backup();
+if (!in_array($action, ['backup_download', 'bosta_awb', 'bosta_sync'], true)) schedule_bosta_sync();
 
 try {
     switch ($action) {
@@ -533,6 +534,12 @@ try {
         $code = (int) ($d['state']['code'] ?? 0);
         if ($code) bosta_apply_state((int) $o['id'], $code, (string) ($d['state']['exception']['reason'] ?? ($d['exceptionReason'] ?? '')));
         json_out(['state' => $code, 'label' => bosta_state_label($code)]);
+
+    case 'bosta_sync':
+        require_perm('orders');
+        [$checked, $changed] = bosta_sync_open(100);
+        @touch(cfg('data_dir') . '/bosta-sync.txt');
+        json_out(['checked' => $checked, 'changed' => $changed]);
 
     case 'bosta_awb':
         $u = require_perm('orders');

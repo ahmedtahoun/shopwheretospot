@@ -409,22 +409,76 @@ function bosta_order_status(int $code): ?string
 {
     if (in_array($code, [21, 24, 30, 41], true)) return 'Shipped';
     if ($code === 45) return 'Delivered';
-    if ($code === 46) return 'Returned';
+    if (in_array($code, [46, 60], true)) return 'Returned';
+    if (in_array($code, [48, 49], true)) return 'Cancelled';
     return null;
 }
 
-// Save a Bosta state on an order and move the shop status forward when it makes sense.
+// Save a Bosta state on an order and move the shop status when it makes sense.
 function bosta_apply_state(int $orderId, int $code, string $note = ''): void
 {
     $pdo = db();
-    $st = $pdo->prepare('SELECT status FROM orders WHERE id = ?');
+    $st = $pdo->prepare('SELECT status, bosta_state FROM orders WHERE id = ?');
     $st->execute([$orderId]);
-    $current = $st->fetchColumn();
-    if ($current === false) return;
+    $o = $st->fetch();
+    if (!$o) return;
+    $current = $o['status'];
+    $before = $o['bosta_state'] === null ? null : (int) $o['bosta_state'];
     $pdo->prepare("UPDATE orders SET bosta_state = ?, bosta_note = ?, bosta_updated_at = datetime('now') WHERE id = ?")
         ->execute([$code, mb_substr($note, 0, 300), $orderId]);
     $next = bosta_order_status($code);
-    if ($next && $next !== $current && (ORDER_STAGE[$next] ?? 0) >= (ORDER_STAGE[$current] ?? 0) && $current !== 'Cancelled') {
-        set_order_status($orderId, $next);
+    if (!$next || $next === $current || $current === 'Cancelled') return;
+    if ($next === 'Cancelled') {
+        // A shipment the team cancelled from the dashboard (already marked 48) keeps the order open, so it can be
+        // shipped again. A shipment cancelled at Bosta cancels the order, unless it was already delivered or returned.
+        if (in_array($before, [48, 49], true) || in_array($current, ['Delivered', 'Returned'], true)) return;
+        set_order_status($orderId, 'Cancelled');
+        return;
     }
+    if ($next === 'Returned') {
+        set_order_status($orderId, 'Returned'); // a return can follow a "Delivered" (refused at the door, partial returns)
+        return;
+    }
+    if ((ORDER_STAGE[$next] ?? 0) >= (ORDER_STAGE[$current] ?? 0) && $current !== 'Returned') set_order_status($orderId, $next);
+}
+
+// Ask Bosta for the latest state of every shipment that is still moving (webhooks can be missed).
+// Returns [checked, changed].
+function bosta_sync_open(int $limit = 60): array
+{
+    if (!bosta_enabled()) return [0, 0];
+    $rows = db()->query("SELECT id, status, bosta_state FROM orders WHERE tracking_number IS NOT NULL AND tracking_number != ''
+        AND (bosta_state IS NULL OR bosta_state NOT IN (45, 46, 48, 49, 60, 104)) AND status NOT IN ('Cancelled')
+        ORDER BY COALESCE(bosta_updated_at, created_at) ASC LIMIT " . (int) $limit)->fetchAll();
+    $checked = $changed = 0;
+    foreach ($rows as $r) {
+        $t = db()->prepare('SELECT tracking_number FROM orders WHERE id = ?');
+        $t->execute([$r['id']]);
+        try { $d = bosta_view((string) $t->fetchColumn()); } catch (Throwable $e) { error_log('[bosta sync] ' . $e->getMessage()); continue; }
+        $checked++;
+        $code = (int) ($d['state']['code'] ?? 0);
+        if (!$code) continue;
+        if ($code !== (int) $r['bosta_state']) {
+            bosta_apply_state((int) $r['id'], $code, (string) ($d['state']['exception']['reason'] ?? ($d['exceptionReason'] ?? '')));
+            log_activity(['id' => null, 'name' => 'Bosta'], 'Shipment ' . bosta_state_label($code), order_number((int) $r['id']) . ' · synced');
+            $changed++;
+        } else {
+            db()->prepare("UPDATE orders SET bosta_updated_at = datetime('now') WHERE id = ?")->execute([$r['id']]);
+        }
+    }
+    return [$checked, $changed];
+}
+
+// Run the sync in the background at most every 2 hours, after the team's page has been sent.
+function schedule_bosta_sync(): void
+{
+    if (!bosta_enabled()) return;
+    $flag = cfg('data_dir') . '/bosta-sync.txt';
+    if (is_file($flag) && filemtime($flag) > time() - 7200) return;
+    @touch($flag);
+    register_shutdown_function(function () {
+        if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        try { bosta_sync_open(); } catch (Throwable $e) { error_log('[bosta sync] ' . $e->getMessage()); }
+    });
 }

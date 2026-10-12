@@ -564,6 +564,11 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
         $due = round((float) $o['total'] - order_paid($id), 2);
         if ($due > 0) add_payment($id, $due, 'cod', 'Collected on delivery', null);
     }
+    // Returned or cancelled: the courier's collection never happened, so drop the automatic delivery payment.
+    // Payments the team entered (deposits, transfers, online) stay and show as a refund to settle.
+    if (!$isOpen && $wasOpen) {
+        $pdo->prepare("DELETE FROM payments WHERE order_id = ? AND method = 'cod' AND note = 'Collected on delivery' AND created_by IS NULL")->execute([$id]);
+    }
     if ($own) tx_commit();
     if ($status !== $o['status']) log_activity(current_user_quiet(), 'Order ' . $status, order_number($id));
     return $o;

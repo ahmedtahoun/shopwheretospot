@@ -54,7 +54,8 @@
   const PRODUCT_TONE = { Active: ['good', '✓'], Draft: ['warn', '✎'], Archived: ['bad', '▪'] };
   // Under an order total: paid, deposit with balance, or amount still to collect.
   const payState = (o) => {
-    if (o.status === 'Cancelled' || o.status === 'Returned' || o.due == null) return '';
+    if (o.status === 'Cancelled' || o.status === 'Returned') return o.paid > 0 ? '<div class="small pay-part">' + egp(o.paid) + ' paid · refund?</div>' : '';
+    if (o.due == null) return '';
     if (o.due <= 0) return '<div class="small pay-ok">✓ Paid</div>';
     return '<div class="small ' + (o.paid > 0 ? 'pay-part' : 'muted') + '">' + (o.paid > 0 ? 'Deposit · ' : '') + egp(o.due) + ' due</div>';
   };
@@ -377,6 +378,7 @@
     const tabs = [''].concat(S.meta.orderStatuses);
     $('#main').innerHTML = header('Orders', d.orders.length + ' shown' + (can('own_orders') ? ' · only orders credited to you' : ''),
       '<div class="seg" id="view"><button data-v="list" class="' + (S.orderView !== 'board' ? 'on' : '') + '">List</button><button data-v="board" class="' + (S.orderView === 'board' ? 'on' : '') + '">Production board</button></div>' +
+      (S.bosta && S.bosta.enabled ? '<button class="btn" id="bSync" title="Ask Bosta for the latest state of every open shipment">↻ Sync Bosta</button>' : '') +
       '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>' + (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
       '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
       '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, phone, email or WTS-…" value="' + esc(q) + '" style="max-width:300px"></div>' +
@@ -392,6 +394,11 @@
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
     $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
     const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
+    const bs = $('#bSync'); if (bs) bs.onclick = async () => {
+      bs.disabled = true; bs.textContent = 'Syncing…';
+      try { const r = await api('bosta_sync', { method: 'POST', body: {} }); toast(r.changed ? r.changed + ' of ' + r.checked + ' shipments updated' : 'All ' + r.checked + ' open shipments are up to date'); render(); }
+      catch (e) { toast(e.message, true); bs.disabled = false; bs.textContent = '↻ Sync Bosta'; }
+    };
     $$('#view button').forEach((b) => b.onclick = () => { S.orderView = b.dataset.v; S.orderStatus = ''; pageOrders(); });
     let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.orderQ = e.target.value; pageOrders().then(() => { const el = $('#q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }, 350); };
     $$('tr[data-i]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-nosel]')) return; orderDrawer(d.orders[+tr.dataset.i]); });
