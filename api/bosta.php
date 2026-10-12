@@ -39,6 +39,7 @@ function bosta_request(string $method, string $path, ?array $body = null, bool $
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_UNICODE));
     $raw = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $GLOBALS['bosta_last_code'] = $code;
     $err = curl_error($ch);
     if ($raw === false) throw new ShopError('Could not reach Bosta: ' . $err);
     $json = json_decode((string) $raw, true);
@@ -454,7 +455,12 @@ function bosta_sync_open(int $limit = 60): array
     foreach ($rows as $r) {
         $t = db()->prepare('SELECT tracking_number FROM orders WHERE id = ?');
         $t->execute([$r['id']]);
-        try { $d = bosta_view((string) $t->fetchColumn()); } catch (Throwable $e) { error_log('[bosta sync] ' . $e->getMessage()); continue; }
+        try { $d = bosta_view((string) $t->fetchColumn()); }
+        catch (Throwable $e) {
+            if (bosta_gone($e)) { bosta_mark_deleted((int) $r['id']); $changed++; $checked++; }
+            else error_log('[bosta sync] ' . $e->getMessage());
+            continue;
+        }
         $checked++;
         $code = (int) ($d['state']['code'] ?? 0);
         if (!$code) continue;
@@ -467,6 +473,19 @@ function bosta_sync_open(int $limit = 60): array
         }
     }
     return [$checked, $changed];
+}
+
+// Bosta answers "not found" for a shipment that was deleted in the Bosta dashboard.
+function bosta_gone(Throwable $e): bool
+{
+    return ($GLOBALS['bosta_last_code'] ?? 0) === 404 || stripos($e->getMessage(), 'not found') !== false || stripos($e->getMessage(), 'not exist') !== false;
+}
+
+// Deleted at Bosta: the shipment is gone, the order itself stays as it is (it can be shipped again).
+function bosta_mark_deleted(int $orderId): void
+{
+    db()->prepare("UPDATE orders SET bosta_state = 49, bosta_note = 'Deleted on Bosta', bosta_updated_at = datetime('now') WHERE id = ?")->execute([$orderId]);
+    log_activity(['id' => null, 'name' => 'Bosta'], 'Shipment deleted on Bosta', order_number($orderId));
 }
 
 // Run the sync in the background at most every 2 hours, after the team's page has been sent.

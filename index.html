@@ -1300,12 +1300,15 @@ class Component extends DCLogic {
     try { const r = await this._sd.postJSON(action, body); this.setState({ acctBusy: false }); return r; }
     catch (err) { this.setState({ acctBusy: false, acctMsg: (window.WTS_T ? window.WTS_T(err.message) : err.message) }); return null; }
   };
+  // Show the code box straight away; the email goes out in the background. If it fails, go back with the reason.
   sendCode = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     const email = this.state.acctEmail.trim();
-    if (!email || !this._sd) return;
-    const r = await this._acctPost('account_code', { email, lang: window.WTS_LANG || 'en' });
-    if (r) this.setState({ acctStep: 'code', acctCode: '' });
+    if (!email || !this._sd || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.setState({ acctMsg: window.WTS_T ? window.WTS_T('Please enter a valid email.') : 'Please enter a valid email.' }); return; }
+    const was = this.state.acctStep;
+    this.setState({ acctStep: 'code', acctCode: '', acctMsg: '' });
+    try { await this._sd.postJSON('account_code', { email, lang: window.WTS_LANG || 'en' }); }
+    catch (err) { this.setState({ acctStep: was === 'code' ? 'code' : 'email', acctMsg: window.WTS_T ? window.WTS_T(err.message) : err.message }); }
   };
   resendCode = () => this.sendCode();
   changeEmail = () => this.setState({ acctStep: 'email', acctCode: '', acctMsg: '' });

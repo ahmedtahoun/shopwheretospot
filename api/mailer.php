@@ -60,9 +60,9 @@ function smtp_send(array $c, string $from, array $to, array $headers, string $bo
 {
     $port = (int) ($c['port'] ?? 465);
     $host = ($port === 465 ? 'ssl://' : 'tcp://') . $c['host'];
-    $fp = @stream_socket_client($host . ':' . $port, $errno, $errstr, 15);
+    $fp = @stream_socket_client($host . ':' . $port, $errno, $errstr, 8);
     if (!$fp) throw new RuntimeException("SMTP connect failed: $errstr");
-    stream_set_timeout($fp, 15);
+    stream_set_timeout($fp, 10);
     $read = function () use ($fp) {
         $out = '';
         while (($line = fgets($fp, 515)) !== false) { $out .= $line; if (isset($line[3]) && $line[3] === ' ') break; }

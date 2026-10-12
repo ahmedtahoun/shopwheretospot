@@ -555,7 +555,8 @@ try {
         $o = $st->fetch();
         if (!$o || !$o['tracking_number']) fail('This order has no Bosta shipment.', 404);
         assert_order_access($u, $o);
-        $d = bosta_view($o['tracking_number']);
+        try { $d = bosta_view($o['tracking_number']); }
+        catch (ShopError $e) { if (!bosta_gone($e)) throw $e; bosta_mark_deleted((int) $o['id']); json_out(['state' => 49, 'label' => 'Deleted on Bosta']); }
         $code = (int) ($d['state']['code'] ?? 0);
         if ($code) bosta_apply_state((int) $o['id'], $code, (string) ($d['state']['exception']['reason'] ?? ($d['exceptionReason'] ?? '')));
         json_out(['state' => $code, 'label' => bosta_state_label($code)]);
@@ -572,8 +573,13 @@ try {
             $st->execute([$id]);
             $o = $st->fetch();
             if (!$o) continue;
-            if ($o['tracking_number'] && !in_array((int) $o['bosta_state'], [48, 49], true))
-                fail(order_number($id) . ' has a Bosta shipment. Cancel the shipment first, then delete the order.');
+            // A live Bosta shipment is cancelled first; one already deleted on Bosta is fine.
+            if ($o['tracking_number'] && !in_array((int) $o['bosta_state'], [45, 46, 48, 49, 60], true)) {
+                try { bosta_terminate($o['tracking_number']); }
+                catch (Throwable $e) {
+                    if (!bosta_gone($e)) fail(order_number($id) . ': Bosta didn’t let us cancel its shipment (' . $e->getMessage() . '). Cancel it in Bosta, then delete the order.');
+                }
+            }
             tx_begin();
             try {
                 if (!in_array($o['status'], ['Cancelled', 'Returned'], true)) {

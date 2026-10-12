@@ -436,7 +436,7 @@
     if (del) del.onclick = async () => {
       const ids = [...S.sel];
       const names = S.orders.filter((o) => S.sel.has(o.id)).map((o) => o.number).join(', ');
-      if (!confirm('Delete ' + ids.length + ' order' + (ids.length > 1 ? 's' : '') + ' for good?\n\n' + names + '\n\nUse this only for test or mistaken orders. Stock goes back and their payments are removed. This can’t be undone.')) return;
+      if (!confirm('Delete ' + ids.length + ' order' + (ids.length > 1 ? 's' : '') + ' for good?\n\n' + names + '\n\nUse this only for test or mistaken orders. Stock goes back, their payments are removed, and any Bosta shipment still open is cancelled. This can’t be undone.')) return;
       del.disabled = true;
       try { const r = await api('order_delete', { method: 'POST', body: { ids } }); toast('Deleted ' + r.deleted.join(', ')); render(); }
       catch (e) { toast(e.message, true); del.disabled = false; }
