@@ -8,6 +8,7 @@ $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 if ($action !== 'backup_download') schedule_daily_backup();
 if (!in_array($action, ['backup_download', 'bosta_awb', 'bosta_sync'], true)) schedule_bosta_sync();
+if (in_array($action, ['dashboard', 'orders'], true)) expire_unpaid_orders();
 
 try {
     switch ($action) {
@@ -87,7 +88,7 @@ try {
         $own = in_array('own_orders', $u['perms'], true);
         $scope = $own ? ' AND rep_id = ' . (int) $u['id'] : '';
         $since = gmdate('Y-m-d', time() - ($days - 1) * 86400);
-        $valid = "status NOT IN ('Cancelled','Returned')";
+        $valid = "status NOT IN ('Cancelled','Returned','Awaiting payment')";
         $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope");
         $st->execute([$since]);
         $k = $st->fetch();
@@ -125,7 +126,7 @@ try {
             }
             usort($lowStock, function ($a, $b) { return $a['stock'] <=> $b['stock']; });
         }
-        $recent = array_map('order_out', $pdo->query('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE 1' . str_replace('rep_id', 'o.rep_id', $scope) . ' ORDER BY o.id DESC LIMIT 6')->fetchAll());
+        $recent = array_map('order_out', $pdo->query('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE o.status != \'Awaiting payment\'' . str_replace('rep_id', 'o.rep_id', $scope) . ' ORDER BY o.id DESC LIMIT 6')->fetchAll());
         $month = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m');
         // Leads due a follow-up today or earlier (sales people: theirs and unassigned ones).
         $followUps = [];
@@ -149,7 +150,7 @@ try {
         // Money still owed on open orders (deposits paid, balance not yet collected).
         $st = $pdo->query("SELECT COALESCE(SUM(MAX(o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id), 0)), 0) due,
             SUM(CASE WHEN o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) > 0.5 THEN 1 ELSE 0 END) n
-            FROM orders o WHERE o.status NOT IN ('Cancelled','Returned')" . str_replace('rep_id', 'o.rep_id', $scope));
+            FROM orders o WHERE o.status NOT IN ('Cancelled','Returned','Awaiting payment')" . str_replace('rep_id', 'o.rep_id', $scope));
         $collect = $st->fetch();
         // Estimated gross profit for the period, from unit costs (saved on each order line, or the product's current cost).
         $profit = null;
@@ -406,6 +407,7 @@ try {
         $where = [];
         $args = [];
         if (!empty($_GET['status'])) { $where[] = 'o.status = ?'; $args[] = $_GET['status']; }
+        else $where[] = "o.status != 'Awaiting payment'"; // unpaid online checkouts only show under their own tab
         if (!empty($_GET['q'])) {
             $q = '%' . $_GET['q'] . '%';
             $where[] = '(o.customer LIKE ? OR o.email LIKE ? OR o.phone LIKE ? OR (\'WTS-\' || (1000 + o.id)) LIKE ?)';
@@ -670,7 +672,7 @@ try {
         $u = require_perm('orders');
         $own = in_array('own_orders', $u['perms'], true);
         $rows = db()->query('SELECT o.id, o.customer, o.email, o.phone, o.total, o.status, o.created_at, o.business_name, o.city, o.district,
-            (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) AS paid FROM orders o' . ($own ? ' WHERE o.rep_id = ' . (int) $u['id'] : '') . ' ORDER BY o.id')->fetchAll();
+            (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) AS paid FROM orders o WHERE o.status != \'Awaiting payment\'' . ($own ? ' AND o.rep_id = ' . (int) $u['id'] : '') . ' ORDER BY o.id')->fetchAll();
         $map = [];
         foreach ($rows as $r) {
             $key = phone_key((string) $r['phone']) ?: (email_key((string) $r['email']) ?: 'order-' . $r['id']);

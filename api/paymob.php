@@ -151,5 +151,7 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
     }
     $st = $pdo->prepare('SELECT total FROM orders WHERE id = ?');
     $st->execute([$orderId]);
-    return order_paid($orderId) >= (float) $st->fetchColumn() - 0.5;
+    $full = order_paid($orderId) >= (float) $st->fetchColumn() - 0.5;
+    if ($full) confirm_online_order($orderId, 'New order · paid online');
+    return $full;
 }

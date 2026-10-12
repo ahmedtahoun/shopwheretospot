@@ -42,8 +42,9 @@ const ROLES = [
     'staff' => ['dashboard', 'orders', 'sell', 'leads'],
 ];
 // Order lifecycle, including production of personalised items. Cancelled/Returned put stock back.
-const ORDER_STATUSES = ['Pending', 'Confirmed', 'Designing', 'Awaiting approval', 'In production', 'Ready', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
-const ORDER_STAGE = ['Pending' => 0, 'Confirmed' => 1, 'Designing' => 2, 'Awaiting approval' => 3, 'In production' => 4, 'Ready' => 5, 'Shipped' => 6, 'Delivered' => 7, 'Returned' => 7, 'Cancelled' => 7];
+// 'Awaiting payment': an online-payment order whose payment Paymob hasn't confirmed yet (hidden from lists and totals).
+const ORDER_STATUSES = ['Awaiting payment', 'Pending', 'Confirmed', 'Designing', 'Awaiting approval', 'In production', 'Ready', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
+const ORDER_STAGE = ['Awaiting payment' => 0, 'Pending' => 0, 'Confirmed' => 1, 'Designing' => 2, 'Awaiting approval' => 3, 'In production' => 4, 'Ready' => 5, 'Shipped' => 6, 'Delivered' => 7, 'Returned' => 7, 'Cancelled' => 7];
 const LEAD_STATUSES = ['New', 'Contacted', 'Quoted', 'Won', 'Lost'];
 
 function cfg(string $key)

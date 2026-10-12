@@ -108,7 +108,7 @@ function create_order(array $in, array $opts = []): array
         }
         $source = in_array($opts['source'] ?? '', ORDER_SOURCES, true) ? $opts['source'] : ($repId && !$team ? 'Referral' : 'Website');
         $payment = array_key_exists($opts['payment'] ?? '', PAYMENT_METHODS) ? $opts['payment'] : 'cod';
-        $status = in_array($opts['status'] ?? '', ['Pending', 'Confirmed'], true) ? $opts['status'] : 'Pending';
+        $status = in_array($opts['status'] ?? '', ['Pending', 'Confirmed', 'Awaiting payment'], true) ? $opts['status'] : 'Pending';
 
         $files = [];
         $logo = basename((string) ($in['logo_token'] ?? ''));
@@ -136,14 +136,63 @@ function create_order(array $in, array $opts = []): array
         throw $e;
     }
 
-    $repName = null;
-    if ($repId) { $st = $pdo->prepare('SELECT name FROM users WHERE id = ?'); $st->execute([$repId]); $repName = $st->fetchColumn() ?: null; }
-    notify_new_order(order_number($id), [
-        'name' => $name, 'email' => $email, 'phone' => $phone, 'address' => $address, 'city' => $district ? $district . ', ' . $city : $city,
-        'subtotal' => $subtotal, 'discount' => $discount, 'promo' => $promo, 'shipping' => $shipping, 'total' => $total, 'rep' => $repName,
-        'source' => $source, 'payment' => PAYMENT_METHODS[$payment],
-    ], $lines);
+    // Online-payment orders are announced only once Paymob confirms the payment (see confirm_online_order).
+    if ($status !== 'Awaiting payment') notify_order($id);
     return ['id' => $id, 'number' => order_number($id), 'total' => $total, 'shipping' => $shipping, 'discount' => $discount];
+}
+
+// "New order" alert to the team, built from the saved order.
+function notify_order(int $id): void
+{
+    $st = db()->prepare('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE o.id = ?');
+    $st->execute([$id]);
+    $o = $st->fetch();
+    if (!$o) return;
+    notify_new_order(order_number($id), [
+        'name' => $o['customer'], 'email' => $o['email'], 'phone' => $o['phone'], 'address' => $o['address'],
+        'city' => $o['district'] ? $o['district'] . ', ' . $o['city'] : $o['city'],
+        'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'promo' => $o['promo'], 'shipping' => (float) $o['shipping'],
+        'total' => (float) $o['total'], 'rep' => $o['rep_name'] ?: null, 'source' => $o['source'], 'payment' => PAYMENT_METHODS[$o['payment']] ?? $o['payment'],
+    ], json_decode($o['items'], true) ?: []);
+}
+
+// The customer paid online (or switched to cash on delivery): the order becomes a normal new order,
+// the team is alerted and the customer is recorded as a won lead. Safe to call more than once.
+function confirm_online_order(int $id, string $why): void
+{
+    $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+    $st->execute([$id]);
+    $o = $st->fetch();
+    if (!$o) return;
+    $expired = $o['status'] === 'Cancelled' && strpos((string) $o['notes'], UNPAID_EXPIRED_NOTE) !== false;
+    if ($o['status'] !== 'Awaiting payment' && !$expired) return;
+    set_order_status($id, 'Pending', $expired ? trim(str_replace(UNPAID_EXPIRED_NOTE, '', (string) $o['notes'])) : null);
+    log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
+    notify_order($id);
+    try {
+        lead_from_order(['name' => $o['customer'], 'phone' => $o['phone'], 'email' => $o['email']], ['id' => $id, 'number' => order_number($id), 'total' => (float) $o['total']],
+            $o['rep_id'] ? (int) $o['rep_id'] : null, 'Website');
+    } catch (Throwable $e) { error_log('[shop] lead from paid order failed: ' . $e->getMessage()); }
+}
+
+const UNPAID_EXPIRED_NOTE = 'Online payment not completed — released automatically.';
+
+// Online orders still unpaid after 3 hours are cancelled (stock goes back) and the customer is kept as a lead to follow up.
+function expire_unpaid_orders(): void
+{
+    $rows = db()->query("SELECT * FROM orders WHERE status = 'Awaiting payment' AND created_at < datetime('now', '-3 hours') LIMIT 50")->fetchAll();
+    foreach ($rows as $o) {
+        try {
+            set_order_status((int) $o['id'], 'Cancelled', trim(UNPAID_EXPIRED_NOTE . ' ' . (string) $o['notes']));
+            $items = implode(', ', array_map(function ($i) { return $i['qty'] . '× ' . $i['name']; }, json_decode($o['items'], true) ?: []));
+            $note = date('Y-m-d') . ' · Started checkout (' . order_number((int) $o['id']) . ', EGP ' . number_format((float) $o['total']) . ') but didn’t finish paying online · ' . $items;
+            $contact = trim($o['phone'] . ($o['email'] !== '' ? ' · ' . $o['email'] : ''), ' ·');
+            $lead = find_lead(phone_key((string) $o['phone']), email_key((string) $o['email']));
+            if ($lead) touch_lead($lead, $note, $lead['status'] === 'Won' ? null : 'New', $o['rep_id'] ? (int) $o['rep_id'] : null, $contact);
+            else insert_lead(['name' => $o['customer'], 'contact' => $contact, 'cat' => mb_substr($items, 0, 120), 'source' => 'Unfinished online payment',
+                'status' => 'New', 'notes' => $note, 'assigned_to' => $o['rep_id'] ?: null]);
+        } catch (Throwable $e) { error_log('[shop] expiring unpaid order failed: ' . $e->getMessage()); }
+    }
 }
 
 // ---------- months & targets (Cairo time) ----------
@@ -166,13 +215,13 @@ function team_performance(string $month, ?int $onlyUser = null): array
     $sql = "SELECT u.id, u.name, u.role, u.active,
             COALESCE(t.orders_target, 0) AS orders_target, COALESCE(t.revenue_target, 0) AS revenue_target,
             COUNT(o.id) AS orders,
-            COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelled','Returned') THEN o.total END), 0) AS revenue,
+            COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelled','Returned','Awaiting payment') THEN o.total END), 0) AS revenue,
             SUM(CASE WHEN o.status = 'Delivered' THEN 1 ELSE 0 END) AS delivered,
             SUM(CASE WHEN o.status IN ('Cancelled','Returned') THEN 1 ELSE 0 END) AS lost,
             MAX(o.created_at) AS last_order
         FROM users u
         LEFT JOIN targets t ON t.user_id = u.id AND t.month = :m
-        LEFT JOIN orders o ON o.rep_id = u.id AND o.created_at >= :f AND o.created_at < :t
+        LEFT JOIN orders o ON o.rep_id = u.id AND o.created_at >= :f AND o.created_at < :t AND o.status != 'Awaiting payment'
         WHERE (u.active = 1 OR o.id IS NOT NULL)" . ($onlyUser ? ' AND u.id = :u' : '') . "
         GROUP BY u.id ORDER BY revenue DESC, u.name";
     $st = $pdo->prepare($sql);

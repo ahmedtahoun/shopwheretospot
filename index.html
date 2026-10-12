@@ -872,6 +872,7 @@
           <p style="font-size:14px;color:#6B6660;margin:0;max-width:34ch">{{ successText }}</p>
           <sc-if value="{{ showPayRetry }}" hint-placeholder-val="{{ false }}">
             <button onClick="{{ retryPay }}" disabled="{{ placing }}" style="background:var(--accent);color:#fff;border:none;padding:13px 26px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">{{ retryLabel }}</button>
+            <button onClick="{{ payCod }}" disabled="{{ placing }}" style="background:#fff;color:#22201D;border:1px solid #DDD6CC;padding:12px 24px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Pay cash on delivery instead</button>
           </sc-if>
           <div style="border:1px dashed var(--accent);border-radius:14px;padding:14px 22px;margin-top:6px">
             <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your order number</div>
@@ -1195,12 +1196,13 @@ class Component extends DCLogic {
     const accent = this.props && this.props.accent ? this.props.accent : '#A8552F';
     const res = s.payResult; // 'ok' | 'failed' | 'check' | 'error' | null
     const name = (s.form.name || '').split(' ')[0];
-    const titles = { ok: 'Payment received', failed: 'Payment didn’t go through', check: 'Checking your payment', error: 'Order saved — payment not started' };
+    const titles = { ok: 'Payment received', failed: 'Payment didn’t go through', check: 'Checking your payment', error: 'Payment not started', cod: 'Order confirmed' };
     const texts = {
       ok: 'Thank you' + (name ? ', ' + name : '') + '! Your order is paid and we’ll start preparing it. We’ll call or WhatsApp you to confirm delivery.',
-      failed: 'Your order is saved but not paid' + (s.payReason ? ' (' + s.payReason + ')' : '') + '. You can try again, or we can collect cash on delivery — just reply to our call.',
+      failed: 'Your order isn’t confirmed yet' + (s.payReason ? ' (' + s.payReason + ')' : '') + '. Try paying again, or choose cash on delivery. Unpaid orders are released after 3 hours.',
       check: 'We’re confirming your payment with Paymob. You’ll get a call or WhatsApp from us shortly.',
-      error: (s.payError || 'Online payment could not be started.') + ' Your order is saved — you can try again, or pay cash on delivery.',
+      cod: 'Thank you' + (name ? ', ' + name : '') + '! Your order is confirmed — pay ' + fmt(s.orderTotal || 0) + ' in cash when it arrives. We’ll call or WhatsApp you to confirm delivery.',
+      error: (s.payError || 'Online payment could not be started.') + ' Your order isn’t confirmed yet — try again, or choose cash on delivery.',
     };
     return {
       hasCardPay: online.includes('paymob_card'), hasWalletPay: online.includes('paymob_wallet'), noOnlinePay: !online.length,
@@ -1212,7 +1214,7 @@ class Component extends DCLogic {
       successColor: res === 'failed' || res === 'error' ? '#B4532A' : res === 'check' ? '#8A8478' : '#6B8F71',
       successTitle: res ? titles[res] : 'Order received',
       successText: res ? texts[res] : 'Thanks ' + (s.form.name || '') + ' — we\'ll call or WhatsApp you on ' + (s.form.phone || 'your phone') + ' to confirm. Pay ' + fmt(s.orderTotal || 0) + ' in cash on delivery. Questions? info@wheretospot.com · +20 127 766 0666',
-      showPayRetry: (res === 'failed' || res === 'error') && online.length > 0, retryPay: this.retryPay,
+      showPayRetry: (res === 'failed' || res === 'error') && online.length > 0, retryPay: this.retryPay, payCod: this.payCod,
       retryLabel: s.placing ? 'Opening secure payment…' : 'Try paying online again',
     };
   };
@@ -1227,6 +1229,18 @@ class Component extends DCLogic {
     try {
       const r = await this._sd.postJSON('pay', { number, contact, method: this.state.form.payment && this.state.form.payment !== 'cod' ? this.state.form.payment : '' });
       window.location.href = r.payUrl;
+    } catch (err) { this.setState({ placing: false }); this.showToast(err.message); }
+  };
+  payCod = async () => {
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('wts_last_order') || 'null'); } catch (e) {}
+    const number = this.state.orderNumber || (last && last.number);
+    const contact = (last && last.number === number && last.contact) || this.state.form.email || this.state.form.phone;
+    if (!number || !contact) { this.showToast('Please call us on +20 127 766 0666 to confirm your order.'); return; }
+    this.setState({ placing: true });
+    try {
+      const r = await this._sd.postJSON('pay_cod', { number, contact });
+      this.setState({ placing: false, payResult: 'cod', orderNumber: r.number, orderTotal: r.total });
     } catch (err) { this.setState({ placing: false }); this.showToast(err.message); }
   };
   submitInfo = async (e) => {

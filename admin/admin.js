@@ -47,7 +47,7 @@
     return data;
   }
 
-  const ORDER_TONE = { Pending: ['warn', '●'], Confirmed: ['info', '◆'], Designing: ['accent', '✎'], 'Awaiting approval': ['warn', '⏳'], 'In production': ['accent', '⚙'], Ready: ['good', '▣'], Shipped: ['info', '➜'], Delivered: ['good', '✓'], Cancelled: ['bad', '✕'], Returned: ['bad', '↩'] };
+  const ORDER_TONE = { 'Awaiting payment': ['', '💳'], Pending: ['warn', '●'], Confirmed: ['info', '◆'], Designing: ['accent', '✎'], 'Awaiting approval': ['warn', '⏳'], 'In production': ['accent', '⚙'], Ready: ['good', '▣'], Shipped: ['info', '➜'], Delivered: ['good', '✓'], Cancelled: ['bad', '✕'], Returned: ['bad', '↩'] };
   const QUOTE_TONE = { Draft: ['', '✎'], Sent: ['info', '➜'], Accepted: ['good', '✓'], Declined: ['bad', '✕'], Expired: ['warn', '◷'] };
   const QUOTE_TERMS = 'All prices are in Egyptian Pounds (EGP).\nThis quote is valid until the date shown.\nDelivery across Egypt.';
   const LEAD_TONE = { New: ['accent', '●'], Contacted: ['info', '◆'], Quoted: ['warn', '✎'], Won: ['good', '✓'], Lost: ['bad', '✕'] };

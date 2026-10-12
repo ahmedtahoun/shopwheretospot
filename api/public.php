@@ -65,15 +65,17 @@ try {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
         // Online payment: the order is saved first (unpaid), then the customer pays on Paymob's page.
         $pay = in_array($b['payment'] ?? '', array_keys(paymob_methods()), true) ? $b['payment'] : 'cod';
-        $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0]);
+        expire_unpaid_orders();
+        // Paid online: kept as "Awaiting payment" (no alert, not in the team's lists) until Paymob confirms.
+        $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0, 'status' => 'Awaiting payment']);
         record_attempt('order');
         schedule_daily_backup();
-        try {
+        if ($pay === 'cod') try {
             $st = db()->prepare('SELECT rep_id FROM orders WHERE id = ?');
             $st->execute([$r['id']]);
             lead_from_order($b, $r, ($rep = $st->fetchColumn()) ? (int) $rep : null, 'Website');
         } catch (Throwable $e) { error_log('[shop] lead from website order failed: ' . $e->getMessage()); }
-        log_activity(null, 'New order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']));
+        if ($pay === 'cod') log_activity(null, 'New order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']));
         $payUrl = null; $payError = null;
         if ($pay !== 'cod') {
             try { $payUrl = paymob_checkout_url((int) $r['id'], $pay); }
@@ -83,6 +85,24 @@ try {
     }
 
     // Pay (again) online for an existing unpaid order, e.g. after a declined card. Needs the order's email or phone.
+    // The customer gave up on paying online and prefers cash on delivery for the same order.
+    if ($action === 'pay_cod') {
+        if (too_many_attempts('pay', 20, 3600)) fail('Too many attempts. Please call us.', 429);
+        record_attempt('pay');
+        $id = (int) preg_replace('/\D/', '', strtoupper(str_in($b['number'] ?? '', 20))) - 1000;
+        $who = str_in($b['contact'] ?? '', 160);
+        $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+        $st->execute([$id]);
+        $o = $st->fetch();
+        $match = $o && $who !== '' && (strcasecmp($o['email'], $who) === 0 || (phone_key($who) && phone_key($who) === phone_key((string) $o['phone'])));
+        if (!$match) fail('We couldn’t find that order. Check the number and the email or phone you used.', 404);
+        if ($o['status'] !== 'Awaiting payment') fail($o['status'] === 'Cancelled' ? 'This order expired. Please place it again from the shop.' : 'This order is already confirmed.');
+        if (order_paid($id) > 0) fail('This order already has a payment. Please contact us.');
+        db()->prepare("UPDATE orders SET payment = 'cod' WHERE id = ?")->execute([$id]);
+        confirm_online_order($id, 'Order switched to cash on delivery');
+        json_out(['ok' => true, 'number' => order_number($id), 'total' => (float) $o['total']]);
+    }
+
     if ($action === 'pay') {
         if (too_many_attempts('pay', 20, 3600)) fail('Too many attempts. Please call us.', 429);
         record_attempt('pay');
@@ -94,6 +114,7 @@ try {
         $o = $st->fetch();
         $match = $o && $who !== '' && (strcasecmp($o['email'], $who) === 0 || (phone_key($who) && phone_key($who) === phone_key((string) $o['phone'])));
         if (!$match) fail('We couldn’t find that order. Check the number and the email or phone you used.', 404);
+        if ($o['status'] === 'Cancelled' && strpos((string) $o['notes'], UNPAID_EXPIRED_NOTE) !== false) fail('This order expired because it wasn’t paid. Please place it again from the shop.');
         if (in_array($o['status'], ['Cancelled', 'Returned', 'Delivered'], true)) fail('This order can’t be paid online. Please contact us.');
         $method = in_array($b['method'] ?? '', array_keys(paymob_methods()), true) ? $b['method'] : (array_keys(paymob_methods())[0] ?? '');
         if ($method === '') fail('Online payment is not available right now.');
