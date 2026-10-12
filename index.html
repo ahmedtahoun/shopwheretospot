@@ -1321,10 +1321,12 @@ class Component extends DCLogic {
       return { title: d.name + (d.ar ? ' · ' + d.ar : ''), sub: (d.name === currentZone.name ? '' : currentZone.name + ', ') + cityName };
     })();
     const cartSubtotal = s.cart.reduce((sum, i) => sum + (i.total != null ? i.total : i.price * i.qty), 0);
-    const promoOff = !s.appliedPromo || cartSubtotal < (s.appliedPromo.min || 0) ? 0
+    const promoOk = !!s.appliedPromo && cartSubtotal >= (s.appliedPromo.min || 0);
+    const freeDelivery = promoOk && s.appliedPromo.kind === 'shipping';
+    const promoOff = !promoOk || freeDelivery ? 0
       : s.appliedPromo.kind === 'fixed' ? Math.min(cartSubtotal, s.appliedPromo.value) : Math.round(cartSubtotal * Math.min(100, s.appliedPromo.pct) / 100 * 100) / 100;
     const cartItemsTotal = cartSubtotal - promoOff;
-    const shipping = this._sd ? this._sd.shippingFor(s.cart) : 0;
+    const shipping = this._sd && !freeDelivery ? this._sd.shippingFor(s.cart) : 0;
     const cartTotal = cartItemsTotal + shipping;
     const cartCount = s.cart.reduce((sum, i) => sum + i.qty, 0);
 
@@ -1388,7 +1390,7 @@ class Component extends DCLogic {
       cartItems: s.cart.map(i => { const lt = i.total != null ? i.total : i.price * i.qty; return { ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', thumb: this.thumbFor(i.id), lineTotal: lt, lineTotalFmt: fmt(lt), onInc: this.incItem(i.key), onDec: this.decItem(i.key), onRemove: this.removeItem(i.key) }; }),
       cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartItemsTotalFmt: fmt(cartItemsTotal), shippingFmt: shipping ? fmt(shipping) : 'Free', cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
       promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
-      appliedPromo: s.appliedPromo, promoDiscountFmt: promoOff ? '−' + fmt(promoOff) : fmt(0), promoNote: s.appliedPromo && !promoOff && s.appliedPromo.min > cartSubtotal ? 'Add ' + fmt(s.appliedPromo.min - cartSubtotal) + ' more to use ' + s.appliedPromo.code + '.' : '',
+      appliedPromo: s.appliedPromo, promoDiscountFmt: freeDelivery ? (this._sd && this._sd.shippingFor(s.cart) ? '−' + fmt(this._sd.shippingFor(s.cart)) : 'Free delivery') : promoOff ? '−' + fmt(promoOff) : fmt(0), promoNote: s.appliedPromo && !promoOk && s.appliedPromo.min > cartSubtotal ? 'Add ' + fmt(s.appliedPromo.min - cartSubtotal) + ' more to use ' + s.appliedPromo.code + '.' : '',
       goInfo: this.goInfo, backToCart: this.backToCart, submitInfo: this.submitInfo, newOrder: this.newOrder,
       rememberMe: s.checkoutMode === 'save', payStepNo: s.cart.some(i => i.personalized) ? 4 : 3,
       guestBg: s.checkoutMode === 'guest' ? accent : 'transparent', guestFg: s.checkoutMode === 'guest' ? '#fff' : '#22201D',

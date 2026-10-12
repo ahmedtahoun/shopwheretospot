@@ -615,12 +615,14 @@ function promo_check(string $code, float $subtotal): array
     if ($p['max_uses'] !== null && promo_uses($p['code']) >= (int) $p['max_uses']) throw new ShopError('This promo code has been fully used.');
     if ((float) $p['min_order'] > 0 && $subtotal > 0 && $subtotal < (float) $p['min_order'])
         throw new ShopError('This code needs an order of EGP ' . number_format((float) $p['min_order']) . ' or more.');
+    if ($p['kind'] === 'shipping') return [$p, 0.0]; // free delivery: the order drops the delivery fee instead
     $discount = $p['kind'] === 'fixed' ? min($subtotal, (float) $p['value']) : round($subtotal * min(100, (float) $p['value']) / 100, 2);
     return [$p, round($discount, 2)];
 }
 
 function promo_label(array $p): string
 {
+    if ($p['kind'] === 'shipping') return 'Free delivery';
     return $p['kind'] === 'fixed' ? 'EGP ' . number_format((float) $p['value']) . ' off' : rtrim(rtrim(number_format((float) $p['value'], 2), '0'), '.') . '% off';
 }
 

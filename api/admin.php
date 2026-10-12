@@ -809,9 +809,9 @@ try {
         $id = (int) ($b['id'] ?? 0);
         $code = strtoupper(preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($b['code'] ?? '')));
         if (strlen($code) < 3 || strlen($code) > 30) fail('Use 3 to 30 letters or numbers for the code (no spaces).');
-        $kind = ($b['kind'] ?? '') === 'fixed' ? 'fixed' : 'percent';
-        $value = round((float) ($b['value'] ?? 0), 2);
-        if ($value <= 0) fail('Enter the discount amount.');
+        $kind = in_array($b['kind'] ?? '', ['fixed', 'shipping'], true) ? $b['kind'] : 'percent';
+        $value = $kind === 'shipping' ? 0 : round((float) ($b['value'] ?? 0), 2);
+        if ($value <= 0 && $kind !== 'shipping') fail('Enter the discount amount.');
         if ($kind === 'percent' && $value > 100) fail('A percentage can be at most 100.');
         $date = function ($v) { $v = trim((string) $v); return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null; };
         $max = ($b['max_uses'] ?? '') === '' || $b['max_uses'] === null ? null : max(1, (int) $b['max_uses']);

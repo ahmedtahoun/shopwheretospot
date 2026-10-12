@@ -83,16 +83,17 @@ function create_order(array $in, array $opts = []): array
 
         $promo = strtoupper(str_in($in['promo'] ?? '', 40));
         $discount = 0.0;
+        $freeDelivery = false;
         if ($promo !== '') {
-            try { [$pr, $discount] = promo_check($promo, $subtotal); $promo = $pr['code']; }
+            try { [$pr, $discount] = promo_check($promo, $subtotal); $promo = $pr['code']; $freeDelivery = $pr['kind'] === 'shipping'; }
             catch (ShopError $e) { if (!$team) throw $e; $promo = ''; }
         }
-        if (!$discount) $promo = '';
+        if (!$discount && !$freeDelivery) $promo = '';
         if ($team && isset($opts['discount']) && (float) $opts['discount'] > 0) {
             $discount = min($subtotal, round((float) $opts['discount'], 2));
             $promo = 'MANUAL';
         }
-        $shipping = $physical > 0 && $physical < cfg('free_shipping_threshold') ? (float) cfg('shipping_fee') : 0.0;
+        $shipping = $physical > 0 && $physical < cfg('free_shipping_threshold') && !$freeDelivery ? (float) cfg('shipping_fee') : 0.0;
         if ($team && isset($opts['shipping']) && $opts['shipping'] !== '' && $opts['shipping'] !== null) $shipping = max(0, round((float) $opts['shipping'], 2));
         $subtotal = round($subtotal, 2);
         $total = round($subtotal - $discount + $shipping, 2);
