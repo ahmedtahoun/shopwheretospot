@@ -537,6 +537,37 @@ try {
         if ($code) bosta_apply_state((int) $o['id'], $code, (string) ($d['state']['exception']['reason'] ?? ($d['exceptionReason'] ?? '')));
         json_out(['state' => $code, 'label' => bosta_state_label($code)]);
 
+    // Owner only: remove test or mistaken orders completely (stock goes back, payments are removed).
+    case 'order_delete':
+        $u = require_perm('team');
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) (body()['ids'] ?? [])))));
+        if (!$ids || count($ids) > 50) fail('Choose up to 50 orders to delete.');
+        $pdo = db();
+        $deleted = [];
+        foreach ($ids as $id) {
+            $st = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
+            $st->execute([$id]);
+            $o = $st->fetch();
+            if (!$o) continue;
+            if ($o['tracking_number'] && !in_array((int) $o['bosta_state'], [48, 49], true))
+                fail(order_number($id) . ' has a Bosta shipment. Cancel the shipment first, then delete the order.');
+            tx_begin();
+            try {
+                if (!in_array($o['status'], ['Cancelled', 'Returned'], true)) {
+                    foreach (json_decode($o['items'], true) ?: [] as $it) {
+                        if (($it['id'] ?? '') === 'custom') continue;
+                        adjust_stock($pdo, (string) $it['id'], isset($it['variant']) ? (string) $it['variant'] : null, (int) $it['qty']);
+                    }
+                }
+                $pdo->prepare('DELETE FROM payments WHERE order_id = ?')->execute([$id]);
+                $pdo->prepare('DELETE FROM orders WHERE id = ?')->execute([$id]);
+                tx_commit();
+            } catch (Throwable $e) { tx_rollback(); throw $e; }
+            log_activity($u, 'Deleted order', order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
+            $deleted[] = order_number($id);
+        }
+        json_out(['deleted' => $deleted]);
+
     case 'bosta_sync':
         require_perm('orders');
         [$checked, $changed] = bosta_sync_open(100);

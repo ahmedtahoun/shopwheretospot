@@ -379,17 +379,19 @@
     S.sel = new Set();
     if (S.orderView === 'board') return pageBoard(d.orders, bosta);
     const tabs = [''].concat(S.meta.orderStatuses);
+    const selectable = bosta.enabled || can('team'); // row checkboxes: Bosta bulk actions, and Delete for the owner
     $('#main').innerHTML = header('Orders', d.orders.length + ' shown' + (can('own_orders') ? ' · only orders credited to you' : ''),
       '<div class="seg" id="view"><button data-v="list" class="' + (S.orderView !== 'board' ? 'on' : '') + '">List</button><button data-v="board" class="' + (S.orderView === 'board' ? 'on' : '') + '">Production board</button></div>' +
       (S.bosta && S.bosta.enabled ? '<button class="btn" id="bSync" title="Ask Bosta for the latest state of every open shipment">↻ Sync Bosta</button>' : '') +
       '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>' + (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
       '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
       '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, phone, email or WTS-…" value="' + esc(q) + '" style="max-width:300px"></div>' +
-      (bosta.enabled ? '<div class="row card" id="bulk" style="display:none;margin-bottom:14px;padding:12px 16px"><b id="selCount"></b><span class="spacer"></span>' +
-        '<button class="btn primary sm" id="bulkShip">🚚 Create Bosta shipments</button><button class="btn sm" id="bulkAwb">🖨 Print waybills</button></div>' : '') +
-      (d.orders.length ? '<div class="table-wrap"><table><thead><tr>' + (bosta.enabled ? '<th style="width:34px"><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
+      (selectable ? '<div class="row card" id="bulk" style="display:none;margin-bottom:14px;padding:12px 16px"><b id="selCount"></b><span class="spacer"></span>' +
+        (bosta.enabled ? '<button class="btn primary sm" id="bulkShip">🚚 Create Bosta shipments</button><button class="btn sm" id="bulkAwb">🖨 Print waybills</button>' : '') +
+        (can('team') ? '<button class="btn sm danger" id="bulkDel" title="Delete test or mistaken orders for good">Delete</button>' : '') + '</div>' : '') +
+      (d.orders.length ? '<div class="table-wrap"><table><thead><tr>' + (selectable ? '<th style="width:34px"><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
         '<th>Order</th><th>Customer</th><th>Items</th><th>Status</th>' + (bosta.enabled ? '<th>Bosta</th>' : '') + '<th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
-        d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (bosta.enabled ? '<td data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
+        d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (selectable ? '<td data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
           '<td><b>' + esc(o.number) + '</b></td><td>' + esc(o.customer) + '<div class="small muted">' + esc(o.phone) + ' · ' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
           '<td class="small">' + o.items.map((it) => esc(it.qty + '× ' + it.name)).join('<br>') + '</td><td>' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
           (bosta.enabled ? '<td>' + bostaPill(o) + '</td>' : '') +
@@ -405,7 +407,7 @@
     $$('#view button').forEach((b) => b.onclick = () => { S.orderView = b.dataset.v; S.orderStatus = ''; pageOrders(); });
     let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.orderQ = e.target.value; pageOrders().then(() => { const el = $('#q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }, 350); };
     $$('tr[data-i]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('[data-nosel]')) return; orderDrawer(d.orders[+tr.dataset.i]); });
-    if (!bosta.enabled) return;
+    if (!selectable) return;
     const sync = () => {
       S.sel = new Set($$('.sel').filter((c) => c.checked).map((c) => +c.dataset.id));
       $('#bulk').style.display = S.sel.size ? 'flex' : 'none';
@@ -413,8 +415,19 @@
     };
     $$('.sel').forEach((c) => c.onchange = sync);
     const all = $('#selAll'); if (all) all.onchange = () => { $$('.sel').forEach((c) => { c.checked = all.checked; }); sync(); };
-    $('#bulkAwb').onclick = () => window.open(API + '?action=bosta_awb&ids=' + [...S.sel].join(','), '_blank');
-    $('#bulkShip').onclick = () => bulkShip([...S.sel]);
+    if (bosta.enabled) {
+      $('#bulkAwb').onclick = () => window.open(API + '?action=bosta_awb&ids=' + [...S.sel].join(','), '_blank');
+      $('#bulkShip').onclick = () => bulkShip([...S.sel]);
+    }
+    const del = $('#bulkDel');
+    if (del) del.onclick = async () => {
+      const ids = [...S.sel];
+      const names = S.orders.filter((o) => S.sel.has(o.id)).map((o) => o.number).join(', ');
+      if (!confirm('Delete ' + ids.length + ' order' + (ids.length > 1 ? 's' : '') + ' for good?\n\n' + names + '\n\nUse this only for test or mistaken orders. Stock goes back and their payments are removed. This can’t be undone.')) return;
+      del.disabled = true;
+      try { const r = await api('order_delete', { method: 'POST', body: { ids } }); toast('Deleted ' + r.deleted.join(', ')); render(); }
+      catch (e) { toast(e.message, true); del.disabled = false; }
+    };
   }
 
   // Kanban-style board: one column per open stage; move orders with the arrows or open them for details.
