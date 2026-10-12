@@ -1369,7 +1369,7 @@ class Component extends DCLogic {
       failed: 'Your order isn’t confirmed yet' + (s.payReason ? ' (' + s.payReason + ')' : '') + '. Try paying again, or choose cash on delivery. Unpaid orders are released after 3 hours.',
       check: 'We’re confirming your payment with Paymob. You’ll get a call or WhatsApp from us shortly.',
       cod: 'Thank you' + (name ? ', ' + name : '') + '! Your order is confirmed — pay ' + fmt(s.orderTotal || 0) + ' in cash when it arrives. We’ll call or WhatsApp you to confirm delivery.',
-      error: (s.payError || 'Online payment could not be started.') + ' Your order isn’t confirmed yet — try again, or choose cash on delivery.',
+      error: 'Online payment could not be started. Your order isn’t confirmed yet — try again, or choose cash on delivery.',
     };
     return {
       hasCardPay: online.includes('paymob_card'), hasWalletPay: online.includes('paymob_wallet'), noOnlinePay: !online.length,

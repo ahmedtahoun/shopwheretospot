@@ -79,7 +79,12 @@ try {
         $payUrl = null; $payError = null;
         if ($pay !== 'cod') {
             try { $payUrl = paymob_checkout_url((int) $r['id'], $pay); }
-            catch (Throwable $e) { $payError = $e instanceof ShopError ? $e->getMessage() : 'Online payment could not be started.'; error_log('[paymob] ' . $e->getMessage()); }
+            catch (Throwable $e) {
+                $payError = 'Online payment could not be started.';
+                error_log('[paymob] ' . $e->getMessage());
+                // Paymob's own reply goes to Activity so the owner can see why (wrong key, ID, mode…).
+                log_activity(null, 'Online payment could not start', $r['number'] . ' · ' . mb_substr((string) ($GLOBALS['paymob_last_error'] ?? $e->getMessage()), 0, 250));
+            }
         }
         json_out(['number' => $r['number'], 'total' => $r['total'], 'shipping' => $r['shipping'], 'discount' => $r['discount'], 'payUrl' => $payUrl, 'payError' => $payError]);
     }
@@ -118,7 +123,11 @@ try {
         if (in_array($o['status'], ['Cancelled', 'Returned', 'Delivered'], true)) fail('This order can’t be paid online. Please contact us.');
         $method = in_array($b['method'] ?? '', array_keys(paymob_visible_methods()), true) ? $b['method'] : (array_keys(paymob_visible_methods())[0] ?? '');
         if ($method === '') fail('Online payment is not available right now.');
-        json_out(['payUrl' => paymob_checkout_url((int) $o['id'], $method)]);
+        try { json_out(['payUrl' => paymob_checkout_url((int) $o['id'], $method)]); }
+        catch (ShopError $e) {
+            log_activity(null, 'Online payment could not start', order_number((int) $o['id']) . ' · retry · ' . mb_substr((string) ($GLOBALS['paymob_last_error'] ?? $e->getMessage()), 0, 250));
+            throw $e;
+        }
     }
 
     if ($action === 'lead') {
