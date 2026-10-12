@@ -7,21 +7,25 @@
   window.__wtsChat = true;
 
   const WHATSAPP = '201277660666';
-  const STORE = 'wts-chat-v1';
+  // Arabic when the shop is in Arabic (see i18n.js). Notes saved for the team stay in English.
+  const AR = window.WTS_LANG === 'ar';
+  const L = (en, ar) => (AR ? ar : en);
+  const STORE = 'wts-chat-v1' + (window.WTS_LANG === 'ar' ? '-ar' : '');
   const ACCENT = '#A8552F';
 
   const NEEDS = [
-    { id: 'nfc', label: 'NFC review cards & stands', kind: 'product' },
-    { id: 'cosmetics', label: 'Skincare & cosmetics', kind: 'product' },
-    { id: 'Printing & signage', label: 'Printing & signage', kind: 'service' },
-    { id: 'Acrylic & fabrication', label: 'Acrylic stands & displays', kind: 'service' },
-    { id: 'Events & activations', label: 'Exhibition booths & events', kind: 'service' },
-    { id: 'Social media & ads', label: 'Marketing, social media & ads', kind: 'service' },
-    { id: 'Websites & AI tools', label: 'Websites & AI tools', kind: 'service' },
-    { id: 'other', label: 'Something else', kind: 'service' },
-  ];
+    { id: 'nfc', en: 'NFC review cards & stands', ar: 'كروت وستاندات تقييم NFC', kind: 'product' },
+    { id: 'cosmetics', en: 'Skincare & cosmetics', ar: 'العناية بالبشرة والتجميل', kind: 'product' },
+    { id: 'Printing & signage', en: 'Printing & signage', ar: 'الطباعة واللافتات', kind: 'service' },
+    { id: 'Acrylic & fabrication', en: 'Acrylic stands & displays', ar: 'ستاندات وعلب عرض أكريليك', kind: 'service' },
+    { id: 'Events & activations', en: 'Exhibition booths & events', ar: 'أجنحة المعارض والفعاليات', kind: 'service' },
+    { id: 'Social media & ads', en: 'Marketing, social media & ads', ar: 'التسويق والسوشيال ميديا والإعلانات', kind: 'service' },
+    { id: 'Websites & AI tools', en: 'Websites & AI tools', ar: 'المواقع وأدوات الذكاء الاصطناعي', kind: 'service' },
+    { id: 'other', en: 'Something else', ar: 'شيء آخر', kind: 'service' },
+  ].map((n) => ({ ...n, label: AR ? n.ar : n.en }));
   const QTY = ['1–10', '10–50', '50–200', '200+'];
-  const WHEN = ['This week', 'This month', 'Next 1–3 months', 'Just exploring'];
+  const WHEN = L(['This week', 'This month', 'Next 1–3 months', 'Just exploring'], ['هذا الأسبوع', 'هذا الشهر', 'خلال 1–3 شهور', 'أستكشف فقط']);
+  const SKIP = L('Skip', 'تخطي');
 
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE)) || null; } catch (e) { return null; } };
   const save = (v) => { try { localStorage.setItem(STORE, JSON.stringify(v)); } catch (e) {} };
@@ -32,7 +36,7 @@
 
   const css = `
   :host{all:initial}
-  *{box-sizing:border-box;font-family:'Work Sans',system-ui,-apple-system,sans-serif}
+  *{box-sizing:border-box;font-family:${AR ? '"IBM Plex Sans Arabic",' : ''}'Work Sans',system-ui,-apple-system,sans-serif}
   .launch{position:fixed;right:22px;bottom:calc(22px + var(--wts-chat-offset, 0px));z-index:80;display:flex;align-items:center;gap:10px;border:none;cursor:pointer;
     background:#22201D;color:#F7F3ED;border-radius:999px;padding:8px 20px 8px 8px;font-size:14.5px;font-weight:600;
     box-shadow:0 18px 40px -16px rgba(20,18,16,.55);transition:transform .2s ease,box-shadow .2s ease}
@@ -54,6 +58,8 @@
   .av img{width:34px;height:20px;object-fit:contain;background:#22201D;border-radius:5px;padding:2px 3px}
   .who{flex:1;min-width:0}
   .who b{display:block;font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:21px;line-height:1.1}
+  .rtl .m.bot{border-bottom-left-radius:18px;border-bottom-right-radius:6px}
+  .rtl .m.me{border-bottom-right-radius:18px;border-bottom-left-radius:6px}
   .who span{font-size:12.5px;color:#C9C3B8;display:flex;align-items:center;gap:6px;margin-top:3px}
   .who span::before{content:'';width:7px;height:7px;border-radius:50%;background:#4CC26B}
   .hbtn{border:none;background:rgba(255,255,255,.08);color:#F7F3ED;width:34px;height:34px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:15px}
@@ -102,19 +108,19 @@
   let open = false, typing = false, error = '', busy = false;
 
   const firstName = () => (st.a.name || '').split(/\s+/)[0] || '';
-  const needLabel = () => (NEEDS.find((n) => n.id === st.a.need) || {}).label || st.a.need || '';
+  const needLabel = () => (NEEDS.find((n) => n.id === st.a.need) || {}).en || st.a.need || '';
   const isProduct = () => (NEEDS.find((n) => n.id === st.a.need) || {}).kind === 'product';
 
   // What the assistant asks at each step, and the quick replies it offers.
   function prompt(step) {
     switch (step) {
-      case 'need': return { q: 'Hi! 👋 I’m the Where To Spot assistant.\nWhat can we help you with today?', chips: NEEDS.map((n) => n.label) };
+      case 'need': return { q: L('Hi! 👋 I’m the Where To Spot assistant.\nWhat can we help you with today?', 'أهلًا! 👋 أنا مساعد Where To Spot.\nإزاي نقدر نساعدك النهارده؟'), chips: NEEDS.map((n) => n.label) };
       case 'size': return isProduct()
-        ? { q: 'Great choice. Roughly how many do you need?', chips: QTY }
-        : { q: 'Sounds good. When do you need it?', chips: WHEN };
-      case 'details': return { q: 'Tell us a little more: your business, branding, sizes or anything else that helps us prepare a quote.', chips: ['Skip'], input: 'Type your message…' };
-      case 'name': return { q: 'Thanks! What’s your name?', input: 'Your name' };
-      case 'phone': return { q: 'Nice to meet you, ' + firstName() + '. What’s the best phone number (WhatsApp) or email to reach you?', input: '01x xxxx xxxx or email', type: 'tel' };
+        ? { q: L('Great choice. Roughly how many do you need?', 'اختيار ممتاز. محتاج كمية تقريبًا كام؟'), chips: QTY }
+        : { q: L('Sounds good. When do you need it?', 'تمام. محتاجه إمتى؟'), chips: WHEN };
+      case 'details': return { q: L('Tell us a little more: your business, branding, sizes or anything else that helps us prepare a quote.', 'قولنا تفاصيل أكتر: نشاطك، البراند، المقاسات أو أي حاجة تساعدنا نجهز لك عرض سعر.'), chips: [SKIP], input: L('Type your message…', 'اكتب رسالتك…') };
+      case 'name': return { q: L('Thanks! What’s your name?', 'شكرًا! اسمك إيه؟'), input: L('Your name', 'اسمك') };
+      case 'phone': return { q: L('Nice to meet you, ' + firstName() + '. What’s the best phone number (WhatsApp) or email to reach you?', 'أهلًا يا ' + firstName() + '. إيه أنسب رقم (واتساب) أو إيميل نتواصل معاك عليه؟'), input: L('01x xxxx xxxx or email', '01x xxxx xxxx أو الإيميل'), type: 'tel' };
       default: return { q: '' };
     }
   }
@@ -136,15 +142,15 @@
       say(text, 'me'); return botTurn('size');
     }
     if (step === 'size') { st.a.size = text; say(text, 'me'); return botTurn('details'); }
-    if (step === 'details') { st.a.details = text === 'Skip' ? '' : text.slice(0, 600); say(text, 'me'); return botTurn('name'); }
+    if (step === 'details') { st.a.details = text === SKIP ? '' : text.slice(0, 600); say(text, 'me'); return botTurn('name'); }
     if (step === 'name') {
-      if (text.length < 2) { error = 'Please type your name.'; return render(); }
+      if (text.length < 2) { error = L('Please type your name.', 'من فضلك اكتب اسمك.'); return render(); }
       st.a.name = text.slice(0, 120); say(text, 'me'); return botTurn('phone');
     }
     if (step === 'phone') {
       const digits = text.replace(/\D/g, '');
       const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
-      if (!email && digits.length < 10) { error = 'Please enter a valid phone number (e.g. 01012345678) or an email.'; return render(); }
+      if (!email && digits.length < 10) { error = L('Please enter a valid phone number (e.g. 01012345678) or an email.', 'من فضلك اكتب رقم موبايل صحيح (مثلًا 01012345678) أو إيميل.'); return render(); }
       st.a.contact = text.slice(0, 160); say(text, 'me'); return submit();
     }
   }
@@ -153,6 +159,7 @@
     const lines = ['Needs: ' + needLabel()];
     if (st.a.size) lines.push((isProduct() ? 'Quantity: ' : 'Timing: ') + st.a.size);
     if (st.a.details) lines.push('Details: ' + st.a.details);
+    if (AR) lines.push('Language: Arabic');
     lines.push('Page: ' + (document.title || location.pathname));
     return lines.join('\n');
   }
@@ -167,16 +174,17 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'failed');
       st.done = true; st.step = 'done';
-      say('Thank you, ' + firstName() + '! ✨ Our team has your request and will contact you within one business day.\nWant a faster answer? Continue on WhatsApp.', 'bot');
+      say(L('Thank you, ' + firstName() + '! ✨ Our team has your request and will contact you within one business day.\nWant a faster answer? Continue on WhatsApp.',
+        'شكرًا يا ' + firstName() + '! ✨ فريقنا استلم طلبك وهيتواصل معاك خلال يوم عمل.\nعايز رد أسرع؟ كمّل معانا على واتساب.'), 'bot');
     } catch (e) {
       st.step = 'phone';
-      say('Sorry, that didn’t go through. Please try again, or message us on WhatsApp.', 'bot');
+      say(L('Sorry, that didn’t go through. Please try again, or message us on WhatsApp.', 'عذرًا، الطلب ماوصلش. حاول تاني أو راسلنا على واتساب.'), 'bot');
     }
     busy = false; typing = false; render(true);
   }
 
   function waLink() {
-    const msg = 'Hello Where To Spot, I’m ' + (st.a.name || '') + '.\n' + summary().split('\nPage:')[0];
+    const msg = L('Hello Where To Spot, I’m ', 'أهلًا Where To Spot، أنا ') + (st.a.name || '') + '.\n' + summary().split('\nPage:')[0].replace('\nLanguage: Arabic', '');
     return 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(msg);
   }
 
@@ -184,10 +192,11 @@
 
   function render(scroll) {
     if (!open) {
-      const showTease = !seen() && !st.done && host.dataset.tease === '1';
+      // No pop-up invitation on phones: it would cover the products.
+      const showTease = !seen() && !st.done && host.dataset.tease === '1' && !matchMedia('(max-width:760px)').matches;
       r.innerHTML =
-        (showTease ? '<div class="tease" id="tease"><button class="x" id="tx" aria-label="Dismiss">✕</button><b>Looking for something specific?</b>Tell us what you need and we’ll prepare a quote.</div>' : '') +
-        '<button class="launch" id="lb" aria-label="Chat with us">' + '<span class="ic">' + chatIcon + '</span><span class="txt">Need help?</span></button>';
+        (showTease ? '<div class="tease" id="tease"><button class="x" id="tx" aria-label="' + L('Dismiss', 'إغلاق') + '">✕</button><b>' + L('Looking for something specific?', 'بتدور على حاجة معينة؟') + '</b>' + L('Tell us what you need and we’ll prepare a quote.', 'قولنا محتاج إيه ونجهز لك عرض سعر.') + '</div>' : '') +
+        '<button class="launch" id="lb" aria-label="' + L('Chat with us', 'تحدث معنا') + '">' + '<span class="ic">' + chatIcon + '</span><span class="txt">' + L('Need help?', 'محتاج مساعدة؟') + '</span></button>';
       root.getElementById('lb').onclick = openChat;
       const t = root.getElementById('tease');
       if (t) {
@@ -200,21 +209,21 @@
     const showChips = !typing && !st.done && p.chips;
     const showInput = !st.done && p.input && !typing;
     r.innerHTML =
-      '<section class="panel" role="dialog" aria-label="Chat with Where To Spot">' +
+      '<section class="panel' + (AR ? ' rtl' : '') + '" dir="' + (AR ? 'rtl' : 'ltr') + '" role="dialog" aria-label="' + L('Chat with Where To Spot', 'تحدث مع Where To Spot') + '">' +
         '<div class="head"><div class="av"><img src="images/logo.png" alt=""></div>' +
-          '<div class="who"><b>Where To Spot</b><span>Usually replies within a few hours</span></div>' +
-          '<button class="hbtn" id="rs" title="Start over" aria-label="Start over">↺</button>' +
-          '<button class="hbtn" id="cl" title="Close" aria-label="Close chat">✕</button></div>' +
+          '<div class="who"><b>Where To Spot</b><span>' + L('Usually replies within a few hours', 'عادةً نرد خلال ساعات قليلة') + '</span></div>' +
+          '<button class="hbtn" id="rs" title="' + L('Start over', 'ابدأ من جديد') + '" aria-label="' + L('Start over', 'ابدأ من جديد') + '">↺</button>' +
+          '<button class="hbtn" id="cl" title="' + L('Close', 'إغلاق') + '" aria-label="' + L('Close chat', 'إغلاق المحادثة') + '">✕</button></div>' +
         '<div class="msgs" id="msgs" aria-live="polite">' +
           st.log.map((m) => '<div class="m ' + m.who + '">' + esc(m.text) + '</div>').join('') +
           (typing ? '<div class="m bot typing"><i></i><i></i><i></i></div>' : '') +
         '</div>' +
-        (showChips ? '<div class="chips">' + p.chips.map((c) => '<button class="chip' + (c === 'Skip' ? ' ghost' : '') + '" data-c="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div>' : '') +
-        (st.done ? '<div class="chips"><a class="chip wa" href="' + esc(waLink()) + '" target="_blank" rel="noopener">' + waIcon + 'Continue on WhatsApp</a>' +
-          '<a class="chip ghost" href="index.html#products" id="shop">Browse products</a><button class="chip ghost" id="again">New request</button></div>' : '') +
+        (showChips ? '<div class="chips">' + p.chips.map((c) => '<button class="chip' + (c === SKIP ? ' ghost' : '') + '" data-c="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div>' : '') +
+        (st.done ? '<div class="chips"><a class="chip wa" href="' + esc(waLink()) + '" target="_blank" rel="noopener">' + waIcon + L('Continue on WhatsApp', 'كمّل على واتساب') + '</a>' +
+          '<a class="chip ghost" href="index.html#products" id="shop">' + L('Browse products', 'تصفح المنتجات') + '</a><button class="chip ghost" id="again">' + L('New request', 'طلب جديد') + '</button></div>' : '') +
         (error ? '<div class="err">' + esc(error) + '</div>' : '') +
-        (showInput ? '<form id="f"><input id="in" autocomplete="off" ' + (p.type ? 'type="' + p.type + '" inputmode="' + (st.step === 'phone' ? 'tel' : 'text') + '"' : '') + ' placeholder="' + esc(p.input) + '" aria-label="' + esc(p.input) + '"><button class="send" ' + (busy ? 'disabled' : '') + ' aria-label="Send">' + sendIcon + '</button></form>' : '') +
-        '<div class="fine">' + (st.done ? 'Thanks for reaching out.' : 'We only use your details to reply to you.') + '</div>' +
+        (showInput ? '<form id="f"><input id="in" autocomplete="off" ' + (p.type ? 'type="' + p.type + '" inputmode="' + (st.step === 'phone' ? 'tel' : 'text') + '"' : '') + ' placeholder="' + esc(p.input) + '" aria-label="' + esc(p.input) + '"' + (st.step === 'phone' ? ' dir="ltr"' : '') + '><button class="send" ' + (busy ? 'disabled' : '') + ' aria-label="' + L('Send', 'إرسال') + '"' + (AR ? ' style="transform:scaleX(-1)"' : '') + '>' + sendIcon + '</button></form>' : '') +
+        '<div class="fine">' + (st.done ? L('Thanks for reaching out.', 'شكرًا لتواصلك معنا.') : L('We only use your details to reply to you.', 'نستخدم بياناتك فقط للرد عليك.')) + '</div>' +
       '</section>';
     root.getElementById('cl').onclick = () => { open = false; render(); };
     root.getElementById('rs').onclick = restart;

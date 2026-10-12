@@ -261,7 +261,7 @@ try {
 
     case 'products':
         require_perm('products');
-        $cats = db()->query('SELECT key, label, descr, sort, (SELECT COUNT(*) FROM products p WHERE p.cat = c.key) AS count FROM categories c ORDER BY sort, label')->fetchAll();
+        $cats = db()->query('SELECT key, label, descr, label_ar, descr_ar, sort, (SELECT COUNT(*) FROM products p WHERE p.cat = c.key) AS count FROM categories c ORDER BY sort, label')->fetchAll();
         json_out(['products' => load_products(false), 'categories' => $cats]);
 
     case 'product_save':
@@ -301,18 +301,19 @@ try {
             ':stock' => $stock, ':discount_pct' => max(0, min(90, (float) ($b['discountPct'] ?? 0))),
             ':label' => str_in($b['label'] ?? '', 30), ':status' => in_array($b['status'] ?? '', ['Active', 'Draft', 'Archived'], true) ? $b['status'] : 'Draft',
             ':sub' => str_in($b['sub'] ?? '', 160), ':descr' => str_in($b['desc'] ?? '', 4000),
+            ':name_ar' => str_in($b['nameAr'] ?? '', 160), ':sub_ar' => str_in($b['subAr'] ?? '', 160), ':desc_ar' => str_in($b['descAr'] ?? '', 4000),
             ':features' => json_encode($features, JSON_UNESCAPED_UNICODE), ':period' => $cat === 'services' ? 'month' : '',
             ':variants' => json_encode($variants, JSON_UNESCAPED_UNICODE), ':tiers' => json_encode($tiers), ':addons' => json_encode($addons, JSON_UNESCAPED_UNICODE),
             ':personalized' => empty($b['personalized']) ? 0 : 1,
         ];
         if ($isNew) {
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM products')->fetchColumn();
-            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized)
-                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized)')->execute($vals);
+            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar)
+                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar)')->execute($vals);
         } else {
             $st = $pdo->prepare("UPDATE products SET sku=:sku, name=:name, cat=:cat, vendor=:vendor, price=:price, cost=:cost, stock=:stock, discount_pct=:discount_pct,
                 label=:label, status=:status, sub=:sub, descr=:descr, features=:features, period=:period, variants=:variants, tiers=:tiers, addons=:addons,
-                personalized=:personalized, updated_at=datetime('now') WHERE id=:id");
+                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, updated_at=datetime('now') WHERE id=:id");
             $st->execute($vals);
             if (!$st->rowCount()) fail('Product not found.', 404);
         }
@@ -380,11 +381,11 @@ try {
             $exists = db()->prepare('SELECT 1 FROM categories WHERE key = ?');
             $exists->execute([$key]);
             if ($exists->fetchColumn()) $key .= '-' . bin2hex(random_bytes(2));
-            db()->prepare('INSERT INTO categories (key, label, descr, sort) VALUES (?, ?, ?, ?)')
-                ->execute([$key, $label, str_in($b['descr'] ?? '', 200), (int) ($b['sort'] ?? 50)]);
+            db()->prepare('INSERT INTO categories (key, label, descr, sort, label_ar, descr_ar) VALUES (?, ?, ?, ?, ?, ?)')
+                ->execute([$key, $label, str_in($b['descr'] ?? '', 200), (int) ($b['sort'] ?? 50), str_in($b['label_ar'] ?? '', 60), str_in($b['descr_ar'] ?? '', 200)]);
         } else {
-            db()->prepare('UPDATE categories SET label = ?, descr = ?, sort = ? WHERE key = ?')
-                ->execute([$label, str_in($b['descr'] ?? '', 200), (int) ($b['sort'] ?? 50), $key]);
+            db()->prepare('UPDATE categories SET label = ?, descr = ?, sort = ?, label_ar = ?, descr_ar = ? WHERE key = ?')
+                ->execute([$label, str_in($b['descr'] ?? '', 200), (int) ($b['sort'] ?? 50), str_in($b['label_ar'] ?? '', 60), str_in($b['descr_ar'] ?? '', 200), $key]);
         }
         log_activity($u, 'Saved category', $label);
         json_out(['key' => $key]);

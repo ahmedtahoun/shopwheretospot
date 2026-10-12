@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="i18n.js"></script>
 <title>Lead-generation plans — Where To Spot</title>
 <meta name="description" content="Monthly lead-generation marketing plans for Egyptian businesses from EGP 299. Ads, funnels, CRM and automation. Cancel any time, 14-day money-back guarantee.">
 <meta property="og:type" content="website">
@@ -34,7 +35,7 @@
 <body>
 <div class="bar">All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery</div>
 <nav><div class="in"><a class="brand" href="index.html"><img src="images/logo.png" alt="Where To Spot logo" width="52" height="30">Where To Spot</a><div class="links"><a href="index.html">Shop</a><a href="plans.html" aria-current="page">Marketing plans</a><a href="about.html">About us</a><a href="contact.html">Contact us</a></div></div></nav>
-<main class="wide">
+<main class="wide en-only" data-no-i18n>
 <div class="kicker">Marketing services</div>
 <h1>Lead-generation plans</h1>
 <p class="muted" style="max-width:62ch">We run the ads, build the landing page and follow up, so new customers reach you every month. Monthly plans priced in Egyptian Pounds — no contracts, cancel any time before your next billing date, and a 14-day money-back guarantee on your first month.</p>
@@ -68,28 +69,72 @@
 
 <h2>Questions</h2>
 <details><summary>Is the ad budget included?</summary><p>No. The plan covers our work — setup, management and optimization. You pay the ad platforms (Meta, Google, TikTok) directly for ad spend, and we recommend a budget that fits your goals.</p></details>
-<details><summary>How do I pay?</summary><p>Monthly, in Egyptian Pounds. Cash on the first visit, bank transfer or wallet — card payment will be available at checkout soon.</p></details>
+<details><summary>How do I pay?</summary><p>Monthly, in Egyptian Pounds. Online by card or mobile wallet at checkout, or by cash, bank transfer or wallet.</p></details>
 <details><summary>Can I cancel?</summary><p>Yes, any time before your next billing date, with no fees. Your first month has a 14-day money-back guarantee. See our <a href="refund-policy.html">Refund &amp; cancellation policy</a>.</p></details>
 <details><summary>Do you do one-off projects too?</summary><p>Yes — printing, acrylic displays, event booths, video, websites and AI tools, quoted per project. <a href="contact.html">Contact us</a> for a quote.</p></details>
 
 <p style="margin-top:30px"><a class="btn" href="index.html?add=plan2">Start with Growth</a> &nbsp; <a class="btn alt" href="https://wa.me/201277660666" target="_blank" rel="noopener">Ask on WhatsApp</a></p>
 <script>
 // Keep prices and bullet points in sync with the dashboard (Products → Marketing Plans).
+// Both the English and the Arabic cards: prices always; Arabic text only when the dashboard has it.
 fetch('api/public.php?action=catalog').then(function (r) { return r.json(); }).then(function (d) {
-  var fmt = function (n) { return 'EGP ' + Math.round(n).toLocaleString('en-US'); };
+  var n0 = function (n) { return Math.round(n).toLocaleString('en-US'); };
   (d.products || []).forEach(function (p) {
-    var card = document.querySelector('.plan[data-id="' + p.id + '"]');
-    if (!card) return;
     var price = p.discountPct ? p.price * (1 - p.discountPct / 100) : p.price;
-    card.querySelectorAll('[data-price]').forEach(function (el) { el.textContent = fmt(price); });
-    if (p.desc) card.querySelector('[data-desc]').textContent = p.desc;
-    if (p.features && p.features.length) {
-      var ul = card.querySelector('[data-features]'); ul.innerHTML = '';
-      p.features.forEach(function (f) { var li = document.createElement('li'); li.textContent = '✓ ' + f; ul.appendChild(li); });
-    }
+    document.querySelectorAll('.plan[data-id="' + p.id + '"]').forEach(function (card) {
+      var ar = !!card.closest('.ar-only');
+      card.querySelectorAll('[data-price]').forEach(function (el) { el.textContent = ar ? n0(price) + ' ج.م' : 'EGP ' + n0(price); });
+      var desc = ar ? p.descAr : p.desc;
+      if (desc) card.querySelector('[data-desc]').textContent = desc;
+      var ul = card.querySelector('[data-features]');
+      if (ul && p.features && p.features.length) {
+        ul.innerHTML = '';
+        p.features.forEach(function (f) { var li = document.createElement('li'); li.textContent = '✓ ' + f; ul.appendChild(li); });
+      }
+    });
   });
 }).catch(function () {});
 </script>
+</main>
+<main class="wide ar-only" lang="ar" dir="rtl">
+<div class="kicker">خدمات التسويق</div>
+<h1>خطط جلب العملاء</h1>
+<p class="muted" style="max-width:62ch">نحن ندير الإعلانات ونبني صفحة الهبوط ونتابع معك، ليصلك عملاء جدد كل شهر. خطط شهرية بالجنيه المصري — بدون عقود، يمكنك الإلغاء في أي وقت قبل موعد الفاتورة التالية، مع ضمان استرداد المبلغ خلال 14 يومًا في أول شهر.</p>
+
+<div class="plans">
+  <div class="plan" data-id="plan1"><h3>البداية</h3><div class="price"><span data-price>299 ج.م</span> <small>/ شهريًا</small></div>
+    <p class="muted" data-desc>للشركات الصغيرة التي تبدأ في جلب العملاء: إعداد حملة إعلانية موجهة، صفحة لجمع بيانات العملاء، وتحسين شهري.</p>
+    <ul><li>✓ 20–40 عميل محتمل شهريًا (تقديري)</li><li>✓ إعداد حملة إعلانية موجهة</li><li>✓ صفحة لجمع بيانات العملاء</li><li>✓ تحسين وتقرير شهري</li></ul>
+    <a class="btn alt" href="index.html?add=plan1">اشترك — <span data-price>299 ج.م</span> شهريًا</a></div>
+  <div class="plan pop" data-id="plan2"><span class="badge">الأكثر طلبًا</span><h3>النمو</h3><div class="price"><span data-price>699 ج.م</span> <small>/ شهريًا</small></div>
+    <p class="muted" data-desc>للشركات الجاهزة لجلب عملاء بشكل ثابت كل شهر: مسار تحويل عالي الأداء، إدارة الإعلانات، تحسين أسبوعي وتتبع التحويلات.</p>
+    <ul><li>✓ كل ما في خطة البداية</li><li>✓ 50–120 عميل محتمل شهريًا (تقديري)</li><li>✓ مسار تحويل عالي الأداء</li><li>✓ إدارة الإعلانات</li><li>✓ تحسين أسبوعي</li><li>✓ تتبع التحويلات</li></ul>
+    <a class="btn" href="index.html?add=plan2">اشترك — <span data-price>699 ج.م</span> شهريًا</a></div>
+  <div class="plan" data-id="plan3"><h3>التوسع</h3><div class="price"><span data-price>1,499 ج.م</span> <small>/ شهريًا</small></div>
+    <p class="muted" data-desc>للشركات الجاهزة للتوسع: نظام مسارات تحويل متقدم، إعداد الأتمتة وCRM، تحسين يومي ومكالمات استراتيجية.</p>
+    <ul><li>✓ كل ما في خطة النمو</li><li>✓ +150 عميل محتمل شهريًا (تقديري)</li><li>✓ نظام مسارات تحويل متقدم</li><li>✓ إعداد الأتمتة وCRM</li><li>✓ تحسين يومي</li><li>✓ مكالمات استراتيجية</li></ul>
+    <a class="btn alt" href="index.html?add=plan3">اشترك — <span data-price>1,499 ج.م</span> شهريًا</a></div>
+</div>
+<p class="muted small">أعداد العملاء المحتملين تقديرية وتعتمد على مجالك وموقعك وميزانية الإعلانات. ميزانية الإعلانات المدفوعة لـ Meta أو Google منفصلة عن سعر الخطة.</p>
+
+<h2>كيف نعمل</h2>
+<div class="steps">
+  <div class="card"><b>1. الاشتراك</b><br>اختر الخطة وأرسل الطلب. نتصل بك أو نراسلك واتساب خلال يوم عمل واحد.</div>
+  <div class="card"><b>2. مكالمة الاستراتيجية</b><br>نتعرف على نشاطك وعرضك ومنطقتك، ثم نخطط للحملة وصفحة الهبوط.</div>
+  <div class="card"><b>3. الإطلاق</b><br>تبدأ الإعلانات، ويصلك العملاء عبر واتساب أو الهاتف أو النموذج، ونحسّن الأداء كل أسبوع.</div>
+  <div class="card"><b>4. التقرير</b><br>تحصل على تقرير واضح: عدد العملاء، تكلفة العميل، وما سنطوره الشهر القادم.</div>
+</div>
+
+<h2>لمن هذه الخطط</h2>
+<p>الجيم، المطاعم والكافيهات، العيادات، شركات العقارات، علامات التجميل، محلات التجزئة ووكلاء السيارات في كل مصر.</p>
+
+<h2>أسئلة شائعة</h2>
+<details><summary>هل ميزانية الإعلانات مشمولة؟</summary><p>لا. الخطة تغطي عملنا — الإعداد والإدارة والتحسين. تدفع ميزانية الإعلانات مباشرة للمنصات (Meta وGoogle وTikTok)، ونقترح عليك ميزانية تناسب أهدافك.</p></details>
+<details><summary>كيف أدفع؟</summary><p>شهريًا بالجنيه المصري. أونلاين بالبطاقة أو المحفظة الإلكترونية عند إتمام الطلب، أو نقدًا، أو بتحويل بنكي أو محفظة.</p></details>
+<details><summary>هل يمكنني الإلغاء؟</summary><p>نعم، في أي وقت قبل موعد الفاتورة التالية وبدون رسوم. أول شهر عليه ضمان استرداد المبلغ خلال 14 يومًا. راجع <a href="refund-policy.html">سياسة الاسترجاع والإلغاء</a>.</p></details>
+<details><summary>هل تنفذون مشاريع لمرة واحدة؟</summary><p>نعم — الطباعة، ستاندات الأكريليك، أجنحة المعارض، الفيديو، المواقع وأدوات الذكاء الاصطناعي، بعرض سعر لكل مشروع. <a href="contact.html">تواصل معنا</a> لطلب عرض سعر.</p></details>
+
+<p style="margin-top:30px"><a class="btn" href="index.html?add=plan2">ابدأ بخطة النمو</a> &nbsp; <a class="btn alt" href="https://wa.me/201277660666" target="_blank" rel="noopener">اسألنا على واتساب</a></p>
 </main>
 <footer><div class="in">
 <span>© 2026 Where To Spot · MQR, El Wahat Road, 6th of October City, Giza, Egypt · <a href="mailto:info@wheretospot.com">info@wheretospot.com</a> · <a href="tel:+201277660666">+20 127 766 0666</a></span>

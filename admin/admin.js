@@ -974,7 +974,7 @@
 
   function productDrawer(p) {
     const isNew = !p;
-    p = p || { id: '', name: '', sku: '', vendor: '', cat: S.prodCat || (S.cats[0] || {}).key, price: '', cost: '', stock: 0, discountPct: 0, label: '', status: 'Active', sub: '', desc: '', features: [], images: [], variants: [], tiers: [], addons: [], personalized: false };
+    p = p || { id: '', name: '', nameAr: '', subAr: '', descAr: '', sku: '', vendor: '', cat: S.prodCat || (S.cats[0] || {}).key, price: '', cost: '', stock: 0, discountPct: 0, label: '', status: 'Active', sub: '', desc: '', features: [], images: [], variants: [], tiers: [], addons: [], personalized: false };
     // Working copy of sizes / quantity prices / extras, edited in the "Sizes & prices" card.
     const opt = {
       variants: JSON.parse(JSON.stringify(p.variants || [])),
@@ -982,7 +982,8 @@
       addons: JSON.parse(JSON.stringify(p.addons || [])),
     };
     const body = '<form id="pf" class="stack">' +
-      '<label class="field">Product name<input type="text" name="name" required value="' + esc(p.name) + '"></label>' +
+      '<div class="grid2"><label class="field">Product name<input type="text" name="name" required value="' + esc(p.name) + '"></label>' +
+      '<label class="field">Name in Arabic <span class="hint">Shown on the Arabic shop</span><input type="text" name="nameAr" dir="rtl" value="' + esc(p.nameAr || '') + '" placeholder="اسم المنتج بالعربي"></label></div>' +
       '<div class="grid2"><label class="field">Category<select name="cat">' + S.cats.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === p.cat ? ' selected' : '') + '>' + esc(c.label) + '</option>').join('') + '</select></label>' +
       '<label class="field">Status<select name="status">' + ['Active', 'Draft', 'Archived'].map((s) => '<option' + (s === p.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select><span class="hint">Only Active products show in the shop.</span></label></div>' +
       '<div class="grid3"><label class="field">Price (EGP)<input type="number" name="price" min="0" step="0.01" value="' + esc(p.price) + '"><span class="hint" id="priceHint">Price for one piece</span></label>' +
@@ -995,7 +996,9 @@
       '<label class="field">Brand / vendor<input type="text" name="vendor" value="' + esc(p.vendor) + '"></label></div>' +
       '<div class="grid2"><label class="field">Short line<input type="text" name="sub" value="' + esc(p.sub) + '" placeholder="e.g. 150ml, hydrating cleanser"></label>' +
       '<label class="field">Badge<input type="text" name="label" value="' + esc(p.label) + '" placeholder="e.g. 3+1 Free, New"></label></div>' +
-      '<label class="field">Description<textarea name="desc">' + esc(p.desc) + '</textarea></label>' +
+      '<label class="field">Short line in Arabic<input type="text" name="subAr" dir="rtl" value="' + esc(p.subAr || '') + '" placeholder="سطر قصير بالعربي"></label>' +
+      '<div class="grid2"><label class="field">Description<textarea name="desc">' + esc(p.desc) + '</textarea></label>' +
+      '<label class="field">Description in Arabic<textarea name="descAr" dir="rtl" placeholder="الوصف بالعربي">' + esc(p.descAr || '') + '</textarea></label></div>' +
       '<label class="field">Features / bullet points <span class="hint">One per line (shown on plan cards)</span><textarea name="features" style="min-height:70px">' + esc((p.features || []).join('\n')) + '</textarea></label>' +
       '</form>' +
       '<div class="stack" style="margin-top:22px"><div class="row"><b>Photos</b><span class="muted small">First photo is the cover. JPG, PNG or WebP up to 5 MB — big photos are resized automatically.</span></div>' +
@@ -1132,20 +1135,20 @@
   }
 
   function categoriesDrawer() {
-    const rows = S.cats.map((c) => '<tr><td><input type="text" data-k="' + esc(c.key) + '" data-f="label" value="' + esc(c.label) + '"></td>' +
-      '<td><input type="text" data-k="' + esc(c.key) + '" data-f="descr" value="' + esc(c.descr) + '"></td>' +
+    const rows = S.cats.map((c) => '<tr><td><input type="text" data-k="' + esc(c.key) + '" data-f="label" value="' + esc(c.label) + '"><input type="text" dir="rtl" data-k="' + esc(c.key) + '" data-f="label_ar" value="' + esc(c.label_ar || '') + '" placeholder="الاسم بالعربي" style="margin-top:6px"></td>' +
+      '<td><input type="text" data-k="' + esc(c.key) + '" data-f="descr" value="' + esc(c.descr) + '"><input type="text" dir="rtl" data-k="' + esc(c.key) + '" data-f="descr_ar" value="' + esc(c.descr_ar || '') + '" placeholder="الوصف بالعربي" style="margin-top:6px"></td>' +
       '<td style="width:80px"><input type="number" data-k="' + esc(c.key) + '" data-f="sort" value="' + esc(c.sort) + '"></td>' +
       '<td class="num">' + c.count + '</td><td><button class="btn sm" data-save="' + esc(c.key) + '">Save</button> ' +
       (c.key !== 'services' ? '<button class="btn sm danger" data-rm="' + esc(c.key) + '">Delete</button>' : '') + '</td></tr>').join('');
     openDrawer('Categories',
       '<p class="muted" style="margin-top:0">Categories with at least one Active product appear in the shop. Order sets their position.</p>' +
       '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Description</th><th>Order</th><th class="num">Products</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<form id="cf" class="card stack" style="margin-top:18px"><b>New category</b><div class="grid2"><input type="text" name="label" placeholder="Name" required><input type="text" name="descr" placeholder="Short description"></div>' +
+      '<form id="cf" class="card stack" style="margin-top:18px"><b>New category</b><div class="grid2"><input type="text" name="label" placeholder="Name" required><input type="text" name="descr" placeholder="Short description"><input type="text" name="label_ar" dir="rtl" placeholder="الاسم بالعربي"><input type="text" name="descr_ar" dir="rtl" placeholder="الوصف بالعربي"></div>' +
       '<div><button class="btn primary" type="submit">Add category</button></div></form>');
     const get = (k, f) => ($('[data-k="' + k + '"][data-f="' + f + '"]') || {}).value;
     $$('[data-save]').forEach((b) => b.onclick = async () => {
       const k = b.dataset.save;
-      try { await api('category_save', { method: 'POST', body: { key: k, label: get(k, 'label'), descr: get(k, 'descr'), sort: get(k, 'sort') } }); toast('Category saved'); await pageProducts(); categoriesDrawer(); }
+      try { await api('category_save', { method: 'POST', body: { key: k, label: get(k, 'label'), descr: get(k, 'descr'), label_ar: get(k, 'label_ar'), descr_ar: get(k, 'descr_ar'), sort: get(k, 'sort') } }); toast('Category saved'); await pageProducts(); categoriesDrawer(); }
       catch (err) { toast(err.message, true); }
     });
     $$('[data-rm]').forEach((b) => b.onclick = async () => {

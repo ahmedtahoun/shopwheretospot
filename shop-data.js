@@ -78,11 +78,15 @@ export function loadCurrencyCode() {
 export function saveCurrencyCode(code) {
   try { localStorage.setItem(CUR_KEY, code); } catch {}
 }
+// Arabic shop (see i18n.js): Arabic names from the dashboard, prices as "1,650 ج.م".
+export const LANG = (typeof window !== 'undefined' && window.WTS_LANG) || 'en';
+export const AR = LANG === 'ar';
 export function fmtPrice(n, code) {
   // Storefront always shows EGP; only the admin passes another code explicitly.
   const cc = code || 'EGP';
   const cur = CURRENCIES.find(c => c.code === cc) || CURRENCIES[0];
   const val = (n || 0) * cur.rate;
+  if (AR && cur.code === 'EGP') return Math.round(val).toLocaleString('en-EG') + ' ج.م';
   return cur.symbol + ' ' + (cur.code === 'EGP' ? Math.round(val).toLocaleString('en-EG') : val.toFixed(2));
 }
 
@@ -350,11 +354,12 @@ export async function fetchCatalog() {
     const res = await fetch(API + '?action=catalog', { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error('catalog ' + res.status);
     const data = await res.json();
-    CATEGORIES = data.categories;
+    // In Arabic, use the Arabic names where the team filled them in; keep the English ones for search.
+    CATEGORIES = data.categories.map(c => AR ? { ...c, labelEn: c.label, label: c.labelAr || c.label, desc: c.descAr || c.desc } : c);
     if (data.payments) PAYMENTS = data.payments;
     Object.keys(PRODUCT_IMAGES).forEach(k => delete PRODUCT_IMAGES[k]);
     data.products.forEach(p => { PRODUCT_IMAGES[p.id] = p.images; });
-    return data.products;
+    return data.products.map(p => AR ? { ...p, nameEn: p.name, name: p.nameAr || p.name, sub: p.subAr || p.sub, desc: p.descAr || p.desc } : p);
   } catch (e) {
     return null;
   }

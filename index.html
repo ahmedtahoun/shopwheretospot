@@ -18,6 +18,7 @@
 <meta name="twitter:title" content="Where To Spot">
 <meta name="twitter:description" content="Products and marketing services for Egyptian businesses. Prices in EGP.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
+<script src="./i18n.js"></script>
 <script src="./support.js"></script>
 <script src="./chat.js" defer></script>
 <link rel="manifest" href="manifest.json">
@@ -100,6 +101,7 @@
   .simg .sfit{position:relative;width:100%;height:100%;object-fit:contain;display:block;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
   .scard:hover .sfit{transform:scale(1.04)}
   #products,#quote{scroll-margin-top:84px}
+  @media (max-width: 760px){#products{scroll-margin-top:66px}}
   .sbody{padding:24px 26px 28px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px}
   .snum{grid-row:span 2;font-family:'Instrument Serif',serif;font-style:italic;font-size:22px;color:var(--accent);line-height:1.2}
   .sname{font-size:18px;font-weight:600;line-height:1.3}
@@ -284,10 +286,88 @@
   @media (max-width: 760px){
     .hero-grid{grid-template-columns:1fr !important}
   }
-  @media (max-width: 520px){
-    nav > div{padding:12px 16px !important;gap:10px !important}
-    .brand-name{font-size:20px !important}
+  @media (max-width: 760px){
+    nav > div{padding:12px 16px !important;gap:8px !important}
+    .brand-name{font-size:20px !important;min-width:0}
+    .brand-name img{width:44px;height:26px}
   }
+  @media (max-width: 400px){.brand-name{font-size:0 !important;gap:0 !important}}
+  /* language button */
+  .langbtn{margin-inline-start:auto;flex:none;border:1px solid #DDD6CC;background:#fff;height:40px;min-width:40px;padding:0 12px;border-radius:999px;font:inherit;font-size:14px;font-weight:700;color:#22201D;cursor:pointer}
+  html[lang=ar] .langbtn{font-family:'Work Sans',system-ui,sans-serif}
+  /* results line + active filters */
+  .pmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-14px 0 22px;font-size:13px;color:#6B6660}
+  .pcount{font-weight:600;color:#22201D;margin-inline-end:4px}
+  .achip{display:inline-flex;align-items:center;gap:6px;border:1px solid #D6CEC2;background:#fff;border-radius:999px;padding:6px 10px 6px 12px;font:inherit;font-size:12.5px;font-weight:600;color:#22201D;cursor:pointer}
+  .achip i{font-style:normal;font-size:11px;color:#8A8478}
+  .aclear{border:none;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:underline;cursor:pointer;padding:4px}
+  .mbar{display:none}
+  /* filter & sort sheet */
+  .fs-scrim{position:fixed;inset:0;background:rgba(20,18,16,.45);z-index:94;animation:fsfade .2s ease}
+  .fs{position:fixed;z-index:95;background:#fff;display:flex;flex-direction:column;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);max-height:86vh;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.25)}
+  .fs-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #EFEAE3;font-size:17px}
+  .fs-head button{border:none;background:#F3EFE8;width:36px;height:36px;border-radius:50%;font-size:15px;cursor:pointer}
+  .fs-body{overflow:auto;padding:6px 20px 10px;-webkit-overflow-scrolling:touch}
+  .fs-sec{padding:16px 0;border-bottom:1px solid #F3EFE8}
+  .fs-sec:last-child{border-bottom:none}
+  .fs-t{font-size:13px;font-weight:700;margin-bottom:10px}
+  .fs-pills{display:flex;flex-wrap:wrap;gap:8px}
+  .fs-pill{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #DDD6CC;background:#fff;border-radius:999px;padding:10px 14px;font:inherit;font-size:14px;font-weight:500;color:#22201D;cursor:pointer;min-height:42px}
+  .fs-pill small{font-size:11.5px;color:#8A8478}
+  .fs-pill[data-on="true"]{border-color:#22201D;background:#22201D;color:#fff}
+  .fs-pill[data-on="true"] small{color:#C9C3B8}
+  .fs-check{display:flex;align-items:center;gap:10px;font-size:14.5px;cursor:pointer;min-height:42px}
+  .fs-check input{width:22px;height:22px;accent-color:var(--accent);margin:0}
+  .fs-foot{display:flex;gap:10px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #EFEAE3}
+  .fs-clear{border:1px solid #DDD6CC;background:#fff;border-radius:999px;padding:14px 18px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
+  .fs-go{flex:1;border:none;background:var(--accent);color:#fff;border-radius:999px;padding:14px;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+  @keyframes fsfade{from{opacity:0}}
+  @keyframes fsup{from{transform:translateY(100%)}}
+  .bnav{display:none}
+  @media (max-width: 760px){
+    /* Phone layout, after the big shops: thumb-reach bottom bar, sticky search, two-column grid, filters in a sheet */
+    body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+    :root{--wts-chat-offset:66px}
+    .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:75;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid #E4DDD2;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+    .bnav button{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;font:inherit;font-size:11px;font-weight:600;color:#4A4640;padding:4px 0;cursor:pointer;min-height:48px}
+    .bn-n{position:absolute;top:0;left:calc(50% + 6px);background:var(--accent);color:#fff;border-radius:999px;font-size:10.5px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px}
+    [dir=rtl] .bn-n{left:auto;right:calc(50% + 6px)}
+    .toast{left:16px !important;right:16px !important;bottom:calc(80px + env(safe-area-inset-bottom)) !important;text-align:center;border-radius:14px !important}
+    .shop-head .psearch{display:none}
+    .shop-head{margin-bottom:6px}
+    .pfilters{display:none}
+    .ptoolbar{border-bottom:none;margin-bottom:6px}
+    .mbar{display:flex;gap:8px;position:sticky;top:64px;z-index:60;background:#F7F3ED;padding:10px 0;margin:0 -2px 10px}
+    .msearch{flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #DDD6CC;border-radius:999px;padding:0 14px;color:#8A8478;min-height:46px}
+    .msearch input{flex:1;min-width:0;border:none;background:none;outline:none;font:inherit;color:#22201D;padding:12px 0}
+    .msearch input::-webkit-search-cancel-button{-webkit-appearance:none}
+    .mfilter{display:flex;align-items:center;gap:6px;border:1px solid #22201D;background:#22201D;color:#fff;border-radius:999px;padding:0 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;min-height:46px}
+    .mf-n{background:#fff;color:#22201D;border-radius:999px;font-size:11px;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px}
+    .pmeta{margin:0 0 14px}
+    .fs{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-height:88dvh;border-radius:22px 22px 0 0;animation:fsup .28s cubic-bezier(.2,.8,.2,1)}
+    .pgrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:22px 12px !important}
+    .pmedia{border-radius:16px}
+    .pmedia .media{aspect-ratio:1/1;padding:7%}
+    .pbadge{top:8px;left:8px;font-size:9.5px;padding:4px 8px}
+    [dir=rtl] .pbadge{left:auto;right:8px}
+    .pwish{top:6px;right:6px;width:34px;height:34px}
+    [dir=rtl] .pwish{right:auto;left:6px}
+    .pwish svg{width:15px;height:15px}
+    .pquick,.pcard .pquick{position:absolute !important;opacity:1 !important;transform:none !important;left:auto !important;right:8px;bottom:8px;width:38px !important;height:38px;margin:0 !important;padding:0 !important;border-radius:50% !important;display:grid;place-items:center;box-shadow:0 6px 16px -6px rgba(0,0,0,.45)}
+    [dir=rtl] .pquick{right:auto;left:8px !important}
+    .pq-t{display:none}
+    .pinfo{padding:10px 2px 0;gap:3px}
+    .pcat,.psub{display:none}
+    .pname{font-family:'Work Sans',system-ui,sans-serif;font-size:14px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .pprice-row{margin-top:2px;gap:6px;flex-wrap:wrap}
+    .pnow{font-size:14.5px;font-weight:700}
+    .pwas{font-size:12px}
+    .catico{width:56px;height:56px}
+    .catchip{min-width:66px}
+    .langbtn{height:38px;min-width:38px;padding:0 10px}
+    .annc{font-size:12px !important;padding:8px 12px !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  }
+  @media (min-width: 761px){.pq-i{display:none}}
   .skeleton{background:linear-gradient(90deg,#EFEAE3 25%,#E4DED4 37%,#EFEAE3 63%);background-size:400% 100%;animation:sk 1.4s ease infinite}
   @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
 </style>
@@ -295,7 +375,7 @@
 </helmet>
 <div style="--accent:{{ accent }};min-height:100vh;position:relative">
 
-  <div style="background:#22201D;color:#F7F3ED;text-align:center;font-size:13px;padding:9px 16px;letter-spacing:0.02em">Free delivery across Egypt on orders over {{ freeShipFmt }} · All prices in Egyptian Pounds (EGP)</div>
+  <div class="annc" style="background:#22201D;color:#F7F3ED;text-align:center;font-size:13px;padding:9px 16px;letter-spacing:0.02em">Free delivery across Egypt on orders over {{ freeShipFmt }} · All prices in Egyptian Pounds (EGP)</div>
 
   <nav style="position:sticky;top:0;z-index:70;background:rgba(247,243,237,0.92);backdrop-filter:blur(10px);border-bottom:1px solid #DDD6CC">
     <div style="max-width:1280px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px">
@@ -322,6 +402,7 @@
           </a>
         </div>
       </div>
+      <button data-lang-toggle translate="no" class="langbtn" title="{{ langTitle }}">{{ langLabel }}</button>
       <button class="mobile-nav-btn" onClick="{{ toggleMobileMenu }}" style="border:1px solid #DDD6CC;background:#fff;width:40px;height:40px;border-radius:10px;font-size:17px;cursor:pointer;align-items:center;justify-content:center">☰</button>
       <button onClick="{{ toggleCart }}" style="position:relative;border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:border-color 0.15s ease" style-hover="{{ cartBtnHover }}">
         Cart
@@ -396,6 +477,27 @@
       </div>
     </div>
 
+    <div class="mbar">
+      <label class="msearch">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="msearch" type="search" enterkeyhint="search" value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search products" aria-label="Search products"/>
+      </label>
+      <button class="mfilter" onClick="{{ openFilters }}" aria-label="Filter & sort">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        <span>Filters</span>
+        <sc-if value="{{ filterCount }}" hint-placeholder-val="{{ 0 }}"><b class="mf-n">{{ filterCount }}</b></sc-if>
+      </button>
+    </div>
+    <sc-if value="{{ showMeta }}" hint-placeholder-val="{{ false }}">
+      <div class="pmeta">
+        <span class="pcount">{{ resultsLabel }}</span>
+        <sc-for list="{{ activeChips }}" as="ac" hint-placeholder-count="0">
+          <button class="achip" onClick="{{ ac.onClear }}" aria-label="Remove filter"><span>{{ ac.label }}</span><i aria-hidden="true">✕</i></button>
+        </sc-for>
+        <sc-if value="{{ filterCount }}" hint-placeholder-val="{{ 0 }}"><button class="aclear" onClick="{{ clearFilters }}">Clear all</button></sc-if>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ true }}">
       <div class="pgrid">
         <sc-for list="{{ skeletonCards }}" as="sk" hint-placeholder-count="9">
@@ -432,7 +534,7 @@
               <button onClick="{{ p.onToggleWish }}" title="Save to wishlist" class="pwish" style="color:{{ p.wishColor }}" aria-label="Save to wishlist">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.1 4.4 2.4h1.6c.8-1.3 2.3-2.4 4.4-2.4 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>
               </button>
-              <button onClick="{{ p.onAdd }}" class="pquick">{{ p.addLabel }}</button>
+              <button onClick="{{ p.onAdd }}" class="pquick" aria-label="{{ p.addLabel }}"><span class="pq-t">{{ p.addLabel }}</span><svg class="pq-i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             </div>
             <a href="{{ p.href }}" class="pinfo">
               <div class="pcat">{{ p.catLabel }}</div>
@@ -884,8 +986,38 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="fs-scrim" onClick="{{ closeFilters }}"></div>
+    <div class="fs" role="dialog" aria-modal="true" aria-label="Filter & sort">
+      <div class="fs-head"><b>Filter & sort</b><button onClick="{{ closeFilters }}" aria-label="Close">✕</button></div>
+      <div class="fs-body">
+        <div class="fs-sec"><div class="fs-t">Sort by</div><div class="fs-pills">
+          <sc-for list="{{ sortOpts }}" as="so" hint-placeholder-count="4"><button onClick="{{ so.onClick }}" class="fs-pill" data-on="{{ so.on }}">{{ so.label }}</button></sc-for>
+        </div></div>
+        <div class="fs-sec"><div class="fs-t">Category</div><div class="fs-pills">
+          <sc-for list="{{ filterTabs }}" as="ft" hint-placeholder-count="4"><button onClick="{{ ft.onClick }}" class="fs-pill" data-on="{{ ft.active }}"><span>{{ ft.label }}</span><small>{{ ft.count }}</small></button></sc-for>
+        </div></div>
+        <div class="fs-sec"><div class="fs-t">Price</div><div class="fs-pills">
+          <sc-for list="{{ priceOpts }}" as="po" hint-placeholder-count="5"><button onClick="{{ po.onClick }}" class="fs-pill" data-on="{{ po.on }}">{{ po.label }}</button></sc-for>
+        </div></div>
+        <div class="fs-sec"><div class="fs-t">Availability</div>
+          <label class="fs-check"><input type="checkbox" checked="{{ inStockOnly }}" onChange="{{ toggleInStockOnly }}"/><span>Only show items in stock</span></label>
+        </div>
+      </div>
+      <div class="fs-foot"><button onClick="{{ clearFilters }}" class="fs-clear">Clear all</button><button onClick="{{ applyFilters }}" class="fs-go">{{ showNLabel }}</button></div>
+    </div>
+  </sc-if>
+
+  <div class="bnav" aria-label="Shop navigation">
+    <button onClick="{{ bnavHome }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></button>
+    <button onClick="{{ openFilters }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>Categories</span></button>
+    <button onClick="{{ focusSearch }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></button>
+    <button onClick="{{ toggleWishPanel }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-9-8.8C1.6 8 3.6 4.5 7 4.5c2 0 3.4 1 4.2 2.3h1.6c.8-1.3 2.2-2.3 4.2-2.3 3.4 0 5.4 3.5 4 6.7C19 15.6 12 20 12 20z"/></svg><span>Wishlist</span><sc-if value="{{ wishCount }}" hint-placeholder-val="{{ 0 }}"><b class="bn-n">{{ wishCount }}</b></sc-if></button>
+    <button onClick="{{ toggleCart }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Cart</span><sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}"><b class="bn-n">{{ cartCount }}</b></sc-if></button>
+  </div>
+
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ '' }}">
-    <div style="position:fixed;bottom:26px;right:26px;background:#22201D;color:#fff;padding:12px 20px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:100">{{ toast }}</div>
+    <div class="toast" style="position:fixed;bottom:26px;right:26px;background:#22201D;color:#fff;padding:12px 20px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:100">{{ toast }}</div>
   </sc-if>
 </div>
 </x-dc>
@@ -908,7 +1040,7 @@ class Component extends DCLogic {
     sortKey: 'popular', inStockOnly: false, priceMin: '', priceMax: '',
     isLoading: true, toast: '',
     promoInput: '', appliedPromo: null, promoError: '',
-    checkoutMode: 'save', stockWarning: '', visibleCount: 9
+    checkoutMode: 'save', stockWarning: '', visibleCount: 12, filtersOpen: false
   };
 
   categories = [
@@ -1009,7 +1141,7 @@ class Component extends DCLogic {
     this.loadAreas();
     cart0 = mod.repriceCart(cart0, inventory);
     mod.saveCart(cart0);
-    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9,
+    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 12,
       ...(payResult ? { payResult, orderNumber: params.get('order') || '', payReason: params.get('reason') || '' } : {}) });
   }
 
@@ -1019,14 +1151,14 @@ class Component extends DCLogic {
     this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 1800);
   };
 
-  setCat = (key) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeCat: key }); };
+  setCat = (key) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeCat: key, visibleCount: 12 }); };
   // Category tiles: filter the shop and take the visitor to the products.
-  goCat = (key) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeCat: key, visibleCount: 9 }, () => this.scrollToId('products')); };
+  goCat = (key) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeCat: key, visibleCount: 12 }, () => this.scrollToId('products')); };
   // Service cards: open the quote form below with that service already chosen.
   quoteFor = (name) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState(s => ({ leadForm: { ...s.leadForm, cat: name } }), () => this.scrollToId('quote')); };
   scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   setCatMobile = (key) => (e) => { this.setState({ activeCat: key, mobileMenuOpen: false }); };
-  setSearch = (e) => this.setState({ search: e.target.value });
+  setSearch = (e) => this.setState({ search: e.target.value, visibleCount: 12 });
   toggleCart = () => this.setState(s => ({ cartOpen: !s.cartOpen }));
   closeCart = () => this.setState({ cartOpen: false });
   toggleMobileMenu = () => this.setState(s => ({ mobileMenuOpen: !s.mobileMenuOpen }));
@@ -1040,8 +1172,23 @@ class Component extends DCLogic {
     this.setState({ wishlist });
     this.showToast(wishlist.includes(id) ? 'Saved to wishlist' : 'Removed from wishlist');
   };
-  loadMore = () => this.setState(s => ({ visibleCount: s.visibleCount + 9 }));
-  setSortKey = (e) => this.setState({ sortKey: e.target.value, visibleCount: 9 });
+  loadMore = () => this.setState(s => ({ visibleCount: s.visibleCount + 12 }));
+  setSortKey = (e) => this.setState({ sortKey: e.target.value, visibleCount: 12 });
+  // Filter & sort sheet (phones) and the chips that show what is applied.
+  openFilters = () => this.setState({ filtersOpen: true, mobileMenuOpen: false });
+  closeFilters = () => this.setState({ filtersOpen: false });
+  applyFilters = () => this.setState({ filtersOpen: false, visibleCount: 12 }, () => this.scrollToId('products'));
+  clearFilters = () => this.setState({ activeCat: 'all', inStockOnly: false, priceMin: '', priceMax: '', sortKey: 'popular', search: '', visibleCount: 12 });
+  setSort = (k) => () => this.setState({ sortKey: k, visibleCount: 12 });
+  setPrice = (min, max) => () => this.setState({ priceMin: min, priceMax: max, visibleCount: 12 });
+  bnavHome = () => { this.setState({ filtersOpen: false, cartOpen: false, wishPanelOpen: false }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // Focus straight away (inside the tap) so the phone keyboard opens, then bring the bar into view.
+  focusSearch = () => {
+    this.setState({ filtersOpen: false, cartOpen: false, wishPanelOpen: false });
+    const el = document.getElementById('msearch');
+    if (el) { el.focus({ preventScroll: true }); }
+    this.scrollToId('products');
+  };
   toggleInStockOnly = (e) => this.setState({ inStockOnly: e.target.checked });
   setPriceMin = (e) => this.setState({ priceMin: e.target.value });
   setPriceMax = (e) => this.setState({ priceMax: e.target.value });
@@ -1312,7 +1459,7 @@ class Component extends DCLogic {
     const term = s.search.trim().toLowerCase();
     const active = s.inventory.filter(p => p.status === 'Active' && p.cat !== 'services');
     const cats = this.activeCategories();
-    let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!term || p.name.toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
+    let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!term || p.name.toLowerCase().includes(term) || (p.nameEn || '').toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
     if (s.inStockOnly) filtered = filtered.filter(p => p.stock > 0);
     const min = s.priceMin !== '' ? Number(s.priceMin) : null;
     const max = s.priceMax !== '' ? Number(s.priceMax) : null;
@@ -1355,7 +1502,28 @@ class Component extends DCLogic {
     }));
 
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
+    const AR = window.WTS_LANG === 'ar';
+    const T = window.WTS_T || ((x) => x);
+    const sorts = [['popular', 'Popular'], ['new', 'Newest'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low']];
+    const prices = [['', '', 'Any price'], ['', '300', 'Under ' + fmt(300)], ['300', '1000', fmt(300) + ' – ' + fmt(1000)], ['1000', '3000', fmt(1000) + ' – ' + fmt(3000)], ['3000', '', 'Over ' + fmt(3000)]];
+    const priceOn = (a, b) => s.priceMin === a && s.priceMax === b;
+    const priceChip = s.priceMin !== '' || s.priceMax !== '' ? (prices.find(x => priceOn(x[0], x[1])) || [0, 0, (s.priceMin ? fmt(+s.priceMin) : '') + ' – ' + (s.priceMax ? fmt(+s.priceMax) : '')])[2] : '';
+    const activeChips = [
+      ...(s.activeCat !== 'all' ? [{ label: this.catLabel(s.activeCat), onClear: this.setCat('all') }] : []),
+      ...(s.inStockOnly ? [{ label: 'In stock', onClear: () => this.setState({ inStockOnly: false }) }] : []),
+      ...(priceChip ? [{ label: priceChip, onClear: this.setPrice('', '') }] : []),
+      ...(term ? [{ label: '“' + s.search.trim() + '”', onClear: () => this.setState({ search: '' }) }] : []),
+    ];
+    const nLabel = (n) => n + (n === 1 ? ' product' : ' products');
     return {
+      langLabel: AR ? 'EN' : 'ع', langTitle: AR ? 'English' : 'العربية',
+      filtersOpen: s.filtersOpen, openFilters: this.openFilters, closeFilters: this.closeFilters, applyFilters: this.applyFilters, clearFilters: this.clearFilters,
+      bnavHome: this.bnavHome, focusSearch: this.focusSearch,
+      sortOpts: sorts.map(([k, l]) => ({ label: l, on: s.sortKey === k ? 'true' : 'false', onClick: this.setSort(k) })),
+      priceOpts: prices.map(([a, b, l]) => ({ label: l, on: priceOn(a, b) ? 'true' : 'false', onClick: this.setPrice(a, b) })),
+      activeChips, filterCount: (s.activeCat !== 'all') + !!s.inStockOnly + !!priceChip || null,
+      showMeta: !s.isLoading, resultsLabel: nLabel(filtered.length), showNLabel: 'Show ' + nLabel(filtered.length),
+      wishCount: s.wishlist.length || null,
       accent, freeShip, freeShipFmt: fmt(freeShip),
       ctaHover: { transform: 'translateY(-1px)', boxShadow: '0 8px 20px -6px ' + accent + '99' },
       cardHover: { transform: 'translateY(-3px)', boxShadow: '0 14px 28px -14px rgba(20,18,16,0.28)', borderColor: '#C9C0B2' },

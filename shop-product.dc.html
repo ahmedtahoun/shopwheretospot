@@ -17,6 +17,7 @@
 <meta name="twitter:title" content="Where To Spot">
 <meta name="twitter:description" content="One storefront, every category you sell.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
+<script src="./i18n.js"></script>
 <script src="./support.js"></script>
 <script src="./chat.js" defer></script>
 <link rel="manifest" href="manifest.json">
@@ -51,15 +52,35 @@
     .buyrow .qtybox button{width:52px !important;height:46px !important}
     .buyrow > button{flex:1 1 40% !important;padding:15px 10px !important;white-space:nowrap}
     :root{--wts-chat-offset:78px}
+    /* phones: swipe through the photos, keep Add to cart / Buy now in reach at the bottom */
+    .gal-desk{display:none !important}
+    .gal{display:flex !important}
+    .buyrow > button{display:none !important}
+    .sbar{display:flex !important}
+    .sbar .sb-name{display:none}
+    body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+    .pnav{padding:12px 16px !important}
+    .pnav .brandlink{font-size:20px !important}
+    .pdp-pad{padding-left:16px !important;padding-right:16px !important}
   }
+  .gal{display:none;overflow-x:auto;scroll-snap-type:x mandatory;gap:0;border-radius:18px;background:#fff;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .gal::-webkit-scrollbar{display:none}
+  .gal img{flex:0 0 100%;width:100%;aspect-ratio:1/1;object-fit:contain;scroll-snap-align:center;display:block;background:#fff}
+  .dots{display:flex;justify-content:center;gap:6px;margin-top:10px}
+  .dots i{width:7px;height:7px;border-radius:50%;background:#D6CEC2}
+  .dots i[data-on="true"]{background:#22201D;width:18px;border-radius:999px}
+  .langbtn{border:1px solid #DDD6CC;background:#fff;height:38px;min-width:38px;padding:0 10px;border-radius:999px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;font-family:'Work Sans',system-ui,sans-serif}
+  .sbar{display:none}
+  @media (max-width: 760px){.toast{left:16px !important;right:16px !important;bottom:calc(84px + env(safe-area-inset-bottom)) !important;text-align:center;border-radius:14px !important}}
 </style>
 <script src="image-slot.js"></script>
 </helmet>
 <div style="--accent:{{ accent }};min-height:100vh">
-  <nav style="border-bottom:1px solid #DDD6CC;background:#fff">
-    <div style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between">
-      <a href="index.html" style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px">Where To Spot</a>
-      <div style="display:flex;align-items:center;gap:14px">
+  <nav style="border-bottom:1px solid #DDD6CC;background:#fff;position:sticky;top:0;z-index:70">
+    <div class="pnav" style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <a href="index.html" class="brandlink" style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;white-space:nowrap">Where To Spot</a>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button data-lang-toggle translate="no" class="langbtn" title="{{ langTitle }}">{{ langLabel }}</button>
         <a href="index.html" class="link" style="font-size:13.5px;font-weight:600;color:#6B6660">← Shop</a>
         <a href="index.html?cart=1" style="border:1px solid #DDD6CC;background:#fff;padding:9px 14px;border-radius:999px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px">Cart<sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}"><span style="background:var(--accent);color:#fff;border-radius:999px;font-size:11.5px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px">{{ cartCount }}</span></sc-if></a>
       </div>
@@ -75,7 +96,7 @@
   </sc-if>
 
   <sc-if value="{{ hasProduct }}" hint-placeholder-val="{{ true }}">
-  <div style="max-width:1200px;margin:0 auto;padding:20px 28px 0">
+  <div class="pdp-pad" style="max-width:1200px;margin:0 auto;padding:20px 28px 0">
     <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:#6B6660;flex-wrap:wrap">
       <a href="index.html" class="link">Home</a><span>/</span>
       <a href="{{ catHref }}" class="link">{{ product.catLabel }}</a><span>/</span>
@@ -83,8 +104,13 @@
     </div>
   </div>
 
-  <div style="max-width:1200px;margin:0 auto;padding:clamp(24px,5vw,48px) 28px clamp(36px,6vw,64px);display:grid;grid-template-columns:1fr 1fr;gap:56px" class="pdp-grid">
-    <div style="display:flex;flex-direction:column;gap:14px">
+  <div style="max-width:1200px;margin:0 auto;padding:clamp(18px,5vw,48px) 28px clamp(36px,6vw,64px);display:grid;grid-template-columns:1fr 1fr;gap:clamp(22px,5vw,56px)" class="pdp-grid pdp-pad">
+    <div>
+      <div class="gal" id="gal">
+        <sc-for list="{{ galImgs }}" as="gi" hint-placeholder-count="1"><img src="{{ gi.src }}" alt="{{ gi.alt }}" loading="{{ gi.loading }}"></sc-for>
+      </div>
+      <sc-if value="{{ galHasMany }}" hint-placeholder-val="{{ false }}"><div class="dots gal" style="background:none;overflow:visible"><sc-for list="{{ galDots }}" as="gd" hint-placeholder-count="2"><i data-on="{{ gd.on }}"></i></sc-for></div></sc-if>
+    <div class="gal-desk" style="display:flex;flex-direction:column;gap:14px">
       <div onClick="{{ openLightbox }}" style="cursor:zoom-in;width:100%;aspect-ratio:1/1;position:relative;overflow:hidden;border-radius:20px;background:#fff">
         <image-slot id="{{ mainImgId }}" src="{{ mainImg }}" fit="contain" shape="rounded" radius="20" placeholder="{{ product.placeholder }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
       </div>
@@ -95,6 +121,7 @@
           </div>
         </sc-for>
       </div>
+    </div>
     </div>
 
     <div>
@@ -263,9 +290,14 @@
       <button onClick="{{ buyNow }}" style="background:{{ addBtnBg }};color:#fff;border:none;padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Buy now</button>
     </div>
   </sc-if>
+  <div class="sbar" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #DDD6CC;box-shadow:0 -10px 30px rgba(0,0,0,0.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:81;align-items:center;gap:10px">
+    <div style="min-width:0;flex:none;max-width:34%"><div class="sb-name">{{ product.name }}</div><div style="font-weight:700;font-size:15px;white-space:nowrap">{{ sbarPrice }}</div></div>
+    <button onClick="{{ addToCart }}" disabled="{{ outOfStock }}" style="flex:1;background:#fff;color:{{ accent }};border:2px solid {{ addBtnBg }};padding:13px 6px;border-radius:999px;font-size:14.5px;font-weight:700;cursor:pointer;opacity:{{ addBtnOpacity }};white-space:nowrap">{{ addBtnLabel }}</button>
+    <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ addBtnBg }};color:#fff;border:none;padding:15px 6px;border-radius:999px;font-size:14.5px;font-weight:700;cursor:pointer;opacity:{{ addBtnOpacity }};white-space:nowrap">Buy now</button>
+  </div>
 
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ '' }}">
-    <div style="position:fixed;bottom:26px;right:26px;background:#22201D;color:#fff;padding:12px 20px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:100">{{ toast }}</div>
+    <div class="toast" style="position:fixed;bottom:26px;right:26px;background:#22201D;color:#fff;padding:12px 20px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:100">{{ toast }}</div>
   </sc-if>
   </sc-if>
   <footer style="border-top:1px solid #DDD6CC;background:#fff;margin-top:20px">
@@ -288,7 +320,7 @@ class Component extends DCLogic {
   state = {
     qty: 1, added: false, product: null, related: [], inventory: [],
     wishlist: [], reviews: [], recent: [], toast: '',
-    lightboxOpen: false, lightboxIndex: 0, showStickyBar: false,
+    lightboxOpen: false, lightboxIndex: 0, showStickyBar: false, galIndex: 0,
     reviewForm: { name: '', text: '', rating: 5 }, reviewSent: false,
     variantId: null, addonSel: {}
   };
@@ -309,9 +341,19 @@ class Component extends DCLogic {
     this.setState({ product, related, inventory: inv, wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent, variantId });
     this.updateShareMeta(product, mod);
     window.addEventListener('scroll', this.onScroll, { passive: true });
+    // The photo strip scrolls sideways; scroll events don't bubble, so listen in the capture phase.
+    document.addEventListener('scroll', this.onAnyScroll, { passive: true, capture: true });
   }
-  componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); }
+  componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); document.removeEventListener('scroll', this.onAnyScroll, true); }
+  onAnyScroll = (e) => { if (e.target && e.target.id === 'gal') this.onGalScroll({ currentTarget: e.target }); };
+  onGalScroll = (e) => {
+    const el = e.currentTarget || document.getElementById('gal');
+    if (!el || !el.clientWidth) return;
+    const i = Math.round(Math.abs(el.scrollLeft) / el.clientWidth);
+    if (i !== this.state.galIndex) this.setState({ galIndex: i });
+  };
   onScroll = () => {
+    if (window.matchMedia('(max-width: 760px)').matches) { if (this.state.showStickyBar) this.setState({ showStickyBar: false }); return; }
     const show = window.scrollY > 420;
     if (show !== this.state.showStickyBar) this.setState({ showStickyBar: show });
   };
@@ -403,7 +445,8 @@ class Component extends DCLogic {
   renderVals() {
     const accent = this.props.accentColor ?? '#A8552F';
     const p = this.state.product;
-    if (!p) return { accent, notFound: this.state.notFound, hasProduct: false, product: { name: '', catLabel: '', placeholder: '', desc: '' }, thumbs: [], related: [], recentOthers: [], recentOthersCount: 0, reviews: [], qty: 1 };
+    if (!p) return { accent, notFound: this.state.notFound, hasProduct: false, product: { name: '', catLabel: '', placeholder: '', desc: '' }, thumbs: [], related: [], recentOthers: [], recentOthersCount: 0, reviews: [], qty: 1, galImgs: [], galDots: [],
+      langLabel: window.WTS_LANG === 'ar' ? 'EN' : 'ع', langTitle: window.WTS_LANG === 'ar' ? 'English' : 'العربية' };
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
     const qty = this.state.qty;
     const line = this._sd ? this._sd.priceLine(p, this.state.variantId, this._addonIds(), qty) : { unit: p.price, total: p.price * qty, variant: null };
@@ -472,7 +515,17 @@ class Component extends DCLogic {
         const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || [];
         return imgs.length > 1 ? (Math.min(this.state.lightboxIndex, imgs.length - 1) + 1) + ' / ' + imgs.length : '';
       })(),
-      showStickyBar: this.state.showStickyBar, hasProduct: true, notFound: false
+      showStickyBar: this.state.showStickyBar, hasProduct: true, notFound: false,
+      langLabel: window.WTS_LANG === 'ar' ? 'EN' : 'ع', langTitle: window.WTS_LANG === 'ar' ? 'English' : 'العربية',
+      sbarPrice: fmt(line.total),
+      ...(() => {
+        const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || [];
+        return {
+          galImgs: imgs.map((src, i) => ({ src: this._sd.img(src, 800), alt: p.name + (i ? ' — ' + (i + 1) : ''), loading: i ? 'lazy' : 'eager' })),
+          galHasMany: imgs.length > 1,
+          galDots: imgs.map((_, i) => ({ on: i === this.state.galIndex ? 'true' : 'false' })),
+        };
+      })()
     };
   }
 }

@@ -87,7 +87,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 function db(): PDO
 {
@@ -268,9 +268,20 @@ function migrate(PDO $pdo): void
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_tracking ON orders(tracking_number)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_rep ON orders(rep_id, created_at)');
     $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
-    foreach (['variants' => "TEXT DEFAULT '[]'", 'tiers' => "TEXT DEFAULT '[]'", 'addons' => "TEXT DEFAULT '[]'", 'personalized' => 'INTEGER NOT NULL DEFAULT 0'] as $col => $type) {
+    foreach (['variants' => "TEXT DEFAULT '[]'", 'tiers' => "TEXT DEFAULT '[]'", 'addons' => "TEXT DEFAULT '[]'", 'personalized' => 'INTEGER NOT NULL DEFAULT 0',
+        'name_ar' => "TEXT DEFAULT ''", 'sub_ar' => "TEXT DEFAULT ''", 'desc_ar' => "TEXT DEFAULT ''"] as $col => $type) {
         if (!in_array($col, $prodCols, true)) $pdo->exec("ALTER TABLE products ADD COLUMN $col $type");
     }
+    // Arabic shop: optional Arabic names for categories (and products above); the English text shows when empty.
+    $catCols = $pdo->query('PRAGMA table_info(categories)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    foreach (['label_ar' => "TEXT DEFAULT ''", 'descr_ar' => "TEXT DEFAULT ''"] as $col => $type) {
+        if (!in_array($col, $catCols, true)) $pdo->exec("ALTER TABLE categories ADD COLUMN $col $type");
+    }
+    $catAr = ['nfc' => ['حلول NFC', 'كروت وستاندات تقييم جوجل باللمس'], 'cosmetics' => ['مستحضرات التجميل', 'عناية بالبشرة بتركيبات نظيفة'],
+        'stands' => ['ستاندات المعارض', 'أجنحة وستاندات عرض للمعارض والفعاليات'], 'pets' => ['منتجات الحيوانات الأليفة', 'مستلزمات يومية للحيوانات الأليفة'],
+        'school' => ['أدوات المدارس الصيفية', 'أنشطة للمعسكرات والبرامج الصيفية'], 'gift' => ['هدايا مميزة', 'مجموعات هدايا مختارة'],
+        'services' => ['خطط التسويق', 'خطط شهرية لجلب العملاء'], 'acrylic' => ['منتجات الأكريليك', 'ستاندات وعلب عرض من الأكريليك']];
+
     $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
     foreach (['business_name' => "TEXT DEFAULT ''", 'review_link' => "TEXT DEFAULT ''", 'links' => "TEXT DEFAULT ''", 'design_notes' => "TEXT DEFAULT ''", 'files' => "TEXT DEFAULT '[]'"] as $col => $type) {
         if (!in_array($col, $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type");
@@ -369,6 +380,8 @@ function migrate(PDO $pdo): void
     if ((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
         seed_catalog($pdo);
     }
+    $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
+    foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
 }
 
 // First run: load the catalog that used to be hard-coded in shop-data.js.
@@ -532,6 +545,7 @@ function product_row(array $p, array $images): array
         'id' => $p['id'], 'sku' => $p['sku'], 'name' => $p['name'], 'cat' => $p['cat'], 'vendor' => $p['vendor'],
         'price' => (float) $p['price'], 'cost' => (float) $p['cost'], 'stock' => (int) $p['stock'],
         'discountPct' => (float) $p['discount_pct'], 'label' => $p['label'], 'status' => $p['status'],
+        'nameAr' => (string) ($p['name_ar'] ?? ''), 'subAr' => (string) ($p['sub_ar'] ?? ''), 'descAr' => (string) ($p['desc_ar'] ?? ''),
         'sub' => $p['sub'], 'desc' => $p['descr'], 'features' => json_decode($p['features'] ?: '[]', true) ?: [],
         'period' => $p['period'], 'sort' => (int) $p['sort'], 'images' => $images,
         'variants' => product_json($p, 'variants'), 'tiers' => product_json($p, 'tiers'), 'addons' => product_json($p, 'addons'),

@@ -13,7 +13,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 try {
     if ($action === 'catalog' && $method === 'GET') {
-        $cats = db()->query('SELECT key, label, descr AS "desc", sort FROM categories ORDER BY sort, label')->fetchAll();
+        $cats = db()->query('SELECT key, label, descr AS "desc", label_ar AS "labelAr", descr_ar AS "descAr", sort FROM categories ORDER BY sort, label')->fetchAll();
         $products = array_map(function ($p) {
             unset($p['cost'], $p['createdAt'], $p['updatedAt']);
             return $p;

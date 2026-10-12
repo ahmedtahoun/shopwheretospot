@@ -52,3 +52,10 @@ footer .pay-row{border-top:1px solid #EFEAE3;padding-top:18px;padding-bottom:22p
 footer .pay-row > span:first-child{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8A8478;margin-right:6px}
 footer .pay-row img{display:block;height:28px;width:auto;border-radius:6px;box-shadow:0 0 0 1px #E4DDD2}
 footer .pay-row .pay-note{font-size:12.5px;color:#8A8478;margin-left:auto}
+
+/* Arabic / English (i18n.js sets <html lang>) */
+html[lang=ar] .en-only{display:none}
+html:not([lang=ar]) .ar-only{display:none}
+html[lang=ar] body{line-height:1.85}
+html[lang=ar] h1,html[lang=ar] h2{font-weight:700}
+html[lang=ar] .kicker{letter-spacing:0}
