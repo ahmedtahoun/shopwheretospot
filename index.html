@@ -162,8 +162,19 @@
   /* Shop grid: borderless, editorial product tiles */
   .psearch{display:flex;align-items:center;gap:10px;border-bottom:1px solid #22201D;padding:8px 2px;min-width:240px;color:#6B6660}
   .psearch input{border:none;background:none;font:inherit;font-size:15px;color:#22201D;outline:none;width:100%}
-  .ptoolbar{display:flex;align-items:center;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;border-bottom:1px solid #DDD6CC;margin-bottom:36px}
+  .ptoolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;border-bottom:1px solid #DDD6CC;margin-bottom:36px}
   .ptabs{display:flex;gap:28px;overflow-x:auto;scrollbar-width:none}
+  .shop-top{padding-top:clamp(28px,4vw,52px)}
+  .shop-head{margin-bottom:22px}
+  .shop-title{font-size:clamp(30px,4vw,46px)}
+  .catrow{display:flex;gap:clamp(14px,2.4vw,28px);overflow-x:auto;scrollbar-width:none;padding:8px 4px 14px;margin:0 -4px}
+  .catrow::-webkit-scrollbar{display:none}
+  .catchip{flex:none;display:flex;flex-direction:column;align-items:center;gap:7px;border:none;background:none;cursor:pointer;padding:0;min-width:74px;font:inherit}
+  .catico{width:60px;height:60px;border-radius:50%;overflow:hidden;background:#EFE9E1;display:grid;place-items:center;color:#22201D;transition:transform .2s ease,box-shadow .2s ease}
+  .catico img{width:100%;height:100%;object-fit:cover;display:block}
+  .catchip:hover .catico{transform:translateY(-2px)}
+  .catlbl{font-size:13px;font-weight:600;white-space:nowrap}
+  .catn{font-size:11px;color:#8A8478;margin-top:-4px}
   .ptab{border:none;background:none;border-bottom:2px solid transparent;padding:14px 0 13px;margin-bottom:-1px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:color .15s ease}
   .ptab:hover{color:#22201D !important}
   .pfilters{display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:13.5px;padding:8px 0}
@@ -243,7 +254,7 @@
 
   <nav style="position:sticky;top:0;z-index:70;background:rgba(247,243,237,0.92);backdrop-filter:blur(10px);border-bottom:1px solid #DDD6CC">
     <div style="max-width:1280px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px">
-      <a href="#top" class="brand-name" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:10px;font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;letter-spacing:0.01em"><img src="images/logo.png" alt="Where To Spot logo" width="52" height="30" style="border-radius:8px;background:#22201D;padding:3px 6px;object-fit:contain">Where To Spot</a>
+      <a href="index.html" class="brand-name" style="flex:none;white-space:nowrap;display:flex;align-items:center;gap:10px;font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;letter-spacing:0.01em"><img src="images/logo.png" alt="Where To Spot logo" width="52" height="30" style="border-radius:8px;background:#22201D;padding:3px 6px;object-fit:contain">Where To Spot</a>
       <div class="desktop-nav" style="align-items:center;gap:18px;font-size:13.5px;font-weight:500;color:#6B6660;flex-wrap:wrap;flex:1;justify-content:flex-end;min-width:0">
         <a href="#products" class="link" style="white-space:nowrap">Shop</a>
         <a href="plans.html" class="link" style="white-space:nowrap">Marketing plans</a>
@@ -300,60 +311,11 @@
     </sc-if>
   </nav>
 
-  <header id="top" class="wrap hero">
-    <div>
-      <div class="eyebrow">Where To Spot · Giza, Egypt</div>
-      <h1>Get found.<br>Get reviewed.<br><em>Get customers.</em></h1>
-      <p class="hero-lede">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivered across Egypt.</p>
-      <div class="hero-ctas">
-        <a href="#products" class="btn btn-accent">Shop products <span aria-hidden="true">→</span></a>
-        <a href="plans.html" class="btn btn-line">See marketing plans</a>
-      </div>
-      <ul class="proof">
-        <li>Delivery across Egypt in 2–5 days</li>
-        <li>Cash on delivery</li>
-        <li>14-day returns</li>
-      </ul>
-    </div>
-    <div class="hero-art">
-      <div class="hero-main"><img class="img-cover" src="api/img.php?src=images/nfc-review-black-lifestyle.png&amp;w=1000&amp;v=2" alt="Where To Spot NFC Google review card on a café table" fetchpriority="high"></div>
-      <div class="hero-inset"><img class="img-cover" src="api/img.php?src=images/work/nfc-multi-brand-stands.jpeg&amp;w=600&amp;v=2" alt="Google review stands made for different brands" loading="lazy"></div>
-      <div class="hero-badge"><b>20+ brands</b><span>Samsung, Vodafone, Pandora and more work with us</span></div>
-    </div>
-  </header>
-
-  <section id="categories" class="wrap sec">
-    <div class="sec-head">
+  <section id="products" class="wrap sec shop-top">
+    <div class="sec-head shop-head">
       <div>
-        <div class="eyebrow">Shop by category</div>
-        <h2 class="h2">Made for businesses <em>that want to be found</em></h2>
-      </div>
-    </div>
-    <div class="cgrid">
-      <sc-for list="{{ catCards }}" as="c" hint-placeholder-count="3">
-        <a href="#products" onClick="{{ c.onClick }}" class="ccard">
-          <div class="cimg">
-            <sc-if value="{{ c.img }}" hint-placeholder-val="{{ '' }}"><img class="img-cover" src="{{ c.img }}" alt="{{ c.label }}" loading="lazy"></sc-if>
-            <sc-if value="{{ c.noImg }}" hint-placeholder-val="{{ false }}"><span>No photo yet</span></sc-if>
-          </div>
-          <div class="cmeta">
-            <div>
-              <div class="ctitle">{{ c.label }}</div>
-              <div class="cdesc">{{ c.desc }}</div>
-              <div class="ccount">{{ c.count }}</div>
-            </div>
-            <span class="carrow" aria-hidden="true">→</span>
-          </div>
-        </a>
-      </sc-for>
-    </div>
-  </section>
-
-  <section id="products" class="wrap sec">
-    <div class="sec-head" style="margin-bottom:28px">
-      <div>
-        <div class="eyebrow">The shop</div>
-        <h2 class="h2">Products, <em>ready to order</em></h2>
+        <div class="eyebrow">Where To Spot · Shop</div>
+        <h2 class="h2 shop-title">Shop <em>by category</em></h2>
       </div>
       <label class="psearch">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -361,9 +323,16 @@
       </label>
     </div>
     <div class="ptoolbar">
-      <div class="ptabs" role="tablist">
+      <div class="catrow" role="tablist" aria-label="Shop by category">
         <sc-for list="{{ filterTabs }}" as="ft" hint-placeholder-count="4">
-          <button onClick="{{ ft.onClick }}" class="ptab" style="color:{{ ft.fg }};border-bottom-color:{{ ft.line }}">{{ ft.label }}</button>
+          <button onClick="{{ ft.onClick }}" class="catchip" aria-pressed="{{ ft.active }}">
+            <span class="catico" style="box-shadow:0 0 0 2px #F7F3ED, 0 0 0 4px {{ ft.ring }}">
+              <sc-if value="{{ ft.img }}" hint-placeholder-val="{{ '' }}"><img src="{{ ft.img }}" alt="" loading="lazy"></sc-if>
+              <sc-if value="{{ ft.isAll }}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></sc-if>
+            </span>
+            <span class="catlbl" style="color:{{ ft.fg }}">{{ ft.label }}</span>
+            <span class="catn">{{ ft.count }}</span>
+          </button>
         </sc-for>
       </div>
       <div class="pfilters">
@@ -441,6 +410,28 @@
       </sc-if>
     </sc-if>
   </section>
+
+  <header id="intro" class="wrap hero">
+    <div>
+      <div class="eyebrow">Where To Spot · Giza, Egypt</div>
+      <h1>Get found.<br>Get reviewed.<br><em>Get customers.</em></h1>
+      <p class="hero-lede">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivered across Egypt.</p>
+      <div class="hero-ctas">
+        <a href="#products" class="btn btn-accent">Shop products <span aria-hidden="true">→</span></a>
+        <a href="plans.html" class="btn btn-line">See marketing plans</a>
+      </div>
+      <ul class="proof">
+        <li>Delivery across Egypt in 2–5 days</li>
+        <li>Cash on delivery</li>
+        <li>14-day returns</li>
+      </ul>
+    </div>
+    <div class="hero-art">
+      <div class="hero-main"><img class="img-cover" src="api/img.php?src=images/nfc-review-black-lifestyle.png&amp;w=1000&amp;v=2" alt="Where To Spot NFC Google review card on a café table" fetchpriority="high"></div>
+      <div class="hero-inset"><img class="img-cover" src="api/img.php?src=images/work/nfc-multi-brand-stands.jpeg&amp;w=600&amp;v=2" alt="Google review stands made for different brands" loading="lazy"></div>
+      <div class="hero-badge"><b>20+ brands</b><span>Samsung, Vodafone, Pandora and more work with us</span></div>
+    </div>
+  </header>
 
   <section id="services" class="wrap sec">
     <div class="sec-head">
@@ -928,6 +919,9 @@ class Component extends DCLogic {
     return this.categories.filter(c => inv.some(p => p.cat === c.key));
   }
 
+  // Small round picture for a category chip: the first product in it that has a photo.
+  catThumb(key, active) { const p = active.find(x => x.cat === key && this._sd && (this._sd.PRODUCT_IMAGES[x.id] || []).length); return p ? this.thumbFor(p.id) : ''; }
+
   // First photo of a product, sized for the cart and wishlist thumbnails.
   thumbFor(id) { const imgs = this._sd && this._sd.PRODUCT_IMAGES[id]; return imgs && imgs.length ? this._sd.img(imgs[0], 120) : ''; }
 
@@ -1288,7 +1282,10 @@ class Component extends DCLogic {
     const filterTabs = tabDefs.map(t => ({
       key: t.key, label: t.label, onClick: this.setCat(t.key),
       line: s.activeCat === t.key ? '#22201D' : 'transparent',
-      fg: s.activeCat === t.key ? '#22201D' : '#8A8478'
+      fg: s.activeCat === t.key ? '#22201D' : '#6B6660',
+      active: s.activeCat === t.key ? 'true' : 'false', ring: s.activeCat === t.key ? accent : 'transparent',
+      isAll: t.key === 'all', img: t.key === 'all' ? '' : this.catThumb(t.key, active),
+      count: t.key === 'all' ? active.length : active.filter(p => p.cat === t.key).length
     }));
 
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
