@@ -710,7 +710,7 @@
         </div>
         <div style="padding:20px 24px;border-top:1px solid #DDD6CC">
           <div style="display:flex;gap:8px;margin-bottom:14px">
-            <input value="{{ promoInput }}" onChange="{{ setPromoInput }}" placeholder="Promo code" style="flex:1;border:1px solid #DDD6CC;padding:10px 13px;border-radius:10px;font-size:13.5px;font-family:inherit"/>
+            <input value="{{ promoInput }}" onChange="{{ setPromoInput }}" placeholder="Promo code" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" style="flex:1;border:1px solid #DDD6CC;padding:10px 13px;border-radius:10px;font-size:13.5px;font-family:inherit"/>
             <button onClick="{{ applyPromoCode }}" style="border:1px solid #DDD6CC;background:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Apply</button>
           </div>
           <sc-if value="{{ promoError }}" hint-placeholder-val="{{ '' }}">

@@ -604,8 +604,9 @@ function promo_uses(string $code): int
 // Check a code against an items subtotal. Returns [promo row, discount]; throws ShopError with a clear reason.
 function promo_check(string $code, float $subtotal): array
 {
-    $code = strtoupper(trim($code));
-    $st = db()->prepare('SELECT * FROM promos WHERE code = ? COLLATE NOCASE');
+    // Case-sensitive: the customer must type the code exactly as it was created.
+    $code = trim($code);
+    $st = db()->prepare('SELECT * FROM promos WHERE code = ? COLLATE BINARY');
     $st->execute([$code]);
     $p = $st->fetch();
     if (!$p || !(int) $p['active']) throw new ShopError('This promo code is not valid.');

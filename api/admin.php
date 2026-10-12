@@ -807,7 +807,7 @@ try {
         $u = require_perm('products');
         $b = body();
         $id = (int) ($b['id'] ?? 0);
-        $code = strtoupper(preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($b['code'] ?? '')));
+        $code = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($b['code'] ?? '')); // kept exactly as typed: codes are case-sensitive
         if (strlen($code) < 3 || strlen($code) > 30) fail('Use 3 to 30 letters or numbers for the code (no spaces).');
         $kind = in_array($b['kind'] ?? '', ['fixed', 'shipping'], true) ? $b['kind'] : 'percent';
         $value = $kind === 'shipping' ? 0 : round((float) ($b['value'] ?? 0), 2);
@@ -819,7 +819,7 @@ try {
             empty($b['active']) ? 0 : 1, str_in($b['note'] ?? '', 200)];
         $dupe = db()->prepare('SELECT id FROM promos WHERE code = ? COLLATE NOCASE AND id != ?');
         $dupe->execute([$code, $id]);
-        if ($dupe->fetchColumn()) fail('There is already a promo code called ' . $code . '.');
+        if ($dupe->fetchColumn()) fail('There is already a promo code called ' . $code . ' (in capitals or small letters). Pick a different code.');
         if ($id) {
             db()->prepare('UPDATE promos SET code = ?, kind = ?, value = ?, min_order = ?, max_uses = ?, starts_at = ?, expires_at = ?, active = ?, note = ? WHERE id = ?')
                 ->execute(array_merge($vals, [$id]));

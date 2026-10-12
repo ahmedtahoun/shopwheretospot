@@ -1531,7 +1531,7 @@
     p = p || { code: '', kind: 'percent', value: '', minOrder: 0, maxUses: null, startsAt: '', expiresAt: '', active: true, note: '', uses: 0 };
     const w = openDrawer(p.id ? 'Promo code ' + p.code : 'New promo code',
       '<form id="prf" class="stack">' +
-      '<label class="field">Code <span class="hint">What the customer types, e.g. RAMADAN15</span><input name="code" required maxlength="30" value="' + esc(p.code) + '" style="text-transform:uppercase;font-family:ui-monospace,monospace;letter-spacing:.05em" autocomplete="off"></label>' +
+      '<label class="field">Code <span class="hint">Case-sensitive: customers must type it exactly, e.g. Ramadan15</span><input name="code" required maxlength="30" value="' + esc(p.code) + '" style="font-family:ui-monospace,monospace;letter-spacing:.05em" autocomplete="off"></label>' +
       '<div class="grid2"><label class="field">Type<select name="kind"><option value="percent"' + (p.kind === 'percent' ? ' selected' : '') + '>Percentage off (%)</option><option value="fixed"' + (p.kind === 'fixed' ? ' selected' : '') + '>Fixed amount off (EGP)</option><option value="shipping"' + (p.kind === 'shipping' ? ' selected' : '') + '>Free delivery</option></select></label>' +
       '<label class="field" id="valField"><span id="valLabel">Discount</span><input name="amount" type="number" min="1" step="any" required value="' + esc(p.value) + '"></label></div>' +
       '<div class="grid2"><label class="field">Minimum order (EGP) <span class="hint">Optional</span><input name="min_order" type="number" min="0" step="1" value="' + (p.minOrder || '') + '" placeholder="No minimum"></label>' +
@@ -1553,7 +1553,7 @@
       $('#prPreview').textContent = v ? 'On an ' + egp(1000) + ' order the customer saves ' + egp(fixed ? Math.min(v, 1000) : 1000 * Math.min(v, 100) / 100) + '.' : '';
     };
     el.kind.onchange = preview; el.amount.oninput = preview; el.min_order.oninput = preview; preview();
-    el.code.oninput = () => { el.code.value = el.code.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''); };
+    el.code.oninput = () => { el.code.value = el.code.value.replace(/[^A-Za-z0-9_-]/g, ''); };
     f.onsubmit = async (e) => {
       e.preventDefault();
       const body = { id: p.id || 0, code: el.code.value, kind: el.kind.value, value: el.amount.value, min_order: el.min_order.value, max_uses: el.max_uses.value,

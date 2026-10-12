@@ -81,7 +81,7 @@ function create_order(array $in, array $opts = []): array
         if ($personalized && !$team && $biz === '') throw new ShopError('Please enter the business or brand name to print on your items.');
         if ($physical > 0 && mb_strlen($address) < 6) throw new ShopError($team ? 'Enter the delivery address.' : 'Please enter your delivery address.');
 
-        $promo = strtoupper(str_in($in['promo'] ?? '', 40));
+        $promo = str_in($in['promo'] ?? '', 40);
         $discount = 0.0;
         $freeDelivery = false;
         if ($promo !== '') {
