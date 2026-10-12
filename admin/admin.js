@@ -110,8 +110,8 @@
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'],
-      ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'],
-    ].filter(([k]) => can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k));
+      ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
+    ].filter(([k]) => can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -133,7 +133,7 @@
     $('#pwBtn').onclick = changePassword;
     $('#searchBtn').onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups };
+    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
@@ -1457,6 +1457,44 @@
       try { await api('lead_delete', { method: 'POST', body: { id: l.id } }); closeDrawer(); toast('Lead deleted'); pageLeads(); }
       catch (err) { toast(err.message, true); }
     };
+  }
+
+  // ---------- settings: online payments check ----------
+  async function pageSettings(test) {
+    $('#main').innerHTML = header('Settings', 'Checks for the parts of the shop that are configured on the server.', '') + '<div class="card"><div class="muted small">Checking…</div></div>';
+    let d;
+    try { d = await api('paymob_status', { query: test ? '&test=1' : '' }); } catch (err) { $('#main').innerHTML += '<div class="err">' + esc(err.message) + '</div>'; return; }
+    const ok = (b) => b ? '<span class="pill good">✓</span>' : '<span class="pill bad">✕</span>';
+    const keyRow = (label, v) => '<div class="li"><span>' + label + '</span><span>' + (v === 'test' ? '<span class="pill warn">✓ Test key</span>' : v === 'live' ? '<span class="pill good">✓ Live key</span>' : v === 'set' ? '<span class="pill good">✓ Set</span>' : v === 'unrecognised' ? '<span class="pill bad">✕ Doesn’t look like a Paymob key</span>' : '<span class="pill bad">✕ Missing</span>') + '</span></div>';
+    const problems = [];
+    if (!d.fileFound) problems.push('The file api/config.local.php was not found on the server.');
+    else if (!d.fileReturnsArray) problems.push('api/config.local.php has a typing error (a missing comma, quote or bracket), so none of its settings load. Check the last lines you added.');
+    else if (!d.paymobBlock) problems.push(d.nestedIn ? 'The Paymob settings are inside the “' + d.nestedIn + '” block. Move them out: they must come after the “],” that closes ' + d.nestedIn + '.' : 'There is no “paymob” block in api/config.local.php. Found: ' + (d.topLevel.join(', ') || 'nothing') + '.');
+    if (d.paymobBlock) {
+      if (d.secretKey !== 'test' && d.secretKey !== 'live') problems.push('secret_key: copy the Secret Key (starts with egy_sk_) from Paymob → Settings → Account Info.');
+      if (d.publicKey !== 'test' && d.publicKey !== 'live') problems.push('public_key: copy the Public Key (starts with egy_pk_).');
+      if (d.hmac !== 'set') problems.push('hmac_secret: copy the HMAC from Paymob → Settings → Account Info.');
+      if (d.secretKey !== d.publicKey && ['test', 'live'].includes(d.secretKey) && ['test', 'live'].includes(d.publicKey)) problems.push('One key is a test key and the other a live key — both must be test, or both live.');
+      if (!d.cardId && !d.walletId) problems.push('card_integration_id is 0. Put the Online Card integration ID number (Paymob → Developers → Payment Integrations) — without quotes.');
+      if (d.unknownNames.length) problems.push('Unrecognised setting name(s): ' + d.unknownNames.join(', ') + ' — check the spelling.');
+      if (!problems.length && !d.phpLoaded) problems.push('The file is correct but the server still uses the old copy. Reload this page in a minute.');
+    }
+    $('#main').innerHTML = header('Settings', 'Checks for the parts of the shop that are configured on the server.', '') +
+      '<div class="card stack" style="gap:14px"><h2>Online payments (Paymob)<span class="spacer"></span>' + (d.methodsOffered.length ? '<span class="pill good">✓ Active at checkout</span>' : '<span class="pill bad">✕ Not active</span>') + '</h2>' +
+      '<div class="list">' +
+        '<div class="li"><span>Settings file (api/config.local.php)</span><span>' + ok(d.fileFound && d.fileReturnsArray) + '</span></div>' +
+        '<div class="li"><span>“paymob” block</span><span>' + ok(d.paymobBlock) + '</span></div>' +
+        keyRow('Secret key', d.secretKey) + keyRow('Public key', d.publicKey) + keyRow('HMAC', d.hmac) +
+        '<div class="li"><span>Card integration ID</span><span>' + (d.cardId ? '<b>' + d.cardId + '</b>' : '<span class="pill bad">✕ 0</span>') + '</span></div>' +
+        '<div class="li"><span>Wallet integration ID</span><span>' + (d.walletId ? '<b>' + d.walletId + '</b>' : '<span class="muted">not set (wallets hidden)</span>') + '</span></div>' +
+        '<div class="li"><span>Shown at checkout</span><span>' + (d.methodsOffered.length ? esc(d.methodsOffered.map((m) => m === 'paymob_card' ? 'Card' : 'Mobile wallet').join(' + ')) : '—') + '</span></div>' +
+        (d.connection ? '<div class="li"><span>Connection to Paymob</span><span>' + (d.connection === 'ok' ? '<span class="pill good">✓ Keys accepted by Paymob</span>' : '<span class="pill bad">✕ ' + esc(d.connection) + '</span>') + '</span></div>' : '') +
+      '</div>' +
+      (problems.length ? '<div class="card" style="background:var(--bad-soft);border-color:#F0CFCF"><b>To fix</b><ul style="margin:8px 0 0;padding-left:18px;line-height:1.7">' + problems.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '') +
+      '<div class="row"><button class="btn" id="psRe">Check again</button>' + (d.methodsOffered.length ? '<button class="btn primary" id="psTest">Test connection with Paymob</button>' : '') + '</div>' +
+      '<div class="hint">Secret values are never shown here. The connection test asks Paymob to prepare a EGP 1 payment that nobody pays — nothing is charged.</div></div>';
+    $('#psRe').onclick = () => pageSettings(false);
+    const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
   }
 
   // ---------- backups ----------

@@ -822,6 +822,48 @@ try {
         }
         json_out(['results' => $out]);
 
+    // ---------- online payments check (owner) ----------
+    // Reports what api/config.local.php contains for Paymob without revealing any secret.
+    case 'paymob_status':
+        require_perm('backups');
+        $file = __DIR__ . '/config.local.php';
+        if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
+        $raw = is_file($file) ? (function ($f) { return require $f; })($file) : null;
+        $kind = function ($v, $prefix) {
+            $v = (string) $v;
+            if ($v === '') return 'missing';
+            if (strpos($v, $prefix . 'test_') === 0) return 'test';
+            if (strpos($v, $prefix . 'live_') === 0) return 'live';
+            return 'unrecognised';
+        };
+        $p = is_array($raw) && isset($raw['paymob']) && is_array($raw['paymob']) ? $raw['paymob'] : null;
+        // Where did the paymob settings end up? (names only)
+        $nestedIn = null;
+        if (is_array($raw) && !$p) foreach ($raw as $k => $v) if (is_array($v) && isset($v['paymob'])) $nestedIn = $k;
+        $out = [
+            'fileFound' => is_file($file), 'fileReturnsArray' => is_array($raw),
+            'topLevel' => is_array($raw) ? array_keys($raw) : [], 'paymobBlock' => (bool) $p, 'nestedIn' => $nestedIn,
+            'secretKey' => $p ? $kind($p['secret_key'] ?? '', 'egy_sk_') : 'missing',
+            'publicKey' => $p ? $kind($p['public_key'] ?? '', 'egy_pk_') : 'missing',
+            'hmac' => $p && trim((string) ($p['hmac_secret'] ?? '')) !== '' ? 'set' : 'missing',
+            'cardId' => $p ? (int) ($p['card_integration_id'] ?? 0) : 0, 'walletId' => $p ? (int) ($p['wallet_integration_id'] ?? 0) : 0,
+            'unknownNames' => $p ? array_values(array_diff(array_keys($p), ['secret_key', 'public_key', 'hmac_secret', 'card_integration_id', 'wallet_integration_id', 'base_url'])) : [],
+            'methodsOffered' => array_keys(paymob_methods()), 'phpLoaded' => (bool) paymob_methods(),
+        ];
+        // Optional: ask Paymob to create a throw-away EGP 1 intention (nothing is charged).
+        if (($_GET['test'] ?? '') === '1' && paymob_methods()) {
+            try {
+                $res = paymob_request('POST', '/v1/intention/', ['amount' => 100, 'currency' => 'EGP', 'payment_methods' => array_values(paymob_methods()),
+                    'items' => [['name' => 'Connection test', 'amount' => 100, 'quantity' => 1]],
+                    'billing_data' => ['first_name' => 'Test', 'last_name' => 'Test', 'email' => 'test@wheretospot.com', 'phone_number' => '01000000000',
+                        'street' => 'NA', 'building' => 'NA', 'floor' => 'NA', 'apartment' => 'NA', 'city' => 'Cairo', 'state' => 'Cairo', 'country' => 'EG']]);
+                $out['connection'] = !empty($res['client_secret']) ? 'ok' : 'unexpected reply';
+            } catch (Throwable $e) {
+                $out['connection'] = 'failed: ' . ($GLOBALS['paymob_last_error'] ?? $e->getMessage());
+            }
+        }
+        json_out($out);
+
     // ---------- backups (owner) ----------
 
     case 'backups':

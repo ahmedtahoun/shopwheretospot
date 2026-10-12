@@ -77,6 +77,7 @@ function paymob_checkout_url(int $orderId, string $method): string
 
 function paymob_request(string $method, string $path, ?array $body = null): array
 {
+    // (paymob_status shows the real Paymob reply to the owner when a test fails)
     $c = paymob_cfg();
     $ch = curl_init(rtrim($c['base_url'], '/') . $path);
     curl_setopt_array($ch, [
@@ -91,6 +92,7 @@ function paymob_request(string $method, string $path, ?array $body = null): arra
     $json = json_decode((string) $raw, true);
     if ($code >= 400 || !is_array($json)) {
         error_log('[paymob] HTTP ' . $code . ' ' . mb_substr((string) $raw, 0, 500));
+        $GLOBALS['paymob_last_error'] = 'HTTP ' . $code . ' · ' . mb_substr(is_array($json) ? json_encode($json, JSON_UNESCAPED_UNICODE) : (string) $raw, 0, 300);
         throw new ShopError('Online payment could not be started. Please try again or choose cash on delivery.');
     }
     return $json;
