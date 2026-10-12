@@ -716,10 +716,13 @@
           <sc-if value="{{ promoError }}" hint-placeholder-val="{{ '' }}">
             <div style="font-size:12.5px;color:#A13F3F;margin-bottom:10px">{{ promoError }}</div>
           </sc-if>
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:6px"><span>Subtotal</span><span>{{ cartSubtotalFmt }}</span></div>
           <sc-if value="{{ appliedPromo }}" hint-placeholder-val="{{ null }}">
-            <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4C6B4F;margin-bottom:6px"><span>Promo {{ appliedPromo.code }} ({{ appliedPromo.label }})</span><span>-{{ promoDiscountFmt }}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4C6B4F;margin-bottom:6px"><span>Promo {{ appliedPromo.code }} ({{ appliedPromo.label }})</span><span>{{ promoDiscountFmt }}</span></div>
           </sc-if>
-          <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:6px"><span>Subtotal</span><span>{{ cartItemsTotalFmt }}</span></div>
+          <sc-if value="{{ promoNote }}" hint-placeholder-val="{{ '' }}">
+            <div style="font-size:12.5px;color:#8A5A2B;margin-bottom:6px">{{ promoNote }}</div>
+          </sc-if>
           <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#6B6660;margin-bottom:8px"><span>Delivery</span><span>{{ shippingFmt }}</span></div>
           <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:14px"><span>Total (EGP)</span><span>{{ cartTotalFmt }}</span></div>
           <button onClick="{{ goInfo }}" disabled="{{ cartEmpty }}" style="width:100%;background:var(--accent);color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ checkoutBtnOpacity }}">Continue to checkout</button>
@@ -1385,7 +1388,7 @@ class Component extends DCLogic {
       cartItems: s.cart.map(i => { const lt = i.total != null ? i.total : i.price * i.qty; return { ...i, priceFmt: fmt(i.price), imgId: 'prod-photo-' + i.id + '-0', thumb: this.thumbFor(i.id), lineTotal: lt, lineTotalFmt: fmt(lt), onInc: this.incItem(i.key), onDec: this.decItem(i.key), onRemove: this.removeItem(i.key) }; }),
       cartSubtotal, cartSubtotalFmt: fmt(cartSubtotal), cartItemsTotalFmt: fmt(cartItemsTotal), shippingFmt: shipping ? fmt(shipping) : 'Free', cartTotalFmt: fmt(cartTotal), checkoutBtnOpacity: s.cart.length === 0 ? 0.5 : 1,
       promoInput: s.promoInput, setPromoInput: this.setPromoInput, applyPromoCode: this.applyPromoCode, promoError: s.promoError,
-      appliedPromo: s.appliedPromo, promoDiscountFmt: s.appliedPromo ? fmt(cartSubtotal - cartTotal) : '',
+      appliedPromo: s.appliedPromo, promoDiscountFmt: promoOff ? '−' + fmt(promoOff) : fmt(0), promoNote: s.appliedPromo && !promoOff && s.appliedPromo.min > cartSubtotal ? 'Add ' + fmt(s.appliedPromo.min - cartSubtotal) + ' more to use ' + s.appliedPromo.code + '.' : '',
       goInfo: this.goInfo, backToCart: this.backToCart, submitInfo: this.submitInfo, newOrder: this.newOrder,
       rememberMe: s.checkoutMode === 'save', payStepNo: s.cart.some(i => i.personalized) ? 4 : 3,
       guestBg: s.checkoutMode === 'guest' ? accent : 'transparent', guestFg: s.checkoutMode === 'guest' ? '#fff' : '#22201D',
