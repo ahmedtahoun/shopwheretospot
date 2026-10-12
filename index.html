@@ -783,9 +783,20 @@
           </sc-if>
           <div style="font-size:13px;font-weight:600">Payment method
             <div style="display:flex;gap:10px;margin-top:8px">
-              <label style="flex:1;border:1px solid #DDD6CC;border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:not-allowed;display:flex;align-items:center;gap:8px;opacity:0.55;background:#F7F3ED"><input type="radio" name="payment" disabled="{{ true }}" style="pointer-events:none"/>Bank or Credit <span style="font-size:11px;color:#6B6660;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">— Coming soon</span></label>
+              <sc-if value="{{ noOnlinePay }}" hint-placeholder-val="{{ false }}">
+                <label style="flex:1;border:1px solid #DDD6CC;border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:not-allowed;display:flex;align-items:center;gap:8px;opacity:0.55;background:#F7F3ED"><input type="radio" name="payment" disabled="{{ true }}" style="pointer-events:none"/>Card or wallet <span style="font-size:11px;color:#6B6660;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">— Coming soon</span></label>
+              </sc-if>
               <label style="flex:1;border:1px solid {{ codBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="payment" checked="{{ isCod }}" onChange="{{ setPaymentCod }}"/>Cash on delivery</label>
             </div>
+            <sc-if value="{{ hasCardPay }}" hint-placeholder-val="{{ false }}">
+              <label style="margin-top:8px;border:1px solid {{ payCardBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px"><input type="radio" name="payment" checked="{{ isPayCard }}" onChange="{{ setPaymentPayCard }}"/><span style="flex:1">Pay now by card<span style="display:block;font-size:12px;color:#6B6660;font-weight:400">Visa, Mastercard or Meeza · secure Paymob page</span></span><span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#6B6660">🔒</span></label>
+            </sc-if>
+            <sc-if value="{{ hasWalletPay }}" hint-placeholder-val="{{ false }}">
+              <label style="margin-top:8px;border:1px solid {{ payWalletBorder }};border-radius:10px;padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:10px"><input type="radio" name="payment" checked="{{ isPayWallet }}" onChange="{{ setPaymentPayWallet }}"/><span style="flex:1">Pay now with a mobile wallet<span style="display:block;font-size:12px;color:#6B6660;font-weight:400">Vodafone Cash, Etisalat Cash, Orange Cash and other wallets</span></span><span style="font-size:11px;font-weight:700;color:#6B6660">🔒</span></label>
+            </sc-if>
+            <sc-if value="{{ payTestMode }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:8px;font-size:12px;color:#8A5A00;background:#FBEFD5;border-radius:8px;padding:8px 10px">Test mode: online payments use Paymob test cards. No real money is charged.</div>
+            </sc-if>
           </div>
           <label style="font-size:12.5px;color:#6B6660;display:flex;gap:8px;align-items:flex-start;line-height:1.5">
             <input type="checkbox" required="{{ true }}" style="margin-top:3px"/>
@@ -803,9 +814,12 @@
 
       <sc-if value="{{ isStepSuccess }}" hint-placeholder-val="{{ false }}">
         <div style="flex:1;overflow:auto;padding:32px 26px;display:flex;flex-direction:column;gap:16px;text-align:center;align-items:center;justify-content:center">
-          <div style="width:56px;height:56px;border-radius:50%;background:#6B8F71;color:#fff;display:grid;place-items:center;font-size:26px">✓</div>
-          <div style="font-weight:700;font-size:18px">Order received</div>
-          <p style="font-size:14px;color:#6B6660;margin:0;max-width:32ch">Thanks {{ form.name }} — we'll call or WhatsApp you on {{ form.phone }} to confirm. Pay {{ orderTotalFmt }} by {{ paymentLabel }} on delivery. Questions? info@wheretospot.com · +20 127 766 0666</p>
+          <div style="width:56px;height:56px;border-radius:50%;background:{{ successColor }};color:#fff;display:grid;place-items:center;font-size:26px">{{ successIcon }}</div>
+          <div style="font-weight:700;font-size:18px">{{ successTitle }}</div>
+          <p style="font-size:14px;color:#6B6660;margin:0;max-width:34ch">{{ successText }}</p>
+          <sc-if value="{{ showPayRetry }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ retryPay }}" disabled="{{ placing }}" style="background:var(--accent);color:#fff;border:none;padding:13px 26px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">{{ retryLabel }}</button>
+          </sc-if>
           <div style="border:1px dashed var(--accent);border-radius:14px;padding:14px 22px;margin-top:6px">
             <div style="font-size:11px;color:#6B6660;letter-spacing:0.06em;text-transform:uppercase">Your order number</div>
             <div style="font-family:'Instrument Serif',serif;font-size:26px;color:var(--accent);margin-top:4px">{{ orderNumber }}</div>
@@ -921,8 +935,11 @@ class Component extends DCLogic {
       mod.saveCart(cart0);
       history.replaceState(null, '', location.pathname);
     }
-    const cartOpen = !!addP || params.get('cart') === '1' || params.get('checkout') === '1';
-    const checkoutStep = params.get('checkout') === '1' && cart.length ? 'info' : this.state.checkoutStep;
+    // Back from Paymob: ?pay=ok|failed|check&order=WTS-1001
+    const payResult = ['ok', 'failed', 'check'].includes(params.get('pay')) ? params.get('pay') : null;
+    if (payResult) { cart0 = []; history.replaceState(null, '', location.pathname); }
+    const cartOpen = !!addP || !!payResult || params.get('cart') === '1' || params.get('checkout') === '1';
+    const checkoutStep = payResult ? 'success' : params.get('checkout') === '1' && cart.length ? 'info' : this.state.checkoutStep;
     let form = this.state.form;
     let checkoutMode = this.state.checkoutMode;
     try {
@@ -932,7 +949,8 @@ class Component extends DCLogic {
     this.loadAreas();
     cart0 = mod.repriceCart(cart0, inventory);
     mod.saveCart(cart0);
-    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9 });
+    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 9,
+      ...(payResult ? { payResult, orderNumber: params.get('order') || '', payReason: params.get('reason') || '' } : {}) });
   }
 
   showToast = (msg) => {
@@ -1109,6 +1127,47 @@ class Component extends DCLogic {
   removeLogo = () => this.setState(s => ({ form: { ...s.form, logoToken: '', logoName: '' } }));
   setReferralCode = (e) => this.setState({ referralCode: e.target.value, referralError: false });
   setPayment = (val) => () => this.setState(s => ({ form: { ...s.form, payment: val } }));
+  // Online payment (Paymob): what the checkout shows, and the screen after coming back from Paymob.
+  payView = (s, fmt) => {
+    const online = (this._sd && this._sd.PAYMENTS && this._sd.PAYMENTS.online) || [];
+    const pay = s.form.payment;
+    const accent = this.props && this.props.accent ? this.props.accent : '#A8552F';
+    const res = s.payResult; // 'ok' | 'failed' | 'check' | 'error' | null
+    const name = (s.form.name || '').split(' ')[0];
+    const titles = { ok: 'Payment received', failed: 'Payment didn’t go through', check: 'Checking your payment', error: 'Order saved — payment not started' };
+    const texts = {
+      ok: 'Thank you' + (name ? ', ' + name : '') + '! Your order is paid and we’ll start preparing it. We’ll call or WhatsApp you to confirm delivery.',
+      failed: 'Your order is saved but not paid' + (s.payReason ? ' (' + s.payReason + ')' : '') + '. You can try again, or we can collect cash on delivery — just reply to our call.',
+      check: 'We’re confirming your payment with Paymob. You’ll get a call or WhatsApp from us shortly.',
+      error: (s.payError || 'Online payment could not be started.') + ' Your order is saved — you can try again, or pay cash on delivery.',
+    };
+    return {
+      hasCardPay: online.includes('paymob_card'), hasWalletPay: online.includes('paymob_wallet'), noOnlinePay: !online.length,
+      payTestMode: !!(online.length && this._sd.PAYMENTS.test),
+      isPayCard: pay === 'paymob_card', isPayWallet: pay === 'paymob_wallet',
+      payCardBorder: pay === 'paymob_card' ? accent : '#DDD6CC', payWalletBorder: pay === 'paymob_wallet' ? accent : '#DDD6CC',
+      setPaymentPayCard: this.setPayment('paymob_card'), setPaymentPayWallet: this.setPayment('paymob_wallet'),
+      successIcon: res === 'failed' || res === 'error' ? '!' : res === 'check' ? '…' : '✓',
+      successColor: res === 'failed' || res === 'error' ? '#B4532A' : res === 'check' ? '#8A8478' : '#6B8F71',
+      successTitle: res ? titles[res] : 'Order received',
+      successText: res ? texts[res] : 'Thanks ' + (s.form.name || '') + ' — we\'ll call or WhatsApp you on ' + (s.form.phone || 'your phone') + ' to confirm. Pay ' + fmt(s.orderTotal || 0) + ' in cash on delivery. Questions? info@wheretospot.com · +20 127 766 0666',
+      showPayRetry: (res === 'failed' || res === 'error') && online.length > 0, retryPay: this.retryPay,
+      retryLabel: s.placing ? 'Opening secure payment…' : 'Try paying online again',
+    };
+  };
+  rememberOrder = (number) => { try { localStorage.setItem('wts_last_order', JSON.stringify({ number, contact: this.state.form.email || this.state.form.phone })); } catch (e) {} };
+  retryPay = async () => {
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('wts_last_order') || 'null'); } catch (e) {}
+    const number = this.state.orderNumber || (last && last.number);
+    const contact = (last && last.number === number && last.contact) || this.state.form.email || this.state.form.phone;
+    if (!number || !contact) { this.showToast('Please call us on +20 127 766 0666 to complete the payment.'); return; }
+    this.setState({ placing: true });
+    try {
+      const r = await this._sd.postJSON('pay', { number, contact, method: this.state.form.payment && this.state.form.payment !== 'cod' ? this.state.form.payment : '' });
+      window.location.href = r.payUrl;
+    } catch (err) { this.setState({ placing: false }); this.showToast(err.message); }
+  };
   submitInfo = async (e) => {
     e.preventDefault();
     const s = this.state;
@@ -1125,13 +1184,21 @@ class Component extends DCLogic {
         items: s.cart.map(i => ({ id: i.id, variant: i.variant, addons: i.addons || [], qty: i.qty })),
         business_name: s.form.businessName || '', review_link: s.form.reviewLink || '', links: s.form.links || '', design_notes: s.form.designNotes || '',
         logo_token: s.form.logoToken || '', logo_name: s.form.logoName || '',
-        promo: s.appliedPromo ? s.appliedPromo.code : '', ref: (s.referralCode || '').trim()
+        promo: s.appliedPromo ? s.appliedPromo.code : '', ref: (s.referralCode || '').trim(),
+        payment: s.form.payment || 'cod'
       });
+      if (res.payUrl || res.payError) this.rememberOrder(res.number);
+      if (res.payUrl) {
+        // Off to Paymob's secure page; the cart is emptied because the order already exists.
+        this._sd.saveCart([]);
+        window.location.href = res.payUrl;
+        return;
+      }
       if (s.checkoutMode === 'save') { try { localStorage.setItem('spotshop_saved_contact', JSON.stringify(s.form)); } catch {} }
       const inventory = (await this._sd.fetchCatalog()) || s.inventory;
       this._sd.saveCart([]);
       this.setState(st => ({ form: { ...st.form, logoToken: '', logoName: '', designNotes: '' } }));
-      this.setState({ checkoutStep: 'success', orderNumber: res.number, orderTotal: res.total, inventory, placing: false });
+      this.setState({ checkoutStep: 'success', orderNumber: res.number, orderTotal: res.total, inventory, placing: false, payResult: res.payError ? 'error' : null, payError: res.payError || '' });
     } catch (err) {
       const msg = err.message || '';
       this.setState({ placing: false, orderError: msg, referralError: /referral/i.test(msg) });
@@ -1291,7 +1358,9 @@ class Component extends DCLogic {
       cardBorder: s.form.payment === 'card' ? accent : '#DDD6CC', codBorder: s.form.payment === 'cod' ? accent : '#DDD6CC',
       paymentLabel: s.form.payment === 'card' ? 'bank/credit' : 'cash',
       orderNumber: s.orderNumber || '', orderTotalFmt: fmt(s.orderTotal || 0),
-      orderError: s.orderError || '', placing: !!s.placing, placeLabel: s.placing ? 'Placing order…' : 'Place order',
+      orderError: s.orderError || '', placing: !!s.placing,
+      placeLabel: s.placing ? (s.form.payment === 'cod' ? 'Placing order…' : 'Opening secure payment…') : (s.form.payment === 'cod' ? 'Place order' : 'Pay ' + fmt(cartTotal)),
+      ...this.payView(s, fmt),
       leadForm: s.leadForm, setLeadName: this.setLeadField('name'), setLeadContact: this.setLeadField('contact'), setLeadCat: this.setLeadField('cat'),
       submitLead: this.submitLead, leadSent: s.leadSent, leadFormVisible: !s.leadSent,
       leadCatOptions: [...cats.map(c => ({ value: c.key, label: c.label })), ...this.customServices.map(cs => ({ value: cs.name, label: cs.name })), { value: 'services', label: 'Marketing plans / other' }],

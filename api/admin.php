@@ -223,7 +223,7 @@ try {
                 'personalized' => $p['personalized'], 'fromPrice' => $p['fromPrice']];
         }, load_products(true));
         $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
-        json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => PAYMENT_METHODS, 'reps' => $reps,
+        json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => array_filter(PAYMENT_METHODS, function ($k) { return strpos($k, 'paymob') !== 0; }, ARRAY_FILTER_USE_KEY), 'reps' => $reps,
             'shippingFee' => cfg('shipping_fee'), 'freeShippingThreshold' => cfg('free_shipping_threshold')]);
 
     case 'order_create':

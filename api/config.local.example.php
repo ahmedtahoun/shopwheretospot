@@ -19,6 +19,16 @@ return [
         'awb_size' => 'A6',             // waybill paper: A6 (label printer) or A4
         'awb_lang' => 'ar',             // ar or en
     ],
+    // Paymob online payments (cards + mobile wallets). All values: Paymob dashboard → Settings → Account Info
+    // (Secret Key, Public Key, HMAC) and Developers → Payment Integrations (the integration IDs).
+    // Start with the TEST keys and test integration IDs; switch all of them to LIVE together.
+    'paymob' => [
+        'secret_key' => 'egy_sk_test_…',
+        'public_key' => 'egy_pk_test_…',
+        'hmac_secret' => '…',
+        'card_integration_id' => 0,     // "Online Card" integration ID
+        'wallet_integration_id' => 0,   // "Mobile Wallet" integration ID (0 = don't offer wallets)
+    ],
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],
 ];

@@ -342,6 +342,8 @@ export function buildBackup() {
 // and every customer see the same data. The seed data above is only a fallback for local previews.
 const API = 'api/public.php';
 export let CATEGORIES = null;
+// Online payment methods the shop can take right now (from the server), e.g. ['paymob_card', 'paymob_wallet'].
+export let PAYMENTS = { online: [], test: false };
 
 export async function fetchCatalog() {
   try {
@@ -349,6 +351,7 @@ export async function fetchCatalog() {
     if (!res.ok) throw new Error('catalog ' + res.status);
     const data = await res.json();
     CATEGORIES = data.categories;
+    if (data.payments) PAYMENTS = data.payments;
     Object.keys(PRODUCT_IMAGES).forEach(k => delete PRODUCT_IMAGES[k]);
     data.products.forEach(p => { PRODUCT_IMAGES[p.id] = p.images; });
     return data.products;

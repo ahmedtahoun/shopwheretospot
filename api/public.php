@@ -18,7 +18,7 @@ try {
             unset($p['cost'], $p['createdAt'], $p['updatedAt']);
             return $p;
         }, load_products(true));
-        json_out(['categories' => $cats, 'products' => $products], 200, 60);
+        json_out(['categories' => $cats, 'products' => $products, 'payments' => ['online' => array_keys(paymob_methods()), 'test' => paymob_is_test()]], 200, 60);
     }
 
     // Cities Bosta delivers to (?action=areas) or the areas of one city (?action=areas&city=ID).
@@ -61,7 +61,9 @@ try {
 
     if ($action === 'order') {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
-        $r = create_order($b);
+        // Online payment: the order is saved first (unpaid), then the customer pays on Paymob's page.
+        $pay = in_array($b['payment'] ?? '', array_keys(paymob_methods()), true) ? $b['payment'] : 'cod';
+        $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0]);
         record_attempt('order');
         schedule_daily_backup();
         try {
@@ -70,7 +72,30 @@ try {
             lead_from_order($b, $r, ($rep = $st->fetchColumn()) ? (int) $rep : null, 'Website');
         } catch (Throwable $e) { error_log('[shop] lead from website order failed: ' . $e->getMessage()); }
         log_activity(null, 'New order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']));
-        json_out(['number' => $r['number'], 'total' => $r['total'], 'shipping' => $r['shipping'], 'discount' => $r['discount']]);
+        $payUrl = null; $payError = null;
+        if ($pay !== 'cod') {
+            try { $payUrl = paymob_checkout_url((int) $r['id'], $pay); }
+            catch (Throwable $e) { $payError = $e instanceof ShopError ? $e->getMessage() : 'Online payment could not be started.'; error_log('[paymob] ' . $e->getMessage()); }
+        }
+        json_out(['number' => $r['number'], 'total' => $r['total'], 'shipping' => $r['shipping'], 'discount' => $r['discount'], 'payUrl' => $payUrl, 'payError' => $payError]);
+    }
+
+    // Pay (again) online for an existing unpaid order, e.g. after a declined card. Needs the order's email or phone.
+    if ($action === 'pay') {
+        if (too_many_attempts('pay', 20, 3600)) fail('Too many attempts. Please call us.', 429);
+        record_attempt('pay');
+        $num = strtoupper(str_in($b['number'] ?? '', 20));
+        $id = (int) preg_replace('/\D/', '', $num) - 1000;
+        $who = str_in($b['contact'] ?? '', 160);
+        $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+        $st->execute([$id]);
+        $o = $st->fetch();
+        $match = $o && $who !== '' && (strcasecmp($o['email'], $who) === 0 || (phone_key($who) && phone_key($who) === phone_key((string) $o['phone'])));
+        if (!$match) fail('We couldn’t find that order. Check the number and the email or phone you used.', 404);
+        if (in_array($o['status'], ['Cancelled', 'Returned', 'Delivered'], true)) fail('This order can’t be paid online. Please contact us.');
+        $method = in_array($b['method'] ?? '', array_keys(paymob_methods()), true) ? $b['method'] : (array_keys(paymob_methods())[0] ?? '');
+        if ($method === '') fail('Online payment is not available right now.');
+        json_out(['payUrl' => paymob_checkout_url((int) $o['id'], $method)]);
     }
 
     if ($action === 'lead') {

@@ -3,7 +3,8 @@
 // Prices and stock always come from the database, never from the browser.
 
 const ORDER_SOURCES = ['Website', 'Phone', 'WhatsApp', 'Instagram', 'Facebook', 'TikTok', 'Walk-in', 'Referral', 'Other'];
-const PAYMENT_METHODS = ['cod' => 'Cash on delivery', 'bank' => 'Paid — bank transfer', 'wallet' => 'Paid — InstaPay / wallet', 'cash' => 'Paid — cash in hand'];
+const PAYMENT_METHODS = ['cod' => 'Cash on delivery', 'bank' => 'Paid — bank transfer', 'wallet' => 'Paid — InstaPay / wallet', 'cash' => 'Paid — cash in hand',
+    'paymob_card' => 'Online — card (Paymob)', 'paymob_wallet' => 'Online — mobile wallet (Paymob)'];
 
 // $in: name, email, phone, address, city, city_id, district_id, items[{id, qty}], promo, ref
 // $opts: by_team (bool), rep_id, created_by, source, payment, status, discount (EGP), shipping (EGP override), notes

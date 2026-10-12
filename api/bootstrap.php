@@ -24,7 +24,8 @@ $config = [
     'reply_to' => 'info@wheretospot.com',
     'alert_emails' => [],   // extra addresses that always get alerts
     'smtp' => null,
-    'bosta' => [],          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
+    'bosta' => [],
+    'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {
     $config = array_merge($config, (array) require __DIR__ . '/config.local.php');
@@ -384,6 +385,7 @@ require __DIR__ . '/mailer.php';
 require __DIR__ . '/pricing.php';
 require __DIR__ . '/bosta.php';
 require __DIR__ . '/orders.php';
+require __DIR__ . '/paymob.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void
@@ -568,7 +570,7 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
 }
 
 // ---------- payments ----------
-const PAYMENT_KINDS = ['cash' => 'Cash', 'bank' => 'Bank transfer', 'wallet' => 'InstaPay / wallet', 'cod' => 'Collected on delivery'];
+const PAYMENT_KINDS = ['cash' => 'Cash', 'bank' => 'Bank transfer', 'wallet' => 'InstaPay / wallet', 'cod' => 'Collected on delivery', 'paymob' => 'Paid online (Paymob)'];
 
 function order_paid(int $orderId): float
 {
