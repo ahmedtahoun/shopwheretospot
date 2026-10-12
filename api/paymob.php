@@ -33,6 +33,14 @@ function paymob_is_test(): bool
     return strpos((string) paymob_cfg()['secret_key'], '_test_') !== false;
 }
 
+// Online methods the current visitor may use. With test keys, only testers see them (a browser that
+// opened the shop once with ?paytest=1); real customers keep cash on delivery until live keys are in.
+function paymob_visible_methods(): array
+{
+    if (paymob_is_test() && ($_COOKIE['wts_paytest'] ?? '') !== '1') return [];
+    return paymob_methods();
+}
+
 // Create a payment intention for an order and return the hosted checkout URL.
 function paymob_checkout_url(int $orderId, string $method): string
 {

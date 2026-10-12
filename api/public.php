@@ -18,7 +18,7 @@ try {
             unset($p['cost'], $p['createdAt'], $p['updatedAt']);
             return $p;
         }, load_products(true));
-        json_out(['categories' => $cats, 'products' => $products, 'payments' => ['online' => array_keys(paymob_methods()), 'test' => paymob_is_test()]], 200, 60);
+        json_out(['categories' => $cats, 'products' => $products, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]], 200, paymob_is_test() ? 0 : 60);
     }
 
     // Cities Bosta delivers to (?action=areas) or the areas of one city (?action=areas&city=ID).
@@ -64,7 +64,7 @@ try {
     if ($action === 'order') {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
         // Online payment: the order is saved first (unpaid), then the customer pays on Paymob's page.
-        $pay = in_array($b['payment'] ?? '', array_keys(paymob_methods()), true) ? $b['payment'] : 'cod';
+        $pay = in_array($b['payment'] ?? '', array_keys(paymob_visible_methods()), true) ? $b['payment'] : 'cod';
         expire_unpaid_orders();
         // Paid online: kept as "Awaiting payment" (no alert, not in the team's lists) until Paymob confirms.
         $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0, 'status' => 'Awaiting payment']);
@@ -116,7 +116,7 @@ try {
         if (!$match) fail('We couldn’t find that order. Check the number and the email or phone you used.', 404);
         if ($o['status'] === 'Cancelled' && strpos((string) $o['notes'], UNPAID_EXPIRED_NOTE) !== false) fail('This order expired because it wasn’t paid. Please place it again from the shop.');
         if (in_array($o['status'], ['Cancelled', 'Returned', 'Delivered'], true)) fail('This order can’t be paid online. Please contact us.');
-        $method = in_array($b['method'] ?? '', array_keys(paymob_methods()), true) ? $b['method'] : (array_keys(paymob_methods())[0] ?? '');
+        $method = in_array($b['method'] ?? '', array_keys(paymob_visible_methods()), true) ? $b['method'] : (array_keys(paymob_visible_methods())[0] ?? '');
         if ($method === '') fail('Online payment is not available right now.');
         json_out(['payUrl' => paymob_checkout_url((int) $o['id'], $method)]);
     }

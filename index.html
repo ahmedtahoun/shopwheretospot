@@ -19,6 +19,10 @@
 <meta name="twitter:description" content="Products and marketing services for Egyptian businesses. Prices in EGP.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
 <script src="./i18n.js"></script>
+<script>
+// Paymob testing: ?paytest=1 marks this browser as a tester (online payment shows while test keys are in), ?paytest=0 removes it.
+(function () { var m = location.search.match(/[?&]paytest=([01])/); if (m) document.cookie = 'wts_paytest=' + m[1] + '; path=/; max-age=' + (m[1] === '1' ? 2592000 : 0) + '; SameSite=Lax'; })();
+</script>
 <script src="./support.js"></script>
 <script src="./chat.js" defer></script>
 <link rel="manifest" href="manifest.json">
