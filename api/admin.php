@@ -919,6 +919,11 @@ try {
                     'billing_data' => ['first_name' => 'Test', 'last_name' => 'Test', 'email' => 'test@wheretospot.com', 'phone_number' => '01000000000',
                         'street' => 'NA', 'building' => 'NA', 'floor' => 'NA', 'apartment' => 'NA', 'city' => 'Cairo', 'state' => 'Cairo', 'country' => 'EG']]);
                 $out['connection'] = !empty($res['client_secret']) ? 'ok' : 'unexpected reply';
+                // What Paymob says each integration id is (catches a card id saved as the wallet id, or test ids with live keys).
+                $out['integrations'] = array_map(function ($m) {
+                    return ['id' => (int) ($m['integration_id'] ?? 0), 'name' => (string) ($m['name'] ?? ''), 'type' => (string) ($m['method_type'] ?? ''),
+                        'live' => isset($m['live']) ? (bool) $m['live'] : null];
+                }, array_values(array_filter((array) ($res['payment_methods'] ?? []), 'is_array')));
             } catch (Throwable $e) {
                 $out['connection'] = 'failed: ' . ($GLOBALS['paymob_last_error'] ?? $e->getMessage());
             }

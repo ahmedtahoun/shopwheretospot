@@ -3,6 +3,24 @@
 //  - If 'smtp' is set in config.local.php, mail is sent through that mailbox (best delivery).
 //  - Otherwise PHP's built-in mail() is used (works on cPanel, but may land in spam without SPF).
 
+// Order and enquiry alerts are sent after the customer's page has its answer, so a slow mail server
+// never delays checkout (or the jump to the payment page).
+function send_mail_later(array $to, string $subject, string $html, string $text): void
+{
+    static $queue = null;
+    if (PHP_SAPI === 'cli') { send_mail($to, $subject, $html, $text); return; }
+    if ($queue === null) {
+        $queue = new ArrayObject();
+        $q = $queue;
+        register_shutdown_function(function () use ($q) {
+            if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+            elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
+            foreach ($q as $m) send_mail(...$m);
+        });
+    }
+    $queue[] = [$to, $subject, $html, $text];
+}
+
 function send_mail(array $to, string $subject, string $html, string $text): bool
 {
     $to = array_values(array_unique(array_filter($to, function ($e) { return filter_var($e, FILTER_VALIDATE_EMAIL); })));
@@ -141,7 +159,7 @@ function notify_new_order(string $number, array $o, array $lines): void
         . $textItems . "\nDelivery: " . ($o['shipping'] ? $egp($o['shipping']) : 'Free') . "\nTotal: " . $egp($o['total']) . ' (' . ($o['payment'] ?? 'Cash on delivery') . ")\n"
         . 'Source: ' . ($o['source'] ?? 'Website') . (!empty($o['rep']) ? ' · Sales: ' . $o['rep'] : '') . "\n\n"
         . 'WhatsApp: ' . wa_link($o['phone']) . "\nDashboard: $admin\n";
-    foreach (array_unique($to) as $r) send_mail([$r], 'New order ' . $number . ' · ' . $egp($o['total']) . ' · ' . $o['name'], $html, $text);
+    foreach (array_unique($to) as $r) send_mail_later([$r], 'New order ' . $number . ' · ' . $egp($o['total']) . ' · ' . $o['name'], $html, $text);
 }
 
 function notify_new_lead(array $l): void
@@ -159,5 +177,5 @@ function notify_new_lead(array $l): void
         . (!empty($l['notes']) ? '<p style="margin:12px 0 16px;white-space:pre-line;background:#F7F3ED;border-radius:10px;padding:12px 14px">' . h($l['notes']) . '</p>' : '<p style="margin:0 0 16px"></p>')
         . '<p>' . $action . btn($admin, 'Open leads', '#22201D') . '</p>');
     $text = "New enquiry\n\n" . $l['name'] . "\n" . $contact . "\nInterested in: " . $l['cat'] . "\nFrom: " . ($l['source'] ?? 'Website') . (!empty($l['notes']) ? "\n\n" . $l['notes'] : '') . "\n\nDashboard: $admin\n";
-    foreach (array_unique($to) as $r) send_mail([$r], 'New enquiry · ' . $l['name'], $html, $text);
+    foreach (array_unique($to) as $r) send_mail_later([$r], 'New enquiry · ' . $l['name'], $html, $text);
 }

@@ -1496,6 +1496,12 @@
         '<div class="li"><span>Card integration ID</span><span>' + (d.cardId ? '<b>' + d.cardId + '</b>' : '<span class="pill bad">✕ 0</span>') + '</span></div>' +
         '<div class="li"><span>Wallet integration ID</span><span>' + (d.walletId ? '<b>' + d.walletId + '</b>' : '<span class="muted">not set (wallets hidden)</span>') + '</span></div>' +
         '<div class="li"><span>Shown at checkout</span><span>' + (d.methodsOffered.length ? esc(d.methodsOffered.map((m) => m === 'paymob_card' ? 'Card' : 'Mobile wallet').join(' + ')) : '—') + '</span></div>' +
+        (d.integrations && d.integrations.length ? d.integrations.map((m) => {
+          const role = m.id === d.cardId ? 'Card ID' : m.id === d.walletId ? 'Wallet ID' : 'ID';
+          const wrong = (m.id === d.walletId && /card|migs/i.test(m.type + ' ' + m.name)) || (m.id === d.cardId && /wallet/i.test(m.type + ' ' + m.name));
+          return '<div class="li"><span>' + role + ' ' + m.id + '</span><span><span class="pill ' + (wrong ? 'bad' : 'good') + '">' + esc((m.name || m.type || 'unknown') + (m.type && m.name ? ' · ' + m.type : '')) + (m.live === false ? ' · TEST' : '') + '</span>' +
+            (wrong ? '<div class="small" style="color:var(--bad)">This is not a ' + (m.id === d.walletId ? 'wallet' : 'card') + ' integration. Check the ID in config.local.php.</div>' : '') + '</span></div>';
+        }).join('') : '') +
         (d.connection ? '<div class="li"><span>Connection to Paymob</span><span>' + (d.connection === 'ok' ? '<span class="pill good">✓ Keys accepted by Paymob</span>' : '<span class="pill bad">✕ ' + esc(d.connection) + '</span>') + '</span></div>' : '') +
       '</div>' +
       (problems.length ? '<div class="card" style="background:var(--bad-soft);border-color:#F0CFCF"><b>To fix</b><ul style="margin:8px 0 0;padding-left:18px;line-height:1.7">' + problems.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '') +
