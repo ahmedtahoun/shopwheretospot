@@ -12,7 +12,7 @@ if (in_array($action, ['dashboard', 'orders'], true)) expire_unpaid_orders();
 
 try {
     // Telesales see orders only: quotes, customers and the search across leads/products are closed to them.
-    if (preg_match('/^(quote|customer|search)/', $action) && !in_array($action, ['session'], true)) {
+    if (preg_match('/^(quote|customer|search)/', $action) && !in_array($action, ['session', 'customer_lookup'], true)) {
         $cu = current_user();
         if ($cu && in_array('orders_only', $cu['perms'], true)) fail('This isn’t available for your role.', 403);
     }
@@ -249,6 +249,55 @@ try {
         $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
         json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => array_filter(PAYMENT_METHODS, function ($k) { return strpos($k, 'paymob') !== 0; }, ARRAY_FILTER_USE_KEY), 'reps' => $reps,
             'shippingFee' => cfg('shipping_fee'), 'freeShippingThreshold' => cfg('free_shipping_threshold')]);
+
+    // New order: find an existing customer by name or phone and return their details to fill in.
+    // People limited to their own orders search their own customers, plus anyone by full phone number.
+    case 'customer_lookup':
+        $u = require_perm('sell');
+        $q = trim(str_in($_GET['q'] ?? '', 80));
+        $digits = preg_replace('/\D/', '', strtr($q, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']));
+        if (mb_strlen($q) < 2 || ($digits !== '' && strlen($digits) < 3 && !preg_match('/\p{L}/u', $q))) json_out(['results' => []]);
+        $own = in_array('own_orders', $u['perms'], true);
+        $byPhone = strlen($digits) >= 3;
+        $fullPhone = strlen($digits) >= 10;
+        $like = '%' . ($byPhone ? substr($digits, -min(8, strlen($digits))) : $q) . '%';
+        $sql = "SELECT customer, phone, email, address, city, district, city_id, district_id, created_at FROM orders WHERE status != 'Awaiting payment' AND "
+            . ($byPhone ? "REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ?" : 'customer LIKE ?')
+            . ($own && !$fullPhone ? ' AND rep_id = ' . (int) $u['id'] : '') . ' ORDER BY id DESC LIMIT 60';
+        $st = db()->prepare($sql);
+        $st->execute([$like]);
+        $out = [];
+        foreach ($st->fetchAll() as $r) {
+            $k = phone_key((string) $r['phone']) ?: mb_strtolower($r['customer']);
+            if (!isset($out[$k])) $out[$k] = ['name' => $r['customer'], 'phone' => $r['phone'], 'email' => $r['email'], 'address' => $r['address'], 'city' => $r['city'],
+                'district' => $r['district'], 'cityId' => $r['city_id'], 'districtId' => $r['district_id'], 'last' => $r['created_at'], 'orders' => 0, 'from' => 'order'];
+            $out[$k]['orders']++;
+        }
+        // Website accounts (saved details) and leads (name + contact only).
+        $st = db()->prepare('SELECT name, phone, email, address, city, district, city_id, district_id, created_at FROM customers WHERE '
+            . ($byPhone ? "REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ?" : '(name LIKE ? OR email LIKE ?)') . ' LIMIT 10');
+        $st->execute($byPhone ? [$like] : [$like, $like]);
+        foreach ($st->fetchAll() as $r) {
+            $k = phone_key((string) $r['phone']) ?: mb_strtolower((string) $r['email']);
+            if (isset($out[$k])) { $out[$k]['account'] = true; if (!$out[$k]['email']) $out[$k]['email'] = $r['email']; continue; }
+            if ($own && !$fullPhone) continue;
+            $out[$k] = ['name' => $r['name'] ?: $r['email'], 'phone' => $r['phone'], 'email' => $r['email'], 'address' => $r['address'], 'city' => $r['city'], 'district' => $r['district'],
+                'cityId' => $r['city_id'], 'districtId' => $r['district_id'], 'last' => $r['created_at'], 'orders' => 0, 'from' => 'account', 'account' => true];
+        }
+        if (in_array('leads', $u['perms'], true) && count($out) < 6) {
+            $st = db()->prepare('SELECT name, contact, created_at FROM leads WHERE ' . ($byPhone ? "REPLACE(REPLACE(contact, ' ', ''), '-', '') LIKE ?" : 'name LIKE ?')
+                . ($own && !$fullPhone ? ' AND (assigned_to = ' . (int) $u['id'] . ' OR assigned_to IS NULL)' : '') . ' ORDER BY id DESC LIMIT 10');
+            $st->execute([$like]);
+            foreach ($st->fetchAll() as $r) {
+                $ph = phone_key((string) $r['contact']);
+                $k = $ph ?: mb_strtolower($r['name']);
+                if (isset($out[$k])) continue;
+                preg_match('/(\+?\d[\d\s-]{8,16}\d)/', (string) $r['contact'], $m);
+                $out[$k] = ['name' => $r['name'], 'phone' => $m[1] ?? '', 'email' => email_key((string) $r['contact']) ?: '', 'address' => '', 'city' => '', 'district' => '',
+                    'cityId' => null, 'districtId' => null, 'last' => $r['created_at'], 'orders' => 0, 'from' => 'lead'];
+            }
+        }
+        json_out(['results' => array_slice(array_values($out), 0, 6)]);
 
     case 'order_create':
         $u = require_perm('sell');

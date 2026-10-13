@@ -750,11 +750,13 @@
     const body = '<form id="nf" class="stack">' +
       (prefill && prefill.quoteId && !isQuote ? '<div class="chosen">' + icon('file') + '<span>Order from quote <b>' + esc(prefill.quoteNumber || '') + '</b>. Check the delivery area, then create it — the quote will be marked Accepted.</span></div>'
         : prefill && prefill.leadId ? '<div class="chosen">' + icon('inbox') + '<span>' + (isQuote ? 'Quote' : 'Order') + ' for lead <b>' + esc(prefill.name) + '</b>' + (prefill.interest ? ' · ' + esc(prefill.interest) : '') + (isQuote ? '. The lead will move to Quoted.' : '. The lead will be marked Won.') + '</span></div>' : '') +
-      '<div class="card stack"><b>Customer</b><div class="grid2"><label class="field">Name<input type="text" name="name" required></label>' +
-      '<label class="field">Phone / WhatsApp<input type="tel" name="phone" required placeholder="01xxxxxxxxx"></label></div>' +
-      '<label class="field">Email <span class="hint">Optional</span><input type="email" name="email"></label></div>' +
+      '<div class="card stack"><b>Customer <span class="hint" style="font-weight:400">Type a phone or name — returning customers fill in automatically</span></b>' +
+      '<div class="grid2"><label class="field">Phone / WhatsApp<input type="tel" name="phone" id="nPhone" required placeholder="01xxxxxxxxx" autocomplete="off"></label>' +
+      '<label class="field">Name<input type="text" name="name" id="nName" required autocomplete="off"></label></div>' +
+      '<div class="cust-hits" id="nHits" style="display:none"></div><div id="nCustChip"></div></div>' +
       '<div class="card stack"><b>Products</b><input type="hidden" id="nProd">' +
-      '<input type="search" id="nPQ" placeholder="Search products…" autocomplete="off"><div class="pp-list" id="nPL"></div>' +
+      '<div class="row" style="gap:8px"><input type="search" id="nPQ" placeholder="Search products…" autocomplete="off" style="flex:1"><button type="button" class="btn sm" id="nPBrowse">Browse all ▾</button></div>' +
+      '<div class="pp-list" id="nPL" style="display:none"></div>' +
       '<div class="row" id="nAddRow" style="display:none"><span class="small" id="nChosen" style="flex:1;min-width:0"></span><input type="number" id="nQty" min="1" value="1" style="width:80px" aria-label="Quantity"><button type="button" class="btn primary" id="nAdd">Add</button></div>' +
       '<div class="row" id="nOpts"></div><div class="small muted" id="nPreview"></div>' +
       '<div class="lines" id="nLines"></div>' +
@@ -768,18 +770,20 @@
       '<label class="field">Street address<textarea name="address" id="nAddr" style="min-height:60px" placeholder="Street, building, floor, apartment"></textarea></label>' +
       '<div class="field">Area <span class="hint">Search in English or Arabic, e.g. Nasr City / مدينة نصر</span><div class="pick" id="nPick"></div></div></div>' +
 (isQuote ? '' :
-      '<div class="card stack"><b>Sale details</b><div class="grid3">' +
-      '<label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
-      '<label class="field">Payment<select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label>' +
-      '<label class="field">Status<select name="status"><option>Pending</option><option selected>Confirmed</option></select></label></div>' +
+      '<div class="card stack"><b>Payment</b>' +
+      '<label class="field"><select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label></div>' +
+      '<details class="card stack more-opts" id="nMore"><summary><b>More options</b> <span class="hint" style="font-weight:400">email, source, status, deposit, discount, delivery fee, notes</span></summary>' +
+      '<label class="field">Email <span class="hint">Optional — for the invoice</span><input type="email" name="email" id="nEmail"></label>' +
+      '<div class="grid3"><label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
+      '<label class="field">Status<select name="status"><option>Pending</option><option selected>Confirmed</option></select></label><span></span></div>' +
       '<div class="grid3"><label class="field">Paid now (EGP) <span class="hint">Deposit, or leave empty</span><input type="number" name="paid_now" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Deposit paid by<select name="deposit_method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="wallet">InstaPay / wallet</option></select></label><span></span></div>' +
       '<div class="grid3"><label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label>' +
       repOpts + '</div>' +
-      '<label class="field">Notes<textarea name="notes" style="min-height:60px" placeholder="e.g. Customer wants delivery after 5pm"></textarea></label></div>') +
+      '<label class="field">Notes<textarea name="notes" style="min-height:60px" placeholder="e.g. Customer wants delivery after 5pm"></textarea></label></details>') +
       (isQuote ?
-      '<div class="card stack"><b>Quote details</b><div class="grid3">' +
+      '<div class="card stack"><b>Quote details</b><label class="field">Customer email <span class="hint">Optional</span><input type="email" name="email" id="nEmail"></label><div class="grid3">' +
       '<label class="field">Valid until<input type="date" name="valid_until" value="' + addDays(14) + '"></label>' +
       '<label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label></div>' +
@@ -864,9 +868,16 @@
           '<span class="pp-m"><b class="pp-price">' + (ranged ? 'from ' : '') + egp(ranged ? p.fromPrice : p.price) + (p.cat === 'services' ? ' / month' : '') + '</b>' +
           (p.cat === 'services' ? '' : '<span class="' + (p.stock <= 5 ? 'pp-low' : '') + '">' + p.stock + ' in stock</span>') + '</span></span></button>'; }).join('')
         : '<div class="small muted" style="padding:8px">No product matches.</div>';
-      $$('[data-pid]', $('#nPL')).forEach((b) => b.onclick = () => { $('#nProd').value = b.dataset.pid; pickList(); $('#nProd').onchange(); });
+      $$('[data-pid]', $('#nPL')).forEach((b) => b.onclick = () => {
+        $('#nProd').value = b.dataset.pid; pickList(); $('#nProd').onchange();
+        // Chosen: close the list so the form stays short; the choice shows next to the quantity.
+        browsing = false; $('#nPQ').value = ''; $('#nPL').style.display = 'none'; $('#nPBrowse').textContent = 'Browse all ▾';
+      });
     };
-    $('#nPQ').oninput = pickList;
+    let browsing = false;
+    const showList = () => { $('#nPL').style.display = browsing || ($('#nPQ').value || '').trim() ? 'flex' : 'none'; $('#nPBrowse').textContent = browsing ? 'Close ▴' : 'Browse all ▾'; };
+    $('#nPQ').oninput = () => { pickList(); showList(); };
+    $('#nPBrowse').onclick = () => { browsing = !browsing; pickList(); showList(); };
     $('#nProd').onchange = () => {
       const pp = cat.products.find((x) => x.id === $('#nProd').value);
       $('#nAddRow').style.display = pp ? 'flex' : 'none';
@@ -927,6 +938,37 @@
       };
     };
     renderPick();
+
+    // Returning customers: search by phone or name and fill in everything we know.
+    let lookT, lookSeq = 0;
+    const hits = $('#nHits');
+    const fillCustomer = (c) => {
+      const f = $('#nf').elements;
+      f.name.value = c.name || f.name.value; f.phone.value = c.phone || f.phone.value;
+      if (c.email && f.email) f.email.value = c.email;
+      if (c.address) f.address.value = c.address;
+      if (c.districtId && c.cityId) { area = { districtId: c.districtId, cityId: c.cityId, title: c.district || c.city, sub: c.district ? c.city : '' }; renderPick(); }
+      hits.style.display = 'none';
+      $('#nCustChip').innerHTML = '<div class="chosen">' + icon('person') + '<span><b>' + esc(c.name) + '</b> · ' + (c.orders ? c.orders + ' earlier order' + (c.orders > 1 ? 's' : '') : c.from === 'account' ? 'website account' : 'from leads') +
+        (c.address ? ' · address filled in' : '') + '</span></div>';
+    };
+    const lookup = (q) => {
+      clearTimeout(lookT);
+      if (q.trim().length < 2) { hits.style.display = 'none'; return; }
+      const seq = ++lookSeq;
+      lookT = setTimeout(async () => {
+        const d = await api('customer_lookup', { query: '&q=' + encodeURIComponent(q.trim()) }).catch(() => ({ results: [] }));
+        if (seq !== lookSeq) return;
+        if (!d.results.length) { hits.style.display = 'none'; return; }
+        hits.innerHTML = '<div class="small muted" style="padding:2px 4px 6px">Existing customers — tap to fill in</div>' + d.results.map((c, i) =>
+          '<button type="button" data-hit="' + i + '"><span><b>' + esc(c.name) + '</b><span class="small muted">' + esc([c.phone, [c.district, c.city].filter(Boolean).join(', ')].filter(Boolean).join(' · ')) + '</span></span>' +
+          '<span class="small">' + (c.orders ? c.orders + ' order' + (c.orders > 1 ? 's' : '') : c.from === 'account' ? 'account' : 'lead') + '</span></button>').join('');
+        hits.style.display = 'block';
+        $$('[data-hit]', hits).forEach((b) => b.onclick = () => fillCustomer(d.results[+b.dataset.hit]));
+      }, 250);
+    };
+    $('#nPhone').addEventListener('input', (e) => lookup(e.target.value));
+    $('#nName').addEventListener('input', (e) => lookup(e.target.value));
     let st;
     $('#nAddr').oninput = (e) => {
       clearTimeout(st);

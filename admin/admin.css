@@ -306,3 +306,15 @@ kbd{font:600 11px/1 'Inter',sans-serif;border:1px solid var(--line);background:v
   .otable tr:not(:has(.o-sel)){grid-template-columns:1fr auto;grid-template-areas:"num tot" "cust cust" "items items" "st st" "bosta date"}
   .lines .line{grid-template-columns:1fr 60px 80px 30px}
 }
+
+/* new order: returning-customer search, and the folded "More options" */
+.cust-hits{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:6px;box-shadow:var(--shadow-sm)}
+.cust-hits button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:none;background:none;border-radius:9px;padding:9px 10px;cursor:pointer;font:inherit;color:inherit}
+.cust-hits button:hover{background:#FBF3EE}
+.cust-hits button > span:first-child{display:flex;flex-direction:column;gap:1px;min-width:0}
+.cust-hits button > span:last-child{flex:none;color:var(--accent);font-weight:600}
+details.more-opts > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+details.more-opts > summary::-webkit-details-marker{display:none}
+details.more-opts > summary::before{content:'▸';color:var(--ink-3);transition:transform .15s ease}
+details.more-opts[open] > summary::before{transform:rotate(90deg)}
+details.more-opts[open] > summary{margin-bottom:6px}
