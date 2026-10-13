@@ -9,10 +9,14 @@
   // ---------- utils ----------
   // Photos at display size via api/img.php (resized + cached), instead of multi-MB originals.
   const thumb = (path, w) => /^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(path || '') ? '../api/img.php?src=' + encodeURIComponent(path) + '&w=' + w + '&v=2' : '../' + path;
+  // Arabic dashboard (admin/i18n.js translates the text): Arabic dates with Western digits, amounts as "1,500 ج.م".
+  const AR = window.WTS_LANG === 'ar';
+  const LOC = AR ? 'ar-EG-u-nu-latn' : 'en-GB';
+  const langBtn = () => '<button type="button" class="langbtn" data-lang-toggle>' + (AR ? 'English' : 'العربية') + '</button>';
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const egp = (n) => 'EGP ' + Math.round(Number(n) || 0).toLocaleString('en-US');
-  const date = (s) => { if (!s) return '—'; const d = new Date(s.replace(' ', 'T') + 'Z'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
-  const dateTime = (s) => { if (!s) return '—'; const d = new Date(s.replace(' ', 'T') + 'Z'); return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+  const egp = (n) => AR ? Math.round(Number(n) || 0).toLocaleString('en-US') + ' ج.م' : 'EGP ' + Math.round(Number(n) || 0).toLocaleString('en-US');
+  const date = (s) => { if (!s) return '—'; const d = new Date(s.replace(' ', 'T') + 'Z'); return d.toLocaleDateString(LOC, { day: 'numeric', month: 'short', year: 'numeric' }); };
+  const dateTime = (s) => { if (!s) return '—'; const d = new Date(s.replace(' ', 'T') + 'Z'); return d.toLocaleString(LOC, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
   const can = (perm) => !!(S.user && S.user.perms.includes(perm));
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -125,7 +129,7 @@
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
-      '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">' + icon('menu') + '</button><span class="brand-mark"><img src="../images/logo.png" alt="">Where To Spot</span></div>' +
+      '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">' + icon('menu') + '</button><span class="brand-mark"><img src="../images/logo.png" alt="">Where To Spot</span>' + langBtn() + '</div>' +
       '<div class="shell"><nav class="side" id="side">' +
       '<div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>Where To Spot</b><small>Team workspace</small></span></div>' +
       (can('orders_only') ? '' : '<button class="searchbtn" id="searchBtn">' + icon('search') + '<span>Search</span><kbd>/</kbd></button>') +
@@ -135,7 +139,8 @@
       '<a class="nav" href="../index.html" target="_blank" rel="noopener">' + icon('external') + '<span>View shop</span></a>' +
       (isStandalone() ? '' : '<button class="nav" id="installBtn"' + (installEvt || isIOS() ? '' : ' hidden') + '>' + icon('download') + '<span>Install the app</span></button>') +
       '<div class="foot"><div class="me-card"><span class="avatar">' + esc(initials) + '</span><span class="who"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.role) + '</small></span></div>' +
-      '<div class="foot-actions"><button id="pwBtn">' + icon('key') + 'Password</button><button id="outBtn">' + icon('logout') + 'Sign out</button></div></div>' +
+      '<div class="foot-actions"><button id="pwBtn">' + icon('key') + 'Password</button><button id="outBtn">' + icon('logout') + 'Sign out</button></div>' +
+      '<div class="foot-actions" style="grid-template-columns:1fr"><button data-lang-toggle>🌐 ' + (AR ? 'English' : 'العربية') + '</button></div></div>' +
       '</nav><main class="main" id="main"><div class="boot">Loading…</div></main></div>';
     $('#menuBtn').onclick = () => $('#side').classList.toggle('open');
     $$('#side a.nav').forEach((a) => a.addEventListener('click', () => $('#side').classList.remove('open')));
@@ -153,7 +158,7 @@
 
   function renderLogin() {
     app.innerHTML = '<div class="auth">' + authAside() + '<form class="auth-card stack" id="f">' +
-      '<div><h1>Welcome back</h1><p>Sign in to the Where To Spot team workspace.</p></div>' +
+      langBtn() + '<div><h1>Welcome back</h1><p>Sign in to the Where To Spot team workspace.</p></div>' +
       '<label class="field">Email<input type="email" name="email" required autocomplete="username"></label>' +
       '<label class="field">Password<input type="password" name="password" required autocomplete="current-password"></label>' +
       '<div class="err" id="err"></div><button class="btn primary" type="submit">Sign in</button></form></div>';
@@ -168,7 +173,7 @@
 
   function renderSetup() {
     app.innerHTML = '<div class="auth">' + authAside() + '<form class="auth-card stack" id="f">' +
-      '<div><h1>Create the owner account</h1><p>First-time setup. Enter the setup key from <code>' + esc(S.meta.setupKeyPath || 'SETUP_KEY.txt') + '</code> on the server (open it in cPanel → File Manager). The key stops working once this account exists.</p></div>' +
+      langBtn() + '<div><h1>Create the owner account</h1><p>First-time setup. Enter the setup key from <code>' + esc(S.meta.setupKeyPath || 'SETUP_KEY.txt') + '</code> on the server (open it in cPanel → File Manager). The key stops working once this account exists.</p></div>' +
       '<label class="field">Setup key<input type="text" name="key" required autocomplete="off"></label>' +
       '<label class="field">Your name<input type="text" name="name" required></label>' +
       '<label class="field">Email<input type="email" name="email" required autocomplete="username"></label>' +
@@ -232,7 +237,7 @@
     const maxStatus = Math.max(1, ...statuses.map((s) => s[1]));
     const rangeSeg = '<div class="seg" id="range">' + [7, 30, 90].map((n) => '<button data-d="' + n + '" class="' + (S.range === n ? 'on' : '') + '">' + n + ' days</button>').join('') + '</div>';
     const perf = d.performance || { members: [] };
-    const monthName = new Date(perf.month + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const monthName = new Date(perf.month + '-01T00:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
     const money = !!d.money;
     const mine = d.own ? perf.members[0] : !money ? perf.members.find((m) => m.id === S.user.id) : null;
     const actions = (can('sell') ? '<button class="btn primary" id="dashNew">+ New order</button>' : '') + rangeSeg;
@@ -321,7 +326,7 @@
     const members = d.members.filter((m) => m.active);
     openDrawer('Monthly targets',
       '<div class="stack"><label class="field">Month<select id="tMonth">' + months.map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' +
-        new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) + '</option>').join('') + '</select></label>' +
+        new Date(m + '-01T00:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' }) + '</option>').join('') + '</select></label>' +
       '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Orders target</th><th>Sales target (EGP)</th><th class="num">So far</th></tr></thead><tbody>' +
       members.map((m) => '<tr><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + '</div></td>' +
         '<td><input type="number" min="0" step="1" data-o="' + m.id + '" value="' + (m.orders_target || '') + '" placeholder="0"></td>' +
@@ -359,7 +364,7 @@
       const bx = x + gap / 2, bwid = Math.max(1, bw - gap), by = y(0) - h;
       const path = h > 0 ? 'M' + bx + ',' + y(0) + 'V' + (by + r) + 'Q' + bx + ',' + by + ' ' + (bx + r) + ',' + by + 'H' + (bx + bwid - r) + 'Q' + (bx + bwid) + ',' + by + ' ' + (bx + bwid) + ',' + (by + r) + 'V' + y(0) + 'Z' : '';
       svg += '<g data-i="' + i + '"><rect class="hit" x="' + x + '" y="' + T + '" width="' + bw + '" height="' + (H - T - B) + '"/>' + (path ? '<path class="bar" d="' + path + '"/>' : '') + '</g>';
-      if (i % every === 0) svg += '<text class="axis" x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + new Date(s.date + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</text>';
+      if (i % every === 0) svg += '<text class="axis" x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + new Date(s.date + 'T00:00:00Z').toLocaleDateString(LOC, { day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</text>';
     });
     svg += '</svg><div class="tip" id="tip"></div>';
     el.innerHTML = svg;
@@ -368,7 +373,7 @@
       g.addEventListener('mouseenter', () => {
         const s = series[+g.dataset.i], rect = svgEl.getBoundingClientRect(), k = rect.width / W;
         const x = (L + (+g.dataset.i + 0.5) * bw) * k, yy = y(s.revenue) * k;
-        tip.innerHTML = '<b>' + new Date(s.date + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</b><br>' + (countsOnly ? '' : egp(s.revenue) + ' · ') + s.orders + ' order' + (s.orders === 1 ? '' : 's');
+        tip.innerHTML = '<b>' + new Date(s.date + 'T00:00:00Z').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</b><br>' + (countsOnly ? '' : egp(s.revenue) + ' · ') + s.orders + ' order' + (s.orders === 1 ? '' : 's');
         tip.style.left = x + 'px'; tip.style.top = yy + 'px'; tip.classList.add('show'); g.classList.add('on');
       });
       g.addEventListener('mouseleave', () => { tip.classList.remove('show'); g.classList.remove('on'); });
@@ -484,7 +489,7 @@
     openDrawer('Create ' + todo.length + ' Bosta shipment' + (todo.length === 1 ? '' : 's'),
       '<div class="stack"><p class="muted" style="margin:0">Each order uses the customer’s saved area and address, and collects its full order total in cash. Orders without an area will be skipped — open them to choose one.' +
       (skipped ? ' ' + skipped + ' already shipped order(s) are left out.' : '') + '</p>' +
-      '<div class="grid2"><label class="field">Package size<select id="bSize">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
+      '<div class="grid2"><label class="field">Package size<select id="bSize">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option value="' + z + '"' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
       '<label class="field">Pick up from<select id="bLoc">' + locOpts + '</select></label></div>' +
       '<div class="list">' + todo.map((o) => '<div class="li"><span><b>' + esc(o.number) + '</b> ' + esc(o.customer) + ' <span class="small muted">' + esc([o.district, o.city].filter(Boolean).join(', ') || 'no area') + '</span></span><b>' + egp(o.total) + '</b></div>').join('') + '</div>' +
       '<div id="bRes"></div></div>',
@@ -523,7 +528,7 @@
     const cod = o.payment === 'cod' ? Math.max(0, o.due != null ? o.due : o.total) : 0;
     return '<form id="bf" class="card stack" novalidate><h2 style="margin:0">🚚 Ship with Bosta</h2>' +
       '<div class="ship-sum"><div><span class="small muted">Deliver to</span><b>' + esc([o.district, o.city].filter(Boolean).join(', ') || 'Area not chosen yet') + '</b>' +
-        '<span class="small">' + esc(o.address || '') + '</span></div>' +
+        '<span class="small" dir="auto">' + esc(o.address || '') + '</span></div>' +
       '<div><span class="small muted">Courier collects</span><b>' + (cod ? egp(cod) : 'Nothing (paid)') + '</b></div></div>' +
       '<div class="row"><button class="btn primary" type="submit" id="bCreate">Create Bosta shipment</button></div>' +
       '<details class="ship-more"' + (hasArea ? '' : ' open') + '><summary>' + (hasArea ? 'Change area, address or package' : 'Choose the delivery area first') + '</summary><div class="stack" style="margin-top:12px">' +
@@ -536,7 +541,7 @@
       '<label class="field">Street address <span class="hint">More than 5 characters</span><input type="text" name="address" required minlength="6" value="' + esc(o.address) + '"></label>' +
       '<div class="grid3"><label class="field">Building<input type="text" name="building"></label><label class="field">Floor<input type="text" name="floor"></label><label class="field">Apartment<input type="text" name="apartment"></label></div>' +
       '<label class="field">Nearby landmark<input type="text" name="landmark"></label>' +
-      '<div class="grid3"><label class="field">Package size<select name="size">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
+      '<div class="grid3"><label class="field">Package size<select name="size">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option value="' + z + '"' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
       '<label class="field">Cash to collect (EGP)<input type="number" name="cod" min="0" max="30000" step="0.01" value="' + esc(cod) + '"></label>' +
       '<label class="field">Pick up from<select name="location_id">' + locOpts + '</select></label></div>' +
       (bosta.locationsError ? '<div class="small" style="color:var(--bad)">' + esc(bosta.locationsError) + '</div>' : '') +
@@ -596,10 +601,10 @@
       '<form id="of" class="stack">' +
       '<details class="card ship-more"' + ((o.files || []).length ? ' open' : '') + '><summary>Files' + ((o.files || []).length ? ' (' + o.files.length + ')' : '') + ' <span class="hint" style="font-weight:400">logo, design proof…</span></summary>' +
       '<div class="list" id="oFiles" style="margin-top:8px"></div>' +
-      '<div class="row" style="margin-top:8px"><select id="oFileKind" style="width:auto"><option>Logo</option><option selected>Design proof</option><option>Final design</option><option>Other</option></select>' +
+      '<div class="row" style="margin-top:8px"><select id="oFileKind" style="width:auto"><option value="Logo">Logo</option><option value="Design proof" selected>Design proof</option><option value="Final design">Final design</option><option value="Other">Other</option></select>' +
       '<label class="btn sm" style="cursor:pointer">⬆ Upload file<input type="file" id="oFile" accept="image/jpeg,image/png,image/webp,application/pdf" hidden></label>' +
       '<span class="hint">JPG, PNG, WebP or PDF up to 5 MB</span></div></details>' +
-      '<label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
+      '<label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option value="' + s + '"' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
       '<span class="hint">Cancelling or returning puts the items back in stock.' + (o.tracking ? ' Bosta updates move this to Shipped, Delivered or Returned automatically.' : '') + '</span></label>' +
       '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone">' + esc(o.notes) + '</textarea></label></form></div>';
     openDrawer('Order ' + o.number, body, '<a class="btn" href="doc.html?type=invoice&id=' + o.id + '" target="_blank" rel="noopener">' + icon('file') + 'Invoice</a>' +
@@ -675,8 +680,8 @@
     // Area search + suggestions from the saved address (same engine as the shop checkout).
     // Keep the summary at the top in step with what's chosen below.
     const showChosen = () => {
-      const pickText = (sel) => sel.selectedIndex > 0 || (sel.value && sel.options.length) ? sel.options[sel.selectedIndex].text.split(' · ')[0].replace(/^General \/ not sure \((.*)\)$/, '$1') : '';
-      const label = [pickText(distSel) || pickText(zoneSel), pickText(citySel)].filter(Boolean).join(', ');
+      const pickText = (sel) => sel.selectedIndex > 0 || (sel.value && sel.options.length) ? ((t) => t[AR && t[1] ? 1 : 0])(sel.options[sel.selectedIndex].text.split(' · ')).replace(/^(?:General \/ not sure|عام \/ غير متأكد) \((.*)\)$/, '$1') : '';
+      const label = [pickText(distSel) || pickText(zoneSel), pickText(citySel)].filter(Boolean).join(AR ? '، ' : ', ');
       if (label) $('.ship-sum b', bf).textContent = label;
       const cod = +bf.elements.cod.value || 0;
       $$('.ship-sum b', bf)[1].textContent = cod ? egp(cod) : 'Nothing (paid)';
@@ -709,7 +714,7 @@
       fetch('../api/public.php?action=area_suggest&text=' + encodeURIComponent(o.address + ' ' + (o.city || ''))).then((r) => r.json()).then((res) => {
         const list = res.results || [];
         if (!list.length) return;
-        $('#bSuggest').innerHTML = '<span class="muted">✨ From the address:</span>' + list.map((r, i) => '<button type="button" class="btn sm" data-s="' + i + '">' + esc(r.title + ' — ' + r.sub.replace(' · any neighbourhood', '')) + '</button>').join('');
+        $('#bSuggest').innerHTML = '<span class="muted">✨ From the address:</span>' + list.map((r, i) => '<button type="button" class="btn sm" data-s="' + i + '">' + esc((AR && r.titleAr ? r.titleAr : r.title) + ' — ' + r.sub.replace(' · any neighbourhood', '')) + '</button>').join('');
         $$('[data-s]', $('#bSuggest')).forEach((b) => b.onclick = () => pickArea(list[+b.dataset.s]));
       }).catch(() => {});
     }
@@ -792,8 +797,8 @@
       '<label class="field"><select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label></div>' +
       '<details class="card stack more-opts" id="nMore"><summary><b>More options</b> <span class="hint" style="font-weight:400">email, source, status, deposit, discount, delivery fee, notes</span></summary>' +
       '<label class="field">Email <span class="hint">Optional — for the invoice</span><input type="email" name="email" id="nEmail"></label>' +
-      '<div class="grid3"><label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
-      '<label class="field">Status<select name="status"><option>Pending</option><option selected>Confirmed</option></select></label><span></span></div>' +
+      '<div class="grid3"><label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option value="' + esc(x) + '"' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
+      '<label class="field">Status<select name="status"><option value="Pending">Pending</option><option value="Confirmed" selected>Confirmed</option></select></label><span></span></div>' +
       '<div class="grid3"><label class="field">Paid now (EGP) <span class="hint">Deposit, or leave empty</span><input type="number" name="paid_now" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Deposit paid by<select name="deposit_method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="wallet">InstaPay / wallet</option></select></label><span></span></div>' +
       '<div class="grid3"><label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
@@ -878,11 +883,11 @@
     const pickList = () => {
       const q = ($('#nPQ').value || '').trim().toLowerCase();
       const chosen = $('#nProd').value;
-      const list = cat.products.filter((p) => !q || (p.name + ' ' + (p.sub || '')).toLowerCase().includes(q));
+      const list = cat.products.filter((p) => !q || (p.name + ' ' + (p.sub || '') + ' ' + (p.nameAr || '')).toLowerCase().includes(q));
       $('#nPL').innerHTML = list.length ? list.map((p) => { const [a, b] = splitName(p.name); const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
         return '<button type="button" class="pp' + (p.id === chosen ? ' on' : '') + '" data-pid="' + esc(p.id) + '">' +
           '<span class="pp-img">' + (p.image ? '<img src="' + esc(thumb(p.image, 120)) + '" alt="" loading="lazy">' : icon('box')) + '</span>' +
-          '<span class="pp-t"><b>' + esc(a) + '</b>' + (b ? '<span class="it-sz">' + esc(b) + '</span>' : '') +
+          '<span class="pp-t"><b>' + esc(a) + '</b>' + (AR && p.nameAr ? '<span class="small muted" dir="rtl">' + esc(p.nameAr) + '</span>' : '') + (b ? '<span class="it-sz">' + esc(b) + '</span>' : '') +
           '<span class="pp-m"><b class="pp-price">' + (ranged ? 'from ' : '') + egp(ranged ? p.fromPrice : p.price) + (p.cat === 'services' ? ' / month' : '') + '</b>' +
           (p.cat === 'services' ? '' : '<span class="' + (p.stock <= 5 ? 'pp-low' : '') + '">' + p.stock + ' in stock</span>') + '</span></span></button>'; }).join('')
         : '<div class="small muted" style="padding:8px">No product matches.</div>';
@@ -937,7 +942,7 @@
         return;
       }
       pick.innerHTML = '<input type="search" id="nAreaQ" autocomplete="off" placeholder="🔍 Type the area"><div class="results" id="nAreaR" style="display:none"></div>' +
-        (suggestions && suggestions.length ? '<div class="row small"><span class="muted">✨ From the address:</span>' + suggestions.map((r, i) => '<button type="button" class="btn sm" data-sg="' + i + '">' + esc(r.title + ' — ' + r.sub.replace(' · any neighbourhood', '')) + '</button>').join('') + '</div>' : '');
+        (suggestions && suggestions.length ? '<div class="row small"><span class="muted">✨ From the address:</span>' + suggestions.map((r, i) => '<button type="button" class="btn sm" data-sg="' + i + '">' + esc((AR && r.titleAr ? r.titleAr : r.title) + ' — ' + r.sub.replace(' · any neighbourhood', '')) + '</button>').join('') + '</div>' : '');
       const choose = (r) => { area = { districtId: r.districtId, cityId: r.cityId, title: r.title + (r.titleAr ? ' · ' + r.titleAr : ''), sub: r.sub }; renderPick(); };
       $$('[data-sg]', pick).forEach((b) => b.onclick = () => choose(suggestions[+b.dataset.sg]));
       let t;
@@ -1036,11 +1041,12 @@
     const cat = S.prodCat || '';
     const q = (S.prodQ || '').toLowerCase();
     const list = d.products.filter((p) => (!cat || p.cat === cat) && (!q || (p.name + ' ' + p.sku + ' ' + p.vendor).toLowerCase().includes(q)));
-    const catLabel = (k) => (d.categories.find((c) => c.key === k) || {}).label || k;
+    const catName = (c) => (AR && c.label_ar) || c.label;
+    const catLabel = (k) => { const c = d.categories.find((x) => x.key === k); return c ? catName(c) : k; };
     $('#main').innerHTML = header('Products', d.products.length + ' products · ' + d.categories.length + ' categories',
       '<button class="btn" id="catsBtn">Categories</button><button class="btn primary" id="addBtn">+ Add product</button>') +
       '<div class="row" style="margin-bottom:14px"><select id="cat" style="max-width:220px"><option value="">All categories</option>' +
-      d.categories.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === cat ? ' selected' : '') + '>' + esc(c.label) + ' (' + c.count + ')</option>').join('') +
+      d.categories.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === cat ? ' selected' : '') + '>' + esc(catName(c)) + ' (' + c.count + ')</option>').join('') +
       '</select><span class="spacer"></span><input type="search" id="q" placeholder="Search name, SKU, brand" value="' + esc(S.prodQ || '') + '" style="max-width:280px"></div>' +
       (list.length ? '<div class="table-wrap"><table><thead><tr><th></th><th>Product</th><th>Category</th><th class="num">Price</th><th class="num">Stock</th><th>Status</th></tr></thead><tbody>' +
         list.map((p) => {
@@ -1072,8 +1078,8 @@
     const body = '<form id="pf" class="stack">' +
       '<div class="grid2"><label class="field">Product name<input type="text" name="name" required value="' + esc(p.name) + '"></label>' +
       '<label class="field">Name in Arabic <span class="hint">Shown on the Arabic shop</span><input type="text" name="nameAr" dir="rtl" value="' + esc(p.nameAr || '') + '" placeholder="اسم المنتج بالعربي"></label></div>' +
-      '<div class="grid2"><label class="field">Category<select name="cat">' + S.cats.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === p.cat ? ' selected' : '') + '>' + esc(c.label) + '</option>').join('') + '</select></label>' +
-      '<label class="field">Status<select name="status">' + ['Active', 'Draft', 'Archived'].map((s) => '<option' + (s === p.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select><span class="hint">Only Active products show in the shop.</span></label></div>' +
+      '<div class="grid2"><label class="field">Category<select name="cat">' + S.cats.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === p.cat ? ' selected' : '') + '>' + esc((AR && c.label_ar) || c.label) + '</option>').join('') + '</select></label>' +
+      '<label class="field">Status<select name="status">' + ['Active', 'Draft', 'Archived'].map((s) => '<option value="' + s + '"' + (s === p.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select><span class="hint">Only Active products show in the shop.</span></label></div>' +
       '<div class="grid3"><label class="field">Price (EGP)<input type="number" name="price" min="0" step="0.01" value="' + esc(p.price) + '"><span class="hint" id="priceHint">Price for one piece</span></label>' +
       '<label class="field">Discount %<input type="number" name="discountPct" min="0" max="90" step="0.01" value="' + esc(p.discountPct) + '"></label>' +
       '<label class="field" id="stockField">Stock<input type="number" name="stock" min="0" step="1" value="' + esc(p.stock) + '"><span class="hint">Ignored for plans</span></label></div>' +
@@ -1257,7 +1263,7 @@
   // ---------- lead helpers ----------
   const cairoToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' });
   const addDays = (n) => { const d = new Date(cairoToday() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-  const fmtDay = (s) => new Date(s + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const fmtDay = (s) => new Date(s + 'T12:00:00Z').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
   const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
   const phoneOf = (c) => { const m = String(c || '').match(/\+?\d[\d\s-]{7,}\d/); return m ? m[0].replace(/\D/g, '') : ''; };
   const emailOf = (c) => (String(c || '').match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [''])[0];
@@ -1272,7 +1278,9 @@
     if (!p) return '';
     const first = String(l.name || '').split(/\s+/)[0];
     const interest = leadInterest(l);
-    const msg = 'Hello ' + first + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. Thank you for your interest' +
+    const msg = AR ? 'أهلًا ' + first + '، معك ' + S.user.name.split(' ')[0] + ' من Where To Spot. شكرًا لاهتمامك' + (interest ? ' بـ ' + WTS_T(interest) : '') +
+      '. يسعدني أساعدك، ممكن تقولي تفاصيل أكتر عن اللي محتاجه؟'
+      : 'Hello ' + first + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. Thank you for your interest' +
       (interest ? ' in ' + interest : '') + '. I’d be happy to help. Could you tell me a bit more about what you need?';
     return 'https://wa.me/' + waNumber(p) + '?text=' + encodeURIComponent(msg);
   }
@@ -1323,7 +1331,11 @@
   function quoteDrawer(q) {
     const open = q.savedStatus !== 'Accepted' && q.status !== 'Declined';
     const phone = phoneOf(q.phone);
-    const waText = 'Hello ' + q.customer.split(/\s+/)[0] + ', here is your quote ' + q.number + ' from Where To Spot:\n' +
+    const waText = AR ? 'أهلًا ' + q.customer.split(/\s+/)[0] + '، ده عرض السعر ' + q.number + ' من Where To Spot:\n' +
+      q.items.map((it) => '• ' + it.qty + '× ' + it.name + ': ' + egp(it.total)).join('\n') +
+      (q.discount ? '\nالخصم: −' + egp(q.discount) : '') + '\nالتوصيل: ' + (q.shipping ? egp(q.shipping) : 'مجاني') + '\nالإجمالي: ' + egp(q.total) +
+      (q.validUntil ? '\nصالح حتى ' + fmtDay(q.validUntil) + '.' : '') + '\n\nملف الـ PDF مرفق. رد علينا بالتأكيد ونبدأ على طول.'
+      : 'Hello ' + q.customer.split(/\s+/)[0] + ', here is your quote ' + q.number + ' from Where To Spot:\n' +
       q.items.map((it) => '• ' + it.qty + '× ' + it.name + ': ' + egp(it.total)).join('\n') +
       (q.discount ? '\nDiscount: −' + egp(q.discount) : '') + '\nDelivery: ' + (q.shipping ? egp(q.shipping) : 'Free') + '\nTotal: ' + egp(q.total) +
       (q.validUntil ? '\nValid until ' + fmtDay(q.validUntil) + '.' : '') + '\n\nThe PDF is attached. Just reply to confirm and we’ll start.';
@@ -1395,14 +1407,14 @@
   async function customerDrawer(c) {
     const d = await api('customer', { query: '&key=' + encodeURIComponent(c.key) });
     const phone = phoneOf(c.phone);
-    const wa = phone ? 'https://wa.me/' + waNumber(phone) + '?text=' + encodeURIComponent('Hello ' + c.name.split(/\s+/)[0] + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. ') : '';
+    const wa = phone ? 'https://wa.me/' + waNumber(phone) + '?text=' + encodeURIComponent(AR ? 'أهلًا ' + c.name.split(/\s+/)[0] + '، معك ' + S.user.name.split(' ')[0] + ' من Where To Spot. ' : 'Hello ' + c.name.split(/\s+/)[0] + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. ') : '';
     const avg = c.orders ? c.spent / c.orders : 0;
     const body = '<div class="stack">' +
       '<div class="card stack" style="gap:12px"><div class="row" style="align-items:flex-start"><span class="avatar" style="width:46px;height:46px;font-size:15px">' + esc(c.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()) + '</span>' +
       '<div style="flex:1"><b style="font-size:17px">' + esc(c.name) + '</b>' + (c.business ? '<div>' + esc(c.business) + '</div>' : '') + '<div class="small muted">' + esc([c.phone, c.email && c.email.includes('@') ? c.email : '', c.city].filter(Boolean).join(' · ')) + '</div></div></div>' +
       '<div class="row lead-actions">' + (wa ? '<a class="btn sm wa" href="' + esc(wa) + '" target="_blank" rel="noopener">' + icon('chat') + 'WhatsApp</a>' : '') + (phone ? '<a class="btn sm" href="tel:' + esc(c.phone) + '">' + icon('phone') + 'Call</a>' : '') +
       (can('sell') ? '<span class="spacer"></span><button class="btn sm dark" id="cNew">' + icon('cart') + 'New order</button>' : '') + '</div></div>' +
-      '<div class="kpis" style="margin:0"><div class="kpi"><div class="label">Orders</div><div class="value">' + c.orders + '</div><div class="note">since ' + dateTime(c.first).split(',')[0] + '</div></div>' +
+      '<div class="kpis" style="margin:0"><div class="kpi"><div class="label">Orders</div><div class="value">' + c.orders + '</div><div class="note">since ' + dateTime(c.first).split(/[,،]/)[0] + '</div></div>' +
       '<div class="kpi"><div class="label">Total spent</div><div class="value">' + egp(c.spent) + '</div><div class="note">avg ' + egp(avg) + '</div></div>' +
       '<div class="kpi"><div class="label">Balance due</div><div class="value">' + egp(c.due) + '</div><div class="note">' + (c.due > 0.5 ? 'still to collect' : 'nothing owed') + '</div></div></div>' +
       (c.account ? '<div class="card"><h2>' + icon('person') + 'Shop account<span class="spacer"></span><span class="pill good">● Signed up</span></h2><div class="list">' +
@@ -1558,7 +1570,7 @@
       (isNew ? '<div class="grid2"><label class="field">Name<input type="text" name="name" required></label><label class="field">Email or phone<input type="text" name="contact" required></label></div>' +
         '<label class="field">Interested in<input type="text" name="cat" placeholder="e.g. NFC cards for 3 branches"></label>'
         : '<div class="card stack" style="gap:12px"><div><b style="font-size:16px">' + esc(l.name) + '</b><div>' + esc(l.contact) + '</div><div class="small muted">' + esc(leadInterest(l)) + ' · ' + esc(l.source) + ' · ' + dateTime(l.created_at) + '</div></div>' + actions + '</div>') +
-      '<div class="grid2"><label class="field">Status<select name="status">' + S.meta.leadStatuses.map((x) => '<option' + (x === l.status ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></label>' +
+      '<div class="grid2"><label class="field">Status<select name="status">' + S.meta.leadStatuses.map((x) => '<option value="' + x + '"' + (x === l.status ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></label>' +
       '<label class="field">Assigned to<select name="assigned_to">' + teamOpts + '</select></label></div>' +
       '<div class="field">Follow up on <span class="hint">It shows on the dashboard from that day until the lead is moved on or the date is cleared</span>' +
       '<div class="row"><input type="date" name="follow_up" id="fuDate" value="' + esc(l.follow_up || '') + '" style="max-width:180px">' +

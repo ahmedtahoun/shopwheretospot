@@ -241,7 +241,7 @@ try {
     case 'order_catalog':
         require_perm('sell');
         $rows = array_map(function ($p) {
-            return ['id' => $p['id'], 'name' => $p['name'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
+            return ['id' => $p['id'], 'name' => $p['name'], 'nameAr' => $p['nameAr'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
                 'discountPct' => $p['discountPct'], 'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub'],
                 'variants' => array_map(function ($v) { unset($v['sku']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
                 'personalized' => $p['personalized'], 'fromPrice' => $p['fromPrice']];
