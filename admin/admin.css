@@ -318,3 +318,14 @@ details.more-opts > summary::-webkit-details-marker{display:none}
 details.more-opts > summary::before{content:'▸';color:var(--ink-3);transition:transform .15s ease}
 details.more-opts[open] > summary::before{transform:rotate(90deg)}
 details.more-opts[open] > summary{margin-bottom:6px}
+
+/* order: short Bosta step */
+.ship-sum{display:grid;grid-template-columns:1fr auto;gap:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.ship-sum > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ship-sum > div:last-child{text-align:right}
+.ship-sum b{font-size:15px}
+details.ship-more > summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--accent);list-style:none}
+details.ship-more > summary::-webkit-details-marker{display:none}
+details.ship-more > summary::before{content:'▸ ';color:var(--ink-3)}
+details.ship-more[open] > summary::before{content:'▾ '}
+@media (max-width:760px){.ship-sum{grid-template-columns:1fr}.ship-sum > div:last-child{text-align:left}}

@@ -519,7 +519,14 @@
     if (!physical) return '<div class="card small muted">🚚 Nothing to ship — this order only has marketing plans.</div>';
     if (o.status === 'Cancelled') return '<div class="card small muted">🚚 Cancelled orders can’t be shipped.</div>';
     const locOpts = (bosta.locations || []).map((l) => '<option value="' + esc(l.id) + '"' + ((bosta.defaultLocation ? l.id === bosta.defaultLocation : l.isDefault) ? ' selected' : '') + '>' + esc(l.name + (l.city ? ' — ' + l.city : '')) + '</option>').join('');
-    return '<form id="bf" class="card stack"><h2 style="margin:0">🚚 Ship with Bosta</h2>' +
+    const hasArea = !!o.districtId;
+    const cod = o.payment === 'cod' ? Math.max(0, o.due != null ? o.due : o.total) : 0;
+    return '<form id="bf" class="card stack" novalidate><h2 style="margin:0">🚚 Ship with Bosta</h2>' +
+      '<div class="ship-sum"><div><span class="small muted">Deliver to</span><b>' + esc([o.district, o.city].filter(Boolean).join(', ') || 'Area not chosen yet') + '</b>' +
+        '<span class="small">' + esc(o.address || '') + '</span></div>' +
+      '<div><span class="small muted">Courier collects</span><b>' + (cod ? egp(cod) : 'Nothing (paid)') + '</b></div></div>' +
+      '<div class="row"><button class="btn primary" type="submit" id="bCreate">Create Bosta shipment</button></div>' +
+      '<details class="ship-more"' + (hasArea ? '' : ' open') + '><summary>' + (hasArea ? 'Change area, address or package' : 'Choose the delivery area first') + '</summary><div class="stack" style="margin-top:12px">' +
       '<div class="field" style="position:relative">Find area <span class="hint">Type in English or Arabic, e.g. Nasr City / مدينة نصر</span>' +
       '<input type="search" id="bSearch" autocomplete="off" placeholder="🔍 Search Bosta areas"><div id="bResults" class="card" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:5;padding:0;max-height:260px;overflow:auto"></div>' +
       '<div id="bSuggest" class="row small" style="margin-top:4px"></div></div>' +
@@ -530,11 +537,10 @@
       '<div class="grid3"><label class="field">Building<input type="text" name="building"></label><label class="field">Floor<input type="text" name="floor"></label><label class="field">Apartment<input type="text" name="apartment"></label></div>' +
       '<label class="field">Nearby landmark<input type="text" name="landmark"></label>' +
       '<div class="grid3"><label class="field">Package size<select name="size">' + ['SMALL', 'MEDIUM', 'LARGE'].map((z) => '<option' + (z === bosta.defaultSize ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></label>' +
-      '<label class="field">Cash to collect (EGP)<input type="number" name="cod" min="0" max="30000" step="0.01" value="' + esc(o.payment === 'cod' ? o.total : 0) + '"></label>' +
+      '<label class="field">Cash to collect (EGP)<input type="number" name="cod" min="0" max="30000" step="0.01" value="' + esc(cod) + '"></label>' +
       '<label class="field">Pick up from<select name="location_id">' + locOpts + '</select></label></div>' +
       (bosta.locationsError ? '<div class="small" style="color:var(--bad)">' + esc(bosta.locationsError) + '</div>' : '') +
-      '<label class="field">Notes for the courier<input type="text" name="notes" placeholder="e.g. Call before arriving"></label>' +
-      '<div><button class="btn primary" type="submit" id="bCreate">Create Bosta shipment</button></div></form>';
+      '<label class="field">Notes for the courier<input type="text" name="notes" placeholder="e.g. Call before arriving"></label></div></details></form>';
   }
 
   // Payments on an order: deposits, transfers, cash on delivery, refunds (negative amounts).
@@ -585,17 +591,14 @@
       '<div class="li"><b>Total</b><b>' + egp(o.total) + '</b></div></div></div>' +
       '<div class="card" id="oPay"><div class="muted small">Loading payments…</div></div>' +
       bostaSection(o, bosta) +
+      ((o.businessName || o.reviewLink || o.links || o.designNotes) ? '<div class="card small"><b>Print details from the customer</b><div class="muted" style="white-space:pre-line;margin-top:4px">' +
+        esc([o.businessName, o.reviewLink, o.links, o.designNotes].filter(Boolean).join('\n')) + '</div></div>' : '') +
       '<form id="of" class="stack">' +
-      '<div class="card stack"><b>Personalisation</b>' +
-      '<div class="grid2"><label class="field">Business / brand name<input type="text" name="business_name" value="' + esc(o.businessName) + '"></label>' +
-      '<label class="field">Google review link' + (o.reviewLink ? ' <a class="hint" href="' + esc(/^https?:\/\//.test(o.reviewLink) ? o.reviewLink : 'https://' + o.reviewLink) + '" target="_blank" rel="noopener">open ↗</a>' : '') +
-      '<input type="text" name="review_link" value="' + esc(o.reviewLink) + '"></label></div>' +
-      '<label class="field">Social links / website<textarea name="links" style="min-height:50px">' + esc(o.links) + '</textarea></label>' +
-      '<label class="field">Design notes<textarea name="design_notes" style="min-height:50px">' + esc(o.designNotes) + '</textarea></label>' +
-      '<div><b class="small">Files</b><div class="list" id="oFiles"></div>' +
+      '<details class="card ship-more"' + ((o.files || []).length ? ' open' : '') + '><summary>Files' + ((o.files || []).length ? ' (' + o.files.length + ')' : '') + ' <span class="hint" style="font-weight:400">logo, design proof…</span></summary>' +
+      '<div class="list" id="oFiles" style="margin-top:8px"></div>' +
       '<div class="row" style="margin-top:8px"><select id="oFileKind" style="width:auto"><option>Logo</option><option selected>Design proof</option><option>Final design</option><option>Other</option></select>' +
       '<label class="btn sm" style="cursor:pointer">⬆ Upload file<input type="file" id="oFile" accept="image/jpeg,image/png,image/webp,application/pdf" hidden></label>' +
-      '<span class="hint">JPG, PNG, WebP or PDF up to 5 MB</span></div></div></div>' +
+      '<span class="hint">JPG, PNG, WebP or PDF up to 5 MB</span></div></details>' +
       '<label class="field">Status<select name="status">' + S.meta.orderStatuses.map((s) => '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
       '<span class="hint">Cancelling or returning puts the items back in stock.' + (o.tracking ? ' Bosta updates move this to Shipped, Delivered or Returned automatically.' : '') + '</span></label>' +
       '<label class="field">Internal notes<textarea name="notes" placeholder="e.g. Confirmed by phone">' + esc(o.notes) + '</textarea></label></form></div>';
@@ -670,11 +673,22 @@
       zoneSel.onchange = fillDistricts;
     } catch (err) { citySel.innerHTML = opt('', 'Couldn’t load Bosta areas'); toast(err.message, true); }
     // Area search + suggestions from the saved address (same engine as the shop checkout).
+    // Keep the summary at the top in step with what's chosen below.
+    const showChosen = () => {
+      const pickText = (sel) => sel.selectedIndex > 0 || (sel.value && sel.options.length) ? sel.options[sel.selectedIndex].text.split(' · ')[0].replace(/^General \/ not sure \((.*)\)$/, '$1') : '';
+      const label = [pickText(distSel) || pickText(zoneSel), pickText(citySel)].filter(Boolean).join(', ');
+      if (label) $('.ship-sum b', bf).textContent = label;
+      const cod = +bf.elements.cod.value || 0;
+      $$('.ship-sum b', bf)[1].textContent = cod ? egp(cod) : 'Nothing (paid)';
+    };
+    distSel.addEventListener('change', showChosen); zoneSel.addEventListener('change', showChosen); citySel.addEventListener('change', showChosen);
+    bf.elements.cod.addEventListener('input', showChosen);
     const pickArea = (r) => {
       citySel.value = r.cityId; fillZones();
       zoneSel.value = r.zoneId; fillDistricts();
       distSel.value = r.districtId;
       $('#bResults').style.display = 'none'; $('#bSearch').value = '';
+      showChosen();
     };
     const resultRow = (r, i) => '<button type="button" data-r="' + i + '" style="display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--line-2);background:#fff;padding:9px 12px;cursor:pointer">' +
       '<b>' + esc(r.title) + '</b> <span class="muted">' + esc(r.titleAr) + '</span><div class="small muted">' + esc(r.sub) + '</div></button>';
@@ -702,6 +716,10 @@
 
     bf.onsubmit = async (e) => {
       e.preventDefault();
+      // The details are folded away; if something is missing, open them and say what.
+      const more = $('.ship-more', bf);
+      if (!distSel.value) { more.open = true; toast('Choose the delivery area first', true); return; }
+      if ((bf.elements.address.value || '').trim().length < 6) { more.open = true; bf.elements.address.focus(); toast('Add the street address (at least 6 characters)', true); return; }
       const btn = $('#bCreate'); btn.disabled = true; btn.textContent = 'Creating…';
       try {
         const r = await api('bosta_create', { method: 'POST', body: Object.assign({ id: o.id }, formData(bf)) });
