@@ -51,7 +51,7 @@
 
     // partner brands
     'Partner brands': 'علامات شريكة', '✓ Official partner · original products supplied by the brand': '✓ شريك رسمي · منتجات أصلية من العلامة مباشرة',
-    '✓ Official partner': '✓ شريك رسمي',
+    '✓ Official partner': '✓ شريك رسمي', '1 kg': '1 كجم', '250 g': '250 جم',
     'For businesses: private label, tailored roasting or bulk orders. Tell us what you need and we’ll reply with a quote, usually the same day.': 'للشركات: علامة خاصة، تحميص مخصص أو طلبات بالجملة. أخبرنا بما تحتاجه وسنرسل لك عرض سعر، غالبًا في نفس اليوم.',
     'Phone or email': 'الهاتف أو الإيميل', 'Your name': 'اسمك', 'Send request': 'إرسال الطلب',
     'Business name, what you need and roughly how much (e.g. 20 kg a month for our café)': 'اسم النشاط، وما تحتاجه والكمية تقريبًا (مثال: 20 كجم شهريًا لمقهانا)',

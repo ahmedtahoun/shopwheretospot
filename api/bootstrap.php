@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 20;
+const SCHEMA_VERSION = 21;
 
 function db(): PDO
 {
@@ -477,6 +477,20 @@ function migrate(PDO $pdo): void
             $nameAr . ' — 1 كجم', '1 كجم حبوب قهوة أحادية المصدر · ' . $notesAr,
             $nameAr . ' قهوة أحادية المصدر من تحميص بوندز. النكهات: ' . $notesAr . '. المنطقة: ' . $regionAr . ' · السلالة: ' . $varietyAr . ' · المعالجة: ' . $processAr . '.']);
         $addPhoto->execute([$id, 'images/brands/' . $id . '.jpg']);
+    }
+    // Bonds coffees in two sizes: 1 kg (the listed price) and 250 g (a quarter of it). Done once per
+    // product; the 1 kg size keeps the stock the product already had.
+    $sizeless = $pdo->query("SELECT id, name, name_ar, sub, sub_ar, price, stock FROM products WHERE id LIKE 'bonds-%' AND COALESCE(variants, '[]') IN ('', '[]')")->fetchAll();
+    $setSizes = $pdo->prepare("UPDATE products SET variants = ?, stock = ?, name = ?, name_ar = ?, sub = ?, sub_ar = ?, updated_at = datetime('now') WHERE id = ?");
+    foreach ($sizeless as $p) {
+        $kg = (float) $p['price'];
+        $variants = [
+            ['id' => 'kg1', 'label' => '1 kg', 'sku' => '', 'stock' => (int) $p['stock'], 'price' => $kg, 'tiers' => []],
+            ['id' => 'g250', 'label' => '250 g', 'sku' => '', 'stock' => 10, 'price' => round($kg / 4, 2), 'tiers' => []],
+        ];
+        $setSizes->execute([json_encode($variants), (int) $p['stock'] + 10,
+            preg_replace('/ — 1 kg$/u', '', $p['name']), preg_replace('/ — 1 كجم$/u', '', (string) $p['name_ar']),
+            preg_replace('/^1 kg /', '1 kg or 250 g · ', (string) $p['sub']), preg_replace('/^1 كجم /u', '1 كجم أو 250 جم · ', (string) $p['sub_ar']), $p['id']]);
     }
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
