@@ -798,15 +798,17 @@
       '<div class="field">Area <span class="hint">Search in English or Arabic, e.g. Nasr City / مدينة نصر</span><div class="pick" id="nPick"></div></div></div>' +
 (isQuote ? '' :
       '<div class="card stack"><b>Payment</b>' +
-      '<label class="field"><select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label></div>' +
+      '<label class="field"><select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label>' +
+      // Deposit: only for cash on delivery; it's taken off what the courier collects.
+      '<div id="nDepRow" class="stack" style="gap:6px"><div class="grid2 dep-row"><label class="field">Deposit paid now (EGP)<input type="number" name="paid_now" id="nDep" min="0" step="1" placeholder="0"></label>' +
+      '<label class="field">Deposit paid by<select name="deposit_method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="wallet">InstaPay / wallet</option></select></label></div>' +
+      '<div class="hint">Optional. The deposit is taken off what the courier collects.</div></div></div>' +
       '<div class="card stack"><label class="field"><b>Order notes</b> <span class="hint">For whoever packs the order — shown on the Bosta shipment and the waybill</span>' +
         '<textarea name="prep_notes" maxlength="500" style="min-height:56px" placeholder="e.g. Gift wrap it, add 2 extra stickers, the logo must be gold"></textarea></label></div>' +
-      '<details class="card stack more-opts" id="nMore"><summary><b>More options</b> <span class="hint" style="font-weight:400">email, source, status, deposit, discount, delivery fee, notes</span></summary>' +
+      '<details class="card stack more-opts" id="nMore"><summary><b>More options</b> <span class="hint" style="font-weight:400">email, source, status, discount, delivery fee, notes</span></summary>' +
       '<label class="field">Email <span class="hint">Optional — for the invoice</span><input type="email" name="email" id="nEmail"></label>' +
       '<div class="grid3"><label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option value="' + esc(x) + '"' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +
       '<label class="field">Status<select name="status"><option value="Pending">Pending</option><option value="Confirmed" selected>Confirmed</option></select></label><span></span></div>' +
-      '<div class="grid3"><label class="field">Paid now (EGP) <span class="hint">Deposit, or leave empty</span><input type="number" name="paid_now" min="0" step="1" placeholder="0"></label>' +
-      '<label class="field">Deposit paid by<select name="deposit_method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="wallet">InstaPay / wallet</option></select></label><span></span></div>' +
       '<div class="grid3"><label class="field">Discount (EGP)<input type="number" name="discount" id="nDisc" min="0" step="1" placeholder="0"></label>' +
       '<label class="field">Delivery fee (EGP)<input type="number" name="shipping" id="nShip" min="0" step="1" placeholder="auto"><span class="hint" id="nShipHint"></span></label>' +
       repOpts + '</div>' +
@@ -852,11 +854,16 @@
       const ship = shipVal === '' ? autoShip() : +shipVal;
       $('#nShipHint').textContent = 'Auto: ' + (autoShip() ? egp(autoShip()) : 'free');
       const cod = $('#nPay') ? $('#nPay').value === 'cod' : null;
+      const total = sub - disc + ship;
+      if ($('#nDepRow')) { $('#nDepRow').style.display = cod ? '' : 'none'; if (!cod) $('#nDep').value = ''; }
+      const dep = cod ? Math.min(total, Math.max(0, +($('#nDep') && $('#nDep').value) || 0)) : 0;
       $('#nTotals').innerHTML = '<div class="list"><div class="li muted"><span>Subtotal</span><span>' + egp(sub) + '</span></div>' +
         (disc ? '<div class="li muted"><span>Discount</span><span>−' + egp(disc) + '</span></div>' : '') +
         '<div class="li muted"><span>Delivery</span><span>' + (ship ? egp(ship) : 'Free') + '</span></div>' +
-        '<div class="li"><b>Total</b><b>' + egp(sub - disc + ship) + '</b></div>' +
-        (cod === null ? '' : '<div class="li small muted"><span>' + (cod ? 'Customer pays on delivery' : 'Already paid — courier collects nothing') + '</span><span></span></div>') + '</div>';
+        '<div class="li"><b>Total</b><b>' + egp(total) + '</b></div>' +
+        (dep ? '<div class="li pay-ok"><span>Deposit paid</span><span>−' + egp(dep) + '</span></div>' : '') +
+        (cod === null ? '' : cod ? '<div class="li"><b>Courier collects</b><b>' + egp(total - dep) + '</b></div>'
+          : '<div class="li small muted"><span>Already paid — courier collects nothing</span><span></span></div>') + '</div>';
       $('#nDelivery').style.opacity = lines.length && !physicalProducts() ? '.55' : '1';
     };
     const renderLines = () => {
@@ -936,7 +943,7 @@
       $('#cName').value = ''; $('#cPrice').value = ''; $('#cQty').value = 1;
       renderLines();
     };
-    ['#nDisc', '#nShip', '#nPay'].forEach((sel) => { const el = $(sel); if (el) { el.oninput = renderTotals; el.onchange = renderTotals; } });
+    ['#nDisc', '#nShip', '#nPay', '#nDep'].forEach((sel) => { const el = $(sel); if (el) { el.oninput = renderTotals; el.onchange = renderTotals; } });
     renderLines();
 
     // Area picker: search + suggestions from the address, same engine as the shop checkout.

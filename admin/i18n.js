@@ -289,7 +289,7 @@
     'Statement to share': 'كشف حساب للمشاركة', 'Sold': 'المبيعات', 'Brand’s share': 'نصيب العلامة', 'Nothing sold this month.': 'لا توجد مبيعات هذا الشهر.', 'Payments to the brand': 'المدفوع للعلامة',
     '✓ Nothing owed': '✓ لا يوجد مستحق', 'No payments yet.': 'لا توجد مدفوعات بعد.', 'Amount paid': 'المبلغ المدفوع', 'Paid on': 'تاريخ الدفع', 'Note, e.g. InstaPay': 'ملاحظة، مثال: إنستاباي',
     'Partner brand': 'العلامة الشريكة',
-    'Order notes': 'ملاحظات الطلب', 'Order notes:': 'ملاحظات الطلب:', 'For whoever packs the order — shown on the Bosta shipment and the waybill': 'لمن يجهّز الطلب — تظهر على شحنة بوسطة والبوليصة',
+    'Order notes': 'ملاحظات الطلب', 'Deposit paid now (EGP)': 'العربون المدفوع الآن (ج.م)', 'Optional. The deposit is taken off what the courier collects.': 'اختياري. العربون يُخصم من المبلغ الذي يحصّله المندوب.', 'Deposit paid': 'العربون المدفوع', 'Order notes:': 'ملاحظات الطلب:', 'For whoever packs the order — shown on the Bosta shipment and the waybill': 'لمن يجهّز الطلب — تظهر على شحنة بوسطة والبوليصة',
     'e.g. Gift wrap it, add 2 extra stickers, the logo must be gold': 'مثال: تغليف هدية، أضف 2 ستيكر زيادة، اللوجو لازم يكون ذهبي',
     'Sent to Bosta with the shipment (on the order page and the waybill) for whoever packs it': 'تُرسل لبوسطة مع الشحنة (في صفحة الطلب والبوليصة) لمن يجهّزها',
     'e.g. Gift wrap it, check the colour is black': 'مثال: تغليف هدية، تأكد أن اللون أسود',
