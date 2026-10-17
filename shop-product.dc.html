@@ -130,6 +130,12 @@
         <button onClick="{{ toggleWish }}" title="Save to wishlist" style="border:1px solid {{ wishBorder }};background:{{ wishBg }};color:{{ wishFg }};width:38px;height:38px;border-radius:999px;font-size:16px;cursor:pointer;flex:none">♥</button>
       </div>
       <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(30px,4vw,44px);margin:10px 0 0">{{ product.name }}</h1>
+      <sc-if value="{{ brand }}" hint-placeholder-val="{{ null }}">
+        <a href="{{ brand.href }}" class="link" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;font-weight:600;color:#4A4C3A">
+          <sc-if value="{{ brand.logo }}" hint-placeholder-val="{{ '' }}"><img src="{{ brand.logo }}" alt="" style="height:22px;max-width:70px;object-fit:contain"></sc-if>
+          <span>{{ brand.name }}</span><span style="background:#EEF3E8;color:#3F5A2E;border-radius:999px;padding:3px 9px;font-size:11.5px">✓ Official partner</span>
+        </a>
+      </sc-if>
       <sc-if value="{{ product.label }}" hint-placeholder-val="{{ null }}">
         <span style="display:inline-block;margin-top:12px;background:{{ badgeBg }};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.03em">{{ product.label }}</span>
       </sc-if>
@@ -146,6 +152,16 @@
         </sc-if>
       </div>
       <p style="font-size:15px;line-height:1.7;color:#6B6660;margin:20px 0 0;max-width:46ch">{{ product.desc }}</p>
+      <sc-if value="{{ brand }}" hint-placeholder-val="{{ null }}">
+        <div style="display:flex;gap:14px;align-items:center;margin-top:20px;padding:14px 16px;border:1px solid #E4DED5;border-radius:16px;background:#fff;max-width:520px">
+          <sc-if value="{{ brand.logo }}" hint-placeholder-val="{{ '' }}"><img src="{{ brand.logo }}" alt="{{ brand.name }}" style="width:84px;height:48px;object-fit:contain;flex:none"></sc-if>
+          <div style="font-size:13.5px;line-height:1.55;color:#6B6660">
+            <b style="color:#22201D">Sold in partnership with {{ brand.name }}</b>
+            <div>Original products, supplied directly by the brand. Delivered across Egypt by Where To Spot, with cash on delivery.</div>
+            <div style="margin-top:4px;display:flex;gap:14px;flex-wrap:wrap"><a href="{{ brand.href }}" class="link" style="color:var(--accent);font-weight:600">More from {{ brand.name }} →</a><sc-if value="{{ brand.link }}" hint-placeholder-val="{{ '' }}"><a href="{{ brand.link }}" target="_blank" rel="noopener" class="link" style="color:#6B6660">Visit the brand ↗</a></sc-if></div>
+          </div>
+        </div>
+      </sc-if>
 
       <sc-if value="{{ hasVariants }}" hint-placeholder-val="{{ false }}">
         <div style="margin-top:24px">
@@ -445,7 +461,7 @@ class Component extends DCLogic {
   renderVals() {
     const accent = this.props.accentColor ?? '#A8552F';
     const p = this.state.product;
-    if (!p) return { accent, notFound: this.state.notFound, hasProduct: false, product: { name: '', catLabel: '', placeholder: '', desc: '' }, thumbs: [], related: [], recentOthers: [], recentOthersCount: 0, reviews: [], qty: 1, galImgs: [], galDots: [],
+    if (!p) return { accent, notFound: this.state.notFound, hasProduct: false, brand: null, product: { name: '', catLabel: '', placeholder: '', desc: '' }, thumbs: [], related: [], recentOthers: [], recentOthersCount: 0, reviews: [], qty: 1, galImgs: [], galDots: [],
       langLabel: window.WTS_LANG === 'ar' ? 'EN' : 'ع', langTitle: window.WTS_LANG === 'ar' ? 'English' : 'العربية' };
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
     const qty = this.state.qty;
@@ -465,6 +481,7 @@ class Component extends DCLogic {
       cardHover: { transform: 'translateY(-3px)', boxShadow: '0 14px 28px -14px rgba(20,18,16,0.28)', borderColor: '#C9C0B2' },
       qtyBtnHover: { background: '#F1EDE5' },
       product: { ...p, catLabel: this.catLabels[p.cat] || p.cat, priceFmt: fmt(p.price) },
+      brand: (() => { const b = this._sd && this._sd.brandOf(p); return b ? { name: b.name, logo: b.logo ? this._sd.img(b.logo, 200) : '', link: b.link || '', href: 'index.html?brand=' + encodeURIComponent(b.slug) + '#products' } : null; })(),
       catHref: 'index.html',
       mainImgId: photoId(0),
       mainImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.img(this._sd.PRODUCT_IMAGES[p.id][0], 1000)) || '',

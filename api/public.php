@@ -19,7 +19,10 @@ try {
             unset($p['cost'], $p['createdAt'], $p['updatedAt']);
             return $p;
         }, load_products(true));
-        json_out(['categories' => $cats, 'products' => $products, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]], 200, paymob_is_test() ? 0 : 60);
+        // Partner brands that have something on sale (logo + name show on their products).
+        $used = array_flip(array_filter(array_map(function ($p) { return $p['brandId']; }, $products)));
+        $brands = array_values(array_filter(load_brands(true), function ($b) use ($used) { return isset($used[$b['id']]); }));
+        json_out(['categories' => $cats, 'products' => $products, 'brands' => $brands, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]], 200, paymob_is_test() ? 0 : 60);
     }
 
     // Cities Bosta delivers to (?action=areas) or the areas of one city (?action=areas&city=ID).

@@ -123,9 +123,9 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['promos', 'Promo codes', 'tag'],
+      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
       ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' ? 'products' : k));
+    ].filter(([k]) => can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -148,7 +148,7 @@
     $('#pwBtn').onclick = changePassword;
     const sb = $('#searchBtn'); if (sb) sb.onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, promos: pagePromos, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
   }
 
@@ -222,6 +222,7 @@
     file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
     tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
@@ -887,7 +888,7 @@
       $('#nPL').innerHTML = list.length ? list.map((p) => { const [a, b] = splitName(p.name); const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
         return '<button type="button" class="pp' + (p.id === chosen ? ' on' : '') + '" data-pid="' + esc(p.id) + '">' +
           '<span class="pp-img">' + (p.image ? '<img src="' + esc(thumb(p.image, 120)) + '" alt="" loading="lazy">' : icon('box')) + '</span>' +
-          '<span class="pp-t"><b>' + esc(a) + '</b>' + (AR && p.nameAr ? '<span class="small muted" dir="rtl">' + esc(p.nameAr) + '</span>' : '') + (b ? '<span class="it-sz">' + esc(b) + '</span>' : '') +
+          '<span class="pp-t"><b>' + esc(a) + '</b>' + (p.brandId && cat.brands && cat.brands[p.brandId] ? '<span class="small muted">★ ' + esc(cat.brands[p.brandId]) + '</span>' : '') + (AR && p.nameAr ? '<span class="small muted" dir="rtl">' + esc(p.nameAr) + '</span>' : '') + (b ? '<span class="it-sz">' + esc(b) + '</span>' : '') +
           '<span class="pp-m"><b class="pp-price">' + (ranged ? 'from ' : '') + egp(ranged ? p.fromPrice : p.price) + (p.cat === 'services' ? ' / month' : '') + '</b>' +
           (p.cat === 'services' ? '' : '<span class="' + (p.stock <= 5 ? 'pp-low' : '') + '">' + p.stock + ' in stock</span>') + '</span></span></button>'; }).join('')
         : '<div class="small muted" style="padding:8px">No product matches.</div>';
@@ -1037,7 +1038,7 @@
   // ---------- products ----------
   async function pageProducts() {
     const d = await api('products');
-    S.products = d.products; S.cats = d.categories;
+    S.products = d.products; S.cats = d.categories; S.brands = d.brands || [];
     const cat = S.prodCat || '';
     const q = (S.prodQ || '').toLowerCase();
     const list = d.products.filter((p) => (!cat || p.cat === cat) && (!q || (p.name + ' ' + p.sku + ' ' + p.vendor).toLowerCase().includes(q)));
@@ -1053,7 +1054,7 @@
           const img = p.images[0] ? thumb(p.images[0].path, 120) : '';
           const sale = (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? p.fromPrice : (p.discountPct ? Math.round(p.price * (1 - p.discountPct / 100)) : p.price);
           return '<tr class="click" data-id="' + esc(p.id) + '"><td style="width:60px">' + (img ? '<img class="thumb" src="' + esc(img) + '" alt="" loading="lazy">' : '<div class="thumb"></div>') + '</td>' +
-            '<td><b>' + esc(p.name) + '</b><div class="small muted">' + esc([p.sku, p.vendor].filter(Boolean).join(' · ')) + ' · ' + p.images.length + ' photo' + (p.images.length === 1 ? '' : 's') + '</div></td>' +
+            '<td><b>' + esc(p.name) + '</b>' + brandChip(p.brandId) + '<div class="small muted">' + esc([p.sku, p.vendor].filter(Boolean).join(' · ')) + ' · ' + p.images.length + ' photo' + (p.images.length === 1 ? '' : 's') + '</div></td>' +
             '<td>' + esc(catLabel(p.cat)) + (p.variants && p.variants.length ? '<div class="small muted">' + p.variants.length + ' sizes</div>' : '') + '</td><td class="num">' + ((p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? '<span class="small muted">from </span>' : '') + egp(sale) + (p.discountPct ? '<div class="small muted"><s>' + egp(p.price) + '</s></div>' : '') + (p.period ? '<div class="small muted">/ month</div>' : '') + '</td>' +
             '<td class="num">' + (p.cat === 'services' ? '—' : (p.stock <= 5 ? '<span class="pill warn">⚠ ' + p.stock + '</span>' : p.stock)) + '</td><td>' + pill(PRODUCT_TONE, p.status) + '</td></tr>';
         }).join('') + '</tbody></table></div>' : '<div class="card empty">No products here yet. <button class="btn primary sm" id="addBtn2">Add one</button></div>');
@@ -1064,11 +1065,12 @@
     $('#catsBtn').onclick = categoriesDrawer;
     $$('tr[data-id]').forEach((tr) => tr.onclick = () => productDrawer(S.products.find((p) => p.id === tr.dataset.id)));
     if (S.openProduct) { const p = S.products.find((x) => x.id === S.openProduct); S.openProduct = null; if (p) productDrawer(p); }
+    if (S.newBrand) { productDrawer(null); S.newBrand = null; } // "+ Add product" on a partner brand
   }
 
   function productDrawer(p) {
     const isNew = !p;
-    p = p || { id: '', name: '', nameAr: '', subAr: '', descAr: '', sku: '', vendor: '', cat: S.prodCat || (S.cats[0] || {}).key, price: '', cost: '', stock: 0, discountPct: 0, label: '', status: 'Active', sub: '', desc: '', features: [], images: [], variants: [], tiers: [], addons: [], personalized: false };
+    p = p || { id: '', name: '', nameAr: '', subAr: '', descAr: '', sku: '', vendor: '', brandId: S.newBrand || null, cat: S.prodCat || (S.cats[0] || {}).key, price: '', cost: '', stock: 0, discountPct: 0, label: '', status: 'Active', sub: '', desc: '', features: [], images: [], variants: [], tiers: [], addons: [], personalized: false };
     // Working copy of sizes / quantity prices / extras, edited in the "Sizes & prices" card.
     const opt = {
       variants: JSON.parse(JSON.stringify(p.variants || [])),
@@ -1083,6 +1085,8 @@
       '<div class="grid3"><label class="field">Price (EGP)<input type="number" name="price" min="0" step="0.01" value="' + esc(p.price) + '"><span class="hint" id="priceHint">Price for one piece</span></label>' +
       '<label class="field">Discount %<input type="number" name="discountPct" min="0" max="90" step="0.01" value="' + esc(p.discountPct) + '"></label>' +
       '<label class="field" id="stockField">Stock<input type="number" name="stock" min="0" step="1" value="' + esc(p.stock) + '"><span class="hint">Ignored for plans</span></label></div>' +
+      '<label class="field">Partner brand <span class="hint">Shows the brand’s logo on this product in the shop. Its sales go on the brand’s statement, with your commission.</span><select name="brandId">' +
+        '<option value="">Where To Spot (our own product)</option>' + (S.brands || []).map((b) => '<option value="' + b.id + '"' + (b.id === p.brandId ? ' selected' : '') + '>' + esc(b.name) + (b.commission ? ' · ' + b.commission + '% commission' : '') + (b.active ? '' : ' (off)') + '</option>').join('') + '</select></label>' +
       '<div class="card stack" id="optCard"></div>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="personalized" ' + (p.personalized ? 'checked' : '') + '> Needs personalisation <span class="hint" style="font-weight:400">Checkout asks for business name, review link, logo and design notes</span></label>' +
       '<div class="grid3"><label class="field">Cost (EGP)<input type="number" name="cost" min="0" step="0.01" value="' + esc(p.cost) + '"><span class="hint">Private — not shown in shop</span></label>' +
@@ -1642,6 +1646,115 @@
       '<div class="hint">Secret values are never shown here. The connection test asks Paymob to prepare a EGP 1 payment that nobody pays — nothing is charged.</div></div>';
     $('#psRe').onclick = () => pageSettings(false);
     const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
+  }
+
+  // ---------- partner brands ----------
+  // Brands that supply products we sell under their logo; we keep a commission on each sale.
+  const brandChip = (id) => { const b = (S.brands || []).find((x) => x.id === id); return b ? ' <span class="pill brand-pill">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : '★ ') + esc(b.name) + '</span>' : ''; };
+  const monthLabel = (m) => new Date(m + '-01T00:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
+  const lastMonths = (n) => Array.from({ length: n }, (_, i) => { const x = new Date(); x.setDate(1); x.setMonth(x.getMonth() - i); return x.toISOString().slice(0, 7); });
+
+  async function pageBrands() {
+    const month = S.brandMonth || new Date().toISOString().slice(0, 7);
+    const d = await api('brands', { query: '&month=' + month });
+    S.brands = d.brands;
+    const money = d.brands.some((b) => b.month);
+    $('#main').innerHTML = header('Partner brands', 'Brands whose products you sell under their logo. Each sale earns your commission; the rest is theirs.',
+      (money ? '<select id="bMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' : '') +
+      '<button class="btn primary" id="newBrand">+ Add brand</button>') +
+      (d.brands.length ? '<div class="brand-grid">' + d.brands.map((b) => '<div class="card brand-card' + (b.active ? '' : ' off') + '" data-b="' + b.id + '">' +
+        '<div class="row"><span class="brand-logo">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : esc(b.name[0] || '?')) + '</span><span style="flex:1;min-width:0"><b>' + esc(b.name) + '</b>' +
+          '<div class="small muted">' + b.live + ' live of ' + b.products + ' products · ' + (b.commission ? b.commission + '% commission' : '<span class="pay-part">commission not set</span>') + '</div></span>' +
+          (b.active ? '<span class="pill good">✓ On</span>' : '<span class="pill">Off</span>') + '</div>' +
+        (b.month ? '<div class="brand-nums"><div><span class="small muted">Sold in ' + esc(monthLabel(d.month)) + '</span><b>' + egp(b.month.sales) + '</b><span class="small muted">' + b.month.pieces + ' pcs · ' + b.month.orders + ' orders</span></div>' +
+          '<div><span class="small muted">Your commission</span><b class="pay-ok">' + egp(b.month.commission) + '</b></div>' +
+          '<div><span class="small muted">Owed to the brand now</span><b' + (b.balance.owed > 0 ? ' class="pay-part"' : '') + '>' + egp(b.balance.owed) + '</b><span class="small muted">' + (b.balance.pending ? egp(b.balance.pending) + ' more once delivered' : 'delivered orders only') + '</span></div></div>' : '') +
+        '<div class="row"><button class="btn sm" data-edit="' + b.id + '">Edit brand</button>' + (b.month ? '<button class="btn sm primary" data-st="' + b.id + '">Statement & payments</button>' : '') +
+          '<span class="spacer"></span><button class="btn sm" data-add="' + b.id + '">+ Add product</button></div></div>').join('') + '</div>'
+        : '<div class="card empty">No partner brands yet. Press “Add brand”.</div>') +
+      '<p class="small muted" style="margin-top:14px">How it works: give each product its brand in Products → edit → Partner brand. The shop shows the brand’s logo with an “Official partner” badge. ' +
+      'Commission is a share of the item price; delivery fees and promo-code discounts are yours. A sale counts toward what you owe the brand once the order is Delivered.</p>';
+    const ms = $('#bMonth'); if (ms) ms.onchange = () => { S.brandMonth = ms.value; pageBrands(); };
+    $('#newBrand').onclick = () => brandDrawer(null);
+    $$('[data-edit]').forEach((b) => b.onclick = () => brandDrawer(d.brands.find((x) => x.id === +b.dataset.edit)));
+    $$('[data-st]').forEach((b) => b.onclick = () => brandStatement(+b.dataset.st, d.month));
+    $$('[data-add]').forEach((b) => b.onclick = () => { S.newBrand = +b.dataset.add; location.hash = '#products'; });
+  }
+
+  function brandDrawer(b) {
+    const isNew = !b;
+    b = b || { name: '', nameAr: '', tagline: '', taglineAr: '', about: '', aboutAr: '', link: '', commission: '', active: true, logo: '' };
+    const body = '<form id="brf" class="stack">' +
+      '<div class="grid2"><label class="field">Brand name<input name="name" required maxlength="80" value="' + esc(b.name) + '"></label>' +
+      '<label class="field">Name in Arabic<input name="nameAr" dir="rtl" maxlength="80" value="' + esc(b.nameAr) + '"></label></div>' +
+      '<div class="grid2"><label class="field">Commission (%) <span class="hint">Your share of each item’s price</span><input name="commission" type="number" min="0" max="100" step="0.5" value="' + esc(b.commission) + '" placeholder="e.g. 20"></label>' +
+      '<label class="field">Instagram or website<input name="link" type="url" value="' + esc(b.link) + '" placeholder="https://instagram.com/…"></label></div>' +
+      '<div class="grid2"><label class="field">Short line <span class="hint">Under the name, e.g. Specialty coffee roasters</span><input name="tagline" maxlength="120" value="' + esc(b.tagline) + '"></label>' +
+      '<label class="field">Short line in Arabic<input name="taglineAr" dir="rtl" maxlength="120" value="' + esc(b.taglineAr) + '"></label></div>' +
+      '<div class="grid2"><label class="field">About the brand <span class="hint">Shown on its products</span><textarea name="about" maxlength="1000">' + esc(b.about) + '</textarea></label>' +
+      '<label class="field">About, in Arabic<textarea name="aboutAr" dir="rtl" maxlength="1000">' + esc(b.aboutAr) + '</textarea></label></div>' +
+      '<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" name="active"' + (b.active ? ' checked' : '') + '> Show the brand in the shop</label>' +
+      '<p class="small muted" style="margin:0" id="brPreview"></p></form>' +
+      '<div class="stack" style="margin-top:20px"><b>Logo</b>' + (isNew ? '<div class="card muted small">Save the brand first, then add its logo.</div>'
+        : '<div class="row"><span class="brand-logo lg" id="brLogo">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : '—') + '</span>' +
+          '<label class="btn sm" style="cursor:pointer">⬆ Upload logo<input type="file" id="brFile" accept="image/jpeg,image/png,image/webp" hidden></label><span class="hint">PNG with a plain or clear background works best</span></div>') + '</div>';
+    const w = openDrawer(isNew ? 'Add brand' : b.name, body, (isNew ? '' : '<button class="btn danger" id="brDel">Delete</button>') +
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="brf" type="submit">Save</button>');
+    $$('[data-close]', w).forEach((x) => x.addEventListener('click', closeDrawer));
+    const f = $('#brf');
+    const preview = () => { const c = +f.elements.commission.value || 0; $('#brPreview').textContent = c ? 'On an item sold for ' + egp(1000) + ', you keep ' + egp(1000 * c / 100) + ' and owe the brand ' + egp(1000 - 1000 * c / 100) + '.' : ''; };
+    f.elements.commission.oninput = preview; preview();
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const data = formData(f); data.id = b.id || 0;
+      try { const r = await api('brand_save', { method: 'POST', body: data }); toast('Brand saved'); if (isNew) { await pageBrands(); brandDrawer(r.brand); } else { closeDrawer(); pageBrands(); } }
+      catch (err) { toast(err.message, true); }
+    };
+    const file = $('#brFile');
+    if (file) file.onchange = async () => {
+      const fd = new FormData(); fd.append('brand_id', b.id); fd.append('file', file.files[0]);
+      try { const r = await api('brand_logo', { method: 'POST', form: fd }); b.logo = r.logo; $('#brLogo').innerHTML = '<img src="../' + esc(r.logo) + '" alt="">'; toast('Logo saved'); }
+      catch (err) { toast(err.message, true); }
+    };
+    const del = $('#brDel');
+    if (del) del.onclick = async () => {
+      if (!confirm('Delete the brand ' + b.name + '?')) return;
+      try { await api('brand_delete', { method: 'POST', body: { id: b.id } }); toast('Brand deleted'); closeDrawer(); pageBrands(); }
+      catch (err) { toast(err.message, true); }
+    };
+  }
+
+  async function brandStatement(id, month) {
+    const d = await api('brand_statement', { query: '&id=' + id + '&month=' + month });
+    const t = d.totals, bal = d.balance;
+    const body = '<div class="stack">' +
+      '<div class="row"><select id="stMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' +
+        '<span class="spacer"></span><a class="btn sm" target="_blank" rel="noopener" href="doc.html?brand=' + id + '&month=' + d.month + '">' + icon('file') + 'Statement to share</a></div>' +
+      '<div class="kpis" style="margin:0"><div class="kpi"><div class="label">Sold</div><div class="value">' + egp(t.sales) + '</div><div class="note">' + t.pieces + ' pcs · ' + t.orders + ' orders</div></div>' +
+        '<div class="kpi"><div class="label">Your commission</div><div class="value">' + egp(t.commission) + '</div><div class="note">' + (d.brand.commission || 0) + '% now</div></div>' +
+        '<div class="kpi"><div class="label">Brand’s share</div><div class="value">' + egp(t.due) + '</div><div class="note">' + egp(t.deliveredDue) + ' delivered</div></div></div>' +
+      '<div class="card"><h2>Items sold in ' + esc(monthLabel(d.month)) + '</h2>' + (d.lines.length ? '<div class="list">' + d.lines.map((l) =>
+        '<div class="li"><span><b>' + esc(l.number) + '</b> · ' + esc(l.qty + '× ' + l.name) + '<div class="small muted">' + esc(l.customer) + ' · ' + dateTime(l.at) + '</div></span>' +
+        '<span style="text-align:right">' + pill(ORDER_TONE, l.status) + '<div class="small"><b>' + egp(l.sales) + '</b> · ' + l.pct + '% = ' + egp(l.commission) + '</div></span></div>').join('') + '</div>'
+        : '<div class="small muted">Nothing sold this month.</div>') + '</div>' +
+      '<div class="card"><h2>Payments to the brand<span class="spacer"></span>' + (bal.owed > 0 ? '<span class="pill warn">' + egp(bal.owed) + ' owed</span>' : '<span class="pill good">✓ Nothing owed</span>') + '</h2>' +
+        '<div class="row small muted" style="margin-bottom:10px"><span>Their share of delivered orders ' + egp(bal.earned) + '</span><span class="spacer"></span><span>Paid ' + egp(bal.paid) + '</span></div>' +
+        (d.payouts.length ? '<div class="list">' + d.payouts.map((p) => '<div class="li"><span><b>' + egp(p.amount) + '</b>' + (p.note ? ' · ' + esc(p.note) : '') + '<div class="small muted">' + esc(fmtDay(p.on)) + (p.by ? ' · ' + esc(p.by) : '') + '</div></span>' +
+          '<button type="button" class="btn sm" data-pd="' + p.id + '" aria-label="Delete payment">✕</button></div>').join('') + '</div>' : '<div class="small muted">No payments yet.</div>') +
+        '<div class="row" style="margin-top:12px"><input type="number" id="poAmt" step="0.01" placeholder="Amount" value="' + (bal.owed > 0 ? bal.owed : '') + '" style="width:130px" aria-label="Amount paid">' +
+          '<input type="date" id="poOn" value="' + cairoToday() + '" style="width:auto" aria-label="Paid on"><input type="text" id="poNote" placeholder="Note, e.g. InstaPay" style="flex:1;min-width:120px">' +
+          '<button type="button" class="btn sm primary" id="poAdd">Record payment</button></div></div></div>';
+    openDrawer(d.brand.name + ' · statement', body, '<span class="spacer"></span><button class="btn" data-close>Close</button>');
+    $('#stMonth').onchange = (e) => brandStatement(id, e.target.value);
+    $('#poAdd').onclick = async () => {
+      try { await api('brand_payout', { method: 'POST', body: { brand_id: id, amount: $('#poAmt').value, on: $('#poOn').value, note: $('#poNote').value } }); toast('Payment recorded'); brandStatement(id, d.month); if (S.route === 'brands') { const dr = document.getElementById('drawer'); dr.remove(); await pageBrands(); document.body.appendChild(dr); } }
+      catch (err) { toast(err.message, true); }
+    };
+    $$('[data-pd]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Delete this payment?')) return;
+      try { await api('brand_payout_delete', { method: 'POST', body: { id: +b.dataset.pd } }); brandStatement(id, d.month); }
+      catch (err) { toast(err.message, true); }
+    });
   }
 
   // ---------- promo codes ----------

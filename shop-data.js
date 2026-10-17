@@ -348,6 +348,8 @@ const API = 'api/public.php';
 export let CATEGORIES = null;
 // Online payment methods the shop can take right now (from the server), e.g. ['paymob_card', 'paymob_wallet'].
 export let PAYMENTS = { online: [], test: false };
+// Partner brands (their products show the brand's logo and an "Official partner" mark).
+export let BRANDS = [];
 
 export async function fetchCatalog() {
   try {
@@ -357,6 +359,7 @@ export async function fetchCatalog() {
     // In Arabic, use the Arabic names where the team filled them in; keep the English ones for search.
     CATEGORIES = data.categories.map(c => AR ? { ...c, labelEn: c.label, label: c.labelAr || c.label, desc: c.descAr || c.desc } : c);
     if (data.payments) PAYMENTS = data.payments;
+    BRANDS = (data.brands || []).map(b => AR ? { ...b, nameEn: b.name, name: b.nameAr || b.name, tagline: b.taglineAr || b.tagline, about: b.aboutAr || b.about } : b);
     Object.keys(PRODUCT_IMAGES).forEach(k => delete PRODUCT_IMAGES[k]);
     data.products.forEach(p => { PRODUCT_IMAGES[p.id] = p.images; });
     return data.products.map(p => AR ? { ...p, nameEn: p.name, name: p.nameAr || p.name, sub: p.subAr || p.sub, desc: p.descAr || p.desc } : p);
@@ -442,6 +445,7 @@ export function lineKey(id, variant, addons) { return [id, variant || '', (addon
 // Product photos at the size they're shown (api/img.php makes and caches resized WebP copies).
 // Bump to make browsers fetch fresh copies of every resized photo (they're cached for a year).
 const IMG_VERSION = 2;
+export function brandOf(p) { return (p && p.brandId && BRANDS.find(b => b.id === p.brandId)) || null; }
 export function img(src, w) {
   if (!src || !/^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(src)) return src || '';
   return 'api/img.php?src=' + encodeURIComponent(src) + '&w=' + (w || 600) + '&v=' + IMG_VERSION;

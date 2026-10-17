@@ -72,6 +72,8 @@ function create_order(array $in, array $opts = []): array
             if ((float) $p['cost'] > 0) $line['cost'] = (float) $p['cost']; // unit cost at the time of sale, for profit
             if ($variant) $line['variant'] = (string) $variant['id'];
             if ($addons) $line['addons'] = $addons;
+            // Partner brand's product: remember the brand and its commission at the time of sale.
+            if (!empty($p['brand_id']) && ($brand = brand_get((int) $p['brand_id']))) { $line['brand'] = (int) $brand['id']; $line['comm'] = (float) $brand['commission']; }
             $lines[] = $line;
             $subtotal += $lineTotal;
             if ($p['cat'] !== 'services') $physical += $lineTotal;

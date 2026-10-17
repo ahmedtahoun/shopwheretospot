@@ -277,6 +277,24 @@
     'Saved category': 'حفظ فئة', 'Signed in': 'سجّل الدخول', 'Updated lead': 'حدّث عميلًا محتملًا', 'Updated promo code': 'حدّث كود خصم', 'Updated quote': 'حدّث عرض سعر', 'Updated targets': 'حدّث الأهداف',
     'Updated order': 'حدّث طلبًا', 'Saved product': 'حفظ منتجًا', 'Recorded payment': 'سجّل دفعة', 'Updated team member': 'حدّث عضوًا بالفريق', 'Added team member': 'أضاف عضوًا للفريق',
 
+    // partner brands
+    'Partner brands': 'العلامات الشريكة', 'Brands whose products you sell under their logo. Each sale earns your commission; the rest is theirs.': 'علامات تبيع منتجاتها بشعارها. كل بيعة لك فيها عمولتك، والباقي لصاحب العلامة.',
+    '+ Add brand': '+ إضافة علامة', 'commission not set': 'العمولة غير محددة', '✓ On': '✓ ظاهرة', 'Your commission': 'عمولتك', 'Owed to the brand now': 'المستحق للعلامة الآن',
+    'delivered orders only': 'الطلبات المسلّمة فقط', 'Edit brand': 'تعديل العلامة', 'Statement & payments': 'كشف الحساب والمدفوعات', '+ Add product': '+ إضافة منتج',
+    'No partner brands yet. Press “Add brand”.': 'لا توجد علامات شريكة بعد. اضغط "إضافة علامة".',
+    'Brand name': 'اسم العلامة', 'Commission (%)': 'العمولة (%)', 'Your share of each item’s price': 'نسبتك من سعر كل منتج', 'Instagram or website': 'إنستجرام أو الموقع',
+    'Under the name, e.g. Specialty coffee roasters': 'تحت الاسم، مثال: محمصة قهوة مختصة', 'About the brand': 'عن العلامة', 'Shown on its products': 'يظهر على منتجاتها', 'About, in Arabic': 'نبذة بالعربي',
+    'Show the brand in the shop': 'إظهار العلامة في المتجر', 'Logo': 'الشعار', 'Save the brand first, then add its logo.': 'احفظ العلامة أولًا، ثم أضف شعارها.', '⬆ Upload logo': '⬆ رفع الشعار',
+    'PNG with a plain or clear background works best': 'الأفضل PNG بخلفية سادة أو شفافة', 'Add brand': 'إضافة علامة', 'Brand saved': 'تم حفظ العلامة', 'Logo saved': 'تم حفظ الشعار', 'Brand deleted': 'تم حذف العلامة',
+    'Statement to share': 'كشف حساب للمشاركة', 'Sold': 'المبيعات', 'Brand’s share': 'نصيب العلامة', 'Nothing sold this month.': 'لا توجد مبيعات هذا الشهر.', 'Payments to the brand': 'المدفوع للعلامة',
+    '✓ Nothing owed': '✓ لا يوجد مستحق', 'No payments yet.': 'لا توجد مدفوعات بعد.', 'Amount paid': 'المبلغ المدفوع', 'Paid on': 'تاريخ الدفع', 'Note, e.g. InstaPay': 'ملاحظة، مثال: إنستاباي',
+    'Partner brand': 'العلامة الشريكة', 'Where To Spot (our own product)': 'Where To Spot (منتجنا)',
+    'Shows the brand’s logo on this product in the shop. Its sales go on the brand’s statement, with your commission.': 'يظهر شعار العلامة على المنتج في المتجر. مبيعاته تُسجَّل في كشف حساب العلامة مع عمولتك.',
+    'Enter the brand name.': 'اكتب اسم العلامة.', 'Brand not found.': 'العلامة غير موجودة.', 'Enter the amount you paid the brand.': 'اكتب المبلغ الذي دفعته للعلامة.',
+    'Move this brand’s products to another brand (or delete them) first. To hide the brand, switch it off instead.': 'انقل منتجات هذه العلامة أو احذفها أولًا. لإخفاء العلامة، أوقفها بدلًا من الحذف.',
+    'This brand has sales on record, so it is kept for its statements. Switch it off instead.': 'هذه العلامة لها مبيعات مسجّلة، لذلك تُحفظ لكشوف الحساب. أوقفها بدلًا من الحذف.',
+    'Added brand': 'أضاف علامة', 'Updated brand': 'حدّث علامة', 'Deleted brand': 'حذف علامة', 'Paid brand': 'دفع لعلامة', 'Deleted a brand payment': 'حذف دفعة لعلامة',
+
     // messages from the server
     'Could not reach the server — check your internet connection and try again.': 'تعذّر الوصول للخادم — تأكد من الإنترنت وحاول مرة أخرى.',
     'Not signed in': 'لم يتم تسجيل الدخول', 'You do not have access to this': 'ليس لديك صلاحية لهذا', 'Session expired, please reload': 'انتهت الجلسة، أعد تحميل الصفحة',
@@ -374,6 +392,12 @@
     [/^Request failed \((\d+)\)$/, 'فشل الطلب ($1)'], [/^Bosta did not return a printable waybill\.(.*)$/, 'بوسطة لم ترسل بوليصة قابلة للطباعة.$1'],
     [/^Could not reach Bosta: (.+)$/, 'تعذّر الوصول لبوسطة: $1'], [/^This order already has a Bosta shipment \((.+)\)\.?$/, 'هذا الطلب له شحنة بوسطة بالفعل ($1).'],
     [/^Choose an option for (.+)$/, 'اختر اختيارًا لـ $1'], [/^(.+): only (\d+) left in stock\.?$/, '$1: متبقي $2 فقط في المخزون.'],
+    [/^(\d+) live of (\d+) products$/, '$1 معروض من $2 منتج'], [/^([\d.]+)% commission$/, 'عمولة $1%'], [/^([\d.]+)% now$/, '$1% حاليًا'],
+    [/^Sold in (.+)$/, 'المبيعات في $1'], [/^Items sold in (.+)$/, 'المنتجات المباعة في $1'], [/^(.+) more once delivered$/, '$1 إضافية بعد التسليم'],
+    [/^(.+) delivered$/, '$1 تم تسليمه'], [/^(.+) owed$/, '$1 مستحق'], [/^Their share of delivered orders (.+)$/, 'نصيبهم من الطلبات المسلّمة $1'],
+    [/^(.+) · statement$/, '$1 · كشف الحساب'], [/^Delete the brand (.+)\?$/, 'حذف العلامة $1؟'], [/^(.+) \(off\)$/, '$1 (متوقفة)'],
+    [/^On an item sold for (.+), you keep (.+) and owe the brand (.+)\.$/, 'على منتج بيع بـ $1، تحتفظ بـ $2 وتدفع للعلامة $3.'],
+    [/^How it works: (.+)$/, 'طريقة العمل: حدّد علامة كل منتج من المنتجات ← تعديل ← العلامة الشريكة. يظهر شعار العلامة في المتجر مع علامة "شريك رسمي". العمولة نسبة من سعر المنتج؛ رسوم التوصيل وخصومات أكواد الخصم عليك. تُحسب البيعة ضمن مستحقات العلامة عندما يصبح الطلب "تم التسليم".'],
     [/^(.+) →$/, function (m, a) { var t = tr(a); return t ? t + ' ←' : null; }], [/^→ (.+)$/, '← $1'],
     // a status badge: "● Pending", "✓ Delivered"
     [/^([^\w\s]{1,2}) (.+)$/, function (m, ic, a) { var t = tr(a); return t ? ic + ' ' + t : null; }],

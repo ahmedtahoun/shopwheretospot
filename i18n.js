@@ -49,6 +49,11 @@
     'We accept': 'طرق الدفع', 'Secure online payments by Paymob': 'مدفوعات إلكترونية آمنة عبر Paymob',
     'Online payments are processed securely by Paymob. We never see or store your card details.': 'المدفوعات الإلكترونية تتم بأمان عبر Paymob. لا نرى بيانات بطاقتك ولا نحتفظ بها.',
 
+    // partner brands
+    'Partner brands': 'علامات شريكة', '✓ Official partner · original products supplied by the brand': '✓ شريك رسمي · منتجات أصلية من العلامة مباشرة',
+    '✓ Official partner': '✓ شريك رسمي', 'Official partner': 'شريك رسمي', 'Sold in partnership with': 'يُباع بالشراكة مع', 'More from': 'المزيد من', 'Visit': 'زيارة', 'Visit the brand ↗': 'زيارة العلامة ↗',
+    'Original products, supplied directly by the brand. Delivered across Egypt by Where To Spot, with cash on delivery.': 'منتجات أصلية من العلامة مباشرة. توصّلها Where To Spot لكل مصر، مع الدفع عند الاستلام.',
+
     // shop
     'Where To Spot · Shop': 'Where To Spot · المتجر', 'by category': 'حسب الفئة', 'Search products': 'ابحث عن منتج', 'All': 'الكل',
     'Shop by category': 'تسوّق حسب الفئة', 'In stock': 'المتوفر فقط', 'Min EGP': 'من (ج.م)', 'Max EGP': 'إلى (ج.م)', 'Minimum price': 'أقل سعر', 'Maximum price': 'أعلى سعر',
@@ -251,6 +256,7 @@
     [/^Only (\d+) left$/, 'متبقي $1 فقط'],
     [/^([\d.]+) \((\d+) reviews?\)$/, '$1 ($2 تقييم)'],
     [/^Reviews \((\d+)\)$/, 'التقييمات ($1)'],
+    [/^(.+) · Official partner$/, '$1 · شريك رسمي'],
     [/^· (.+) ↗$/, function (m, a) { var t = tr(a); return t ? '· ' + t + ' ↗' : null; }], [/^Reviews$/, 'التقييمات'],
     [/^(.+) each$/, '$1 للقطعة'],
     [/^(.+) \(sold out\)$/, '$1 (نفد)'],

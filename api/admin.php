@@ -241,13 +241,15 @@ try {
     case 'order_catalog':
         require_perm('sell');
         $rows = array_map(function ($p) {
-            return ['id' => $p['id'], 'name' => $p['name'], 'nameAr' => $p['nameAr'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
+            return ['id' => $p['id'], 'name' => $p['name'], 'nameAr' => $p['nameAr'], 'brandId' => $p['brandId'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
                 'discountPct' => $p['discountPct'], 'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub'],
                 'variants' => array_map(function ($v) { unset($v['sku']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
                 'personalized' => $p['personalized'], 'fromPrice' => $p['fromPrice']];
         }, load_products(true));
         $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
-        json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => array_filter(PAYMENT_METHODS, function ($k) { return strpos($k, 'paymob') !== 0; }, ARRAY_FILTER_USE_KEY), 'reps' => $reps,
+        $brandNames = [];
+        foreach (load_brands(false) as $br) $brandNames[$br['id']] = $br['name'];
+        json_out(['products' => $rows, 'sources' => ORDER_SOURCES, 'payments' => array_filter(PAYMENT_METHODS, function ($k) { return strpos($k, 'paymob') !== 0; }, ARRAY_FILTER_USE_KEY), 'reps' => $reps, 'brands' => (object) $brandNames,
             'shippingFee' => cfg('shipping_fee'), 'freeShippingThreshold' => cfg('free_shipping_threshold')]);
 
     // New order: find an existing customer by name or phone and return their details to fill in.
@@ -333,7 +335,7 @@ try {
     case 'products':
         require_perm('products');
         $cats = db()->query('SELECT key, label, descr, label_ar, descr_ar, sort, (SELECT COUNT(*) FROM products p WHERE p.cat = c.key) AS count FROM categories c ORDER BY sort, label')->fetchAll();
-        json_out(['products' => load_products(false), 'categories' => $cats]);
+        json_out(['products' => load_products(false), 'categories' => $cats, 'brands' => load_brands(false, true)]);
 
     case 'product_save':
         $u = require_perm('products');
@@ -376,15 +378,16 @@ try {
             ':features' => json_encode($features, JSON_UNESCAPED_UNICODE), ':period' => $cat === 'services' ? 'month' : '',
             ':variants' => json_encode($variants, JSON_UNESCAPED_UNICODE), ':tiers' => json_encode($tiers), ':addons' => json_encode($addons, JSON_UNESCAPED_UNICODE),
             ':personalized' => empty($b['personalized']) ? 0 : 1,
+            ':brand_id' => !empty($b['brandId']) && brand_get((int) $b['brandId']) ? (int) $b['brandId'] : null,
         ];
         if ($isNew) {
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM products')->fetchColumn();
-            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar)
-                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar)')->execute($vals);
+            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar, brand_id)
+                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar, :brand_id)')->execute($vals);
         } else {
             $st = $pdo->prepare("UPDATE products SET sku=:sku, name=:name, cat=:cat, vendor=:vendor, price=:price, cost=:cost, stock=:stock, discount_pct=:discount_pct,
                 label=:label, status=:status, sub=:sub, descr=:descr, features=:features, period=:period, variants=:variants, tiers=:tiers, addons=:addons,
-                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, updated_at=datetime('now') WHERE id=:id");
+                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, brand_id=:brand_id, updated_at=datetime('now') WHERE id=:id");
             $st->execute($vals);
             if (!$st->rowCount()) fail('Product not found.', 404);
         }
@@ -918,6 +921,117 @@ try {
         json_out(['ok' => true]);
 
     // ---------- promo codes ----------
+
+    // ---------- partner brands ----------
+
+    case 'brands':
+        $u = require_perm('products');
+        $month = preg_match('/^\d{4}-\d{2}$/', $_GET['month'] ?? '') ? $_GET['month'] : gmdate('Y-m');
+        $money = in_array('revenue', $u['perms'], true);
+        $counts = [];
+        foreach (db()->query("SELECT brand_id, COUNT(*) n, SUM(status = 'Active') live FROM products WHERE brand_id IS NOT NULL GROUP BY brand_id") as $r) $counts[(int) $r['brand_id']] = $r;
+        $out = array_map(function ($b) use ($month, $counts, $money) {
+            $b['products'] = (int) ($counts[$b['id']]['n'] ?? 0);
+            $b['live'] = (int) ($counts[$b['id']]['live'] ?? 0);
+            if ($money) { $b['month'] = brand_totals(brand_lines($b['id'], $month)); $b['balance'] = brand_balance($b['id']); }
+            return $b;
+        }, load_brands(false, true));
+        json_out(['brands' => $out, 'month' => $month]);
+
+    case 'brand_save':
+        $u = require_perm('products');
+        $b = body();
+        $id = (int) ($b['id'] ?? 0);
+        $name = str_in($b['name'] ?? '', 80);
+        if ($name === '') fail('Enter the brand name.');
+        $link = str_in($b['link'] ?? '', 300);
+        if ($link !== '' && !preg_match('~^https?://~i', $link)) $link = 'https://' . $link;
+        $vals = [':name' => $name, ':name_ar' => str_in($b['nameAr'] ?? '', 80), ':tagline' => str_in($b['tagline'] ?? '', 120), ':tagline_ar' => str_in($b['taglineAr'] ?? '', 120),
+            ':about' => str_in($b['about'] ?? '', 1000), ':about_ar' => str_in($b['aboutAr'] ?? '', 1000), ':link' => $link,
+            ':commission' => max(0, min(100, (float) ($b['commission'] ?? 0))), ':active' => empty($b['active']) ? 0 : 1];
+        $pdo = db();
+        if ($id) {
+            $vals[':id'] = $id;
+            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, active=:active WHERE id=:id');
+            $st->execute($vals);
+            if (!$st->rowCount() && !brand_get($id)) fail('Brand not found.', 404);
+        } else {
+            $slug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)), '-') ?: 'brand';
+            $base = $slug; $n = 1;
+            $chk = $pdo->prepare('SELECT 1 FROM brands WHERE slug = ?');
+            while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn()) break; $slug = $base . '-' . (++$n); }
+            $vals[':slug'] = $slug;
+            $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM brands')->fetchColumn();
+            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :active, :sort)')->execute($vals);
+            $id = (int) $pdo->lastInsertId();
+        }
+        log_activity($u, !empty($b['id']) ? 'Updated brand' : 'Added brand', $name);
+        json_out(['brand' => brand_row(brand_get($id), true)]);
+
+    case 'brand_logo':
+        $u = require_perm('products');
+        $id = (int) ($_POST['brand_id'] ?? 0);
+        $brand = brand_get($id);
+        if (!$brand) fail('Save the brand first, then add its logo.', 404);
+        $f = $_FILES['file'] ?? null;
+        if (!$f || $f['error'] !== UPLOAD_ERR_OK) fail('Upload failed. Photos must be under ' . (cfg('max_upload_bytes') >> 20) . ' MB.');
+        $path = store_image($f, 'brand' . $id);
+        if ($brand['logo']) delete_upload((string) $brand['logo']);
+        db()->prepare('UPDATE brands SET logo = ? WHERE id = ?')->execute([$path, $id]);
+        log_activity($u, 'Updated brand', $brand['name'] . ' · logo');
+        json_out(['logo' => $path]);
+
+    case 'brand_delete':
+        $u = require_perm('products');
+        $id = (int) (body()['id'] ?? 0);
+        $brand = brand_get($id);
+        if (!$brand) fail('Brand not found.', 404);
+        $st = db()->prepare('SELECT COUNT(*) FROM products WHERE brand_id = ?');
+        $st->execute([$id]);
+        if ((int) $st->fetchColumn()) fail('Move this brand’s products to another brand (or delete them) first. To hide the brand, switch it off instead.');
+        if (brand_lines($id)) fail('This brand has sales on record, so it is kept for its statements. Switch it off instead.');
+        db()->prepare('DELETE FROM brands WHERE id = ?')->execute([$id]);
+        if ($brand['logo']) delete_upload((string) $brand['logo']);
+        log_activity($u, 'Deleted brand', $brand['name']);
+        json_out(['ok' => true]);
+
+    // A brand's statement for one month: every item sold, our commission, their share, and payouts.
+    case 'brand_statement':
+        require_perm('products');
+        require_perm('revenue');
+        $id = (int) ($_GET['id'] ?? 0);
+        $brand = brand_get($id);
+        if (!$brand) fail('Brand not found.', 404);
+        $month = preg_match('/^\d{4}-\d{2}$/', $_GET['month'] ?? '') ? $_GET['month'] : gmdate('Y-m');
+        $lines = brand_lines($id, $month);
+        $pay = db()->prepare("SELECT p.id, p.amount, p.paid_on, p.note, u.name AS by_name FROM brand_payouts p LEFT JOIN users u ON u.id = p.created_by WHERE p.brand_id = ? ORDER BY p.paid_on DESC, p.id DESC");
+        $pay->execute([$id]);
+        json_out(['brand' => brand_row($brand, true), 'month' => $month, 'lines' => $lines, 'totals' => brand_totals($lines), 'balance' => brand_balance($id),
+            'payouts' => array_map(function ($r) { return ['id' => (int) $r['id'], 'amount' => (float) $r['amount'], 'on' => $r['paid_on'], 'note' => (string) $r['note'], 'by' => (string) $r['by_name']]; }, $pay->fetchAll())]);
+
+    case 'brand_payout':
+        $u = require_perm('products');
+        require_perm('revenue');
+        $b = body();
+        $brand = brand_get((int) ($b['brand_id'] ?? 0));
+        if (!$brand) fail('Brand not found.', 404);
+        $amount = round((float) ($b['amount'] ?? 0), 2);
+        if ($amount == 0.0) fail('Enter the amount you paid the brand.');
+        $on = preg_match('/^\d{4}-\d{2}-\d{2}$/', $b['on'] ?? '') ? $b['on'] : gmdate('Y-m-d');
+        db()->prepare('INSERT INTO brand_payouts (brand_id, amount, paid_on, note, created_by) VALUES (?, ?, ?, ?, ?)')->execute([$brand['id'], $amount, $on, str_in($b['note'] ?? '', 200), $u['id']]);
+        log_activity($u, 'Paid brand', $brand['name'] . ' · EGP ' . number_format($amount, 2));
+        json_out(['ok' => true]);
+
+    case 'brand_payout_delete':
+        $u = require_perm('products');
+        require_perm('revenue');
+        $st = db()->prepare('SELECT p.amount, b.name FROM brand_payouts p JOIN brands b ON b.id = p.brand_id WHERE p.id = ?');
+        $st->execute([(int) (body()['id'] ?? 0)]);
+        $r = $st->fetch();
+        if (!$r) fail('Payment not found.', 404);
+        db()->prepare('DELETE FROM brand_payouts WHERE id = ?')->execute([(int) body()['id']]);
+        log_activity($u, 'Deleted a brand payment', $r['name'] . ' · EGP ' . number_format((float) $r['amount'], 2));
+        json_out(['ok' => true]);
 
     case 'promos':
         require_perm('products');

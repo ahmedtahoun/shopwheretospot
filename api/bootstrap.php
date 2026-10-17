@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 function db(): PDO
 {
@@ -396,6 +396,38 @@ function migrate(PDO $pdo): void
     if ((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
         seed_catalog($pdo);
     }
+    // Partner brands: products another brand supplies; we sell them under their logo and keep a commission.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS brands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        name_ar TEXT DEFAULT '',
+        tagline TEXT DEFAULT '',
+        tagline_ar TEXT DEFAULT '',
+        about TEXT DEFAULT '',
+        about_ar TEXT DEFAULT '',
+        logo TEXT DEFAULT '',
+        link TEXT DEFAULT '',
+        commission REAL NOT NULL DEFAULT 0,
+        active INTEGER NOT NULL DEFAULT 1,
+        sort INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )");
+    // Money handed over to a brand for its sales (what is left after our commission).
+    $pdo->exec("CREATE TABLE IF NOT EXISTS brand_payouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        brand_id INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+        amount REAL NOT NULL,
+        paid_on TEXT NOT NULL,
+        note TEXT DEFAULT '',
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )");
+    $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('brand_id', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN brand_id INTEGER DEFAULT NULL');
+    if (!(int) $pdo->query("SELECT COUNT(*) FROM brands WHERE slug = 'bonds'")->fetchColumn()) {
+        $pdo->prepare("INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, logo, link, commission, sort) VALUES ('bonds', 'Bonds Coffee Roasters', 'بوندز لتحميص القهوة', 'Coffee roasters', 'محمصة قهوة', 'images/brands/bonds.png', 'https://www.instagram.com/bondscoffeeroasters', 0, 1)")->execute();
+    }
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
 }
@@ -437,6 +469,7 @@ require __DIR__ . '/bosta.php';
 require __DIR__ . '/orders.php';
 require __DIR__ . '/paymob.php';
 require __DIR__ . '/customers.php';
+require __DIR__ . '/brands.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void
@@ -567,6 +600,7 @@ function product_row(array $p, array $images): array
         'period' => $p['period'], 'sort' => (int) $p['sort'], 'images' => $images,
         'variants' => product_json($p, 'variants'), 'tiers' => product_json($p, 'tiers'), 'addons' => product_json($p, 'addons'),
         'personalized' => (bool) ($p['personalized'] ?? 0), 'fromPrice' => from_price($p),
+        'brandId' => isset($p['brand_id']) && $p['brand_id'] !== null ? (int) $p['brand_id'] : null,
         'createdAt' => $p['created_at'], 'updatedAt' => $p['updated_at'],
     ];
 }

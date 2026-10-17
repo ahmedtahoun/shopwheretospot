@@ -329,3 +329,16 @@ details.ship-more > summary::-webkit-details-marker{display:none}
 details.ship-more > summary::before{content:'▸ ';color:var(--ink-3)}
 details.ship-more[open] > summary::before{content:'▾ '}
 @media (max-width:760px){.ship-sum{grid-template-columns:1fr}.ship-sum > div:last-child{text-align:left}}
+/* partner brands */
+.brand-pill{display:inline-flex;align-items:center;gap:5px;background:#F1F0EA;color:#4A4C3A;font-weight:600;vertical-align:middle}
+.brand-pill img{height:14px;max-width:46px;object-fit:contain}
+.brand-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.brand-card{display:flex;flex-direction:column;gap:14px}
+.brand-card.off{opacity:.7}
+.brand-logo{width:64px;height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;display:grid;place-items:center;font-weight:700;flex-shrink:0;overflow:hidden}
+.brand-logo img{max-width:56px;max-height:36px;object-fit:contain}
+.brand-logo.lg{width:120px;height:64px}.brand-logo.lg img{max-width:108px;max-height:54px}
+.brand-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:var(--surface-2);border-radius:12px;padding:12px}
+.brand-nums > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand-nums b{font-size:16px}
+@media (max-width:520px){.brand-grid{grid-template-columns:1fr}.brand-nums{grid-template-columns:1fr 1fr}}

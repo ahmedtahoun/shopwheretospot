@@ -256,6 +256,23 @@
   .pprice-row{display:flex;align-items:baseline;gap:10px;margin-top:6px}
   .pnow{font-size:16px;font-weight:600}
   .pwas{font-size:13.5px;color:#8A8478;text-decoration:line-through}
+  /* partner brands */
+  .pbrand{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#4A4C3A;min-width:0}
+  .pbrand img{height:20px;max-width:60px;object-fit:contain;flex-shrink:0}
+  .pbrand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pbrand i{font-style:normal;background:#5D6049;color:#fff;border-radius:50%;width:14px;height:14px;display:grid;place-items:center;font-size:9px;flex-shrink:0}
+  .bstrip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;font-size:13px;color:#6B6660}
+  .bstrip button{display:flex;align-items:center;gap:8px;border:1px solid #DDD6CC;background:#fff;border-radius:999px;padding:6px 14px 6px 8px;font:inherit;font-weight:600;color:#22201D;cursor:pointer}
+  .bstrip button:hover{border-color:#5D6049}
+  .bstrip img{height:22px;max-width:64px;object-fit:contain}
+  .bhero{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid #E4DED5;border-radius:22px;padding:18px 22px;margin:0 0 20px}
+  .bhero .bl{width:140px;height:72px;display:grid;place-items:center;flex-shrink:0}
+  .bhero .bl img{max-width:140px;max-height:72px;object-fit:contain}
+  .bhero h3{margin:0;font-size:20px}
+  .bhero p{margin:4px 0 0;color:#6B6660;font-size:14px;line-height:1.5}
+  .bhero .bok{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;font-weight:600;color:#3F5A2E;background:#EEF3E8;border-radius:999px;padding:4px 10px}
+  .bhero a{color:#A8552F;font-weight:600;font-size:13.5px}
+  @media (max-width:640px){.bhero{flex-direction:column;align-items:flex-start;gap:10px;padding:16px}.bhero .bl{width:120px;height:56px;justify-content:start}}
 
   /* Footer */
   .foot{background:#22201D;color:#C9C3B8}
@@ -553,6 +570,24 @@
         <sc-if value="{{ filterCount }}" hint-placeholder-val="{{ 0 }}"><b class="mf-n">{{ filterCount }}</b></sc-if>
       </button>
     </div>
+    <sc-if value="{{ brandHero }}" hint-placeholder-val="{{ null }}">
+      <div class="bhero">
+        <span class="bl"><sc-if value="{{ brandHero.logo }}" hint-placeholder-val="{{ '' }}"><img src="{{ brandHero.logo }}" alt="{{ brandHero.name }}"></sc-if></span>
+        <div>
+          <h3>{{ brandHero.name }}</h3>
+          <sc-if value="{{ brandHero.about }}" hint-placeholder-val="{{ '' }}"><p>{{ brandHero.about }}</p></sc-if>
+          <div class="bok">✓ Official partner · original products supplied by the brand</div>
+          <sc-if value="{{ brandHero.link }}" hint-placeholder-val="{{ '' }}"><div style="margin-top:8px"><a href="{{ brandHero.link }}" target="_blank" rel="noopener">Visit {{ brandHero.name }} ↗</a></div></sc-if>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ showBrandStrip }}" hint-placeholder-val="{{ false }}">
+      <div class="bstrip"><span>Partner brands</span>
+        <sc-for list="{{ brandStrip }}" as="bs" hint-placeholder-count="1">
+          <button onClick="{{ bs.onClick }}" aria-label="{{ bs.name }}"><sc-if value="{{ bs.logo }}" hint-placeholder-val="{{ '' }}"><img src="{{ bs.logo }}" alt=""></sc-if><span>{{ bs.name }}</span></button>
+        </sc-for>
+      </div>
+    </sc-if>
     <sc-if value="{{ showMeta }}" hint-placeholder-val="{{ false }}">
       <div class="pmeta">
         <span class="pcount">{{ resultsLabel }}</span>
@@ -602,6 +637,7 @@
               <button onClick="{{ p.onAdd }}" class="pquick" aria-label="{{ p.addLabel }}"><span class="pq-t">{{ p.addLabel }}</span><svg class="pq-i" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             </div>
             <a href="{{ p.href }}" class="pinfo">
+              <sc-if value="{{ p.brandName }}" hint-placeholder-val="{{ '' }}"><div class="pbrand" title="{{ p.brandTitle }}"><sc-if value="{{ p.brandLogo }}" hint-placeholder-val="{{ '' }}"><img src="{{ p.brandLogo }}" alt=""></sc-if><span>{{ p.brandText }}</span><i aria-hidden="true">✓</i></div></sc-if>
               <div class="pcat">{{ p.catLabel }}</div>
               <div class="pname">{{ p.name }}</div>
               <div class="psub">{{ p.sub }}</div>
@@ -1182,7 +1218,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}, &quot;freeShippingThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1500,&quot;min&quot;:0,&quot;max&quot;:10000,&quot;step&quot;:50,&quot;unit&quot;:&quot;EGP&quot;,&quot;section&quot;:&quot;Store settings&quot;}}">
 class Component extends DCLogic {
   state = {
-    activeCat: 'all',
+    activeCat: 'all', activeBrand: '',
     inventory: [],
     search: '',
     cart: [],
@@ -1331,7 +1367,10 @@ class Component extends DCLogic {
     this.loadAreas();
     cart0 = mod.repriceCart(cart0, inventory);
     mod.saveCart(cart0);
-    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 12,
+    const brandParam = (params.get('brand') || '').toLowerCase();
+    const activeBrand = mod.BRANDS.some(b => b.slug === brandParam) ? brandParam : '';
+    if (activeBrand) setTimeout(() => this.scrollToId('products'), 300);
+    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 12, activeBrand,
       ...(payResult ? { payResult, orderNumber: params.get('order') || '', payReason: params.get('reason') || '' } : {}) });
   }
 
@@ -1488,7 +1527,8 @@ class Component extends DCLogic {
   openFilters = () => this.setState({ filtersOpen: true, mobileMenuOpen: false });
   closeFilters = () => this.setState({ filtersOpen: false });
   applyFilters = () => this.setState({ filtersOpen: false, visibleCount: 12 }, () => this.scrollToId('products'));
-  clearFilters = () => this.setState({ activeCat: 'all', inStockOnly: false, priceMin: '', priceMax: '', sortKey: 'popular', search: '', visibleCount: 12 });
+  setBrand = (slug) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeBrand: slug, visibleCount: 12 }, () => slug && this.scrollToId('products')); };
+  clearFilters = () => this.setState({ activeCat: 'all', activeBrand: '', inStockOnly: false, priceMin: '', priceMax: '', sortKey: 'popular', search: '', visibleCount: 12 });
   setSort = (k) => () => this.setState({ sortKey: k, visibleCount: 12 });
   setPrice = (min, max) => () => this.setState({ priceMin: min, priceMax: max, visibleCount: 12 });
   bnavHome = () => { this.setState({ filtersOpen: false, cartOpen: false, wishPanelOpen: false }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -1771,7 +1811,10 @@ class Component extends DCLogic {
     const term = s.search.trim().toLowerCase();
     const active = s.inventory.filter(p => p.status === 'Active' && p.cat !== 'services');
     const cats = this.activeCategories();
-    let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!term || p.name.toLowerCase().includes(term) || (p.nameEn || '').toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
+    const brandOf = (p) => this._sd ? this._sd.brandOf(p) : null;
+    const brands = this._sd ? this._sd.BRANDS : [];
+    const curBrand = s.activeBrand ? brands.find(b => b.slug === s.activeBrand) || null : null;
+    let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!curBrand || p.brandId === curBrand.id) && (!term || p.name.toLowerCase().includes(term) || (p.nameEn || '').toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || ((brandOf(p) || {}).name || '').toLowerCase().includes(term) || ((brandOf(p) || {}).nameEn || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
     if (s.inStockOnly) filtered = filtered.filter(p => p.stock > 0);
     const min = s.priceMin !== '' ? Number(s.priceMin) : null;
     const max = s.priceMax !== '' ? Number(s.priceMax) : null;
@@ -1823,6 +1866,7 @@ class Component extends DCLogic {
     const priceChip = s.priceMin !== '' || s.priceMax !== '' ? (prices.find(x => priceOn(x[0], x[1])) || [0, 0, (s.priceMin ? fmt(+s.priceMin) : '') + ' – ' + (s.priceMax ? fmt(+s.priceMax) : '')])[2] : '';
     const activeChips = [
       ...(s.activeCat !== 'all' ? [{ label: this.catLabel(s.activeCat), onClear: this.setCat('all') }] : []),
+      ...(curBrand ? [{ label: curBrand.name, onClear: this.setBrand('') }] : []),
       ...(s.inStockOnly ? [{ label: 'In stock', onClear: () => this.setState({ inStockOnly: false }) }] : []),
       ...(priceChip ? [{ label: priceChip, onClear: this.setPrice('', '') }] : []),
       ...(term ? [{ label: '“' + s.search.trim() + '”', onClear: () => this.setState({ search: '' }) }] : []),
@@ -1878,7 +1922,10 @@ class Component extends DCLogic {
       bnavHome: this.bnavHome, focusSearch: this.focusSearch,
       sortOpts: sorts.map(([k, l]) => ({ label: l, on: s.sortKey === k ? 'true' : 'false', onClick: this.setSort(k) })),
       priceOpts: prices.map(([a, b, l]) => ({ label: l, on: priceOn(a, b) ? 'true' : 'false', onClick: this.setPrice(a, b) })),
-      activeChips, filterCount: (s.activeCat !== 'all') + !!s.inStockOnly + !!priceChip || null,
+      activeChips, filterCount: (s.activeCat !== 'all') + !!curBrand + !!s.inStockOnly + !!priceChip || null,
+      brandHero: curBrand ? { name: curBrand.name, about: curBrand.about || curBrand.tagline || '', logo: curBrand.logo ? this._sd.img(curBrand.logo, 300) : '', link: curBrand.link || '' } : null,
+      showBrandStrip: !curBrand && !s.isLoading && brands.length > 0,
+      brandStrip: brands.map(b => ({ name: b.name, logo: b.logo ? this._sd.img(b.logo, 160) : '', onClick: this.setBrand(b.slug) })),
       showMeta: !s.isLoading, resultsLabel: nLabel(filtered.length), showNLabel: 'Show ' + nLabel(filtered.length),
       wishCount: s.wishlist.length || null,
       accent, freeShip, freeShipFmt: fmt(freeShip),
@@ -1919,7 +1966,8 @@ class Component extends DCLogic {
         const isWished = s.wishlist.includes(p.id);
         const opts = this._sd && this._sd.hasOptions(p);
         const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
-        return { ...p, price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.img(this._sd.PRODUCT_IMAGES[p.id][0], 600) : '', catLabel: this.catLabel(p.cat), noImg: !(this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id].length), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
+        const br = brandOf(p);
+        return { ...p, brandName: br ? br.name : '', brandText: br ? (br.logo ? 'Official partner' : br.name) : '', brandLogo: br && br.logo ? this._sd.img(br.logo, 120) : '', brandTitle: br ? br.name + ' · Official partner' : '', price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.img(this._sd.PRODUCT_IMAGES[p.id][0], 600) : '', catLabel: this.catLabel(p.cat), noImg: !(this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id].length), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,

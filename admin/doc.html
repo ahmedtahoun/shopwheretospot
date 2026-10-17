@@ -76,7 +76,49 @@
   const app = document.getElementById('app');
   let data;
 
+  // Partner brand statement: ?brand=ID&month=YYYY-MM — what was sold, our commission and their share.
+  const brandId = +params.get('brand');
+  async function loadStatement() {
+    const res = await fetch('../api/admin.php?action=brand_statement&id=' + brandId + '&month=' + encodeURIComponent(params.get('month') || ''), { credentials: 'same-origin' });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { app.innerHTML = '<div class="err"><b>' + esc(j.error || 'Could not load the statement') + '</b><p>Sign in to the dashboard first, then open this page from Partner brands.</p><a class="btn" href="./">Open dashboard</a></div>'; return; }
+    const b = j.brand, t = j.totals, bal = j.balance;
+    const monthName = new Date(j.month + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const dt = (s) => new Date(s.replace(' ', 'T') + 'Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    document.title = 'Statement · ' + b.name + ' · ' + monthName;
+    const paidMonth = j.payouts.filter((p) => p.on.slice(0, 7) === j.month);
+    app.innerHTML =
+      '<div class="bar"><a class="btn" href="./#brands">← Dashboard</a><span class="hint">Click the notes to edit them before printing.</span><span class="sp"></span>' +
+      '<button class="btn primary" id="print">Print / Save as PDF</button></div>' +
+      '<div class="page">' +
+        '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>' + SHOP.name + '</b><small>Partner sales statement</small></span></div>' +
+          '<div class="doc"><h1>STATEMENT</h1><div class="num">' + esc(monthName) + '</div></div></div>' +
+        '<div class="meta">' +
+          '<div><h4>Partner</h4>' + (b.logo ? '<p><img src="../' + esc(b.logo) + '" alt="" style="height:38px;max-width:160px;object-fit:contain"></p>' : '') + '<p><b>' + esc(b.name) + '</b></p>' + (b.link ? '<p>' + esc(b.link.replace(/^https?:\/\/(www\.)?/, '')) + '</p>' : '') + '</div>' +
+          '<div><h4>Period</h4><p>' + esc(monthName) + '</p><h4 style="margin-top:12px">Commission</h4><p>' + (b.commission || 0) + '% of item price</p></div>' +
+          '<div><h4>From</h4><p>' + SHOP.address + '</p><p>' + SHOP.phone + '</p><p>' + SHOP.email + '</p></div>' +
+        '</div>' +
+        '<table><thead><tr><th>Order</th><th>Item</th><th class="r">Qty</th><th>Status</th><th class="r">Sold for</th><th class="r">Commission</th><th class="r">Your share</th></tr></thead><tbody>' +
+          (j.lines.length ? j.lines.map((l) => '<tr><td><b>' + esc(l.number) + '</b><div class="hint">' + dt(l.at) + '</div></td><td>' + esc(l.name) + '</td><td class="r">' + l.qty + '</td><td>' + esc(l.status) + '</td>' +
+            '<td class="r">' + egp(l.sales) + '</td><td class="r">' + egp(l.commission) + ' <span class="hint">(' + l.pct + '%)</span></td><td class="r"><b>' + egp(l.due) + '</b></td></tr>').join('')
+            : '<tr><td colspan="7" style="text-align:center;color:#8E8980;padding:30px">No sales in this period.</td></tr>') +
+        '</tbody></table>' +
+        '<div class="totals"><div><span>Sold (' + t.pieces + ' pcs, ' + t.orders + ' orders)</span><span class="r">' + egp(t.sales) + '</span></div>' +
+          '<div><span>Where To Spot commission</span><span class="r">−' + egp(t.commission) + '</span></div>' +
+          '<div class="grand"><span>Your share this month</span><span class="r">' + egp(t.due) + '</span></div>' +
+          (t.due - t.deliveredDue > 0.004 ? '<div><span>Of which still on its way to customers</span><span class="r">' + egp(t.due - t.deliveredDue) + '</span></div>' : '') +
+          paidMonth.map((p) => '<div class="paid"><span>Paid to you · ' + esc(new Date(p.on + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + (p.note ? ' · ' + esc(p.note) : '') + '</span><span class="r">' + egp(p.amount) + '</span></div>').join('') +
+          (bal.owed > 0.004 ? '<div class="due"><span>Balance owed to you (all delivered orders)</span><span class="r">' + egp(bal.owed) + '</span></div>' : '<div style="justify-content:flex-end"><span class="stamp">SETTLED</span></div>') +
+        '</div>' +
+        '<div class="notes"><div><h4>How this is worked out</h4><div class="edit" contenteditable="true">Commission is ' + (b.commission || 0) + '% of the price each item sold for.\nDelivery fees and promo-code discounts are paid by Where To Spot.\nAn item is payable once its order is delivered. Cancelled and returned orders are not included.</div></div>' +
+          '<div><h4>Notes</h4><div class="edit" contenteditable="true"></div></div></div>' +
+        '<div class="foot"><span>' + SHOP.name + ' · ' + SHOP.web + '</span><span>Thank you for your partnership.</span></div>' +
+      '</div>';
+    document.getElementById('print').onclick = () => window.print();
+  }
+
   async function load() {
+    if (brandId) return loadStatement();
     const res = await fetch('../api/admin.php?action=' + (quoteId ? 'quote_doc&id=' + quoteId : 'order_doc&id=' + id), { credentials: 'same-origin' });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { app.innerHTML = '<div class="err"><b>' + esc(j.error || 'Could not load the document') + '</b><p>Sign in to the dashboard first, then open this page from an order or a quote.</p><a class="btn" href="./">Open dashboard</a></div>'; return; }
