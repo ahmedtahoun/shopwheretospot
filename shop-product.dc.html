@@ -18,6 +18,12 @@
 <meta name="twitter:description" content="One storefront, every category you sell.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
 <script src="./i18n.js"></script>
+<!-- Speed: fetch React and the product list while the page is still loading, instead of one after the other. -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preload" as="script" crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" href="https://unpkg.com/react@18.3.1/umd/react.production.min.js">
+<link rel="preload" as="script" crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" href="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js">
+<link rel="modulepreload" href="./shop-data.js">
+<script>window.__wtsCatalog = fetch('api/public.php?action=catalog', { headers: { Accept: 'application/json' } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });</script>
 <script src="./support.js"></script>
 <script src="./chat.js" defer></script>
 <link rel="manifest" href="manifest.json">
@@ -107,7 +113,7 @@
   <div style="max-width:1200px;margin:0 auto;padding:clamp(18px,5vw,48px) 28px clamp(36px,6vw,64px);display:grid;grid-template-columns:1fr 1fr;gap:clamp(22px,5vw,56px)" class="pdp-grid pdp-pad">
     <div>
       <div class="gal" id="gal">
-        <sc-for list="{{ galImgs }}" as="gi" hint-placeholder-count="1"><img src="{{ gi.src }}" alt="{{ gi.alt }}" loading="{{ gi.loading }}"></sc-for>
+        <sc-for list="{{ galImgs }}" as="gi" hint-placeholder-count="1"><img src="{{ gi.src }}" srcset="{{ gi.set }}" sizes="(max-width: 760px) 100vw, 560px" alt="{{ gi.alt }}" loading="{{ gi.loading }}"></sc-for>
       </div>
       <sc-if value="{{ galHasMany }}" hint-placeholder-val="{{ false }}"><div class="dots gal" style="background:none;overflow:visible"><sc-for list="{{ galDots }}" as="gd" hint-placeholder-count="2"><i data-on="{{ gd.on }}"></i></sc-for></div></sc-if>
     <div class="gal-desk" style="display:flex;flex-direction:column;gap:14px">
@@ -132,7 +138,7 @@
       <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(30px,4vw,44px);margin:10px 0 0">{{ product.name }}</h1>
       <sc-if value="{{ brand }}" hint-placeholder-val="{{ null }}">
         <a href="{{ brand.href }}" class="link" style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;font-weight:600;color:#4A4C3A">
-          <sc-if value="{{ brand.logo }}" hint-placeholder-val="{{ '' }}"><img src="{{ brand.logo }}" alt="" style="height:22px;max-width:70px;object-fit:contain"></sc-if>
+          <sc-if value="{{ brand.logo }}" hint-placeholder-val="{{ '' }}"><img loading="lazy" src="{{ brand.logo }}" alt="" style="height:22px;max-width:70px;object-fit:contain"></sc-if>
           <span>{{ brand.name }}</span><span style="background:#EEF3E8;color:#3F5A2E;border-radius:999px;padding:3px 9px;font-size:11.5px">✓ Official partner</span>
         </a>
       </sc-if>
@@ -154,7 +160,7 @@
       <p style="font-size:15px;line-height:1.7;color:#6B6660;margin:20px 0 0;max-width:46ch">{{ product.desc }}</p>
       <sc-if value="{{ brand }}" hint-placeholder-val="{{ null }}">
         <div style="display:flex;gap:14px;align-items:center;margin-top:20px;padding:14px 16px;border:1px solid #E4DED5;border-radius:16px;background:#fff;max-width:520px">
-          <sc-if value="{{ brand.logo }}" hint-placeholder-val="{{ '' }}"><img src="{{ brand.logo }}" alt="{{ brand.name }}" style="width:84px;height:48px;object-fit:contain;flex:none"></sc-if>
+          <sc-if value="{{ brand.logo }}" hint-placeholder-val="{{ '' }}"><img loading="lazy" src="{{ brand.logo }}" alt="{{ brand.name }}" style="width:84px;height:48px;object-fit:contain;flex:none"></sc-if>
           <div style="font-size:13.5px;line-height:1.55;color:#6B6660">
             <b style="color:#22201D">Sold in partnership with {{ brand.name }}</b>
             <div>Original products, supplied directly by the brand. Delivered across Egypt by Where To Spot, with cash on delivery.</div>
@@ -346,19 +352,28 @@ class Component extends DCLogic {
   async componentDidMount() {
     const mod = await import('./shop-data.js');
     this._sd = mod;
-    const inv = (await mod.fetchCatalog()) || mod.loadInventory();
-    if (mod.CATEGORIES) this.catLabels = Object.fromEntries(mod.CATEGORIES.map(c => [c.key, c.label]));
-    const id = new URLSearchParams(location.search).get('id');
-    const product = id ? inv.find(p => p.id === id) : inv.find(p => p.status === 'Active');
-    if (!product) { this.setState({ notFound: true }); return; }
-    const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
-    const recent = mod.pushRecent(product.id);
-    const variantId = product.variants && product.variants.length ? (product.variants.find(v => v.stock > 0) || product.variants[0]).id : null;
-    this.setState({ product, related, inventory: inv, wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent, variantId });
-    this.updateShareMeta(product, mod);
+    // Returning visitor: draw the product from the list saved last time, then refresh it from the shop.
+    const cached = mod.cachedCatalog();
+    const shown = cached ? this.useInventory(cached, mod, false) : false;
+    const live = await mod.fetchCatalog();
+    if (!this.useInventory(live || cached || mod.loadInventory(), mod, true) && !shown) return;
     window.addEventListener('scroll', this.onScroll, { passive: true });
     // The photo strip scrolls sideways; scroll events don't bubble, so listen in the capture phase.
     document.addEventListener('scroll', this.onAnyScroll, { passive: true, capture: true });
+  }
+  // Show the product from a product list; final = the fresh list (only then is "not found" shown).
+  useInventory(inv, mod, final) {
+    if (mod.CATEGORIES) this.catLabels = Object.fromEntries(mod.CATEGORIES.map(c => [c.key, c.label]));
+    const id = new URLSearchParams(location.search).get('id');
+    const product = id ? inv.find(p => p.id === id) : inv.find(p => p.status === 'Active');
+    if (!product) { if (final) this.setState({ notFound: true, product: null }); return false; }
+    const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
+    const first = !this.state.product;
+    const keep = this.state.variantId && (product.variants || []).some(v => v.id === this.state.variantId);
+    const variantId = keep ? this.state.variantId : product.variants && product.variants.length ? (product.variants.find(v => v.stock > 0) || product.variants[0]).id : null;
+    this.setState({ product, related, inventory: inv, variantId, ...(first ? { wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent: mod.pushRecent(product.id) } : {}) });
+    if (first || final) this.updateShareMeta(product, mod);
+    return true;
   }
   componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); document.removeEventListener('scroll', this.onAnyScroll, true); }
   onAnyScroll = (e) => { if (e.target && e.target.id === 'gal') this.onGalScroll({ currentTarget: e.target }); };
@@ -538,7 +553,7 @@ class Component extends DCLogic {
       ...(() => {
         const imgs = (this._sd && this._sd.PRODUCT_IMAGES[p.id]) || [];
         return {
-          galImgs: imgs.map((src, i) => ({ src: this._sd.img(src, 800), alt: p.name + (i ? ' — ' + (i + 1) : ''), loading: i ? 'lazy' : 'eager' })),
+          galImgs: imgs.map((src, i) => ({ src: this._sd.img(src, 1000), set: this._sd.imgSet(src, 600, 1000), alt: p.name + (i ? ' — ' + (i + 1) : ''), loading: i ? 'lazy' : 'eager' })),
           galHasMany: imgs.length > 1,
           galDots: imgs.map((_, i) => ({ on: i === this.state.galIndex ? 'true' : 'false' })),
         };

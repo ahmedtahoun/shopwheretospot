@@ -1,0 +1,10 @@
+# Photos at display size: /img/<width>/<photo path>, e.g. /img/600/images/brands/bonds-chrome.jpg
+# When the resized WebP already exists, the web server sends that file directly (fast, no PHP);
+# otherwise api/img.php makes it and saves it for next time.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_ACCEPT} image/webp
+  RewriteCond %{DOCUMENT_ROOT}/uploads/thumbs/$1/$2.webp -f
+  RewriteRule ^(120|300|600|1000)/((?:images|uploads/products)/.+\.(?:png|jpe?g|webp))$ /uploads/thumbs/$1/$2.webp [L]
+  RewriteRule ^(\d+)/((?:images|uploads/products)/.+\.(?:png|jpe?g|webp))$ /api/img.php?w=$1&src=$2 [L,QSA]
+</IfModule>

@@ -1,5 +1,5 @@
 <?php
-// Serve product photos at the size they are shown: api/img.php?src=images/x.png&w=300
+// Serve product photos at the size they are shown: api/img.php?src=images/x.png&w=300 (or img/300/images/x.png)
 // Resized copies are generated once (WebP when the server supports it, otherwise JPEG/PNG),
 // stored in uploads/thumbs/, and cached by browsers for a year. The originals are untouched.
 
@@ -37,8 +37,16 @@ $mime = $info['mime'];
 $alpha = $mime === 'image/png' || $mime === 'image/webp';
 $ext = $webp ? 'webp' : ($alpha ? 'png' : 'jpg');
 
-$cacheDir = $root . '/uploads/thumbs';
-$cacheFile = $cacheDir . '/' . sha1($src . '|' . filemtime($file)) . '-' . $w . '.' . $ext;
+// WebP copies live at uploads/thumbs/<width>/<photo path>.webp so the web server can hand them out
+// directly next time (root .htaccess, URL img/<width>/<photo path>) without running PHP.
+// Other formats (old browsers) keep a hashed name. A changed original is resized again.
+if ($webp) {
+    $cacheFile = $root . '/uploads/thumbs/' . $w . '/' . $src . '.webp';
+    if (is_file($cacheFile) && filemtime($cacheFile) < filemtime($file)) @unlink($cacheFile);
+} else {
+    $cacheFile = $root . '/uploads/thumbs/' . sha1($src . '|' . filemtime($file)) . '-' . $w . '.' . $ext;
+}
+$cacheDir = dirname($cacheFile);
 $types = ['webp' => 'image/webp', 'png' => 'image/png', 'jpg' => 'image/jpeg'];
 
 $send = function (string $path, string $type) {
@@ -55,8 +63,9 @@ $send = function (string $path, string $type) {
 
 if (is_file($cacheFile)) $send($cacheFile, $types[$ext]);
 
-// Small originals, or no GD: send the original as is.
-if (!function_exists('imagecreatetruecolor') || $ow <= $w) $send($file, $mime);
+// No GD: send the original as is. Small originals are still copied (as WebP) so they can be served directly.
+if (!function_exists('imagecreatetruecolor') || ($ow <= $w && !$webp)) $send($file, $mime);
+$w = min($w, $ow);
 
 $load = ['image/png' => 'imagecreatefrompng', 'image/jpeg' => 'imagecreatefromjpeg', 'image/webp' => 'imagecreatefromwebp'][$mime] ?? null;
 if (!$load || !function_exists($load) || !($im = @$load($file))) $send($file, $mime);

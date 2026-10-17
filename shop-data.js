@@ -351,18 +351,36 @@ export let PAYMENTS = { online: [], test: false };
 // Partner brands (their products show the brand's logo and an "Official partner" mark).
 export let BRANDS = [];
 
+// The product list: the copy the page head started fetching (window.__wtsCatalog), else a fresh request.
+// The last list is kept on the device so a returning visitor sees products at once (cachedCatalog),
+// and the fresh one replaces it a moment later.
+const CATALOG_KEY = 'wts_catalog_v1';
+function applyCatalog(data) {
+  // In Arabic, use the Arabic names where the team filled them in; keep the English ones for search.
+  CATEGORIES = data.categories.map(c => AR ? { ...c, labelEn: c.label, label: c.labelAr || c.label, desc: c.descAr || c.desc } : c);
+  if (data.payments) PAYMENTS = data.payments;
+  BRANDS = (data.brands || []).map(b => AR ? { ...b, nameEn: b.name, name: b.nameAr || b.name, tagline: b.taglineAr || b.tagline, about: b.aboutAr || b.about } : b);
+  Object.keys(PRODUCT_IMAGES).forEach(k => delete PRODUCT_IMAGES[k]);
+  data.products.forEach(p => { PRODUCT_IMAGES[p.id] = p.images; });
+  return data.products.map(p => AR ? { ...p, nameEn: p.name, name: p.nameAr || p.name, sub: p.subAr || p.sub, desc: p.descAr || p.desc } : p);
+}
+export function cachedCatalog() {
+  try {
+    const data = JSON.parse(localStorage.getItem(CATALOG_KEY) || 'null');
+    return data && Array.isArray(data.products) && data.products.length ? applyCatalog(data) : null;
+  } catch (e) { return null; }
+}
 export async function fetchCatalog() {
   try {
-    const res = await fetch(API + '?action=catalog', { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error('catalog ' + res.status);
-    const data = await res.json();
-    // In Arabic, use the Arabic names where the team filled them in; keep the English ones for search.
-    CATEGORIES = data.categories.map(c => AR ? { ...c, labelEn: c.label, label: c.labelAr || c.label, desc: c.descAr || c.desc } : c);
-    if (data.payments) PAYMENTS = data.payments;
-    BRANDS = (data.brands || []).map(b => AR ? { ...b, nameEn: b.name, name: b.nameAr || b.name, tagline: b.taglineAr || b.tagline, about: b.aboutAr || b.about } : b);
-    Object.keys(PRODUCT_IMAGES).forEach(k => delete PRODUCT_IMAGES[k]);
-    data.products.forEach(p => { PRODUCT_IMAGES[p.id] = p.images; });
-    return data.products.map(p => AR ? { ...p, nameEn: p.name, name: p.nameAr || p.name, sub: p.subAr || p.sub, desc: p.descAr || p.desc } : p);
+    let data = null;
+    if (typeof window !== 'undefined' && window.__wtsCatalog) { data = await window.__wtsCatalog; window.__wtsCatalog = null; }
+    if (!data) {
+      const res = await fetch(API + '?action=catalog', { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error('catalog ' + res.status);
+      data = await res.json();
+    }
+    try { localStorage.setItem(CATALOG_KEY, JSON.stringify(data)); } catch (e) {}
+    return applyCatalog(data);
   } catch (e) {
     return null;
   }
@@ -444,9 +462,12 @@ export function lineKey(id, variant, addons) { return [id, variant || '', (addon
 
 // Product photos at the size they're shown (api/img.php makes and caches resized WebP copies).
 // Bump to make browsers fetch fresh copies of every resized photo (they're cached for a year).
-const IMG_VERSION = 2;
 export function brandOf(p) { return (p && p.brandId && BRANDS.find(b => b.id === p.brandId)) || null; }
+// Photos at display size. img/600/images/x.png is served as a ready-made file once it exists
+// (root .htaccess), and made by api/img.php the first time. Widths: 120, 300, 600, 1000.
 export function img(src, w) {
   if (!src || !/^(images|uploads\/products)\/[^?#]+\.(png|jpe?g|webp)$/i.test(src)) return src || '';
-  return 'api/img.php?src=' + encodeURIComponent(src) + '&w=' + (w || 600) + '&v=' + IMG_VERSION;
+  return 'img/' + (w || 600) + '/' + encodeURI(src);
 }
+// Small and large versions for <img srcset>, so phones download the smaller one.
+export function imgSet(src, small, large) { const a = img(src, small), b = img(src, large); return a === src ? '' : a + ' ' + small + 'w, ' + b + ' ' + large + 'w'; }

@@ -8,3 +8,11 @@ RemoveType .php .phtml .phar
 <IfModule mod_php.c>
   php_flag engine off
 </IfModule>
+
+# Resized photos (uploads/thumbs) never change under the same name: browsers keep them for a year.
+<IfModule mod_headers.c>
+  <FilesMatch "\.webp$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header append Vary Accept
+  </FilesMatch>
+</IfModule>
