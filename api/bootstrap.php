@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 
 function db(): PDO
 {
@@ -426,8 +426,10 @@ function migrate(PDO $pdo): void
     $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('brand_id', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN brand_id INTEGER DEFAULT NULL');
     if (!(int) $pdo->query("SELECT COUNT(*) FROM brands WHERE slug = 'bonds'")->fetchColumn()) {
-        $pdo->prepare("INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, logo, link, commission, sort) VALUES ('bonds', 'Bonds Coffee Roasters', 'بوندز لتحميص القهوة', 'Coffee roasters', 'محمصة قهوة', 'images/brands/bonds.png', 'https://www.instagram.com/bondscoffeeroasters', 0, 1)")->execute();
+        $pdo->prepare("INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, logo, link, commission, sort) VALUES ('bonds', 'Bonds Coffee Roasters', 'بوندز لتحميص القهوة', 'Coffee roasters', 'محمصة قهوة', 'images/brands/bonds.png', 'https://www.instagram.com/bondscoffeeroasters', 20, 1)")->execute();
     }
+    // Agreed commission with Bonds: 20% (only fills it in if it was never set).
+    $pdo->exec("UPDATE brands SET commission = 20 WHERE slug = 'bonds' AND commission = 0");
     // First Bonds product (added once; after that it's managed in the dashboard like any product).
     if (!(int) $pdo->query("SELECT COUNT(*) FROM products WHERE id = 'bonds-chrome'")->fetchColumn()) {
         if (!(int) $pdo->query("SELECT COUNT(*) FROM categories WHERE key = 'coffee'")->fetchColumn()) {
