@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 
 function db(): PDO
 {
@@ -439,6 +439,13 @@ function migrate(PDO $pdo): void
         ['bonds-sienna', 'BND-SIE-1KG', 'Sienna', 895, 'brown sugar, cocoa, roasted nuts', 'low acidity and a medium body',
             'سيينا', 'سكر بني، كاكاو، مكسرات محمصة', 'حموضة منخفضة وقوام متوسط'],
     ];
+    // Single origins: [id, sku, name, price, notes, region, variety, process, Arabic name, Arabic notes, Arabic region, Arabic variety, Arabic process]
+    $bondsOrigins = [
+        ['bonds-ethiopia-limu', 'BND-ETH-1KG', 'Ethiopia Limu', 950, 'dark chocolate, roasted nuts, black tea, brown sugar & orange', 'Limu', 'Heirloom', 'Natural',
+            'إثيوبيا ليمو', 'شوكولاتة داكنة، مكسرات محمصة، شاي أسود، سكر بني وبرتقال', 'ليمو', 'هيرلوم', 'طبيعية'],
+        ['bonds-brazil-cerrado', 'BND-BRA-1KG', 'Brazil Cerrado', 990, 'toffee, dark chocolate, hazelnut, maple syrup', 'Cerrado', 'Catuai', 'Natural',
+            'البرازيل سيرادو', 'توفي، شوكولاتة داكنة، بندق، شراب القيقب', 'سيرادو', 'كاتواي', 'طبيعية'],
+    ];
     $hasProduct = $pdo->prepare('SELECT COUNT(*) FROM products WHERE id = ?');
     $addCoffee = $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
         VALUES (?, ?, ?, 'coffee', 'Bonds Coffee Roasters', ?, 0, 10, 'Active', ?, ?, '[]', (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, ?, ?, (SELECT id FROM brands WHERE slug = 'bonds'))");
@@ -452,6 +459,18 @@ function migrate(PDO $pdo): void
         $addCoffee->execute([$id, $sku, $name . ' Coffee Blend — 1 kg', $price, '1 kg coffee beans · ' . $notes,
             $name . ' is a Bonds Coffee Roasters blend with ' . $body . '. Tasting notes: ' . $notes . '.',
             'قهوة ' . $nameAr . ' بلند — 1 كجم', '1 كجم حبوب قهوة · ' . $notesAr, $nameAr . ' بلند من بوندز لتحميص القهوة، ' . $bodyAr . '. النكهات: ' . $notesAr . '.']);
+        $addPhoto->execute([$id, 'images/brands/' . $id . '.jpg']);
+    }
+    $addOrigin = $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
+        VALUES (?, ?, ?, 'coffee', 'Bonds Coffee Roasters', ?, 0, 10, 'Active', ?, ?, ?, (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, ?, ?, (SELECT id FROM brands WHERE slug = 'bonds'))");
+    foreach ($bondsOrigins as [$id, $sku, $name, $price, $notes, $region, $variety, $process, $nameAr, $notesAr, $regionAr, $varietyAr, $processAr]) {
+        $hasProduct->execute([$id]);
+        if ((int) $hasProduct->fetchColumn()) continue;
+        $addOrigin->execute([$id, $sku, $name . ' — 1 kg', $price, '1 kg single-origin coffee beans · ' . $notes,
+            $name . ' is a single-origin coffee roasted by Bonds Coffee Roasters. Tasting notes: ' . $notes . '. Region: ' . $region . ' · Variety: ' . $variety . ' · Process: ' . $process . '.',
+            json_encode(['Region: ' . $region, 'Variety: ' . $variety, 'Process: ' . $process, 'Notes: ' . $notes], JSON_UNESCAPED_UNICODE),
+            $nameAr . ' — 1 كجم', '1 كجم حبوب قهوة أحادية المصدر · ' . $notesAr,
+            $nameAr . ' قهوة أحادية المصدر من تحميص بوندز. النكهات: ' . $notesAr . '. المنطقة: ' . $regionAr . ' · السلالة: ' . $varietyAr . ' · المعالجة: ' . $processAr . '.']);
         $addPhoto->execute([$id, 'images/brands/' . $id . '.jpg']);
     }
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
