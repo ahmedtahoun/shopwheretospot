@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 function db(): PDO
 {
@@ -427,6 +427,19 @@ function migrate(PDO $pdo): void
     if (!in_array('brand_id', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN brand_id INTEGER DEFAULT NULL');
     if (!(int) $pdo->query("SELECT COUNT(*) FROM brands WHERE slug = 'bonds'")->fetchColumn()) {
         $pdo->prepare("INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, logo, link, commission, sort) VALUES ('bonds', 'Bonds Coffee Roasters', 'بوندز لتحميص القهوة', 'Coffee roasters', 'محمصة قهوة', 'images/brands/bonds.png', 'https://www.instagram.com/bondscoffeeroasters', 0, 1)")->execute();
+    }
+    // First Bonds product (added once; after that it's managed in the dashboard like any product).
+    if (!(int) $pdo->query("SELECT COUNT(*) FROM products WHERE id = 'bonds-chrome'")->fetchColumn()) {
+        if (!(int) $pdo->query("SELECT COUNT(*) FROM categories WHERE key = 'coffee'")->fetchColumn()) {
+            $pdo->exec("INSERT INTO categories (key, label, descr, label_ar, descr_ar, sort) VALUES ('coffee', 'Coffee', 'Specialty coffee from partner roasters', 'القهوة', 'قهوة مختصة من محامص شريكة', 3)");
+        }
+        $bondsId = $pdo->query("SELECT id FROM brands WHERE slug = 'bonds'")->fetchColumn();
+        $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
+            VALUES ('bonds-chrome', 'BND-CHR-1KG', 'Chrome Coffee Blend — 1 kg', 'coffee', 'Bonds Coffee Roasters', 750, 0, 10, 'Active', '1 kg coffee beans · caramel, dark chocolate, roasted nuts',
+            'Chrome is a Bonds Coffee Roasters blend with mild acidity and a full, rich body. Tasting notes: caramel, dark chocolate and roasted nuts.', '[]',
+            (SELECT COALESCE(MAX(sort),0)+1 FROM products), 'قهوة كروم بلند — 1 كجم', '1 كجم حبوب قهوة · كراميل، شوكولاتة داكنة، مكسرات محمصة',
+            'كروم بلند من بوندز لتحميص القهوة، حموضة خفيفة وقوام غني وممتلئ. النكهات: كراميل، شوكولاتة داكنة ومكسرات محمصة.', ?)")->execute([$bondsId ?: null]);
+        $pdo->exec("INSERT INTO product_images (product_id, path, sort) VALUES ('bonds-chrome', 'images/brands/bonds-chrome.jpg', 0)");
     }
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
