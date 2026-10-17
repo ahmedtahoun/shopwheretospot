@@ -1274,7 +1274,8 @@
   const waNumber = (d) => d.startsWith('20') ? d : d.startsWith('0') ? '20' + d.slice(1) : (d.length === 10 && d[0] === '1' ? '20' + d : d);
   const localPhone = (d) => { const w = waNumber(d); return w.startsWith('20') ? '0' + w.slice(2) : d; };
   const CAT_NAMES = { nfc: 'NFC review cards & stands', cosmetics: 'skincare & cosmetics', stands: 'exhibition stands', services: 'marketing services' };
-  const leadInterest = (l) => { const m = String(l.notes || '').match(/Needs: (.+)/); return m ? m[1] : (CAT_NAMES[l.cat] || l.cat || ''); };
+  // What they want: the full "Needs:" line from the chat, unless the team has since edited the interest.
+  const leadInterest = (l) => { const m = String(l.notes || '').match(/Needs: (.+)/); return m && (!l.cat || m[1].startsWith(l.cat)) ? m[1] : (CAT_NAMES[l.cat] || l.cat || (m ? m[1] : '')); };
   const isDue = (l) => !!l.follow_up && l.follow_up <= cairoToday() && l.status !== 'Won' && l.status !== 'Lost';
   // WhatsApp link with a ready-made greeting that mentions what they asked for.
   function leadWa(l) {
@@ -1573,7 +1574,10 @@
     const body = '<form id="lf" class="stack">' +
       (isNew ? '<div class="grid2"><label class="field">Name<input type="text" name="name" required></label><label class="field">Email or phone<input type="text" name="contact" required></label></div>' +
         '<label class="field">Interested in<input type="text" name="cat" placeholder="e.g. NFC cards for 3 branches"></label>'
-        : '<div class="card stack" style="gap:12px"><div><b style="font-size:16px">' + esc(l.name) + '</b><div>' + esc(l.contact) + '</div><div class="small muted">' + esc(leadInterest(l)) + ' · ' + esc(l.source) + ' · ' + dateTime(l.created_at) + '</div></div>' + actions + '</div>') +
+        : '<div class="card stack" style="gap:12px"><div class="grid2"><label class="field">Name<input type="text" name="name" required maxlength="120" value="' + esc(l.name) + '"></label>' +
+          '<label class="field">Email or phone<input type="text" name="contact" required maxlength="160" value="' + esc(l.contact) + '"></label></div>' +
+          '<label class="field">Interested in<input type="text" name="cat" maxlength="120" value="' + esc(leadInterest(l)) + '"></label>' +
+          '<div class="small muted">' + esc(l.source) + ' · ' + dateTime(l.created_at) + '</div>' + actions + '</div>') +
       '<div class="grid2"><label class="field">Status<select name="status">' + S.meta.leadStatuses.map((x) => '<option value="' + x + '"' + (x === l.status ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></label>' +
       '<label class="field">Assigned to<select name="assigned_to">' + teamOpts + '</select></label></div>' +
       '<div class="field">Follow up on <span class="hint">It shows on the dashboard from that day until the lead is moved on or the date is cleared</span>' +

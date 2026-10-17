@@ -704,6 +704,20 @@ try {
         if ($id) {
             db()->prepare('UPDATE leads SET status = ?, notes = ?, assigned_to = ?, follow_up = ? WHERE id = ?')
                 ->execute([$status, str_in($b['notes'] ?? '', 4000), $assigned, $follow, $id]);
+            // Name, phone/email and interest can be corrected after the lead was created.
+            if (array_key_exists('name', $b) || array_key_exists('contact', $b)) {
+                $name = str_in($b['name'] ?? '', 120);
+                $contact = str_in($b['contact'] ?? '', 160);
+                if ($name === '' || $contact === '') fail('Name and contact are required.');
+                $old = db()->prepare('SELECT contact FROM leads WHERE id = ?');
+                $old->execute([$id]);
+                $dupe = $old->fetchColumn() === $contact ? null : find_lead(phone_key($contact), email_key($contact));
+                if ($dupe && (int) $dupe['id'] !== $id) {
+                    fail('This number or email already belongs to “' . $dupe['name'] . '” (' . $dupe['status'] . ($dupe['assigned_name'] ? ', ' . $dupe['assigned_name'] : '') . '). Open that lead and add a note instead.', 409);
+                }
+                db()->prepare('UPDATE leads SET name = ?, contact = ?, cat = ?, phone_key = ?, email_key = ? WHERE id = ?')
+                    ->execute([$name, $contact, str_in($b['cat'] ?? '', 120), phone_key($contact), email_key($contact), $id]);
+            }
             log_activity($u, 'Updated lead', '#' . $id . ' → ' . $status);
         } else {
             $name = str_in($b['name'] ?? '', 120);

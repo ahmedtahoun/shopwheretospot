@@ -51,7 +51,11 @@
 
     // partner brands
     'Partner brands': 'علامات شريكة', '✓ Official partner · original products supplied by the brand': '✓ شريك رسمي · منتجات أصلية من العلامة مباشرة',
-    '✓ Official partner': '✓ شريك رسمي', 'Official partner': 'شريك رسمي', 'Sold in partnership with': 'يُباع بالشراكة مع', 'More from': 'المزيد من', 'Visit': 'زيارة', 'Visit the brand ↗': 'زيارة العلامة ↗',
+    '✓ Official partner': '✓ شريك رسمي',
+    'For businesses: private label, tailored roasting or bulk orders. Tell us what you need and we’ll reply with a quote, usually the same day.': 'للشركات: علامة خاصة، تحميص مخصص أو طلبات بالجملة. أخبرنا بما تحتاجه وسنرسل لك عرض سعر، غالبًا في نفس اليوم.',
+    'Phone or email': 'الهاتف أو الإيميل', 'Your name': 'اسمك', 'Send request': 'إرسال الطلب',
+    'Business name, what you need and roughly how much (e.g. 20 kg a month for our café)': 'اسم النشاط، وما تحتاجه والكمية تقريبًا (مثال: 20 كجم شهريًا لمقهانا)',
+    'Thank you — we’ve got your request and will contact you shortly.': 'شكرًا — وصلنا طلبك وسنتواصل معك قريبًا.', 'Official partner': 'شريك رسمي', 'Sold in partnership with': 'يُباع بالشراكة مع', 'More from': 'المزيد من', 'Visit': 'زيارة', 'Visit the brand ↗': 'زيارة العلامة ↗',
     'Original products, supplied directly by the brand. Delivered across Egypt by Where To Spot, with cash on delivery.': 'منتجات أصلية من العلامة مباشرة. توصّلها Where To Spot لكل مصر، مع الدفع عند الاستلام.',
 
     // shop

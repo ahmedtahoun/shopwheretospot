@@ -272,6 +272,15 @@
   .bhero p{margin:4px 0 0;color:#6B6660;font-size:14px;line-height:1.5}
   .bhero .bok{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;font-weight:600;color:#3F5A2E;background:#EEF3E8;border-radius:999px;padding:4px 10px}
   .bhero a{color:#A8552F;font-weight:600;font-size:13.5px}
+  .bh-acts{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px}
+  .bh-q{padding:10px 18px;font-size:14px}
+  .bh-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;max-width:560px}
+  .bh-form .bh-lead{grid-column:1/-1;margin:0}
+  .bh-form input,.bh-form textarea{font:inherit;font-size:14px;border:1px solid #DDD6CC;border-radius:12px;padding:11px 13px;background:#FBF8F4;color:#22201D;min-width:0}
+  .bh-form textarea{grid-column:1/-1;min-height:76px;resize:vertical}
+  .bh-form button{grid-column:1/-1;justify-self:start}
+  .bh-done{margin-top:12px;background:#EEF3E8;color:#3F5A2E;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600}
+  @media (max-width:640px){.bh-form{grid-template-columns:1fr}}
   @media (max-width:640px){.bhero{flex-direction:column;align-items:flex-start;gap:10px;padding:16px}.bhero .bl{width:120px;height:56px;justify-content:start}}
 
   /* Footer */
@@ -577,7 +586,20 @@
           <h3>{{ brandHero.name }}</h3>
           <sc-if value="{{ brandHero.about }}" hint-placeholder-val="{{ '' }}"><p>{{ brandHero.about }}</p></sc-if>
           <div class="bok">✓ Official partner · original products supplied by the brand</div>
-          <sc-if value="{{ brandHero.link }}" hint-placeholder-val="{{ '' }}"><div style="margin-top:8px"><a href="{{ brandHero.link }}" target="_blank" rel="noopener">Visit {{ brandHero.name }} ↗</a></div></sc-if>
+          <div class="bh-acts">
+            <button type="button" class="btn btn-accent bh-q" onClick="{{ openBrandQuote }}">Request a quote</button>
+            <sc-if value="{{ brandHero.link }}" hint-placeholder-val="{{ '' }}"><a href="{{ brandHero.link }}" target="_blank" rel="noopener">Visit {{ brandHero.name }} ↗</a></sc-if>
+          </div>
+          <sc-if value="{{ brandQuoteOpen }}" hint-placeholder-val="{{ false }}">
+            <form class="bh-form" onSubmit="{{ submitBrandQuote }}">
+              <p class="bh-lead">For businesses: private label, tailored roasting or bulk orders. Tell us what you need and we’ll reply with a quote, usually the same day.</p>
+              <input required="{{ true }}" value="{{ brandQuote.name }}" onChange="{{ setBrandQuoteName }}" placeholder="Your name" autocomplete="name" aria-label="Your name"/>
+              <input required="{{ true }}" value="{{ brandQuote.contact }}" onChange="{{ setBrandQuoteContact }}" placeholder="Phone or email" autocomplete="tel" aria-label="Phone or email"/>
+              <textarea value="{{ brandQuote.details }}" onChange="{{ setBrandQuoteDetails }}" placeholder="Business name, what you need and roughly how much (e.g. 20 kg a month for our café)" aria-label="What you need"></textarea>
+              <button type="submit" class="btn btn-accent">Send request</button>
+            </form>
+          </sc-if>
+          <sc-if value="{{ brandQuoteSent }}" hint-placeholder-val="{{ false }}"><div class="bh-done">Thank you — we’ve got your request and will contact you shortly.</div></sc-if>
         </div>
       </div>
     </sc-if>
@@ -1218,7 +1240,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}, &quot;freeShippingThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1500,&quot;min&quot;:0,&quot;max&quot;:10000,&quot;step&quot;:50,&quot;unit&quot;:&quot;EGP&quot;,&quot;section&quot;:&quot;Store settings&quot;}}">
 class Component extends DCLogic {
   state = {
-    activeCat: 'all', activeBrand: '',
+    activeCat: 'all', activeBrand: '', brandQuoteOpen: false, brandQuoteSent: false, brandQuote: { name: '', contact: '', details: '' },
     inventory: [],
     search: '',
     cart: [],
@@ -1527,6 +1549,20 @@ class Component extends DCLogic {
   openFilters = () => this.setState({ filtersOpen: true, mobileMenuOpen: false });
   closeFilters = () => this.setState({ filtersOpen: false });
   applyFilters = () => this.setState({ filtersOpen: false, visibleCount: 12 }, () => this.scrollToId('products'));
+  openBrandQuote = () => this.setState(s => ({ brandQuoteOpen: !s.brandQuoteOpen, brandQuoteSent: false }));
+  setBrandQuoteField = (f) => (e) => { const v = e.target.value; this.setState(s => ({ brandQuote: { ...s.brandQuote, [f]: v } })); };
+  submitBrandQuote = async (e) => {
+    e.preventDefault();
+    const s = this.state, b = this._sd && this._sd.BRANDS.find(x => x.slug === s.activeBrand);
+    if (!b) return;
+    const name = b.nameEn || b.name;
+    try {
+      const need = name + ' — private label / tailored roasting / bulk';
+      await this._sd.postJSON('lead', { name: s.brandQuote.name, contact: s.brandQuote.contact, cat: need.slice(0, 40), source: name + ' — quote request',
+        notes: 'Needs: ' + need + (s.brandQuote.details.trim() ? '\n' + s.brandQuote.details.trim() : '') });
+      this.setState({ brandQuoteOpen: false, brandQuoteSent: true, brandQuote: { name: '', contact: '', details: '' } });
+    } catch (err) { this.showToast(err.message); }
+  };
   setBrand = (slug) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeBrand: slug, visibleCount: 12 }, () => slug && this.scrollToId('products')); };
   clearFilters = () => this.setState({ activeCat: 'all', activeBrand: '', inStockOnly: false, priceMin: '', priceMax: '', sortKey: 'popular', search: '', visibleCount: 12 });
   setSort = (k) => () => this.setState({ sortKey: k, visibleCount: 12 });
@@ -1924,6 +1960,8 @@ class Component extends DCLogic {
       priceOpts: prices.map(([a, b, l]) => ({ label: l, on: priceOn(a, b) ? 'true' : 'false', onClick: this.setPrice(a, b) })),
       activeChips, filterCount: (s.activeCat !== 'all') + !!curBrand + !!s.inStockOnly + !!priceChip || null,
       brandHero: curBrand ? { name: curBrand.name, about: curBrand.about || curBrand.tagline || '', logo: curBrand.logo ? this._sd.img(curBrand.logo, 300) : '', link: curBrand.link || '' } : null,
+      brandQuoteOpen: !!curBrand && s.brandQuoteOpen, brandQuoteSent: !!curBrand && s.brandQuoteSent, brandQuote: s.brandQuote, openBrandQuote: this.openBrandQuote, submitBrandQuote: this.submitBrandQuote,
+      setBrandQuoteName: this.setBrandQuoteField('name'), setBrandQuoteContact: this.setBrandQuoteField('contact'), setBrandQuoteDetails: this.setBrandQuoteField('details'),
       showBrandStrip: !curBrand && !s.isLoading && brands.length > 0,
       brandStrip: brands.map(b => ({ name: b.name, logo: b.logo ? this._sd.img(b.logo, 160) : '', onClick: this.setBrand(b.slug) })),
       showMeta: !s.isLoading, resultsLabel: nLabel(filtered.length), showNLabel: 'Show ' + nLabel(filtered.length),
