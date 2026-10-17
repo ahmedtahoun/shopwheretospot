@@ -312,7 +312,7 @@ function bosta_split_name(string $full): array
 }
 
 // Create a Bosta delivery for an order. $opts: size, cod, notes, location_id, city_id, district_id,
-// address (first line), building, floor, apartment, landmark, allow_open.
+// address (first line), building, floor, apartment, landmark, allow_open, prep_notes (packing notes).
 function bosta_create_for_order(array $o, array $opts): array
 {
     if (!bosta_enabled()) throw new ShopError('Bosta is not set up yet. Add the API key to api/config.local.php.');
@@ -329,6 +329,9 @@ function bosta_create_for_order(array $o, array $opts): array
     if (!$physical) throw new ShopError('This order has no physical products to ship.');
     $count = array_sum(array_map(function ($i) { return (int) $i['qty']; }, $physical));
     $desc = implode(', ', array_map(function ($i) { return $i['qty'] . 'x ' . $i['name']; }, $physical));
+    // Packing notes go first in the package description: it shows on the order in Bosta and on the waybill.
+    $prep = trim((string) ($opts['prep_notes'] ?? ($o['prep_notes'] ?? '')));
+    if ($prep !== '') $desc = 'NOTE: ' . $prep . ' | ' . $desc;
     // Already-paid orders (bank transfer, wallet, cash in hand) collect nothing at the door by default.
     // Default: collect only what is still owed after deposits and transfers.
     $cod = isset($opts['cod']) && $opts['cod'] !== '' ? (float) $opts['cod'] : max(0.0, round((float) $o['total'] - order_paid((int) $o['id']), 2));

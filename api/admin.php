@@ -323,6 +323,8 @@ try {
                 if ($lid = $st->fetchColumn()) $b['lead_id'] = (int) $lid;
             }
         }
+        $prep = str_in($b['prep_notes'] ?? '', 500);
+        if ($prep !== '') db()->prepare('UPDATE orders SET prep_notes = ? WHERE id = ?')->execute([$prep, $r['id']]);
         try {
             $r['lead'] = lead_from_order($b, $r, $repId, in_array($b['source'] ?? '', ORDER_SOURCES, true) ? $b['source'] : 'Phone');
         } catch (Throwable $e) {
@@ -516,6 +518,7 @@ try {
         if (!$o) fail('Order not found.', 404);
         assert_order_access($u, $o);
         set_order_status($id, (string) ($b['status'] ?? $o['status']), str_in($b['notes'] ?? $o['notes'], 2000));
+        if (array_key_exists('prep_notes', $b)) $pdo->prepare('UPDATE orders SET prep_notes = ? WHERE id = ?')->execute([str_in($b['prep_notes'], 500), $id]);
         if (array_key_exists('business_name', $b)) {
             $pdo->prepare('UPDATE orders SET business_name = ?, review_link = ?, links = ?, design_notes = ? WHERE id = ?')
                 ->execute([str_in($b['business_name'], 120), str_in($b['review_link'] ?? '', 500), str_in($b['links'] ?? '', 1000), str_in($b['design_notes'] ?? '', 2000), $id]);
@@ -592,6 +595,10 @@ try {
             try {
                 if ($o['status'] === 'Cancelled') throw new RuntimeException('Order is cancelled.');
                 $opts = count($ids) === 1 ? $b : ['size' => $b['size'] ?? '', 'location_id' => $b['location_id'] ?? ''];
+                if (count($ids) === 1 && array_key_exists('prep_notes', $b)) { // edited on the shipping card: keep it on the order too
+                    $o['prep_notes'] = str_in($b['prep_notes'], 500);
+                    db()->prepare('UPDATE orders SET prep_notes = ? WHERE id = ?')->execute([$o['prep_notes'], $id]);
+                }
                 $r = bosta_create_for_order($o, $opts);
                 db()->prepare("UPDATE orders SET bosta_id = ?, tracking_number = ?, bosta_state = ?, bosta_cod = ?, city_id = ?, district_id = ?, district = ?,
                     address = ?, bosta_note = '', bosta_updated_at = datetime('now') WHERE id = ?")
@@ -1347,7 +1354,7 @@ function order_out(array $o): array
         'phone' => $o['phone'], 'address' => $o['address'], 'city' => $o['city'], 'items' => json_decode($o['items'], true) ?: [],
         'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'shipping' => (float) $o['shipping'],
         'total' => (float) $o['total'], 'promo' => $o['promo'], 'payment' => $o['payment'], 'status' => $o['status'],
-        'notes' => $o['notes'], 'rep' => $o['rep_name'] ?? null, 'repId' => $o['rep_id'] === null ? null : (int) $o['rep_id'], 'createdAt' => $o['created_at'],
+        'notes' => $o['notes'], 'prepNotes' => (string) ($o['prep_notes'] ?? ''), 'rep' => $o['rep_name'] ?? null, 'repId' => $o['rep_id'] === null ? null : (int) $o['rep_id'], 'createdAt' => $o['created_at'],
         'businessName' => $o['business_name'] ?? '', 'reviewLink' => $o['review_link'] ?? '', 'links' => $o['links'] ?? '', 'designNotes' => $o['design_notes'] ?? '',
         'files' => json_decode((string) ($o['files'] ?? '[]'), true) ?: [],
         'source' => $o['source'] ?? 'Website', 'createdBy' => $o['created_by_name'] ?? null, 'paymentLabel' => PAYMENT_METHODS[$o['payment']] ?? $o['payment'],

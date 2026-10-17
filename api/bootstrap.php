@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 22;
+const SCHEMA_VERSION = 23;
 
 function db(): PDO
 {
@@ -509,6 +509,9 @@ function migrate(PDO $pdo): void
         $vs = apply_size_prices($kg, $vs, $kg);
         $pdo->prepare("UPDATE products SET brand_price = ?, price = ?, variants = ? WHERE id = ?")->execute([$kg, $kg, json_encode($vs), $p['id']]);
     }
+    // Packing notes: what whoever prepares the order must know (sent to Bosta with the shipment).
+    $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('prep_notes', $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN prep_notes TEXT DEFAULT ''");
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
 }

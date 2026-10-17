@@ -412,7 +412,7 @@
         '<th>Order</th><th>Customer</th><th>Items</th><th>Status</th>' + (bosta.enabled ? '<th>Bosta</th>' : '') + '<th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
         d.orders.map((o, i) => '<tr class="click" data-i="' + i + '">' + (selectable ? '<td class="o-sel" data-nosel><input type="checkbox" class="sel" data-id="' + o.id + '" aria-label="Select ' + esc(o.number) + '"></td>' : '') +
           '<td class="o-num"><b>' + esc(o.number) + '</b></td><td class="o-cust"><b class="o-name">' + esc(o.customer) + '</b><div class="small muted o-phone">' + esc(o.phone) + '</div><div class="small muted">' + esc([o.district, o.city].filter(Boolean).join(', ')) + '</div></td>' +
-          '<td class="small o-items">' + o.items.map(itemHtml).join('') + '</td><td class="o-st">' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
+          '<td class="small o-items">' + o.items.map(itemHtml).join('') + (o.prepNotes ? '<div class="o-note" title="Order notes">📝 ' + esc(o.prepNotes) + '</div>' : '') + '</td><td class="o-st">' + pill(ORDER_TONE, o.status) + '<div class="small muted">' + esc(o.source) + (o.rep ? ' · ' + esc(o.rep) : '') + '</div></td>' +
           (bosta.enabled ? '<td class="o-bosta">' + bostaPill(o) + '</td>' : '') +
           '<td class="small muted o-date">' + dateTime(o.createdAt) + '</td><td class="num o-tot"><b>' + egp(o.total) + '</b>' + payState(o) + '</td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
@@ -517,6 +517,7 @@
       return '<div class="card stack"><h2 style="margin:0">🚚 Bosta shipment<span class="spacer"></span><span class="pill ' + BOSTA_TONE(o.bostaState) + '">' + esc(o.bostaLabel || 'Created') + '</span></h2>' +
         '<div>Tracking number <b>' + esc(o.tracking) + '</b>' + (o.bostaCod != null ? ' · collect ' + egp(o.bostaCod) : '') + '</div>' +
         (o.bostaNote ? '<div class="small" style="color:var(--bad)">' + esc(o.bostaNote) + '</div>' : '') +
+        (o.prepNotes ? '<div class="small"><b>Order notes:</b> ' + esc(o.prepNotes) + '</div>' : '') +
         '<div class="small muted">Updated ' + dateTime(o.bostaUpdatedAt) + ' · status changes arrive automatically</div>' +
         '<div class="row"><a class="btn sm primary" target="_blank" href="' + API + '?action=bosta_awb&ids=' + o.id + '">🖨 Print waybill</a>' +
         '<button class="btn sm" id="bRefresh">↻ Refresh status</button><a class="btn sm" target="_blank" rel="noopener" href="' + trackUrl(o.tracking) + '">Track on Bosta ↗</a>' +
@@ -531,6 +532,8 @@
       '<div class="ship-sum"><div><span class="small muted">Deliver to</span><b>' + esc([o.district, o.city].filter(Boolean).join(', ') || 'Area not chosen yet') + '</b>' +
         '<span class="small" dir="auto">' + esc(o.address || '') + '</span></div>' +
       '<div><span class="small muted">Courier collects</span><b>' + (cod ? egp(cod) : 'Nothing (paid)') + '</b></div></div>' +
+      '<label class="field">Order notes <span class="hint">Sent to Bosta with the shipment (on the order page and the waybill) for whoever packs it</span>' +
+        '<textarea name="prep_notes" maxlength="500" style="min-height:52px" placeholder="e.g. Gift wrap it, check the colour is black">' + esc(o.prepNotes || '') + '</textarea></label>' +
       '<div class="row"><button class="btn primary" type="submit" id="bCreate">Create Bosta shipment</button></div>' +
       '<details class="ship-more"' + (hasArea ? '' : ' open') + '><summary>' + (hasArea ? 'Change area, address or package' : 'Choose the delivery area first') + '</summary><div class="stack" style="margin-top:12px">' +
       '<div class="field" style="position:relative">Find area <span class="hint">Type in English or Arabic, e.g. Nasr City / مدينة نصر</span>' +
@@ -796,6 +799,8 @@
 (isQuote ? '' :
       '<div class="card stack"><b>Payment</b>' +
       '<label class="field"><select name="payment" id="nPay">' + Object.entries(cat.payments).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('') + '</select></label></div>' +
+      '<div class="card stack"><label class="field"><b>Order notes</b> <span class="hint">For whoever packs the order — shown on the Bosta shipment and the waybill</span>' +
+        '<textarea name="prep_notes" maxlength="500" style="min-height:56px" placeholder="e.g. Gift wrap it, add 2 extra stickers, the logo must be gold"></textarea></label></div>' +
       '<details class="card stack more-opts" id="nMore"><summary><b>More options</b> <span class="hint" style="font-weight:400">email, source, status, deposit, discount, delivery fee, notes</span></summary>' +
       '<label class="field">Email <span class="hint">Optional — for the invoice</span><input type="email" name="email" id="nEmail"></label>' +
       '<div class="grid3"><label class="field">Source<select name="source">' + cat.sources.filter((x) => x !== 'Website').map((x) => '<option value="' + esc(x) + '"' + (x === 'WhatsApp' ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label>' +

@@ -343,3 +343,4 @@ details.ship-more[open] > summary::before{content:'▾ '}
 .brand-nums b{font-size:16px}
 @media (max-width:520px){.brand-grid{grid-template-columns:1fr}.brand-nums{grid-template-columns:1fr 1fr}}
 .brand-pricing{background:#F6F5EF;border-color:#E2E0D2}
+.o-note{margin-top:4px;color:#8E4524;background:#F7E9E0;border-radius:6px;padding:2px 6px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
