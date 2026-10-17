@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 
 function db(): PDO
 {
@@ -430,6 +430,11 @@ function migrate(PDO $pdo): void
     }
     // Agreed commission with Bonds: 20% (only fills it in if it was never set).
     $pdo->exec("UPDATE brands SET commission = 20 WHERE slug = 'bonds' AND commission = 0");
+    // Bonds' own words for its brand box in the shop (only if nobody wrote one yet).
+    $pdo->prepare("UPDATE brands SET about = ?, about_ar = ?, tagline = ?, tagline_ar = ? WHERE slug = 'bonds' AND COALESCE(about, '') = ''")->execute([
+        "We don’t just roast coffee. We create coffee programs. ☕ Private label & tailored roasting solutions.",
+        "نحن لا نحمّص القهوة فقط، بل نصنع برامج قهوة متكاملة. ☕ حلول تحميص مخصصة وتصنيع بعلامتك الخاصة.",
+        'Coffee roasters · private label & tailored roasting', 'محمصة قهوة · تحميص مخصص وعلامة خاصة']);
     // Bonds coffees (each added once; after that they're managed in the dashboard like any product).
     $bondsCoffees = [
         ['bonds-chrome', 'BND-CHR-1KG', 'Chrome', 750, 'caramel, dark chocolate, roasted nuts', 'mild acidity and a full, rich body',
