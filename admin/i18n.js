@@ -392,6 +392,8 @@
     [/^Request failed \((\d+)\)$/, 'فشل الطلب ($1)'], [/^Bosta did not return a printable waybill\.(.*)$/, 'بوسطة لم ترسل بوليصة قابلة للطباعة.$1'],
     [/^Could not reach Bosta: (.+)$/, 'تعذّر الوصول لبوسطة: $1'], [/^This order already has a Bosta shipment \((.+)\)\.?$/, 'هذا الطلب له شحنة بوسطة بالفعل ($1).'],
     [/^Choose an option for (.+)$/, 'اختر اختيارًا لـ $1'], [/^(.+): only (\d+) left in stock\.?$/, '$1: متبقي $2 فقط في المخزون.'],
+    [/^Lead saved · also updated (.+)$/, 'تم حفظ العميل المحتمل · وتم تحديث $1'],
+    [/^Orders updated: (.+)\. (.+) already has a Bosta shipment, so tell Bosta the new number\.$/, 'تم تحديث الطلبات: $1. الطلب $2 له شحنة بوسطة بالفعل، لذلك أبلغ بوسطة بالرقم الجديد.', true],
     [/^(\d+) live of (\d+) products$/, '$1 معروض من $2 منتج'], [/^([\d.]+)% commission$/, 'عمولة $1%'], [/^([\d.]+)% now$/, '$1% حاليًا'],
     [/^Sold in (.+)$/, 'المبيعات في $1'], [/^Items sold in (.+)$/, 'المنتجات المباعة في $1'], [/^(.+) more once delivered$/, '$1 إضافية بعد التسليم'],
     [/^(.+) delivered$/, '$1 تم تسليمه'], [/^(.+) owed$/, '$1 مستحق'], [/^Their share of delivered orders (.+)$/, 'نصيبهم من الطلبات المسلّمة $1'],

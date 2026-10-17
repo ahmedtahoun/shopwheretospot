@@ -24,7 +24,7 @@
   function toast(msg, bad) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
-    clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = ''; }, 2600);
+    clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = ''; }, Math.max(2600, String(msg).length * 55)); // longer messages stay longer
   }
 
   async function api(action, { method = 'GET', body, query = '', form } = {}) {
@@ -1591,8 +1591,11 @@
     $('#lf').onsubmit = async (e) => {
       e.preventDefault();
       try {
-        await api('lead_save', { method: 'POST', body: Object.assign({ id: l.id || 0 }, formData(e.target)) });
-        closeDrawer(); toast('Lead saved');
+        const r = await api('lead_save', { method: 'POST', body: Object.assign({ id: l.id || 0 }, formData(e.target)) });
+        closeDrawer();
+        // A corrected name / phone / email is copied to that customer's orders.
+        if (r.shipped && r.shipped.length) toast('Orders updated: ' + r.synced.join(', ') + '. ' + r.shipped.join(', ') + ' already has a Bosta shipment, so tell Bosta the new number.', true);
+        else toast(r.synced && r.synced.length ? 'Lead saved · also updated ' + r.synced.join(', ') : 'Lead saved');
         if (S.route === 'leads') pageLeads(); else pageDashboard();
       } catch (err) { toast(err.message, true); }
     };

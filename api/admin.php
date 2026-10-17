@@ -709,16 +709,20 @@ try {
                 $name = str_in($b['name'] ?? '', 120);
                 $contact = str_in($b['contact'] ?? '', 160);
                 if ($name === '' || $contact === '') fail('Name and contact are required.');
-                $old = db()->prepare('SELECT contact FROM leads WHERE id = ?');
+                $old = db()->prepare('SELECT name, contact, source, notes FROM leads WHERE id = ?');
                 $old->execute([$id]);
-                $dupe = $old->fetchColumn() === $contact ? null : find_lead(phone_key($contact), email_key($contact));
+                $before = $old->fetch() ?: ['name' => '', 'contact' => '', 'source' => '', 'notes' => ''];
+                $dupe = $before['contact'] === $contact ? null : find_lead(phone_key($contact), email_key($contact));
                 if ($dupe && (int) $dupe['id'] !== $id) {
                     fail('This number or email already belongs to “' . $dupe['name'] . '” (' . $dupe['status'] . ($dupe['assigned_name'] ? ', ' . $dupe['assigned_name'] : '') . '). Open that lead and add a note instead.', 409);
                 }
                 db()->prepare('UPDATE leads SET name = ?, contact = ?, cat = ?, phone_key = ?, email_key = ? WHERE id = ?')
                     ->execute([$name, $contact, str_in($b['cat'] ?? '', 120), phone_key($contact), email_key($contact), $id]);
+                // Also on a plain save, so orders that kept an old number (edited before this sync existed) catch up.
+                $sync = sync_lead_orders($before, $name, $contact);
             }
-            log_activity($u, 'Updated lead', '#' . $id . ' → ' . $status);
+            log_activity($u, 'Updated lead', '#' . $id . ' → ' . $status . (!empty($sync['orders']) ? ' · details copied to ' . implode(', ', $sync['orders']) : ''));
+            json_out(['ok' => true, 'synced' => $sync['orders'] ?? [], 'shipped' => $sync['shipped'] ?? []]);
         } else {
             $name = str_in($b['name'] ?? '', 120);
             $contact = str_in($b['contact'] ?? '', 160);
@@ -1372,6 +1376,34 @@ function save_user(array $b, ?int $id): int
     $pdo->prepare('INSERT INTO users (name, email, phone, password_hash, role, ref_code, active, notify) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         ->execute([$name, $email, str_in($b['phone'] ?? '', 40), password_hash($pw, PASSWORD_DEFAULT), $role, $ref, isset($b['active']) && !$b['active'] ? 0 : 1, empty($b['notify']) ? 0 : 1]);
     return (int) $pdo->lastInsertId();
+}
+
+// A lead's name / phone / email was corrected: copy it to the orders of that same customer — the ones
+// with the old phone or email, and the orders the lead mentions (WTS-1023). Returns the order numbers
+// changed, and those that already have a Bosta shipment (the courier keeps the details it was given).
+function sync_lead_orders(array $before, string $name, string $contact): array
+{
+    $oldPhone = phone_key((string) $before['contact']);
+    $oldEmail = email_key((string) $before['contact']);
+    $newPhone = preg_match('/\+?[\d٠-٩][\d٠-٩\s-]{6,}[\d٠-٩]/u', preg_replace('/[\w.+-]+@[\w-]+\.[\w.]+/u', ' ', $contact), $m) ? trim($m[0]) : '';
+    $newEmail = email_key($contact) ?? '';
+    $ids = [];
+    if (preg_match_all('/WTS-(\d+)/', $before['source'] . ' ' . $before['notes'], $mm)) foreach ($mm[1] as $n) $ids[(int) $n - 1000] = true;
+    $done = []; $shipped = [];
+    $upd = db()->prepare("UPDATE orders SET customer = ?, phone = ?, email = ?, updated_at = datetime('now') WHERE id = ?");
+    foreach (db()->query("SELECT id, customer, phone, email, tracking_number, status FROM orders WHERE status != 'Awaiting payment'") as $o) {
+        $byPhone = $oldPhone && phone_key((string) $o['phone']) === $oldPhone;
+        $byEmail = $oldEmail && email_key((string) $o['email']) === $oldEmail;
+        if (!$byPhone && !$byEmail && !isset($ids[(int) $o['id']])) continue;
+        $phone = $newPhone !== '' && ($byPhone || !$byEmail) ? $newPhone : $o['phone'];
+        $email = $newEmail !== '' && ($byEmail || (string) $o['email'] === '') ? $newEmail : $o['email'];
+        $cust = $before['name'] !== $name ? $name : $o['customer'];
+        if ($phone === $o['phone'] && $email === $o['email'] && $cust === $o['customer']) continue;
+        $upd->execute([$cust, $phone, $email, $o['id']]);
+        $done[] = order_number((int) $o['id']);
+        if ($o['tracking_number'] && !in_array($o['status'], ['Delivered', 'Cancelled', 'Returned'], true)) $shipped[] = order_number((int) $o['id']);
+    }
+    return ['orders' => $done, 'shipped' => $shipped];
 }
 
 function store_image(array $f, string $pid): string
