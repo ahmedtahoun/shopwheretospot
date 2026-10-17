@@ -243,7 +243,7 @@ try {
         $rows = array_map(function ($p) {
             return ['id' => $p['id'], 'name' => $p['name'], 'nameAr' => $p['nameAr'], 'brandId' => $p['brandId'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
                 'discountPct' => $p['discountPct'], 'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub'],
-                'variants' => array_map(function ($v) { unset($v['sku']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
+                'variants' => array_map(function ($v) { unset($v['sku'], $v['brandPrice']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
                 'personalized' => $p['personalized'], 'fromPrice' => $p['fromPrice']];
         }, load_products(true));
         $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
@@ -354,6 +354,11 @@ try {
         $tiers = $variants ? [] : clean_tiers($b['tiers'] ?? []);
         $addons = clean_addons($b['addons'] ?? []);
         $price = (float) ($b['price'] ?? 0);
+        // Partner brand with a brand price: shop price = brand price + margin; sizes follow their price rule.
+        $brandId = !empty($b['brandId']) && ($brandRow = brand_get((int) $b['brandId'])) ? (int) $b['brandId'] : null;
+        $brandPrice = $brandId ? max(0, round((float) ($b['brandPrice'] ?? 0), 2)) : 0;
+        $marginPct = $brandId && isset($b['marginPct']) && $b['marginPct'] !== '' && $b['marginPct'] !== null ? max(0, min(500, (float) $b['marginPct'])) : null;
+        if ($brandPrice > 0) $price = brand_sell_price($brandPrice, $marginPct ?? (float) $brandRow['margin']);
         // With sizes or quantity prices, the base price can be left empty: it becomes the lowest price.
         if ($price <= 0) {
             $candidates = [];
@@ -362,6 +367,7 @@ try {
             $price = $candidates ? min($candidates) : 0;
         }
         if ($price <= 0) fail('Enter a price, or add sizes / quantity prices.');
+        $variants = apply_size_prices($price, $variants, $brandPrice); // sizes priced as a share of the main price
         foreach ($variants as &$v) {
             if (!$v['tiers'] && $v['price'] <= 0) $v['price'] = $price;
         }
@@ -378,16 +384,16 @@ try {
             ':features' => json_encode($features, JSON_UNESCAPED_UNICODE), ':period' => $cat === 'services' ? 'month' : '',
             ':variants' => json_encode($variants, JSON_UNESCAPED_UNICODE), ':tiers' => json_encode($tiers), ':addons' => json_encode($addons, JSON_UNESCAPED_UNICODE),
             ':personalized' => empty($b['personalized']) ? 0 : 1,
-            ':brand_id' => !empty($b['brandId']) && brand_get((int) $b['brandId']) ? (int) $b['brandId'] : null,
+            ':brand_id' => $brandId, ':brand_price' => $brandPrice, ':margin_pct' => $marginPct,
         ];
         if ($isNew) {
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM products')->fetchColumn();
-            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar, brand_id)
-                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar, :brand_id)')->execute($vals);
+            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar, brand_id, brand_price, margin_pct)
+                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar, :brand_id, :brand_price, :margin_pct)')->execute($vals);
         } else {
             $st = $pdo->prepare("UPDATE products SET sku=:sku, name=:name, cat=:cat, vendor=:vendor, price=:price, cost=:cost, stock=:stock, discount_pct=:discount_pct,
                 label=:label, status=:status, sub=:sub, descr=:descr, features=:features, period=:period, variants=:variants, tiers=:tiers, addons=:addons,
-                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, brand_id=:brand_id, updated_at=datetime('now') WHERE id=:id");
+                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, brand_id=:brand_id, brand_price=:brand_price, margin_pct=:margin_pct, updated_at=datetime('now') WHERE id=:id");
             $st->execute($vals);
             if (!$st->rowCount()) fail('Product not found.', 404);
         }
@@ -966,11 +972,11 @@ try {
         if ($link !== '' && !preg_match('~^https?://~i', $link)) $link = 'https://' . $link;
         $vals = [':name' => $name, ':name_ar' => str_in($b['nameAr'] ?? '', 80), ':tagline' => str_in($b['tagline'] ?? '', 120), ':tagline_ar' => str_in($b['taglineAr'] ?? '', 120),
             ':about' => str_in($b['about'] ?? '', 1000), ':about_ar' => str_in($b['aboutAr'] ?? '', 1000), ':link' => $link,
-            ':commission' => max(0, min(100, (float) ($b['commission'] ?? 0))), ':active' => empty($b['active']) ? 0 : 1];
+            ':commission' => max(0, min(100, (float) ($b['commission'] ?? 0))), ':margin' => max(0, min(500, (float) ($b['margin'] ?? 0))), ':active' => empty($b['active']) ? 0 : 1];
         $pdo = db();
         if ($id) {
             $vals[':id'] = $id;
-            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, active=:active WHERE id=:id');
+            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, margin=:margin, active=:active WHERE id=:id');
             $st->execute($vals);
             if (!$st->rowCount() && !brand_get($id)) fail('Brand not found.', 404);
         } else {
@@ -980,11 +986,12 @@ try {
             while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn()) break; $slug = $base . '-' . (++$n); }
             $vals[':slug'] = $slug;
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM brands')->fetchColumn();
-            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :active, :sort)')->execute($vals);
+            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, margin, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :margin, :active, :sort)')->execute($vals);
             $id = (int) $pdo->lastInsertId();
         }
+        $repriced = reprice_brand_products($id); // a new margin changes its products' shop prices
         log_activity($u, !empty($b['id']) ? 'Updated brand' : 'Added brand', $name);
-        json_out(['brand' => brand_row(brand_get($id), true)]);
+        json_out(['brand' => brand_row(brand_get($id), true), 'repriced' => $repriced]);
 
     case 'brand_logo':
         $u = require_perm('products');

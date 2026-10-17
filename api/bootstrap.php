@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 21;
+const SCHEMA_VERSION = 22;
 
 function db(): PDO
 {
@@ -492,6 +492,23 @@ function migrate(PDO $pdo): void
             preg_replace('/ — 1 kg$/u', '', $p['name']), preg_replace('/ — 1 كجم$/u', '', (string) $p['name_ar']),
             preg_replace('/^1 kg /', '1 kg or 250 g · ', (string) $p['sub']), preg_replace('/^1 كجم /u', '1 كجم أو 250 جم · ', (string) $p['sub_ar']), $p['id']]);
     }
+    // Partner brand pricing: the brand's price for the main size + your margin = the shop price.
+    $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('brand_price', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN brand_price REAL NOT NULL DEFAULT 0');
+    if (!in_array('margin_pct', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN margin_pct REAL DEFAULT NULL');
+    $brandCols = $pdo->query('PRAGMA table_info(brands)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('margin', $brandCols, true)) $pdo->exec('ALTER TABLE brands ADD COLUMN margin REAL NOT NULL DEFAULT 0');
+    // Bonds coffees: today's 1 kg price becomes the Bonds price; 250 g follows it as a quarter.
+    foreach ($pdo->query("SELECT id, variants FROM products WHERE id LIKE 'bonds-%' AND brand_price = 0")->fetchAll() as $p) {
+        $vs = json_decode((string) $p['variants'], true) ?: [];
+        $kg = 0.0;
+        foreach ($vs as $v) if (($v['id'] ?? '') === 'kg1') $kg = (float) $v['price'];
+        if ($kg <= 0) continue;
+        foreach ($vs as &$v) $v['ratio'] = ($v['id'] ?? '') === 'g250' ? 0.25 : (($v['id'] ?? '') === 'kg1' ? 1 : 0);
+        unset($v);
+        $vs = apply_size_prices($kg, $vs, $kg);
+        $pdo->prepare("UPDATE products SET brand_price = ?, price = ?, variants = ? WHERE id = ?")->execute([$kg, $kg, json_encode($vs), $p['id']]);
+    }
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
 }
@@ -665,6 +682,7 @@ function product_row(array $p, array $images): array
         'variants' => product_json($p, 'variants'), 'tiers' => product_json($p, 'tiers'), 'addons' => product_json($p, 'addons'),
         'personalized' => (bool) ($p['personalized'] ?? 0), 'fromPrice' => from_price($p),
         'brandId' => isset($p['brand_id']) && $p['brand_id'] !== null ? (int) $p['brand_id'] : null,
+        'brandPrice' => (float) ($p['brand_price'] ?? 0), 'marginPct' => isset($p['margin_pct']) && $p['margin_pct'] !== null ? (float) $p['margin_pct'] : null,
         'createdAt' => $p['created_at'], 'updatedAt' => $p['updated_at'],
     ];
 }

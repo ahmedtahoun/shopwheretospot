@@ -98,19 +98,19 @@
           '<div><h4>Period</h4><p>' + esc(monthName) + '</p><h4 style="margin-top:12px">Commission</h4><p>' + (b.commission || 0) + '% of item price</p></div>' +
           '<div><h4>From</h4><p>' + SHOP.address + '</p><p>' + SHOP.phone + '</p><p>' + SHOP.email + '</p></div>' +
         '</div>' +
-        '<table><thead><tr><th>Order</th><th>Item</th><th class="r">Qty</th><th>Status</th><th class="r">Sold for</th><th class="r">Commission</th><th class="r">Your share</th></tr></thead><tbody>' +
+        '<table><thead><tr><th>Order</th><th>Item</th><th class="r">Qty</th><th>Status</th><th class="r">Your price</th><th class="r">Commission</th><th class="r">Your share</th></tr></thead><tbody>' +
           (j.lines.length ? j.lines.map((l) => '<tr><td><b>' + esc(l.number) + '</b><div class="hint">' + dt(l.at) + '</div></td><td>' + esc(l.name) + '</td><td class="r">' + l.qty + '</td><td>' + esc(l.status) + '</td>' +
-            '<td class="r">' + egp(l.sales) + '</td><td class="r">' + egp(l.commission) + ' <span class="hint">(' + l.pct + '%)</span></td><td class="r"><b>' + egp(l.due) + '</b></td></tr>').join('')
+            '<td class="r">' + egp(l.base) + '</td><td class="r">' + egp(l.commission) + ' <span class="hint">(' + l.pct + '%)</span></td><td class="r"><b>' + egp(l.due) + '</b></td></tr>').join('')
             : '<tr><td colspan="7" style="text-align:center;color:#8E8980;padding:30px">No sales in this period.</td></tr>') +
         '</tbody></table>' +
-        '<div class="totals"><div><span>Sold (' + t.pieces + ' pcs, ' + t.orders + ' orders)</span><span class="r">' + egp(t.sales) + '</span></div>' +
+        '<div class="totals"><div><span>Sold at your prices (' + t.pieces + ' pcs, ' + t.orders + ' orders)</span><span class="r">' + egp(t.base) + '</span></div>' +
           '<div><span>Where To Spot commission</span><span class="r">−' + egp(t.commission) + '</span></div>' +
           '<div class="grand"><span>Your share this month</span><span class="r">' + egp(t.due) + '</span></div>' +
           (t.due - t.deliveredDue > 0.004 ? '<div><span>Of which still on its way to customers</span><span class="r">' + egp(t.due - t.deliveredDue) + '</span></div>' : '') +
           paidMonth.map((p) => '<div class="paid"><span>Paid to you · ' + esc(new Date(p.on + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + (p.note ? ' · ' + esc(p.note) : '') + '</span><span class="r">' + egp(p.amount) + '</span></div>').join('') +
           (bal.owed > 0.004 ? '<div class="due"><span>Balance owed to you (all delivered orders)</span><span class="r">' + egp(bal.owed) + '</span></div>' : '<div style="justify-content:flex-end"><span class="stamp">SETTLED</span></div>') +
         '</div>' +
-        '<div class="notes"><div><h4>How this is worked out</h4><div class="edit" contenteditable="true">Commission is ' + (b.commission || 0) + '% of the price each item sold for.\nDelivery fees and promo-code discounts are paid by Where To Spot.\nAn item is payable once its order is delivered. Cancelled and returned orders are not included.</div></div>' +
+        '<div class="notes"><div><h4>How this is worked out</h4><div class="edit" contenteditable="true">Commission is ' + (b.commission || 0) + '% of your price for each item sold.\nDelivery fees and promo-code discounts are paid by Where To Spot.\nAn item is payable once its order is delivered. Cancelled and returned orders are not included.</div></div>' +
           '<div><h4>Notes</h4><div class="edit" contenteditable="true"></div></div></div>' +
         '<div class="foot"><span>' + SHOP.name + ' · ' + SHOP.web + '</span><span>Thank you for your partnership.</span></div>' +
       '</div>';

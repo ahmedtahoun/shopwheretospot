@@ -1087,6 +1087,10 @@
       '<label class="field" id="stockField">Stock<input type="number" name="stock" min="0" step="1" value="' + esc(p.stock) + '"><span class="hint">Ignored for plans</span></label></div>' +
       '<label class="field">Partner brand <span class="hint">Shows the brand’s logo on this product in the shop. Its sales go on the brand’s statement, with your commission.</span><select name="brandId">' +
         '<option value="">Where To Spot (our own product)</option>' + (S.brands || []).map((b) => '<option value="' + b.id + '"' + (b.id === p.brandId ? ' selected' : '') + '>' + esc(b.name) + (b.commission ? ' · ' + b.commission + '% commission' : '') + (b.active ? '' : ' (off)') + '</option>').join('') + '</select></label>' +
+      '<div class="card stack brand-pricing" id="brandPricing"><b>Price from the brand</b>' +
+        '<div class="grid2"><label class="field">Brand’s price (EGP) <span class="hint">What the brand charges for the main size, before your commission</span><input type="number" name="brandPrice" min="0" step="0.01" value="' + esc(p.brandPrice || '') + '" placeholder="e.g. 750"></label>' +
+        '<label class="field">Your margin (%) <span class="hint" id="marginHint"></span><input type="number" name="marginPct" min="0" max="500" step="0.5" value="' + esc(p.marginPct == null ? '' : p.marginPct) + '"></label></div>' +
+        '<div class="small" id="brandPriceInfo"></div></div>' +
       '<div class="card stack" id="optCard"></div>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="personalized" ' + (p.personalized ? 'checked' : '') + '> Needs personalisation <span class="hint" style="font-weight:400">Checkout asks for business name, review link, logo and design notes</span></label>' +
       '<div class="grid3"><label class="field">Cost (EGP)<input type="number" name="cost" min="0" step="0.01" value="' + esc(p.cost) + '"><span class="hint">Private — not shown in shop</span></label>' +
@@ -1105,7 +1109,30 @@
     openDrawer(isNew ? 'Add product' : p.name, body, foot);
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
     if (!isNew) renderPhotos(p);
-    renderOptions(opt);
+    // Partner brand pricing: brand price + margin = the shop price; sizes follow the main price.
+    const pf = $('#pf').elements;
+    const brandOfForm = () => (S.brands || []).find((b) => b.id === +pf.brandId.value) || null;
+    opt.mainPrice = () => {
+      const br = brandOfForm(), bp = +pf.brandPrice.value || 0;
+      if (br && bp > 0) return Math.round(bp * (1 + (pf.marginPct.value === '' ? br.margin || 0 : +pf.marginPct.value) / 100));
+      return +pf.price.value || 0;
+    };
+    const syncBrandPricing = () => {
+      const br = brandOfForm(), bp = +pf.brandPrice.value || 0;
+      $('#brandPricing').style.display = br ? '' : 'none';
+      $('#marginHint').textContent = br ? 'Leave empty to use ' + br.name + '’s margin (' + (br.margin || 0) + '%)' : '';
+      const auto = !!(br && bp > 0);
+      pf.price.readOnly = auto;
+      if (auto) {
+        const main = opt.mainPrice(), comm = bp * (br.commission || 0) / 100;
+        pf.price.value = main;
+        $('#brandPriceInfo').innerHTML = 'Shop price <b>' + egp(main) + '</b>. On each one you keep <b class="pay-ok">' + egp(main - bp + comm) + '</b> (' + egp(comm) + ' commission + ' + egp(main - bp) + ' margin); ' + esc(br.name) + ' gets ' + egp(bp - comm) + '.';
+      } else $('#brandPriceInfo').textContent = br ? 'Enter the brand’s price to work out the shop price automatically.' : '';
+      renderOptions(opt);
+    };
+    ['brandId', 'brandPrice', 'marginPct', 'price'].forEach((n) => pf[n].addEventListener('input', syncBrandPricing));
+    pf.brandId.addEventListener('change', syncBrandPricing);
+    syncBrandPricing();
     $('#pf').onsubmit = async (e) => {
       e.preventDefault();
       const data = formData(e.target);
@@ -1139,6 +1166,7 @@
     const card = $('#optCard');
     if (!card) return;
     const hasSizes = opt.variants.length > 0;
+    const main = opt.mainPrice ? opt.mainPrice() : 0;
     card.innerHTML = '<div class="row"><b>Sizes &amp; prices</b><span class="spacer"></span>' +
       '<label class="row small" style="font-weight:600"><input type="checkbox" id="optSizes" ' + (hasSizes ? 'checked' : '') + '> Comes in sizes</label></div>' +
       (hasSizes ? opt.variants.map((v, i) => '<div class="card" style="padding:12px;background:#FBF8F4">' +
@@ -1146,6 +1174,11 @@
           '<input type="text" placeholder="SKU" style="width:110px" data-path="variants.' + i + '.sku" value="' + esc(v.sku || '') + '">' +
           '<span class="small">Stock</span><input type="number" min="0" style="width:80px" data-path="variants.' + i + '.stock" value="' + esc(v.stock || 0) + '">' +
           '<button type="button" class="btn sm danger" data-del="variants.' + i + '">Remove size</button></div>' +
+          '<div class="row" style="margin-top:8px"><span class="small">Price</span><select data-path="variants.' + i + '.ratio" data-rerender style="width:auto">' +
+            [[1, 'Same as the main price'], [0.5, '½ of the main price'], [0.3333, '⅓ of the main price'], [0.25, '¼ of the main price'], [2, '2× the main price'], [0, 'Its own price']]
+              .map(([r, l]) => '<option value="' + r + '"' + (Math.abs((+v.ratio || 0) - r) < 0.001 ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+            (+v.ratio > 0 ? '<b class="small">= ' + egp(Math.round(main * +v.ratio)) + '</b>'
+              : '<input type="number" min="0" step="0.01" style="width:110px" data-path="variants.' + i + '.price" value="' + esc(v.price || '') + '" placeholder="EGP" aria-label="Price of this size">') + '</div>' +
           tierEditor(v.tiers || [], 'variants.' + i + '.tiers') + '</div>').join('') +
         '<button type="button" class="btn sm" data-add-size>+ Add size</button>'
         : tierEditor(opt.tiers, 'tiers')) +
@@ -1165,6 +1198,7 @@
       el.oninput = el.onchange = () => {
         const [parent, key] = parentOf(el.dataset.path);
         parent[key] = el.type === 'number' ? (el.value === '' ? '' : +el.value) : el.value;
+        if (el.dataset.rerender !== undefined) renderOptions(opt);
       };
     });
     $$('[data-del]', card).forEach((b) => b.onclick = () => { const [parent, key] = parentOf(b.dataset.del); parent.splice(+key, 1); renderOptions(opt); });
@@ -1175,9 +1209,9 @@
       renderOptions(opt);
     });
     const addSize = $('[data-add-size]', card);
-    if (addSize) addSize.onclick = () => { opt.variants.push({ label: '', sku: '', stock: 0, tiers: [{ min: 1, price: '' }] }); renderOptions(opt); };
+    if (addSize) addSize.onclick = () => { opt.variants.push({ label: '', sku: '', stock: 0, ratio: 0, price: '', tiers: [] }); renderOptions(opt); };
     $('#optSizes').onchange = (e) => {
-      if (e.target.checked && !opt.variants.length) opt.variants.push({ label: '', sku: '', stock: 0, tiers: opt.tiers.length ? opt.tiers : [{ min: 1, price: '' }] });
+      if (e.target.checked && !opt.variants.length) opt.variants.push({ label: '', sku: '', stock: 0, ratio: 1, tiers: opt.tiers });
       if (!e.target.checked && opt.variants.length && !confirm('Remove all sizes and their prices and stock?')) { e.target.checked = true; return; }
       if (!e.target.checked) opt.variants = [];
       renderOptions(opt);
@@ -1187,7 +1221,7 @@
     const design = $('[data-add-design]', card);
     if (design) design.onclick = () => { opt.addons.push({ group: 'Design', options: [{ label: 'Standard design', price: 0, per: 'unit' }, { label: 'Custom design', price: 100, per: 'unit' }] }); renderOptions(opt); };
     const sf = $('#stockField'); if (sf) sf.style.display = hasSizes ? 'none' : '';
-    const ph = $('#priceHint'); if (ph) ph.textContent = hasSizes || opt.tiers.length ? 'Optional — the lowest size / quantity price is used' : 'Price for one piece';
+    const ph = $('#priceHint'); if (ph) ph.textContent = $('#pf') && $('#pf').elements.price.readOnly ? 'Worked out from the brand’s price + your margin' : hasSizes ? 'The main price — sizes can follow it (e.g. 250 g = ¼)' : opt.tiers.length ? 'Optional — the lowest quantity price is used' : 'Price for one piece';
   }
 
   function renderPhotos(p) {
@@ -1671,10 +1705,10 @@
       '<button class="btn primary" id="newBrand">+ Add brand</button>') +
       (d.brands.length ? '<div class="brand-grid">' + d.brands.map((b) => '<div class="card brand-card' + (b.active ? '' : ' off') + '" data-b="' + b.id + '">' +
         '<div class="row"><span class="brand-logo">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : esc(b.name[0] || '?')) + '</span><span style="flex:1;min-width:0"><b>' + esc(b.name) + '</b>' +
-          '<div class="small muted">' + b.live + ' live of ' + b.products + ' products · ' + (b.commission ? b.commission + '% commission' : '<span class="pay-part">commission not set</span>') + '</div></span>' +
+          '<div class="small muted">' + b.live + ' live of ' + b.products + ' products · ' + (b.commission ? b.commission + '% commission' : '<span class="pay-part">commission not set</span>') + (b.margin ? ' · ' + b.margin + '% margin' : '') + '</div></span>' +
           (b.active ? '<span class="pill good">✓ On</span>' : '<span class="pill">Off</span>') + '</div>' +
         (b.month ? '<div class="brand-nums"><div><span class="small muted">Sold in ' + esc(monthLabel(d.month)) + '</span><b>' + egp(b.month.sales) + '</b><span class="small muted">' + b.month.pieces + ' pcs · ' + b.month.orders + ' orders</span></div>' +
-          '<div><span class="small muted">Your commission</span><b class="pay-ok">' + egp(b.month.commission) + '</b></div>' +
+          '<div><span class="small muted">You keep</span><b class="pay-ok">' + egp(b.month.commission + b.month.margin) + '</b>' + (b.month.margin ? '<span class="small muted">' + egp(b.month.commission) + ' commission + ' + egp(b.month.margin) + ' margin</span>' : '') + '</div>' +
           '<div><span class="small muted">Owed to the brand now</span><b' + (b.balance.owed > 0 ? ' class="pay-part"' : '') + '>' + egp(b.balance.owed) + '</b><span class="small muted">' + (b.balance.pending ? egp(b.balance.pending) + ' more once delivered' : 'delivered orders only') + '</span></div></div>' : '') +
         '<div class="row"><button class="btn sm" data-edit="' + b.id + '">Edit brand</button>' + (b.month ? '<button class="btn sm primary" data-st="' + b.id + '">Statement & payments</button>' : '') +
           '<span class="spacer"></span><button class="btn sm" data-add="' + b.id + '">+ Add product</button></div></div>').join('') + '</div>'
@@ -1695,7 +1729,8 @@
       '<div class="grid2"><label class="field">Brand name<input name="name" required maxlength="80" value="' + esc(b.name) + '"></label>' +
       '<label class="field">Name in Arabic<input name="nameAr" dir="rtl" maxlength="80" value="' + esc(b.nameAr) + '"></label></div>' +
       '<div class="grid2"><label class="field">Commission (%) <span class="hint">Your share of each item’s price</span><input name="commission" type="number" min="0" max="100" step="0.5" value="' + esc(b.commission) + '" placeholder="e.g. 20"></label>' +
-      '<label class="field">Instagram or website<input name="link" type="url" value="' + esc(b.link) + '" placeholder="https://instagram.com/…"></label></div>' +
+      '<label class="field">Your margin (%) <span class="hint">Added on top of the brand’s price for all its products (a product can have its own)</span><input name="margin" type="number" min="0" max="500" step="0.5" value="' + esc(b.margin || '') + '" placeholder="e.g. 25"></label></div>' +
+      '<label class="field">Instagram or website<input name="link" type="url" value="' + esc(b.link) + '" placeholder="https://instagram.com/…"></label>' +
       '<div class="grid2"><label class="field">Short line <span class="hint">Under the name, e.g. Specialty coffee roasters</span><input name="tagline" maxlength="120" value="' + esc(b.tagline) + '"></label>' +
       '<label class="field">Short line in Arabic<input name="taglineAr" dir="rtl" maxlength="120" value="' + esc(b.taglineAr) + '"></label></div>' +
       '<div class="grid2"><label class="field">About the brand <span class="hint">Shown on its products</span><textarea name="about" maxlength="1000">' + esc(b.about) + '</textarea></label>' +
@@ -1709,12 +1744,15 @@
       '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="brf" type="submit">Save</button>');
     $$('[data-close]', w).forEach((x) => x.addEventListener('click', closeDrawer));
     const f = $('#brf');
-    const preview = () => { const c = +f.elements.commission.value || 0; $('#brPreview').textContent = c ? 'On an item sold for ' + egp(1000) + ', you keep ' + egp(1000 * c / 100) + ' and owe the brand ' + egp(1000 - 1000 * c / 100) + '.' : ''; };
-    f.elements.commission.oninput = preview; preview();
+    const preview = () => {
+      const c = +f.elements.commission.value || 0, m = +f.elements.margin.value || 0, sell = Math.round(1000 * (1 + m / 100));
+      $('#brPreview').textContent = c || m ? 'Example: the brand’s price is ' + egp(1000) + ' → the shop sells it for ' + egp(sell) + '. You keep ' + egp(sell - 1000 + 1000 * c / 100) + ' and owe the brand ' + egp(1000 - 1000 * c / 100) + '.' : '';
+    };
+    f.elements.commission.oninput = preview; f.elements.margin.oninput = preview; preview();
     f.onsubmit = async (e) => {
       e.preventDefault();
       const data = formData(f); data.id = b.id || 0;
-      try { const r = await api('brand_save', { method: 'POST', body: data }); toast('Brand saved'); if (isNew) { await pageBrands(); brandDrawer(r.brand); } else { closeDrawer(); pageBrands(); } }
+      try { const r = await api('brand_save', { method: 'POST', body: data }); toast(r.repriced ? 'Brand saved · ' + r.repriced + ' product prices updated' : 'Brand saved'); if (isNew) { await pageBrands(); brandDrawer(r.brand); } else { closeDrawer(); pageBrands(); } }
       catch (err) { toast(err.message, true); }
     };
     const file = $('#brFile');
@@ -1738,11 +1776,11 @@
       '<div class="row"><select id="stMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' +
         '<span class="spacer"></span><a class="btn sm" target="_blank" rel="noopener" href="doc.html?brand=' + id + '&month=' + d.month + '">' + icon('file') + 'Statement to share</a></div>' +
       '<div class="kpis" style="margin:0"><div class="kpi"><div class="label">Sold</div><div class="value">' + egp(t.sales) + '</div><div class="note">' + t.pieces + ' pcs · ' + t.orders + ' orders</div></div>' +
-        '<div class="kpi"><div class="label">Your commission</div><div class="value">' + egp(t.commission) + '</div><div class="note">' + (d.brand.commission || 0) + '% now</div></div>' +
+        '<div class="kpi"><div class="label">You keep</div><div class="value">' + egp(t.commission + t.margin) + '</div><div class="note">' + egp(t.commission) + ' commission + ' + egp(t.margin) + ' margin</div></div>' +
         '<div class="kpi"><div class="label">Brand’s share</div><div class="value">' + egp(t.due) + '</div><div class="note">' + egp(t.deliveredDue) + ' delivered</div></div></div>' +
       '<div class="card"><h2>Items sold in ' + esc(monthLabel(d.month)) + '</h2>' + (d.lines.length ? '<div class="list">' + d.lines.map((l) =>
         '<div class="li"><span><b>' + esc(l.number) + '</b> · ' + esc(l.qty + '× ' + l.name) + '<div class="small muted">' + esc(l.customer) + ' · ' + dateTime(l.at) + '</div></span>' +
-        '<span style="text-align:right">' + pill(ORDER_TONE, l.status) + '<div class="small"><b>' + egp(l.sales) + '</b> · ' + l.pct + '% = ' + egp(l.commission) + '</div></span></div>').join('') + '</div>'
+        '<span style="text-align:right">' + pill(ORDER_TONE, l.status) + '<div class="small">Sold <b>' + egp(l.sales) + '</b> · brand price ' + egp(l.base) + '</div><div class="small pay-ok">You keep ' + egp(l.commission + l.margin) + ' · brand ' + egp(l.due) + '</div></span></div>').join('') + '</div>'
         : '<div class="small muted">Nothing sold this month.</div>') + '</div>' +
       '<div class="card"><h2>Payments to the brand<span class="spacer"></span>' + (bal.owed > 0 ? '<span class="pill warn">' + egp(bal.owed) + ' owed</span>' : '<span class="pill good">✓ Nothing owed</span>') + '</h2>' +
         '<div class="row small muted" style="margin-bottom:10px"><span>Their share of delivered orders ' + egp(bal.earned) + '</span><span class="spacer"></span><span>Paid ' + egp(bal.paid) + '</span></div>' +

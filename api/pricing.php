@@ -126,9 +126,35 @@ function clean_variants($variants): array
         if ($label === '') continue;
         $id = preg_replace('/[^a-z0-9]/', '', strtolower((string) ($v['id'] ?? ''))) ?: 'v' . bin2hex(random_bytes(3));
         $out[] = ['id' => $id, 'label' => $label, 'sku' => str_in($v['sku'] ?? '', 40), 'stock' => max(0, (int) ($v['stock'] ?? 0)),
-            'price' => max(0, round((float) ($v['price'] ?? 0), 2)), 'tiers' => clean_tiers($v['tiers'] ?? [])];
+            'price' => max(0, round((float) ($v['price'] ?? 0), 2)), 'tiers' => clean_tiers($v['tiers'] ?? []),
+            // Price rule: a share of the product's main price (1 = same, 0.25 = a quarter); 0 = its own price.
+            'ratio' => max(0, min(10, round((float) ($v['ratio'] ?? 0), 4)))];
     }
     return $out;
+}
+
+// Sizes priced as a share of the main price get their price from it (whole pounds). For a partner
+// brand's product, each size also remembers the brand's own price for it ('brandPrice'), which is what
+// the brand's share is worked out on.
+function apply_size_prices(float $main, array $variants, float $brandPrice = 0): array
+{
+    foreach ($variants as &$v) {
+        $ratio = (float) ($v['ratio'] ?? 0);
+        if ($ratio > 0 && $main > 0) $v['price'] = round($main * $ratio);
+        if ($brandPrice > 0) {
+            $v['brandPrice'] = round($ratio > 0 ? $brandPrice * $ratio : ($main > 0 && $v['price'] > 0 ? $brandPrice * $v['price'] / $main : $brandPrice), 2);
+        } else {
+            unset($v['brandPrice']);
+        }
+    }
+    unset($v);
+    return $variants;
+}
+
+// Shop price of a partner brand's product: the brand's price plus your margin (whole pounds).
+function brand_sell_price(float $brandPrice, float $marginPct): float
+{
+    return round($brandPrice * (1 + $marginPct / 100));
 }
 
 function clean_addons($groups): array

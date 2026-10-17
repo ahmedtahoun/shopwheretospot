@@ -73,7 +73,11 @@ function create_order(array $in, array $opts = []): array
             if ($variant) $line['variant'] = (string) $variant['id'];
             if ($addons) $line['addons'] = $addons;
             // Partner brand's product: remember the brand and its commission at the time of sale.
-            if (!empty($p['brand_id']) && ($brand = brand_get((int) $p['brand_id']))) { $line['brand'] = (int) $brand['id']; $line['comm'] = (float) $brand['commission']; }
+            if (!empty($p['brand_id']) && ($brand = brand_get((int) $p['brand_id']))) {
+                $line['brand'] = (int) $brand['id']; $line['comm'] = (float) $brand['commission'];
+                $bp = $variant && isset($variant['brandPrice']) ? (float) $variant['brandPrice'] : (float) ($p['brand_price'] ?? 0);
+                if ($bp > 0) $line['bp'] = $bp; // the brand's own price per piece
+            }
             $lines[] = $line;
             $subtotal += $lineTotal;
             if ($p['cat'] !== 'services') $physical += $lineTotal;

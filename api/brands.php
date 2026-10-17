@@ -1,8 +1,8 @@
 <?php
 // Partner brands: products another brand supplies to us. The shop shows them under the brand's
-// logo; each sale of their product earns us the brand's commission (a % of the item price) and the
-// rest is owed to the brand. Order-level promo discounts and delivery fees are ours, so the brand's
-// share is always worked out on the item price the customer was charged before any promo code.
+// logo. Pricing: the brand's price + our margin % = the shop price. The brand gets its price minus
+// our commission %; we keep the commission and the margin. Order-level promo discounts and delivery
+// fees are ours. (Products without a brand price: the brand's share is worked out on the shop price.)
 //
 // Each order line remembers the brand and commission at the time of sale ('brand', 'comm'), so a
 // later change of commission doesn't rewrite past statements.
@@ -15,7 +15,7 @@ function brand_row(array $b, bool $admin = false): array
         'about' => (string) $b['about'], 'aboutAr' => (string) $b['about_ar'],
         'logo' => (string) $b['logo'], 'link' => (string) $b['link'],
     ];
-    if ($admin) $out += ['commission' => (float) $b['commission'], 'active' => (bool) $b['active'], 'sort' => (int) $b['sort']];
+    if ($admin) $out += ['commission' => (float) $b['commission'], 'margin' => (float) ($b['margin'] ?? 0), 'active' => (bool) $b['active'], 'sort' => (int) $b['sort']];
     return $out;
 }
 
@@ -30,6 +30,25 @@ function brand_get(int $id): ?array
     $st = db()->prepare('SELECT * FROM brands WHERE id = ?');
     $st->execute([$id]);
     return $st->fetch() ?: null;
+}
+
+// The brand's margin changed: work out the shop prices of all its products again.
+function reprice_brand_products(int $brandId): int
+{
+    $b = brand_get($brandId);
+    if (!$b) return 0;
+    $st = db()->prepare('SELECT id, brand_price, margin_pct, variants FROM products WHERE brand_id = ? AND brand_price > 0');
+    $st->execute([$brandId]);
+    $upd = db()->prepare("UPDATE products SET price = ?, variants = ?, updated_at = datetime('now') WHERE id = ?");
+    $n = 0;
+    foreach ($st->fetchAll() as $p) {
+        $margin = $p['margin_pct'] !== null ? (float) $p['margin_pct'] : (float) $b['margin'];
+        $main = brand_sell_price((float) $p['brand_price'], $margin);
+        $vs = apply_size_prices($main, json_decode((string) $p['variants'], true) ?: [], (float) $p['brand_price']);
+        $upd->execute([$main, json_encode($vs, JSON_UNESCAPED_UNICODE), $p['id']]);
+        $n++;
+    }
+    return $n;
 }
 
 // Every line of every order that sold this brand's products, optionally for one month (YYYY-MM).
@@ -55,10 +74,13 @@ function brand_lines(int $brandId, ?string $month = null): array
             if (!$hit) continue;
             $sales = (float) ($it['total'] ?? ((float) $it['price'] * (int) $it['qty']));
             $pct = isset($it['comm']) ? (float) $it['comm'] : (float) $b['commission'];
-            $comm = round($sales * $pct / 100, 2);
+            // The brand's share is worked out on the brand's own price ('bp', per piece) when we know it;
+            // anything we charged above it is our margin.
+            $base = isset($it['bp']) ? round((float) $it['bp'] * (int) $it['qty'], 2) : $sales;
+            $comm = round($base * $pct / 100, 2);
             $out[] = ['orderId' => (int) $o['id'], 'number' => order_number((int) $o['id']), 'customer' => $o['customer'], 'status' => $o['status'],
-                'at' => $o['created_at'], 'name' => $it['name'], 'qty' => (int) $it['qty'], 'sales' => $sales, 'pct' => $pct,
-                'commission' => $comm, 'due' => round($sales - $comm, 2), 'delivered' => $o['status'] === 'Delivered'];
+                'at' => $o['created_at'], 'name' => $it['name'], 'qty' => (int) $it['qty'], 'sales' => $sales, 'base' => $base, 'pct' => $pct,
+                'commission' => $comm, 'margin' => round($sales - $base, 2), 'due' => round($base - $comm, 2), 'delivered' => $o['status'] === 'Delivered'];
         }
     }
     return $out;
@@ -67,10 +89,10 @@ function brand_lines(int $brandId, ?string $month = null): array
 // Totals for a set of lines: everything sold, and the part already delivered (cash in hand).
 function brand_totals(array $lines): array
 {
-    $t = ['pieces' => 0, 'sales' => 0.0, 'commission' => 0.0, 'due' => 0.0, 'deliveredSales' => 0.0, 'deliveredCommission' => 0.0, 'deliveredDue' => 0.0, 'orders' => 0];
+    $t = ['pieces' => 0, 'sales' => 0.0, 'base' => 0.0, 'margin' => 0.0, 'commission' => 0.0, 'due' => 0.0, 'deliveredSales' => 0.0, 'deliveredCommission' => 0.0, 'deliveredDue' => 0.0, 'orders' => 0];
     $orders = [];
     foreach ($lines as $l) {
-        $t['pieces'] += $l['qty']; $t['sales'] += $l['sales']; $t['commission'] += $l['commission']; $t['due'] += $l['due'];
+        $t['pieces'] += $l['qty']; $t['sales'] += $l['sales']; $t['base'] += $l['base']; $t['margin'] += $l['margin']; $t['commission'] += $l['commission']; $t['due'] += $l['due'];
         if ($l['delivered']) { $t['deliveredSales'] += $l['sales']; $t['deliveredCommission'] += $l['commission']; $t['deliveredDue'] += $l['due']; }
         $orders[$l['orderId']] = 1;
     }

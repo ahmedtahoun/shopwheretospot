@@ -16,7 +16,8 @@ try {
     if ($action === 'catalog' && $method === 'GET') {
         $cats = db()->query('SELECT key, label, descr AS "desc", label_ar AS "labelAr", descr_ar AS "descAr", sort FROM categories ORDER BY sort, label')->fetchAll();
         $products = array_map(function ($p) {
-            unset($p['cost'], $p['createdAt'], $p['updatedAt']);
+            unset($p['cost'], $p['createdAt'], $p['updatedAt'], $p['brandPrice'], $p['marginPct']);
+            $p['variants'] = array_map(function ($v) { unset($v['brandPrice']); return $v; }, $p['variants']);
             return $p;
         }, load_products(true));
         // Partner brands that have something on sale (logo + name show on their products).
