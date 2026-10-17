@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 
 function db(): PDO
 {
@@ -430,18 +430,29 @@ function migrate(PDO $pdo): void
     }
     // Agreed commission with Bonds: 20% (only fills it in if it was never set).
     $pdo->exec("UPDATE brands SET commission = 20 WHERE slug = 'bonds' AND commission = 0");
-    // First Bonds product (added once; after that it's managed in the dashboard like any product).
-    if (!(int) $pdo->query("SELECT COUNT(*) FROM products WHERE id = 'bonds-chrome'")->fetchColumn()) {
+    // Bonds coffees (each added once; after that they're managed in the dashboard like any product).
+    $bondsCoffees = [
+        ['bonds-chrome', 'BND-CHR-1KG', 'Chrome', 750, 'caramel, dark chocolate, roasted nuts', 'mild acidity and a full, rich body',
+            'كروم', 'كراميل، شوكولاتة داكنة، مكسرات محمصة', 'حموضة خفيفة وقوام غني وممتلئ'],
+        ['bonds-amber', 'BND-AMB-1KG', 'Amber', 850, 'dark chocolate, molasses, roasted hazelnut', 'low acidity and a rich body',
+            'أمبر', 'شوكولاتة داكنة، عسل أسود، بندق محمص', 'حموضة منخفضة وقوام غني'],
+        ['bonds-sienna', 'BND-SIE-1KG', 'Sienna', 895, 'brown sugar, cocoa, roasted nuts', 'low acidity and a medium body',
+            'سيينا', 'سكر بني، كاكاو، مكسرات محمصة', 'حموضة منخفضة وقوام متوسط'],
+    ];
+    $hasProduct = $pdo->prepare('SELECT COUNT(*) FROM products WHERE id = ?');
+    $addCoffee = $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
+        VALUES (?, ?, ?, 'coffee', 'Bonds Coffee Roasters', ?, 0, 10, 'Active', ?, ?, '[]', (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, ?, ?, (SELECT id FROM brands WHERE slug = 'bonds'))");
+    $addPhoto = $pdo->prepare('INSERT INTO product_images (product_id, path, sort) VALUES (?, ?, 0)');
+    foreach ($bondsCoffees as [$id, $sku, $name, $price, $notes, $body, $nameAr, $notesAr, $bodyAr]) {
+        $hasProduct->execute([$id]);
+        if ((int) $hasProduct->fetchColumn()) continue;
         if (!(int) $pdo->query("SELECT COUNT(*) FROM categories WHERE key = 'coffee'")->fetchColumn()) {
             $pdo->exec("INSERT INTO categories (key, label, descr, label_ar, descr_ar, sort) VALUES ('coffee', 'Coffee', 'Specialty coffee from partner roasters', 'القهوة', 'قهوة مختصة من محامص شريكة', 3)");
         }
-        $bondsId = $pdo->query("SELECT id FROM brands WHERE slug = 'bonds'")->fetchColumn();
-        $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
-            VALUES ('bonds-chrome', 'BND-CHR-1KG', 'Chrome Coffee Blend — 1 kg', 'coffee', 'Bonds Coffee Roasters', 750, 0, 10, 'Active', '1 kg coffee beans · caramel, dark chocolate, roasted nuts',
-            'Chrome is a Bonds Coffee Roasters blend with mild acidity and a full, rich body. Tasting notes: caramel, dark chocolate and roasted nuts.', '[]',
-            (SELECT COALESCE(MAX(sort),0)+1 FROM products), 'قهوة كروم بلند — 1 كجم', '1 كجم حبوب قهوة · كراميل، شوكولاتة داكنة، مكسرات محمصة',
-            'كروم بلند من بوندز لتحميص القهوة، حموضة خفيفة وقوام غني وممتلئ. النكهات: كراميل، شوكولاتة داكنة ومكسرات محمصة.', ?)")->execute([$bondsId ?: null]);
-        $pdo->exec("INSERT INTO product_images (product_id, path, sort) VALUES ('bonds-chrome', 'images/brands/bonds-chrome.jpg', 0)");
+        $addCoffee->execute([$id, $sku, $name . ' Coffee Blend — 1 kg', $price, '1 kg coffee beans · ' . $notes,
+            $name . ' is a Bonds Coffee Roasters blend with ' . $body . '. Tasting notes: ' . $notes . '.',
+            'قهوة ' . $nameAr . ' بلند — 1 كجم', '1 كجم حبوب قهوة · ' . $notesAr, $nameAr . ' بلند من بوندز لتحميص القهوة، ' . $bodyAr . '. النكهات: ' . $notesAr . '.']);
+        $addPhoto->execute([$id, 'images/brands/' . $id . '.jpg']);
     }
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
