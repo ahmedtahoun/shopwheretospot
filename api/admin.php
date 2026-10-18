@@ -290,6 +290,19 @@ try {
             $out[$k] = ['name' => $r['name'] ?: $r['email'], 'phone' => $r['phone'], 'email' => $r['email'], 'address' => $r['address'], 'city' => $r['city'], 'district' => $r['district'],
                 'cityId' => $r['city_id'], 'districtId' => $r['district_id'], 'last' => $r['created_at'], 'orders' => 0, 'from' => 'account', 'account' => true];
         }
+        // Quotes: people priced up before they ordered (telesales don't see quotes).
+        if (!in_array('orders_only', $u['perms'], true)) {
+            $st = db()->prepare('SELECT customer, phone, email, address, city, district, city_id, district_id, created_at FROM quotes WHERE '
+                . ($byPhone ? "REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ?" : 'customer LIKE ?')
+                . ($own && !$fullPhone ? ' AND (rep_id = ' . (int) $u['id'] . ' OR created_by = ' . (int) $u['id'] . ')' : '') . ' ORDER BY id DESC LIMIT 20');
+            $st->execute([$like]);
+            foreach ($st->fetchAll() as $r) {
+                $k = phone_key((string) $r['phone']) ?: mb_strtolower($r['customer']);
+                if (isset($out[$k])) continue;
+                $out[$k] = ['name' => $r['customer'], 'phone' => $r['phone'], 'email' => $r['email'], 'address' => $r['address'], 'city' => $r['city'], 'district' => $r['district'],
+                    'cityId' => $r['city_id'], 'districtId' => $r['district_id'], 'last' => $r['created_at'], 'orders' => 0, 'from' => 'quote'];
+            }
+        }
         if (in_array('leads', $u['perms'], true) && count($out) < 6) {
             $st = db()->prepare('SELECT name, contact, created_at FROM leads WHERE ' . ($byPhone ? "REPLACE(REPLACE(contact, ' ', ''), '-', '') LIKE ?" : 'name LIKE ?')
                 . ($own && !$fullPhone ? ' AND (assigned_to = ' . (int) $u['id'] . ' OR assigned_to IS NULL)' : '') . ' ORDER BY id DESC LIMIT 10');

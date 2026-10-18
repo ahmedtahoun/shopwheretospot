@@ -985,7 +985,7 @@
       if (c.address) f.address.value = c.address;
       if (c.districtId && c.cityId) { area = { districtId: c.districtId, cityId: c.cityId, title: c.district || c.city, sub: c.district ? c.city : '' }; renderPick(); }
       hits.style.display = 'none';
-      $('#nCustChip').innerHTML = '<div class="chosen">' + icon('person') + '<span><b>' + esc(c.name) + '</b> · ' + (c.orders ? c.orders + ' earlier order' + (c.orders > 1 ? 's' : '') : c.from === 'account' ? 'website account' : 'from leads') +
+      $('#nCustChip').innerHTML = '<div class="chosen">' + icon('person') + '<span><b>' + esc(c.name) + '</b> · ' + (c.orders ? c.orders + ' earlier order' + (c.orders > 1 ? 's' : '') : c.from === 'account' ? 'website account' : c.from === 'quote' ? 'from a quote' : 'from leads') +
         (c.address ? ' · address filled in' : '') + '</span></div>';
     };
     const lookup = (q) => {
@@ -998,7 +998,7 @@
         if (!d.results.length) { hits.style.display = 'none'; return; }
         hits.innerHTML = '<div class="small muted" style="padding:2px 4px 6px">Existing customers — tap to fill in</div>' + d.results.map((c, i) =>
           '<button type="button" data-hit="' + i + '"><span><b>' + esc(c.name) + '</b><span class="small muted">' + esc([c.phone, [c.district, c.city].filter(Boolean).join(', ')].filter(Boolean).join(' · ')) + '</span></span>' +
-          '<span class="small">' + (c.orders ? c.orders + ' order' + (c.orders > 1 ? 's' : '') : c.from === 'account' ? 'account' : 'lead') + '</span></button>').join('');
+          '<span class="small">' + (c.orders ? c.orders + ' order' + (c.orders > 1 ? 's' : '') : c.from === 'account' ? 'account' : c.from === 'quote' ? 'quote' : 'lead') + '</span></button>').join('');
         hits.style.display = 'block';
         $$('[data-hit]', hits).forEach((b) => b.onclick = () => fillCustomer(d.results[+b.dataset.hit]));
       }, 250);

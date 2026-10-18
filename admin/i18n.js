@@ -153,7 +153,7 @@
     'custom': 'خاص', 'Remove': 'حذف', 'No products yet.': 'لم تتم إضافة منتجات بعد.', 'No product matches.': 'لا يوجد منتج مطابق.', 'Size': 'المقاس',
     'Choose a product first': 'اختر منتجًا أولًا', 'Enter a description and a price for the custom item': 'اكتب وصفًا وسعرًا للمنتج الخاص', 'Change': 'تغيير',
     '🔍 Type the area': '🔍 اكتب المنطقة', 'No match — try another spelling': 'لا توجد نتائج — جرّب كتابة أخرى', 'Existing customers — tap to fill in': 'عملاء سابقون — اضغط لإكمال البيانات',
-    'account': 'حساب', 'lead': 'عميل محتمل', 'website account': 'حساب على الموقع', 'from leads': 'من العملاء المحتملين', 'address filled in': 'تم إكمال العنوان',
+    'account': 'حساب', 'lead': 'عميل محتمل', 'website account': 'حساب على الموقع', 'from leads': 'من العملاء المحتملين', 'from a quote': 'من عرض سعر', 'quote': 'عرض سعر', 'address filled in': 'تم إكمال العنوان',
     'Add at least one product': 'أضف منتجًا واحدًا على الأقل', 'Choose the delivery area': 'اختر منطقة التوصيل', 'Saving…': 'جارٍ الحفظ…',
     'customer added to Leads': 'تمت إضافة العميل للعملاء المحتملين', 'existing lead updated': 'تم تحديث العميل المحتمل', 'Saved area': 'منطقة محفوظة', '/ month': '/ شهريًا',
 
