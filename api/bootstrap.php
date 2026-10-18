@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 28;
+const SCHEMA_VERSION = 29;
 
 function db(): PDO
 {
@@ -112,6 +112,8 @@ function db(): PDO
         $pdo->exec('PRAGMA journal_mode = WAL;');
         migrate($pdo);
         $pdo->exec('PRAGMA user_version = ' . SCHEMA_VERSION);
+        // Products may have been added or changed: rebuild /sitemap.xml and /llms.txt once the request is done.
+        register_shutdown_function(function () { if (function_exists('seo_publish')) seo_publish(); });
     }
     if (!empty($GLOBALS['backfill_lead_keys']) && function_exists('backfill_lead_keys')) backfill_lead_keys();
     return $pdo;
