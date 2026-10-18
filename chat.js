@@ -553,7 +553,7 @@
     if (!cards || !cards.length) return '';
     return '<div class="cards">' + cards.map((c) => '<div class="pc">' + (c.img ? '<img src="' + esc(c.img) + '" alt="" loading="lazy">' : '<span class="pc-ph"></span>') +
       '<div class="pc-t"><b>' + esc(c.name) + '</b><span>' + (c.from ? (ar ? 'يبدأ من ' : 'from ') : '') + esc(egp(c.price, ar)) + '</span>' +
-      '<div class="pc-a"><a href="shop-product.dc.html?id=' + encodeURIComponent(c.id) + '">' + (ar ? 'التفاصيل' : 'View') + '</a>' +
+      '<div class="pc-a"><a href="/p/' + encodeURIComponent(c.id) + '">' + (ar ? 'التفاصيل' : 'View') + '</a>' +
       (c.options ? '' : '<a class="add" href="index.html?add=' + encodeURIComponent(c.id) + '">' + (ar ? 'أضف للسلة' : 'Add to cart') + '</a>') + '</div></div></div>').join('') + '</div>';
   }
 

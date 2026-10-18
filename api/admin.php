@@ -9,6 +9,10 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($action !== 'backup_download') schedule_daily_backup();
 if (!in_array($action, ['backup_download', 'bosta_awb', 'bosta_sync'], true)) schedule_bosta_sync();
 if (in_array($action, ['dashboard', 'orders'], true)) expire_unpaid_orders();
+// Catalog changes: refresh /sitemap.xml and /llms.txt for search engines and AI tools after the reply.
+if (in_array($action, ['product_save', 'product_delete', 'image_upload', 'image_delete', 'image_order', 'category_save', 'category_delete', 'brand_save', 'brand_delete', 'brand_logo'], true)) {
+    register_shutdown_function('seo_publish');
+}
 
 try {
     // Telesales see orders only: quotes, customers and the search across leads/products are closed to them.

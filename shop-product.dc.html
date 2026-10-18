@@ -364,7 +364,7 @@ class Component extends DCLogic {
   // Show the product from a product list; final = the fresh list (only then is "not found" shown).
   useInventory(inv, mod, final) {
     if (mod.CATEGORIES) this.catLabels = Object.fromEntries(mod.CATEGORIES.map(c => [c.key, c.label]));
-    const id = new URLSearchParams(location.search).get('id');
+    const id = new URLSearchParams(location.search).get('id') || decodeURIComponent((location.pathname.match(/\/p\/([^/?#]+)/) || [])[1] || '');
     const product = id ? inv.find(p => p.id === id) : inv.find(p => p.status === 'Active');
     if (!product) { if (final) this.setState({ notFound: true, product: null }); return false; }
     const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
@@ -408,6 +408,10 @@ class Component extends DCLogic {
     set('meta[name="twitter:title"]', 'content', title);
     set('meta[name="twitter:description"]', 'content', product.desc || '');
     set('meta[name="twitter:image"]', 'content', abs);
+    // One address per product for search engines: /p/<id> (served as ready-made HTML by api/product-page.php).
+    let can = document.querySelector('link[rel="canonical"]');
+    if (!can) { can = document.createElement('link'); can.rel = 'canonical'; document.head.appendChild(can); }
+    can.href = location.origin + '/p/' + encodeURIComponent(product.id) + (window.WTS_LANG === 'ar' ? '?lang=ar' : '');
   };
   _stock = () => { const p = this.state.product; if (!p || !this._sd) return 0; return p.cat === 'services' ? 9999 : this._sd.availableStock(p, this.state.variantId); };
   _addonIds = () => Object.values(this.state.addonSel);
@@ -516,7 +520,7 @@ class Component extends DCLogic {
       tierRows: tiers.map((t, i) => { const next = tiers[i + 1]; const on = activeTier && activeTier.min === t.min;
         return { qty: next ? t.min + (next.min - 1 > t.min ? '–' + (next.min - 1) : '') + ' pcs' : t.min + '+ pcs', price: fmt(t.price) + ' each', weight: on ? 700 : 400, bg: on ? '#FBF3EE' : '#fff' }; }),
       totalLine: 'Total for ' + qty + (qty === 1 ? ' piece' : ' pieces') + ': ' + fmt(line.total),
-      related: this.state.related.map(r => { const rp = this._sd ? this._sd.salePrice(r) : r.price; return { ...r, price: rp, priceFmt: (r.variants && r.variants.length) || (r.tiers && r.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(r)) : fmt(rp), img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id }; }),
+      related: this.state.related.map(r => { const rp = this._sd ? this._sd.salePrice(r) : r.price; return { ...r, price: rp, priceFmt: (r.variants && r.variants.length) || (r.tiers && r.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(r)) : fmt(rp), img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: '/p/' + r.id }; }),
       cartCount: this._sd ? this._sd.loadCart().reduce((n, i) => n + i.qty, 0) : 0,
       qty: this.state.qty, incQty: this.incQty, decQty: this.decQty, setQty: this.setQty, addToCart: this.addToCart,
       added: this.state.added,
@@ -533,7 +537,7 @@ class Component extends DCLogic {
       reviewForm: this.state.reviewForm, setReviewName: this.setReviewField('name'), setReviewText: this.setReviewField('text'),
       starOptions: [1, 2, 3, 4, 5].map(n => ({ n, onClick: this.setReviewRating(n), color: n <= this.state.reviewForm.rating ? accent : '#DDD6CC' })),
       submitReview: this.submitReview, reviewSent: this.state.reviewSent,
-      recentOthers: recentOthers.map(r => ({ ...r, img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: 'shop-product.dc.html?id=' + r.id })),
+      recentOthers: recentOthers.map(r => ({ ...r, img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: '/p/' + r.id })),
       recentOthersCount: recentOthers.length,
       lightboxOpen: this.state.lightboxOpen, openLightbox: this.openLightbox, closeLightbox: this.closeLightbox,
       buyNow: this.buyNow, onPrevImg: this.prevImg, onNextImg: this.nextImg,

@@ -11,3 +11,5 @@ deployment:
     - /bin/cp api/.htaccess $DEPLOYPATH/api/.htaccess
     - /bin/mkdir -p $DEPLOYPATH/img
     - /bin/cp img/.htaccess $DEPLOYPATH/img/.htaccess
+    - /bin/mkdir -p $DEPLOYPATH/p
+    - /bin/cp p/.htaccess $DEPLOYPATH/p/.htaccess

@@ -1,0 +1,11 @@
+# Where To Spot shop — search engines and AI assistants are welcome to read the shop and product pages.
+User-agent: *
+Allow: /
+Allow: /api/seo.php
+Allow: /api/img.php
+Disallow: /admin/
+Disallow: /api/
+Disallow: /uploads/orders/
+Disallow: /shop-admin.dc.html
+
+Sitemap: https://shop.wheretospot.com/api/seo.php?f=sitemap

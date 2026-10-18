@@ -18,6 +18,9 @@
 <meta name="twitter:title" content="Where To Spot">
 <meta name="twitter:description" content="Products and marketing services for Egyptian businesses. Prices in EGP.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/og-share.png?v=3">
+<!-- Who we are, for search engines and AI assistants (products: /p/<id>, /api/seo.php?f=sitemap, /llms.txt). -->
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "OnlineStore", "name": "Where To Spot", "url": "https://shop.wheretospot.com/", "logo": "https://shop.wheretospot.com/images/logo.png", "description": "Online shop and marketing studio in Egypt: NFC Google-review cards and stands, acrylic display stands, Korean skincare, specialty coffee from partner roasters, and monthly lead-generation plans. Prices in EGP, delivery across Egypt, cash on delivery.", "email": "info@wheretospot.com", "telephone": "+20 127 766 0666", "currenciesAccepted": "EGP", "areaServed": "EG", "address": {"@type": "PostalAddress", "streetAddress": "MQR, El Wahat Road", "addressLocality": "6th of October City", "addressRegion": "Giza", "addressCountry": "EG"}, "sameAs": ["https://instagram.com/wheretospot", "https://facebook.com/wheretospot", "https://tiktok.com/@wheretospot"]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "Where To Spot", "url": "https://shop.wheretospot.com/", "inLanguage": ["en", "ar"]}</script>
 <script src="./i18n.js"></script>
 <!-- Speed: fetch React and the product list while the page is still loading, instead of one after the other. -->
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
@@ -1612,7 +1615,7 @@ class Component extends DCLogic {
   };
   // Products with sizes or extras open the product page to choose; others go straight to the cart.
   addToCart = (p) => () => {
-    if (this._sd && this._sd.hasOptions(p)) { location.href = 'shop-product.dc.html?id=' + encodeURIComponent(p.id); return; }
+    if (this._sd && this._sd.hasOptions(p)) { location.href = '/p/' + encodeURIComponent(p.id); return; }
     const variant = p.variants && p.variants.length === 1 ? p.variants[0].id : undefined;
     const key = this._sd ? this._sd.lineKey(p.id, variant, []) : p.id;
     this.setState(s => {
@@ -2018,7 +2021,7 @@ class Component extends DCLogic {
         const opts = this._sd && this._sd.hasOptions(p);
         const ranged = (p.variants && p.variants.length) || (p.tiers && p.tiers.length);
         const br = brandOf(p);
-        return { ...p, brandName: br ? br.name : '', brandText: br ? (br.logo ? 'Official partner' : br.name) : '', brandLogo: br && br.logo ? this._sd.img(br.logo, 120) : '', brandTitle: br ? br.name + ' · Official partner' : '', price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.img(this._sd.PRODUCT_IMAGES[p.id][0], 600) : '', imgSet: (this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id][0]) ? this._sd.imgSet(this._sd.PRODUCT_IMAGES[p.id][0], 300, 600) : '', catLabel: this.catLabel(p.cat), noImg: !(this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id].length), href: 'shop-product.dc.html?id=' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
+        return { ...p, brandName: br ? br.name : '', brandText: br ? (br.logo ? 'Official partner' : br.name) : '', brandLogo: br && br.logo ? this._sd.img(br.logo, 120) : '', brandTitle: br ? br.name + ' · Official partner' : '', price: salePrice, priceFmt: ranged ? 'From ' + fmt(this._sd.fromPrice(p)) : fmt(salePrice), addLabel: opts ? 'Choose options' : 'Add to cart', origPrice: p.price, origPriceFmt: fmt(p.price), hasDiscount: !!p.discountPct && !ranged, badgeBg: p.discountPct ? '#A8552F' : '#22201D', imgId: 'prod-photo-' + p.id + '-0',  defaultImg: (this._sd && this._sd.PRODUCT_IMAGES[p.id]) ? this._sd.img(this._sd.PRODUCT_IMAGES[p.id][0], 600) : '', imgSet: (this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id][0]) ? this._sd.imgSet(this._sd.PRODUCT_IMAGES[p.id][0], 300, 600) : '', catLabel: this.catLabel(p.cat), noImg: !(this._sd && this._sd.PRODUCT_IMAGES[p.id] && this._sd.PRODUCT_IMAGES[p.id].length), href: '/p/' + p.id, onAdd: this.addToCart(p), onToggleWish: this.toggleWish(p.id), wishColor: isWished ? accent : '#6B6660' };
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,

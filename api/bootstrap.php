@@ -554,6 +554,7 @@ require __DIR__ . '/orders.php';
 require __DIR__ . '/paymob.php';
 require __DIR__ . '/customers.php';
 require __DIR__ . '/brands.php';
+require __DIR__ . '/seo-lib.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

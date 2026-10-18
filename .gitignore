@@ -7,3 +7,6 @@ api/config.local.php
 uploads/orders/*
 !uploads/orders/.gitkeep
 uploads/thumbs/
+# made by the server from the catalog (api/seo-lib.php)
+/sitemap.xml
+/llms.txt
