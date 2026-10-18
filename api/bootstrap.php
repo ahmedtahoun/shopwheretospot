@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 24;
+const SCHEMA_VERSION = 25;
 
 function db(): PDO
 {
@@ -521,6 +521,32 @@ function migrate(PDO $pdo): void
         if (!in_array($col, $prodCols, true)) $pdo->exec("ALTER TABLE products ADD COLUMN $col TEXT DEFAULT ''");
     }
     seed_product_texts($pdo);
+    seed_a_stand($pdo);
+}
+
+// A-shape acrylic table stand, 8 × 10 cm, UV printed with the customer's design; with or without NFC.
+// Added once; after that it's edited in the admin like any product.
+function seed_a_stand(PDO $pdo): void
+{
+    $id = 'acr-a-stand-8x10';
+    $has = $pdo->prepare('SELECT COUNT(*) FROM products WHERE id = ?');
+    $has->execute([$id]);
+    if ((int) $has->fetchColumn()) return;
+    $variants = [
+        ['id' => 'std', 'label' => 'Without NFC', 'sku' => 'ACR-A810', 'stock' => 100, 'price' => 230, 'tiers' => [], 'ratio' => 0],
+        ['id' => 'nfc', 'label' => 'With NFC', 'sku' => 'ACR-A810-NFC', 'stock' => 100, 'price' => 250, 'tiers' => [], 'ratio' => 0],
+    ];
+    $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, variants, personalized, name_ar, sub_ar, desc_ar)
+        VALUES (?, 'ACR-A810', ?, 'stands', '', 230, 0, 200, 'Active', ?, ?, ?, (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, 1, ?, ?, ?)")->execute([$id,
+        'A-Shape Acrylic Table Stand — 8 × 10 cm',
+        'Printed with your logo, table number or menu QR · 3 mm acrylic',
+        'An A-shape table stand in 3 mm acrylic, 8 × 10 cm, UV printed directly on the acrylic (no stickers) with your logo, table number, menu QR code or Wi-Fi details. Add NFC and guests just tap their phone to open your menu, Google review page or any link. Ideal for cafés, restaurants and hotels.',
+        json_encode(['Size: 8 × 10 cm', 'Material: 3 mm acrylic', 'Direct UV print with your design', 'Optional NFC chip (tap to open any link)']),
+        json_encode($variants),
+        'ستاند طاولة أكريليك على شكل A — ‏8 × 10 سم',
+        'مطبوع بشعارك أو رقم الطاولة أو QR المنيو · أكريليك 3 مم',
+        'ستاند طاولة على شكل حرف A من الأكريليك بسُمك 3 مم، مقاس 8 × 10 سم، بطباعة UV مباشرة على الأكريليك (بدون ستيكر) بشعارك أو رقم الطاولة أو كود QR للمنيو أو بيانات الواي فاي. أضف شريحة NFC ويكفي أن يقرّب الضيف هاتفه ليفتح المنيو أو صفحة تقييم جوجل أو أي رابط. مثالي للكافيهات والمطاعم والفنادق.']);
+    $pdo->prepare('INSERT INTO product_images (product_id, path, sort) VALUES (?, ?, 0)')->execute([$id, 'images/acrylic-a-stand-table.jpg']);
 }
 
 // Arabic (and missing English) names and descriptions for the products that had none, so both

@@ -88,7 +88,7 @@ function seo_auto_title(array $p, bool $ar): string
 function seo_auto_desc(array $p, bool $ar): string
 {
     $money = function ($n) use ($ar) { return $ar ? number_format($n) . ' ج.م' : 'EGP ' . number_format($n); };
-    $size = function ($l) use ($ar) { return $ar ? preg_replace(['/\bkg\b/u', '/\bg\b/u', '/\bml\b/u'], ['كجم', 'جم', 'مل'], $l) : $l; };
+    $size = function ($l) use ($ar) { return $ar ? preg_replace(['/^Without NFC$/u', '/^With NFC$/u', '/\bkg\b/u', '/\bg\b/u', '/\bml\b/u'], ['بدون NFC', 'مع NFC', 'كجم', 'جم', 'مل'], $l) : $l; };
     $by = $p['brand'] !== SEO_SITE && mb_stripos($p['title'], $p['brand']) === false ? ($ar ? ' من ' : ' by ') . $p['brand'] : '';
     $lead = $p['title'] . $by;
     // The short line, minus the parts that only list the sizes (the price part says them).
