@@ -1114,6 +1114,14 @@
       '<div class="grid2"><label class="field">Description<textarea name="desc">' + esc(p.desc) + '</textarea></label>' +
       '<label class="field">Description in Arabic<textarea name="descAr" dir="rtl" placeholder="الوصف بالعربي">' + esc(p.descAr || '') + '</textarea></label></div>' +
       '<label class="field">Features / bullet points <span class="hint">One per line (shown on plan cards)</span><textarea name="features" style="min-height:70px">' + esc((p.features || []).join('\n')) + '</textarea></label>' +
+      // How the product shows on Google (and what AI assistants read): hand-written, or automatic when empty.
+      '<div class="card stack seo-card"><div><b>Google search</b> <span class="hint">How this product shows on Google. Leave a box empty to use the automatic text (shown faded). Best: title up to 60 characters, description up to 160.</span></div>' +
+        '<div class="small warn-text" id="seoArWarn"></div>' +
+        '<div class="grid2">' + [['en', 'English', 'seoTitle', 'seoDesc', ''], ['ar', 'Arabic', 'seoTitleAr', 'seoDescAr', ' dir="rtl"']].map(([k, label, t, d, dir]) =>
+          '<div class="stack"><label class="field">Search title · ' + label + ' <span class="hint seo-n" data-for="' + t + '"></span><input type="text" name="' + t + '"' + dir + ' maxlength="120" value="' + esc(p[t] || '') + '" placeholder="' + esc(((p.seoAuto || {})[k] || [])[0] || '') + '"></label>' +
+          '<label class="field">Search description · ' + label + ' <span class="hint seo-n" data-for="' + d + '"></span><textarea name="' + d + '"' + dir + ' maxlength="320" style="min-height:70px" placeholder="' + esc(((p.seoAuto || {})[k] || [])[1] || '') + '">' + esc(p[d] || '') + '</textarea></label>' +
+          '<div class="serp"' + dir + ' data-serp="' + k + '"></div></div>').join('') + '</div>' +
+        (isNew ? '<div class="hint">The automatic text is written when you save.</div>' : '') + '</div>' +
       '</form>' +
       '<div class="stack" style="margin-top:22px"><div class="row"><b>Photos</b><span class="muted small">First photo is the cover. JPG, PNG or WebP up to 5 MB — big photos are resized automatically.</span></div>' +
       (isNew ? '<div class="card muted small">Save the product first, then add photos.</div>' : '<div class="photos" id="photos"></div>') + '</div>';
@@ -1145,6 +1153,21 @@
     ['brandId', 'brandPrice', 'marginPct', 'price'].forEach((n) => pf[n].addEventListener('input', syncBrandPricing));
     pf.brandId.addEventListener('change', syncBrandPricing);
     syncBrandPricing();
+    // Google search preview with character counts (typed text, or the automatic one).
+    const syncSeo = () => {
+      [['en', 'seoTitle', 'seoDesc'], ['ar', 'seoTitleAr', 'seoDescAr']].forEach(([k, t, d]) => {
+        const auto = (p.seoAuto || {})[k] || [], title = pf[t].value.trim() || auto[0] || '', desc = pf[d].value.trim() || auto[1] || '';
+        [[t, title, 60], [d, desc, 160]].forEach(([n, v, max]) => {
+          const el = $('#pf .seo-n[data-for="' + n + '"]');
+          el.textContent = v.length + ' / ' + max + (pf[n].value.trim() ? '' : ' · automatic');
+          el.classList.toggle('warn-text', v.length > max);
+        });
+        $('#pf [data-serp="' + k + '"]').innerHTML = '<div class="serp-u">shop.wheretospot.com › p › ' + esc(p.id || '…') + '</div><div class="serp-t">' + esc(title || '—') + '</div><div class="serp-d">' + esc(desc) + '</div>';
+      });
+      $('#seoArWarn').textContent = pf.nameAr.value.trim() && pf.descAr.value.trim() ? '' : 'Add the Arabic name and description above: without them the Arabic page shows English text, which Google ranks lower.';
+    };
+    ['seoTitle', 'seoDesc', 'seoTitleAr', 'seoDescAr', 'nameAr', 'descAr'].forEach((n) => pf[n].addEventListener('input', syncSeo));
+    syncSeo();
     $('#pf').onsubmit = async (e) => {
       e.preventDefault();
       const data = formData(e.target);

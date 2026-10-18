@@ -341,7 +341,15 @@ try {
     case 'products':
         require_perm('products');
         $cats = db()->query('SELECT key, label, descr, label_ar, descr_ar, sort, (SELECT COUNT(*) FROM products p WHERE p.cat = c.key) AS count FROM categories c ORDER BY sort, label')->fetchAll();
-        json_out(['products' => load_products(false), 'categories' => $cats, 'brands' => load_brands(false, true)]);
+        // The search title + description each product gets automatically (shown in the form as the default).
+        $en = seo_lookups(false); $arL = seo_lookups(true);
+        $products = array_map(function ($p) use ($en, $arL) {
+            $bare = ['seoTitle' => '', 'seoTitleAr' => '', 'seoDesc' => '', 'seoDescAr' => ''] + $p;
+            $e = seo_item($bare, false, ...$en); $a = seo_item($bare, true, ...$arL);
+            $p['seoAuto'] = ['en' => [$e['seoTitle'], $e['seoDesc']], 'ar' => [$a['seoTitle'], $a['seoDesc']], 'url' => $e['url']];
+            return $p;
+        }, load_products(false));
+        json_out(['products' => $products, 'categories' => $cats, 'brands' => load_brands(false, true)]);
 
     case 'product_save':
         $u = require_perm('products');
@@ -391,15 +399,18 @@ try {
             ':variants' => json_encode($variants, JSON_UNESCAPED_UNICODE), ':tiers' => json_encode($tiers), ':addons' => json_encode($addons, JSON_UNESCAPED_UNICODE),
             ':personalized' => empty($b['personalized']) ? 0 : 1,
             ':brand_id' => $brandId, ':brand_price' => $brandPrice, ':margin_pct' => $marginPct,
+            ':seo_title' => str_in($b['seoTitle'] ?? '', 120), ':seo_title_ar' => str_in($b['seoTitleAr'] ?? '', 120),
+            ':seo_desc' => str_in($b['seoDesc'] ?? '', 320), ':seo_desc_ar' => str_in($b['seoDescAr'] ?? '', 320),
         ];
         if ($isNew) {
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM products')->fetchColumn();
-            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar, brand_id, brand_price, margin_pct)
-                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar, :brand_id, :brand_price, :margin_pct)')->execute($vals);
+            $pdo->prepare('INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, discount_pct, label, status, sub, descr, features, period, sort, variants, tiers, addons, personalized, name_ar, sub_ar, desc_ar, brand_id, brand_price, margin_pct, seo_title, seo_title_ar, seo_desc, seo_desc_ar)
+                VALUES (:id, :sku, :name, :cat, :vendor, :price, :cost, :stock, :discount_pct, :label, :status, :sub, :descr, :features, :period, :sort, :variants, :tiers, :addons, :personalized, :name_ar, :sub_ar, :desc_ar, :brand_id, :brand_price, :margin_pct, :seo_title, :seo_title_ar, :seo_desc, :seo_desc_ar)')->execute($vals);
         } else {
             $st = $pdo->prepare("UPDATE products SET sku=:sku, name=:name, cat=:cat, vendor=:vendor, price=:price, cost=:cost, stock=:stock, discount_pct=:discount_pct,
                 label=:label, status=:status, sub=:sub, descr=:descr, features=:features, period=:period, variants=:variants, tiers=:tiers, addons=:addons,
-                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, brand_id=:brand_id, brand_price=:brand_price, margin_pct=:margin_pct, updated_at=datetime('now') WHERE id=:id");
+                personalized=:personalized, name_ar=:name_ar, sub_ar=:sub_ar, desc_ar=:desc_ar, brand_id=:brand_id, brand_price=:brand_price, margin_pct=:margin_pct,
+                seo_title=:seo_title, seo_title_ar=:seo_title_ar, seo_desc=:seo_desc, seo_desc_ar=:seo_desc_ar, updated_at=datetime('now') WHERE id=:id");
             $st->execute($vals);
             if (!$st->rowCount()) fail('Product not found.', 404);
         }

@@ -14,36 +14,128 @@ function seo_abs(string $path): string { return preg_match('~^https?://~', $path
 // Active products with what the public pages need, in English or Arabic.
 function seo_products(bool $ar = false): array
 {
+    [$cats, $brands] = seo_lookups($ar);
+    return array_map(function ($p) use ($ar, $cats, $brands) { return seo_item($p, $ar, $cats, $brands); }, load_products(true));
+}
+
+// Category labels and brands, in the page's language.
+function seo_lookups(bool $ar): array
+{
     $cats = [];
     foreach (db()->query('SELECT key, label, label_ar FROM categories') as $c) $cats[$c['key']] = $ar && $c['label_ar'] ? $c['label_ar'] : $c['label'];
     $brands = [];
     foreach (load_brands(false) as $b) $brands[$b['id']] = $b;
-    $out = [];
-    foreach (load_products(true) as $p) {
-        $b = $p['brandId'] ? ($brands[$p['brandId']] ?? null) : null;
-        $sizes = [];
-        foreach ($p['variants'] as $v) {
-            $price = (float) ($v['price'] ?: $p['price']);
-            if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100), 2);
-            $sizes[] = ['label' => $v['label'], 'price' => $price, 'stock' => (int) $v['stock'], 'sku' => $v['sku'] ?? ''];
-        }
-        $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : (float) $p['price'];
-        $out[] = $p + [
-            'title' => $ar && $p['nameAr'] ? $p['nameAr'] : $p['name'],
-            'summary' => $ar && $p['subAr'] ? $p['subAr'] : (string) $p['sub'],
-            'text' => $ar && $p['descAr'] ? $p['descAr'] : (string) $p['desc'],
-            'catLabel' => $cats[$p['cat']] ?? $p['cat'],
-            'brand' => $b ? ($ar && $b['nameAr'] ? $b['nameAr'] : $b['name']) : ((string) $p['vendor'] ?: SEO_SITE),
-            'partner' => (bool) $b,
-            'sizes' => $sizes,
-            'low' => $sizes ? min(array_column($sizes, 'price')) : $sale,
-            'high' => $sizes ? max(array_column($sizes, 'price')) : $sale,
-            'inStock' => $p['cat'] === 'services' || ($sizes ? array_sum(array_column($sizes, 'stock')) > 0 : $p['stock'] > 0),
-            'imageUrls' => array_map('seo_abs', $p['images']),
-            'url' => seo_product_url($p['id'], $ar),
-        ];
+    return [$cats, $brands];
+}
+
+// One product (a product_row) with its public facts, search title and search description.
+function seo_item(array $p, bool $ar, array $cats, array $brands): array
+{
+    $b = $p['brandId'] ? ($brands[$p['brandId']] ?? null) : null;
+    $sizes = [];
+    foreach ($p['variants'] as $v) {
+        $price = (float) ($v['price'] ?: $p['price']);
+        if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100), 2);
+        $sizes[] = ['label' => $v['label'], 'price' => $price, 'stock' => (int) $v['stock'], 'sku' => $v['sku'] ?? ''];
     }
-    return $out;
+    $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : (float) $p['price'];
+    $item = $p + [
+        'title' => $ar && $p['nameAr'] ? $p['nameAr'] : $p['name'],
+        'summary' => $ar && $p['subAr'] ? $p['subAr'] : (string) $p['sub'],
+        'text' => $ar && $p['descAr'] ? $p['descAr'] : (string) $p['desc'],
+        'catLabel' => $cats[$p['cat']] ?? $p['cat'],
+        // Partner brand, else the product's own brand (e.g. The Face Shop), else us. A supplier's web
+        // address (e.g. "Grevo.io") isn't a brand people search for, so those products count as ours.
+        'brand' => $b ? ($ar && $b['nameAr'] ? $b['nameAr'] : $b['name']) : ((string) $p['vendor'] !== '' && strpos((string) $p['vendor'], '.') === false ? (string) $p['vendor'] : SEO_SITE),
+        'partner' => (bool) $b,
+        'sizes' => $sizes,
+        'low' => $sizes ? min(array_column($sizes, 'price')) : $sale,
+        'high' => $sizes ? max(array_column($sizes, 'price')) : $sale,
+        'was' => $p['discountPct'] && !$sizes ? (float) $p['price'] : 0,
+        'inStock' => $p['cat'] === 'services' || ($sizes ? array_sum(array_column($sizes, 'stock')) > 0 : $p['stock'] > 0),
+        'imageUrls' => array_map(function ($i) { return seo_abs(is_array($i) ? (string) ($i['path'] ?? '') : (string) $i); }, $p['images']),
+        'url' => seo_product_url($p['id'], $ar),
+    ];
+    $item['seoTitle'] = trim((string) ($ar ? $p['seoTitleAr'] ?? '' : $p['seoTitle'] ?? '')) ?: seo_auto_title($item, $ar);
+    $item['seoDesc'] = trim((string) ($ar ? $p['seoDescAr'] ?? '' : $p['seoDesc'] ?? '')) ?: seo_auto_desc($item, $ar);
+    return $item;
+}
+
+// Cut to a length at a word boundary.
+function seo_cut(string $s, int $max): string
+{
+    $s = trim(preg_replace('/\s+/u', ' ', $s));
+    if (mb_strlen($s) <= $max) return $s;
+    $cut = mb_substr($s, 0, $max - 1);
+    $sp = mb_strrpos($cut, ' ');
+    return preg_replace('/[\s,.;:·—–|،-]+$/u', '', $sp > $max * 0.6 ? mb_substr($cut, 0, $sp) : $cut) . '…';
+}
+
+// Search title (Google shows about 60 characters): name – brand | Where To Spot, dropping the
+// least useful part when it's too long. The brand is skipped when the name already says it.
+function seo_auto_title(array $p, bool $ar): string
+{
+    $name = trim($p['title']);
+    $brand = $p['brand'] !== SEO_SITE && mb_stripos($name, $p['brand']) === false ? $p['brand'] : '';
+    $tries = $brand ? [$name . ' – ' . $brand . ' | ' . SEO_SITE, $name . ' – ' . $brand, $name . ' | ' . SEO_SITE] : [$name . ' | ' . SEO_SITE];
+    foreach ($tries as $t) if (mb_strlen($t) <= 60) return $t;
+    return seo_cut($brand && mb_strlen($name) < 45 ? $name . ' – ' . $brand : $name, 60);
+}
+
+// Search description (Google shows about 155 characters): what it is and who makes it, the price,
+// and why to buy here (cash on delivery, delivery across Egypt). The richest version that fits wins;
+// the product text fills any room left.
+function seo_auto_desc(array $p, bool $ar): string
+{
+    $money = function ($n) use ($ar) { return $ar ? number_format($n) . ' ج.م' : 'EGP ' . number_format($n); };
+    $size = function ($l) use ($ar) { return $ar ? preg_replace(['/\bkg\b/u', '/\bg\b/u', '/\bml\b/u'], ['كجم', 'جم', 'مل'], $l) : $l; };
+    $by = $p['brand'] !== SEO_SITE && mb_stripos($p['title'], $p['brand']) === false ? ($ar ? ' من ' : ' by ') . $p['brand'] : '';
+    $lead = $p['title'] . $by;
+    // The short line, minus the parts that only list the sizes (the price part says them).
+    $labels = array_column($p['sizes'], 'label');
+    $parts = array_filter(array_map('trim', explode('·', $p['summary'])), function ($part) use ($labels, $size) {
+        foreach ($labels as $l) if ($l !== '' && (mb_stripos($part, $l) !== false || mb_stripos($part, $size($l)) !== false)) return false;
+        return $part !== '';
+    });
+    $summary = rtrim(implode(' · ', $parts), '.');
+    $partner = '';
+    if ($p['cat'] === 'services') {
+        $price = ($ar ? 'يبدأ من ' : 'From ') . $money($p['low']) . ($ar ? ' شهريًا' : ' a month');
+        $why = $ar ? 'خطة تسويق شهرية لجلب عملاء جدد في مصر.' : 'Monthly lead-generation marketing plan in Egypt.';
+    } else {
+        if (count($p['sizes']) > 1) {
+            $sizes = $p['sizes'];
+            usort($sizes, function ($x, $y) { return $x['price'] <=> $y['price']; });
+            $price = implode(' · ', array_map(function ($s) use ($money, $size) { return $size($s['label']) . ' ' . $money($s['price']); }, $sizes));
+        } else {
+            $price = $p['was'] ? ($ar ? 'الآن ' . $money($p['low']) . ' بدلًا من ' . $money($p['was']) : 'Now ' . $money($p['low']) . ' (was ' . $money($p['was']) . ')') : $money($p['low']);
+        }
+        $why = $p['inStock']
+            ? ($ar ? 'الدفع عند الاستلام وتوصيل لكل مصر خلال 2–5 أيام.' : 'Cash on delivery & 2–5 day delivery across Egypt.')
+            : ($ar ? 'غير متوفر حاليًا.' : 'Currently out of stock.');
+        if ($p['partner']) $partner = $ar ? 'منتج أصلي من شريك رسمي. ' : 'Original, from an official partner. ';
+    }
+    $with = function (string $sum, string $extra, ?string $tail = null) use ($lead, $price, $why) { return rtrim($lead . ($sum !== '' ? ': ' . $sum : '') . '. ' . $price . '. ' . $extra . ($tail ?? $why)); };
+    // What it is (type, notes, size) matters more for search than the delivery line, so that's dropped first.
+    $short = $p['cat'] === 'services' ? '' : ($p['inStock'] ? ($ar ? 'الدفع عند الاستلام في كل مصر.' : 'Cash on delivery in Egypt.') : $why);
+    $tries = [$with($summary, $partner), $with($summary, ''), $with($summary, '', $short), $with($summary, '', ''), $with('', $partner), $with('', '')];
+    // Still too long with the full short line: drop its last listed items ("…, black tea, orange") one by one.
+    for ($sum = $summary; preg_match('/^(.+?)\s*(?:,|،|·|&|\bو)\s*[^,،·&]+$/u', $sum, $m);) {
+        $sum = rtrim($m[1], ' ,،·&');
+        array_splice($tries, 4, 0, [$with($sum, '', $short)]);
+        if (mb_strlen($with($sum, '', $short)) <= 160) break;
+    }
+    $d = '';
+    foreach ($tries as $t) if (mb_strlen($t) <= 160) { $d = $t; break; }
+    if ($d === '') return seo_cut(end($tries), 160);
+    // Room left? Add the first sentence of the description.
+    $text = trim(preg_replace('/\s+/u', ' ', $p['text']));
+    if ($text !== '' && mb_strlen($d) < 125) {
+        $first = trim(preg_split('/(?<=[.!؟?])\s/u', $text)[0]);
+        $longer = $lead . ($summary !== '' ? ': ' . $summary : '') . '. ' . $first . ' ' . $price . '. ' . $partner . $why;
+        if (mb_strlen($longer) <= 160) $d = $longer;
+    }
+    return $d;
 }
 
 // schema.org Product for one product (Google rich results; read by AI assistants too).

@@ -398,15 +398,18 @@ class Component extends DCLogic {
   updateShareMeta = (product, mod) => {
     const img = (mod.PRODUCT_IMAGES[product.id] && mod.PRODUCT_IMAGES[product.id][0]) || 'images/og-share.png';
     const abs = new URL(img, document.baseURI).href;
-    const title = product.name + ' — Where To Spot';
+    // The search title and description worked out on the server (same as the /p/ page's own tags).
+    const seo = (product.seo && product.seo[window.WTS_LANG === 'ar' ? 'ar' : 'en']) || [];
+    const title = seo[0] || (product.name + ' | Where To Spot');
+    const desc = seo[1] || product.desc || '';
     document.title = title;
     const set = (sel, attr, val) => { const el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
-    set('meta[name="description"]', 'content', product.desc || '');
+    set('meta[name="description"]', 'content', desc);
     set('meta[property="og:title"]', 'content', title);
-    set('meta[property="og:description"]', 'content', product.desc || '');
+    set('meta[property="og:description"]', 'content', desc);
     set('meta[property="og:image"]', 'content', abs);
     set('meta[name="twitter:title"]', 'content', title);
-    set('meta[name="twitter:description"]', 'content', product.desc || '');
+    set('meta[name="twitter:description"]', 'content', desc);
     set('meta[name="twitter:image"]', 'content', abs);
     // One address per product for search engines: /p/<id> (served as ready-made HTML by api/product-page.php).
     let can = document.querySelector('link[rel="canonical"]');

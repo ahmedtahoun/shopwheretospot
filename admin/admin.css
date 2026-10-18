@@ -346,3 +346,10 @@ details.ship-more[open] > summary::before{content:'▾ '}
 .o-note{margin-top:4px;color:#8E4524;background:#F7E9E0;border-radius:6px;padding:2px 6px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* new order: inputs on one line even when a label has a hint */
 .dep-row,.more-opts .grid3{align-items:start}
+/* Google search box in the product form: a preview of the result as Google shows it */
+.seo-card .warn-text,.warn-text{color:var(--warn)}
+#seoArWarn:empty{display:none}
+.serp{background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;font-family:Arial,sans-serif;overflow-wrap:anywhere}
+.serp-u{font-size:12px;color:#4D5156}
+.serp-t{font-size:17px;line-height:1.3;color:#1A0DAB;margin:2px 0}
+.serp-d{font-size:13px;line-height:1.45;color:#4D5156;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}

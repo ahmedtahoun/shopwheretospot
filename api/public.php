@@ -15,8 +15,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 try {
     if ($action === 'catalog' && $method === 'GET') {
         $cats = db()->query('SELECT key, label, descr AS "desc", label_ar AS "labelAr", descr_ar AS "descAr", sort FROM categories ORDER BY sort, label')->fetchAll();
-        $products = array_map(function ($p) {
-            unset($p['cost'], $p['createdAt'], $p['updatedAt'], $p['brandPrice'], $p['marginPct']);
+        // Search title + description per language, so the product page script shows the same ones as the server.
+        $en = seo_lookups(false); $arL = seo_lookups(true);
+        $products = array_map(function ($p) use ($en, $arL) {
+            $e = seo_item($p, false, ...$en); $a = seo_item($p, true, ...$arL);
+            $p['seo'] = ['en' => [$e['seoTitle'], $e['seoDesc']], 'ar' => [$a['seoTitle'], $a['seoDesc']]];
+            unset($p['cost'], $p['createdAt'], $p['updatedAt'], $p['brandPrice'], $p['marginPct'], $p['seoTitle'], $p['seoTitleAr'], $p['seoDesc'], $p['seoDescAr']);
             $p['variants'] = array_map(function ($v) { unset($v['brandPrice']); return $v; }, $p['variants']);
             return $p;
         }, load_products(true));

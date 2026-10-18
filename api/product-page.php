@@ -29,9 +29,11 @@ if (!$product) {
     exit;
 }
 
-$title = $product['title'] . ' — ' . ($product['partner'] ? $product['brand'] . ' · ' : '') . SEO_SITE;
-$desc = trim(preg_replace('/\s+/', ' ', ($product['summary'] ? $product['summary'] . '. ' : '') . seo_price_text($product, $ar) . '. ' . $product['text']));
-$desc = mb_strlen($desc) > 300 ? mb_substr($desc, 0, 297) . '…' : $desc;
+// Search title and description: hand-written in the admin, or built from the product (api/seo-lib.php).
+$title = $product['seoTitle'];
+$desc = $product['seoDesc'];
+// The page's language from the first byte, so search engines index the Arabic page as Arabic.
+$html = replace_once($html, '<html>', $ar ? '<html lang="ar" dir="rtl">' : '<html lang="en" dir="ltr">');
 $image = $product['imageUrls'][0] ?? seo_abs('images/og-share.png');
 
 $meta = function (string $html, string $attr, string $key, string $value): string {
@@ -41,7 +43,7 @@ $meta = function (string $html, string $attr, string $key, string $value): strin
 };
 $html = preg_replace_callback('/<title>.*?<\/title>/s', function () use ($title) { return '<title>' . seo_esc($title) . '</title>'; }, $html, 1);
 foreach (['description' => $desc, 'twitter:title' => $title, 'twitter:description' => $desc, 'twitter:image' => $image] as $k => $v) $html = $meta($html, 'name', $k, $v);
-foreach (['og:title' => $title, 'og:description' => $desc, 'og:image' => $image, 'og:type' => 'product', 'og:url' => $product['url']] as $k => $v) $html = $meta($html, 'property', $k, $v);
+foreach (['og:title' => $title, 'og:description' => $desc, 'og:image' => $image, 'og:type' => 'product', 'og:url' => $product['url'], 'og:locale' => $ar ? 'ar_EG' : 'en_US'] as $k => $v) $html = $meta($html, 'property', $k, $v);
 $html = preg_replace('/<meta property="og:image:(width|height)" content="[^"]*">\s*/', '', $html);
 
 $breadcrumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => [
@@ -65,12 +67,13 @@ if (count($product['sizes']) > 1) {
         return '<li>' . seo_esc($s['label']) . ': ' . seo_esc($ar ? number_format($s['price']) . ' ج.م' : 'EGP ' . number_format($s['price'])) . ($s['stock'] > 0 ? '' : ($ar ? ' (نفد)' : ' (sold out)')) . '</li>';
     }, $product['sizes'])) . '</ul>';
 }
-$features = $product['features'] ? '<ul>' . implode('', array_map(function ($f) { return '<li>' . seo_esc($f) . '</li>'; }, $product['features'])) . '</ul>' : '';
+// Features are written in English; the Arabic description carries the same facts.
+$features = $product['features'] && !$ar ? '<ul>' . implode('', array_map(function ($f) { return '<li>' . seo_esc($f) . '</li>'; }, $product['features'])) . '</ul>' : '';
 $static = '<article id="seo-product" style="max-width:760px;margin:24px auto;padding:0 20px;font-family:system-ui,sans-serif;line-height:1.6">' .
     '<p><a href="/">' . SEO_SITE . '</a> › <a href="/#products">' . seo_esc($product['catLabel']) . '</a></p>' .
     '<h1>' . seo_esc($product['title']) . '</h1>' .
     ($product['partner'] ? '<p>' . ($ar ? 'من ' : 'By ') . seo_esc($product['brand']) . ($ar ? ' — شريك رسمي، منتجات أصلية من العلامة مباشرة.' : ' — official partner; original products supplied directly by the brand.') . '</p>' : '') .
-    ($product['imageUrls'] ? '<img src="' . seo_esc($product['imageUrls'][0]) . '" alt="' . seo_esc($product['title']) . '" width="480" style="max-width:100%;height:auto">' : '') .
+    ($product['imageUrls'] ? '<img src="' . seo_esc($product['imageUrls'][0]) . '" alt="' . seo_esc($product['title'] . ($product['brand'] !== SEO_SITE ? ' – ' . $product['brand'] : '')) . '" width="480" style="max-width:100%;height:auto">' : '') .
     '<p><strong>' . seo_esc(seo_price_text($product, $ar)) . '</strong> · ' . ($product['inStock'] ? ($ar ? 'متوفر' : 'In stock') : ($ar ? 'غير متوفر حاليًا' : 'Out of stock')) . '</p>' . $sizes .
     ($product['summary'] ? '<p>' . seo_esc($product['summary']) . '</p>' : '') . ($product['text'] ? '<p>' . nl2br(seo_esc($product['text'])) . '</p>' : '') . $features .
     '<p>' . ($ar ? 'توصيل لكل مصر خلال 2–5 أيام · الدفع عند الاستلام أو بالبطاقة أو المحفظة · استرجاع خلال 14 يوم.' : 'Delivery across Egypt in 2–5 days · cash on delivery, card or mobile wallet · 14-day returns.') .

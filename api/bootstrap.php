@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 23;
+const SCHEMA_VERSION = 24;
 
 function db(): PDO
 {
@@ -514,6 +514,58 @@ function migrate(PDO $pdo): void
     if (!in_array('prep_notes', $orderCols, true)) $pdo->exec("ALTER TABLE orders ADD COLUMN prep_notes TEXT DEFAULT ''");
     $setAr = $pdo->prepare("UPDATE categories SET label_ar = ?, descr_ar = CASE WHEN COALESCE(descr_ar, '') = '' THEN ? ELSE descr_ar END WHERE key = ? AND COALESCE(label_ar, '') = ''");
     foreach ($catAr as $k => [$l, $d]) $setAr->execute([$l, $d, $k]);
+    // Search results: an optional hand-written title and description per product and language
+    // (left empty, they're written automatically from the product's name, brand, price and text).
+    $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    foreach (['seo_title', 'seo_title_ar', 'seo_desc', 'seo_desc_ar'] as $col) {
+        if (!in_array($col, $prodCols, true)) $pdo->exec("ALTER TABLE products ADD COLUMN $col TEXT DEFAULT ''");
+    }
+    seed_product_texts($pdo);
+}
+
+// Arabic (and missing English) names and descriptions for the products that had none, so both
+// language versions of every product page have real text. Only empty fields are filled; a name is
+// only tidied while it's still exactly the original one.
+function seed_product_texts(PDO $pdo): void
+{
+    $face = ' من ذا فيس شوب';
+    $texts = [
+        'co4' => ['ar' => ['سيروم تانجرين فيتا سي للتفتيح', 'جمال نظيف، فيتامين سي من اليوسفي', 'سيروم لتفتيح البشرة من خط Clean Beauty' . $face . '، بتركيبة فيتامين سي المستخلص من اليوسفي (التانجرين).']],
+        'co5' => ['ar' => ['غسول بيرش جوس المرطب', '150 مل، غسول أمبول مرطب', 'غسول مرطب من خط Birch Juice من راوند لاب، يعيد الترطيب للبشرة وينعش البشرة المتعبة.']],
+        'co6' => ['ar' => ['كريم العين النباتي رايس ووتر برايت', '20 مل، نباتي، مستخلص أرز مخمّر', 'كريم عين نباتي (فيجان) من خط Rice Water Bright' . $face . '. مستخلص أرز مخمّر لمدة 30 يومًا مع حمض الهيالورونيك والنياسيناميد لتفتيح منطقة تحت العين.']],
+        'co7' => ['ar' => ['بودرة غسول الإنزيم رايس ووتر برايت', '55 جم، غسول إنزيمي لطيف', 'بودرة غسول بالإنزيمات من خط Rice Water Bright' . $face . '، لتنظيف عميق ولطيف للبشرة.']],
+        'nfc1' => ['ar' => ['كارت NFC لتقييمات جوجل — أسود', 'كارت تقييم باللمس، بدون تطبيق', 'كارت NFC يفتح صفحة تقييمك على جوجل فورًا — يكفي أن يقرّب العميل هاتفه من الكارت، دون تطبيق أو كتابة. اشترِ 3 واحصل على الرابع مجانًا. متوفر أيضًا باللون الأبيض.']],
+        'nfc2' => ['ar' => ['كارت NFC لتقييمات جوجل — أبيض', 'كارت تقييم باللمس، بدون تطبيق', 'كارت NFC يفتح صفحة تقييمك على جوجل فورًا — يكفي أن يقرّب العميل هاتفه من الكارت، دون تطبيق أو كتابة. اشترِ 3 واحصل على الرابع مجانًا. متوفر أيضًا باللون الأسود.']],
+        'nfc3' => ['ar' => ['ميدالية NFC لتقييمات جوجل', 'ميدالية تقييم باللمس، بدون تطبيق', 'ميدالية مفاتيح NFC تفتح صفحة تقييمك على جوجل فورًا — يكفي أن يقرّب العميل هاتفه منها، دون تطبيق أو كتابة.']],
+        'nfc4' => ['ar' => ['ستاند عرض NFC + كود QR — ‏12×18 سم', 'ستاند مكتبي، لمس أو مسح للتقييم', 'ستاند عرض مكتبي بخاصية اللمس NFC ومسح كود QR، يوصّل عملاءك مباشرة إلى صفحة تقييمك على جوجل. متوفر أيضًا بمقاس 10×15 سم.']],
+        'nfc5' => ['ar' => ['ستاند عرض NFC + كود QR — ‏10×15 سم', 'ستاند مكتبي، لمس أو مسح للتقييم', 'ستاند عرض مكتبي بخاصية اللمس NFC ومسح كود QR، يوصّل عملاءك مباشرة إلى صفحة تقييمك على جوجل. متوفر أيضًا بمقاس 12×18 سم.']],
+    ];
+    // The clear L-shaped acrylic sign holders: [id, original name, size word, cm, uses].
+    $holders = [
+        ['ptme37e9715', 'Acrylic Stand A5 (15cm*21cm)', 'A5', '15 × 21'],
+        ['ptme5nra4d2', 'Acrylic Stand (10cm*10cm)', '', '10 × 10'],
+        ['ptme6sg3d83', 'Acrylic Stand A4(21cm * 29.7cm)', 'A4', '21 × 29.7'],
+        ['ptmkyia3492', 'Acrylic Stand A6 (10cm*15cm)', 'A6', '10 × 15'],
+    ];
+    foreach ($holders as [$id, $old, $size, $cm]) {
+        $sheet = $size ? 'an ' . $size . ' sheet (' . $cm . ' cm)' : 'a ' . $cm . ' cm card';
+        $sheetAr = $size ? 'ورقة مقاس ' . $size . ' ‏(' . $cm . ' سم)' : 'كارت مقاس ' . $cm . ' سم';
+        $texts[$id] = [
+            'name' => [$old, 'Acrylic Stand ' . ($size ? $size . ' — ' : '') . $cm . ' cm'],
+            'en' => ['Clear L-shape sign holder for menus, prices & QR codes',
+                'A clear acrylic L-shape stand that holds ' . $sheet . ' upright on a counter or table. Insert a menu, price list, QR code or promo flyer and change it anytime. Ideal for cafés, restaurants, clinics, shops and events.'],
+            'ar' => ['ستاند أكريليك ' . ($size ? $size . ' — ' : '') . '‏' . $cm . ' سم', 'حامل لافتات شفاف على شكل L للمنيو والأسعار وأكواد QR',
+                'ستاند أكريليك شفاف على شكل حرف L يحمل ' . $sheetAr . ' بشكل عمودي على الكاونتر أو الطاولة. ضع فيه المنيو أو قائمة الأسعار أو كود QR أو إعلان عرض، وغيّره في أي وقت. مثالي للكافيهات والمطاعم والعيادات والمحلات والمعارض.'],
+        ];
+    }
+    $fill = function (string $col, string $id, string $value) use ($pdo) {
+        $pdo->prepare("UPDATE products SET $col = ? WHERE id = ? AND COALESCE($col, '') = ''")->execute([$value, $id]);
+    };
+    foreach ($texts as $id => $t) {
+        if (isset($t['name'])) $pdo->prepare('UPDATE products SET name = ? WHERE id = ? AND name = ?')->execute([$t['name'][1], $id, $t['name'][0]]);
+        if (isset($t['en'])) { $fill('sub', $id, $t['en'][0]); $fill('descr', $id, $t['en'][1]); }
+        $fill('name_ar', $id, $t['ar'][0]); $fill('sub_ar', $id, $t['ar'][1]); $fill('desc_ar', $id, $t['ar'][2]);
+    }
 }
 
 // First run: load the catalog that used to be hard-coded in shop-data.js.
@@ -686,6 +738,8 @@ function product_row(array $p, array $images): array
         'variants' => product_json($p, 'variants'), 'tiers' => product_json($p, 'tiers'), 'addons' => product_json($p, 'addons'),
         'personalized' => (bool) ($p['personalized'] ?? 0), 'fromPrice' => from_price($p),
         'brandId' => isset($p['brand_id']) && $p['brand_id'] !== null ? (int) $p['brand_id'] : null,
+        'seoTitle' => (string) ($p['seo_title'] ?? ''), 'seoTitleAr' => (string) ($p['seo_title_ar'] ?? ''),
+        'seoDesc' => (string) ($p['seo_desc'] ?? ''), 'seoDescAr' => (string) ($p['seo_desc_ar'] ?? ''),
         'brandPrice' => (float) ($p['brand_price'] ?? 0), 'marginPct' => isset($p['margin_pct']) && $p['margin_pct'] !== null ? (float) $p['margin_pct'] : null,
         'createdAt' => $p['created_at'], 'updatedAt' => $p['updated_at'],
     ];
