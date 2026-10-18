@@ -154,7 +154,7 @@
       <div style="display:flex;align-items:baseline;gap:10px;margin-top:16px">
         <div style="font-size:22px;font-weight:700">{{ priceFmt }}</div>
         <sc-if value="{{ hasDiscount }}" hint-placeholder-val="{{ false }}">
-          <div style="font-size:16px;color:#6B6660;text-decoration:line-through">{{ product.priceFmt }}</div>
+          <div style="font-size:16px;color:#6B6660;text-decoration:line-through">{{ strikeFmt }}</div>
         </sc-if>
       </div>
       <p style="font-size:15px;line-height:1.7;color:#6B6660;margin:20px 0 0;max-width:46ch">{{ product.desc }}</p>
@@ -193,11 +193,12 @@
         <div style="margin-top:18px;border:1px solid #DDD6CC;border-radius:14px;background:#fff;overflow:hidden">
           <div style="padding:10px 14px;font-size:12.5px;font-weight:700;background:#FBF8F4;border-bottom:1px solid #EFEAE3">Buy more, pay less per piece</div>
           <sc-for list="{{ tierRows }}" as="tr" hint-placeholder-count="3">
-            <div style="display:flex;justify-content:space-between;padding:9px 14px;font-size:13.5px;border-bottom:1px solid #F3EFE8;font-weight:{{ tr.weight }};background:{{ tr.bg }}"><span>{{ tr.qty }}</span><span>{{ tr.price }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:9px 14px;font-size:13.5px;border-bottom:1px solid #F3EFE8;font-weight:{{ tr.weight }};background:{{ tr.bg }}"><span>{{ tr.qty }}</span><span style="text-align:end"><span>{{ tr.price }}</span><sc-if value="{{ tr.note }}" hint-placeholder-val="{{ '' }}"><span style="display:block;font-size:12px;font-weight:400;color:#6B6660">{{ tr.note }}</span></sc-if></span></div>
           </sc-for>
         </div>
       </sc-if>
       <div style="margin-top:16px;font-size:14px;color:#6B6660">{{ totalLine }}</div>
+      <sc-if value="{{ saveLine }}" hint-placeholder-val="{{ '' }}"><div style="margin-top:4px;font-size:13.5px;font-weight:600;color:{{ saveColor }}">{{ saveLine }}</div></sc-if>
       <div class="buyrow" style="display:flex;align-items:center;gap:14px;margin-top:30px">
         <div class="qtybox" style="display:flex;align-items:center;border:1px solid #DDD6CC;border-radius:999px">
           <button onClick="{{ decQty }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;border-radius:999px 0 0 999px;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">–</button>
@@ -493,6 +494,11 @@ class Component extends DCLogic {
     const salePrice = line.unit;
     const tiers = variant ? (variant.tiers || []) : (p.tiers || []);
     const activeTier = tiers.filter(t => t.min <= qty).reduce((a, t) => (!a || t.min > a.min ? t : a), null);
+    // Quantity prices: the one-piece price, what this quantity saves, and how many more reach the next price.
+    const regular = this._sd ? this._sd.priceLine(p, this.state.variantId, this._addonIds(), 1).unit : p.price;
+    const saved = activeTier ? Math.max(0, Math.round(regular * qty) - line.total) : 0;
+    const nextTier = tiers.filter(t => t.min > qty).sort((a, b) => a.min - b.min)[0];
+    const firstMin = tiers.length ? Math.min(...tiers.map(t => t.min)) : 1;
     const photoId = (n) => 'prod-photo-' + p.id + '-' + n;
     const sel = (on) => ({ border: on ? accent : '#DDD6CC', bg: on ? accent : '#fff', fg: on ? '#fff' : '#22201D' });
     const stats = this._sd ? this._sd.ratingStats(p.id, this.state.reviews) : { avg: 0, count: 0 };
@@ -512,16 +518,21 @@ class Component extends DCLogic {
         if (imgs.length) return imgs.slice(1).map((src, i) => ({ id: photoId(i + 1), placeholder: 'angle ' + (i + 2), src: this._sd.img(src, 300), onOpen: this.openLightboxAt(i + 1) }));
         return [1, 2, 3].map(n => ({ id: photoId(n), placeholder: 'angle ' + (n + 1), src: '', onOpen: this.openLightboxAt(0) }));
       })(),
-      price: salePrice, priceFmt: fmt(salePrice) + (qty > 1 || tiers.length ? ' each' : ''), hasDiscount: !!p.discountPct && !tiers.length, badgeBg: p.discountPct ? '#A8552F' : '#22201D',
+      price: salePrice, priceFmt: fmt(salePrice) + (qty > 1 || tiers.length ? ' each' : ''), hasDiscount: (!!p.discountPct && !tiers.length) || saved > 0, strikeFmt: saved > 0 ? fmt(regular) : fmt(p.price), badgeBg: p.discountPct ? '#A8552F' : '#22201D',
       hasVariants: !!(p.variants && p.variants.length > 1), variantTitle: 'Size',
       variantOptions: (p.variants || []).map(v => ({ label: v.label + (v.stock <= 0 && p.cat !== 'services' ? ' (sold out)' : ''), onClick: this.setVariant(v.id), ...sel(variant && v.id === variant.id) })),
       addonGroups: (p.addons || []).map(g => {
         const chosen = this.state.addonSel[g.group] || (g.options[0] && g.options[0].id);
         return { group: g.group, options: g.options.map(o => ({ label: o.label + (o.price ? ' (+' + fmt(o.price) + (o.per === 'order' ? ' once' : ' each') + ')' : ''), onClick: this.setAddon(g.group, o.id), ...sel(o.id === chosen) })) };
       }),
-      hasTiers: tiers.length > 1,
-      tierRows: tiers.map((t, i) => { const next = tiers[i + 1]; const on = activeTier && activeTier.min === t.min;
-        return { qty: next ? t.min + (next.min - 1 > t.min ? '–' + (next.min - 1) : '') + ' pcs' : t.min + '+ pcs', price: fmt(t.price) + ' each', weight: on ? 700 : 400, bg: on ? '#FBF3EE' : '#fff' }; }),
+      hasTiers: tiers.length > 0,
+      // Starts with the normal price ("1–2 pcs") when the first quantity price begins above 1 piece.
+      tierRows: (firstMin > 1 ? [{ qty: (firstMin > 2 ? '1–' + (firstMin - 1) : '1') + ' pcs', price: fmt(regular) + ' each', note: '', weight: activeTier ? 400 : 700, bg: activeTier ? '#fff' : '#FBF3EE' }] : []).concat(
+        tiers.map((t, i) => { const next = tiers[i + 1]; const on = activeTier && activeTier.min === t.min;
+          return { qty: next ? t.min + (next.min - 1 > t.min ? '–' + (next.min - 1) : '') + ' pcs' : t.min + '+ pcs', price: fmt(t.price) + ' each',
+            note: t.min > 1 ? fmt(Math.round(t.price * t.min)) + ' for ' + t.min : '', weight: on ? 700 : 400, bg: on ? '#FBF3EE' : '#fff' }; })),
+      saveLine: saved > 0 ? 'You save ' + fmt(saved) : nextTier ? 'Add ' + (nextTier.min - qty) + ' more to pay ' + fmt(nextTier.price) + ' each' : '',
+      saveColor: saved > 0 ? '#2F7A4A' : 'var(--accent)',
       totalLine: 'Total for ' + qty + (qty === 1 ? ' piece' : ' pieces') + ': ' + fmt(line.total),
       related: this.state.related.map(r => { const rp = this._sd ? this._sd.salePrice(r) : r.price; return { ...r, price: rp, priceFmt: (r.variants && r.variants.length) || (r.tiers && r.tiers.length) ? 'From ' + fmt(this._sd.fromPrice(r)) : fmt(rp), img: this._sd && this._sd.PRODUCT_IMAGES[r.id] ? this._sd.img(this._sd.PRODUCT_IMAGES[r.id][0], 300) : '', imgId: 'prod-photo-' + r.id + '-0', href: '/p/' + r.id }; }),
       cartCount: this._sd ? this._sd.loadCart().reduce((n, i) => n + i.qty, 0) : 0,
