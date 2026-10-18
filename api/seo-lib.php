@@ -88,7 +88,7 @@ function seo_auto_title(array $p, bool $ar): string
 function seo_auto_desc(array $p, bool $ar): string
 {
     $money = function ($n) use ($ar) { return $ar ? number_format($n) . ' ج.م' : 'EGP ' . number_format($n); };
-    $size = function ($l) use ($ar) { return $ar ? preg_replace(['/^Without NFC$/u', '/^With NFC$/u', '/\bkg\b/u', '/\bg\b/u', '/\bml\b/u'], ['بدون NFC', 'مع NFC', 'كجم', 'جم', 'مل'], $l) : $l; };
+    $size = function ($l) use ($ar) { return $ar ? preg_replace(['/^Without NFC$/u', '/^With NFC$/u', '/\bkg\b/u', '/\bg\b/u', '/\bml\b/u', '/\bcm\b/u'], ['بدون NFC', 'مع NFC', 'كجم', 'جم', 'مل', 'سم'], $l) : $l; };
     $by = $p['brand'] !== SEO_SITE && mb_stripos($p['title'], $p['brand']) === false ? ($ar ? ' من ' : ' by ') . $p['brand'] : '';
     $lead = $p['title'] . $by;
     // The short line, minus the parts that only list the sizes (the price part says them).
@@ -106,7 +106,10 @@ function seo_auto_desc(array $p, bool $ar): string
         if (count($p['sizes']) > 1) {
             $sizes = $p['sizes'];
             usort($sizes, function ($x, $y) { return $x['price'] <=> $y['price']; });
-            $price = implode(' · ', array_map(function ($s) use ($money, $size) { return $size($s['label']) . ' ' . $money($s['price']); }, $sizes));
+            // Two sizes: both prices. More: the range (the short line or description names the sizes).
+            $price = count($sizes) > 2
+                ? ($ar ? 'من ' . number_format($p['low']) . ' إلى ' . $money($p['high']) : 'EGP ' . number_format($p['low']) . '–' . number_format($p['high']))
+                : implode(' · ', array_map(function ($s) use ($money, $size) { return $size($s['label']) . ' ' . $money($s['price']); }, $sizes));
         } else {
             $price = $p['was'] ? ($ar ? 'الآن ' . $money($p['low']) . ' بدلًا من ' . $money($p['was']) : 'Now ' . $money($p['low']) . ' (was ' . $money($p['was']) . ')') : $money($p['low']);
         }

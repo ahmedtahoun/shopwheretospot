@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 25;
+const SCHEMA_VERSION = 26;
 
 function db(): PDO
 {
@@ -522,6 +522,33 @@ function migrate(PDO $pdo): void
     }
     seed_product_texts($pdo);
     seed_a_stand($pdo);
+    seed_qr_coasters($pdo);
+}
+
+// Acrylic QR coasters (Google review, social media, InstaPay / wallet payment designs) in four sizes,
+// EGP 20 less per piece from 10 pieces of a size. Added once; edited in the admin after that.
+function seed_qr_coasters(PDO $pdo): void
+{
+    $id = 'acr-qr-coaster';
+    $has = $pdo->prepare('SELECT COUNT(*) FROM products WHERE id = ?');
+    $has->execute([$id]);
+    if ((int) $has->fetchColumn()) return;
+    $variants = [];
+    foreach ([['c5', 5, 45], ['c8', 8, 75], ['c10', 10, 100], ['c12', 12, 120]] as [$vid, $cm, $price]) {
+        $variants[] = ['id' => $vid, 'label' => $cm . ' × ' . $cm . ' cm', 'sku' => 'ACR-CST-' . $cm, 'stock' => 100, 'price' => $price,
+            'tiers' => [['min' => 10, 'price' => $price - 20]], 'ratio' => 0];
+    }
+    $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, label, sub, descr, features, sort, variants, personalized, name_ar, sub_ar, desc_ar)
+        VALUES (?, 'ACR-CST', ?, 'stands', '', 45, 0, 400, 'Active', 'Special offer', ?, ?, ?, (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, 1, ?, ?, ?)")->execute([$id,
+        'Acrylic QR Coaster — Google Review, Social Media & Payment',
+        'UV printed 3 mm acrylic with a suede backing · 4 sizes',
+        'A 3 mm acrylic coaster UV printed directly with your design: a Google review QR code, your social media links, or a "Scan to pay" QR for InstaPay and mobile wallets (Vodafone Cash, Orange, Etisalat). A suede (chamois) layer on the back protects the print and the table. Sizes 5 × 5, 8 × 8, 10 × 10 and 12 × 12 cm, with EGP 20 off each piece when you order 10 or more of a size. Ideal for cafés, restaurants, shops and clinics.',
+        json_encode(['Sizes: 5 × 5, 8 × 8, 10 × 10, 12 × 12 cm', 'Material: 3 mm acrylic', 'Direct UV print with your design', 'Suede (chamois) backing protects the print', 'EGP 20 off per piece from 10 pieces']),
+        json_encode($variants),
+        'كوستر أكريليك QR — تقييم جوجل وسوشيال ميديا والدفع',
+        'أكريليك 3 مم بطباعة UV وطبقة شامواه · 4 مقاسات',
+        'كوستر أكريليك بسُمك 3 مم بطباعة UV مباشرة بتصميمك: كود QR لتقييمات جوجل، أو روابط السوشيال ميديا، أو كود "امسح وادفع" لإنستاباي والمحافظ الإلكترونية (فودافون كاش وأورنج واتصالات). طبقة شامواه في الظهر تحفظ التصميم وتحمي الطاولة. المقاسات 5 × 5 و8 × 8 و10 × 10 و12 × 12 سم، وخصم 20 ج.م على القطعة عند طلب 10 قطع أو أكثر من نفس المقاس. مثالي للكافيهات والمطاعم والمحلات والعيادات.']);
+    $pdo->prepare('INSERT INTO product_images (product_id, path, sort) VALUES (?, ?, 0)')->execute([$id, 'images/acrylic-qr-coasters.jpg']);
 }
 
 // A-shape acrylic table stand, 8 × 10 cm, UV printed with the customer's design; with or without NFC.
