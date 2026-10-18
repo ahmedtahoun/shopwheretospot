@@ -51,7 +51,7 @@
 
     // partner brands
     'Partner brands': 'علامات شريكة', '✓ Official partner · original products supplied by the brand': '✓ شريك رسمي · منتجات أصلية من العلامة مباشرة',
-    '✓ Official partner': '✓ شريك رسمي', '1 kg': '1 كجم', '250 g': '250 جم', 'Without NFC': 'بدون NFC', 'With NFC': 'مع NFC', '5 × 5 cm': '5 × 5 سم', 'Special offer': 'عرض خاص', '8 × 8 cm': '8 × 8 سم', '10 × 10 cm': '10 × 10 سم', '12 × 12 cm': '12 × 12 سم',
+    '✓ Official partner': '✓ شريك رسمي', '1 kg': '1 كجم', '250 g': '250 جم', 'Without NFC': 'بدون NFC', 'With NFC': 'مع NFC', '5 × 5 cm': '5 × 5 سم', '10 × 15 cm': '10 × 15 سم', '12 × 18 cm': '12 × 18 سم', '15 × 21 cm': '15 × 21 سم', '21 × 29 cm': '21 × 29 سم', 'Buy 3 & save': 'اشترِ 3 ووفّر', 'Special offer': 'عرض خاص', '8 × 8 cm': '8 × 8 سم', '10 × 10 cm': '10 × 10 سم', '12 × 12 cm': '12 × 12 سم',
     'For businesses: private label, tailored roasting or bulk orders. Tell us what you need and we’ll reply with a quote, usually the same day.': 'للشركات: علامة خاصة، تحميص مخصص أو طلبات بالجملة. أخبرنا بما تحتاجه وسنرسل لك عرض سعر، غالبًا في نفس اليوم.',
     'Phone or email': 'الهاتف أو الإيميل', 'Your name': 'اسمك', 'Send request': 'إرسال الطلب',
     'Business name, what you need and roughly how much (e.g. 20 kg a month for our café)': 'اسم النشاط، وما تحتاجه والكمية تقريبًا (مثال: 20 كجم شهريًا لمقهانا)',

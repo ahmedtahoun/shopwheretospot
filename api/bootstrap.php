@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 26;
+const SCHEMA_VERSION = 27;
 
 function db(): PDO
 {
@@ -523,6 +523,35 @@ function migrate(PDO $pdo): void
     seed_product_texts($pdo);
     seed_a_stand($pdo);
     seed_qr_coasters($pdo);
+    seed_nfc_qr_stand($pdo);
+}
+
+// Printed NFC + QR acrylic stand (Google review, social media or payment designs) in four sizes.
+// From 3 pieces: 10 × 15 cm is EGP 1,000 for 3 and 12 × 18 cm EGP 1,250 for 3 (per-piece prices
+// below; line totals are rounded to whole pounds). Added once; edited in the admin after that.
+function seed_nfc_qr_stand(PDO $pdo): void
+{
+    $id = 'nfc-qr-stand';
+    $has = $pdo->prepare('SELECT COUNT(*) FROM products WHERE id = ?');
+    $has->execute([$id]);
+    if ((int) $has->fetchColumn()) return;
+    $variants = [];
+    foreach ([['s10', '10 × 15', 350, 1000], ['s12', '12 × 18', 450, 1250], ['s15', '15 × 21', 550, 0], ['s21', '21 × 29', 650, 0]] as [$vid, $cm, $price, $three]) {
+        $variants[] = ['id' => $vid, 'label' => $cm . ' cm', 'sku' => 'NFC-QRS-' . str_replace(' × ', 'X', $cm), 'stock' => 100, 'price' => $price,
+            'tiers' => $three ? [['min' => 3, 'price' => round($three / 3, 2)]] : [], 'ratio' => 0];
+    }
+    $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, label, sub, descr, features, sort, variants, personalized, name_ar, sub_ar, desc_ar)
+        VALUES (?, 'NFC-QRS', ?, 'nfc', 'Grevo.io', 350, 0, 400, 'Active', 'Buy 3 & save', ?, ?, ?, (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, 1, ?, ?, ?)")->execute([$id,
+        'NFC + QR Stand — Google Reviews, Social Media & Payment',
+        'Tap or scan · printed with your design · 4 sizes',
+        'An L-shape acrylic countertop stand with a built-in NFC chip and a QR code, printed with your design. Customers tap their phone or scan to leave a Google review, follow your social media, or pay with InstaPay and mobile wallets (Vodafone Cash, Orange Cash, Etisalat Cash, WE Pay). Sizes 10 × 15, 12 × 18, 15 × 21 and 21 × 29 cm. Buy 3 and save: three 10 × 15 cm for EGP 1,000, or three 12 × 18 cm for EGP 1,250. Ideal for cafés, restaurants, shops and clinics.',
+        json_encode(['Sizes: 10 × 15, 12 × 18, 15 × 21, 21 × 29 cm', 'Built-in NFC chip + QR code', 'Printed with your design', 'For Google reviews, social media or payments', '3 × 10 × 15 cm: EGP 1,000 · 3 × 12 × 18 cm: EGP 1,250']),
+        json_encode($variants),
+        'ستاند NFC + QR — تقييم جوجل وسوشيال ميديا والدفع',
+        'لمس أو مسح · مطبوع بتصميمك · 4 مقاسات',
+        'ستاند أكريليك مكتبي على شكل حرف L بشريحة NFC مدمجة وكود QR، مطبوع بتصميمك. يقرّب العميل هاتفه أو يمسح الكود ليكتب تقييمًا على جوجل، أو يتابع حساباتك على السوشيال ميديا، أو يدفع بإنستاباي والمحافظ الإلكترونية (فودافون كاش وأورنج كاش واتصالات كاش ووي باي). المقاسات 10 × 15 و12 × 18 و15 × 21 و21 × 29 سم. اشترِ 3 ووفّر: 3 ستاندات 10 × 15 سم بـ 1,000 ج.م، أو 3 ستاندات 12 × 18 سم بـ 1,250 ج.م. مثالي للكافيهات والمطاعم والمحلات والعيادات.']);
+    $img = $pdo->prepare('INSERT INTO product_images (product_id, path, sort) VALUES (?, ?, ?)');
+    for ($i = 1; $i <= 6; $i++) $img->execute([$id, 'images/nfc-qr-stand-' . $i . '.jpg', $i - 1]);
 }
 
 // Acrylic QR coasters (Google review, social media, InstaPay / wallet payment designs) in four sizes,
