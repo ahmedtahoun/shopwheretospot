@@ -868,19 +868,40 @@
       $('#nDelivery').style.opacity = lines.length && !physicalProducts() ? '.55' : '1';
     };
     const renderLines = () => {
+      // One card per item: title (editable for custom items), quantity × price each = total, and a description
+      // for the PDF. Quantity and custom prices update the total as you type.
       $('#nLines').innerHTML = lines.length ? lines.map((l, i) => { const c = lineCalc(l);
         const [ln1, ln2] = splitName(c.name);
-        // Custom items: the title can be changed here. Every item can carry a description for the quote / invoice.
-        return '<div class="line"><span>' + (l.custom ? '<input type="text" class="line-title" data-t="' + i + '" maxlength="160" value="' + esc(l.name) + '" aria-label="Item title"> <span class="pill">custom</span>'
-          : '<b>' + esc(ln1) + '</b>' + (ln2 ? ' <span class="it-sz">' + esc(ln2) + '</span>' : '')) + '<div class="small muted">' + egp(c.total / l.qty) + ' each</div></span>' +
-        '<input type="number" min="1" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity">' +
-        '<b style="text-align:right">' + egp(c.total) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button>' +
-        '<textarea class="line-note" data-n="' + i + '" maxlength="1000" rows="1" placeholder="Add a description (optional, shows on the PDF)">' + esc(l.note || '') + '</textarea></div>'; }).join('')
+        return '<div class="qline">' +
+          '<div class="ql-head">' + (l.custom ? '<input type="text" class="ql-title" data-t="' + i + '" maxlength="160" value="' + esc(l.name) + '" placeholder="Item title" aria-label="Item title"><span class="pill">custom</span>'
+            : '<div class="ql-name"><b>' + esc(ln1) + '</b>' + (ln2 ? ' <span class="it-sz">' + esc(ln2) + '</span>' : '') + '</div>') +
+            '<button type="button" class="btn sm ql-x" data-x="' + i + '" aria-label="Remove" title="Remove">✕</button></div>' +
+          '<div class="ql-nums"><label class="ql-f"><span>Qty</span><input type="number" min="1" step="1" inputmode="numeric" value="' + l.qty + '" data-q="' + i + '"></label>' +
+            '<span class="ql-op">×</span>' +
+            (l.custom ? '<label class="ql-f"><span>Price each (EGP)</span><input type="number" min="0" step="0.01" inputmode="decimal" value="' + l.price + '" data-p="' + i + '"></label>'
+              : '<div class="ql-f"><span>Price each</span><b class="ql-each" data-each="' + i + '">' + egp(c.total / l.qty) + '</b></div>') +
+            '<span class="ql-op">=</span><div class="ql-f ql-sum"><span>Total</span><b data-sum="' + i + '">' + egp(c.total) + '</b></div></div>' +
+          '<textarea class="ql-note" data-n="' + i + '" maxlength="1000" rows="2" placeholder="Description (optional) — shows under the item on the PDF">' + esc(l.note || '') + '</textarea></div>'; }).join('')
         : '<div class="small muted" style="padding:6px 0">No products yet.</div>';
-      $$('[data-n]', $('#nLines')).forEach((t) => t.oninput = () => { lines[+t.dataset.n].note = t.value; });
-      $$('[data-t]', $('#nLines')).forEach((t) => t.oninput = () => { lines[+t.dataset.t].name = t.value; });
-      $$('[data-q]', $('#nLines')).forEach((inp) => inp.onchange = () => { lines[+inp.dataset.q].qty = Math.max(1, +inp.value || 1); renderLines(); });
-      $$('[data-x]', $('#nLines')).forEach((b) => b.onclick = () => { lines.splice(+b.dataset.x, 1); renderLines(); });
+      const box = $('#nLines');
+      // Live total for one line without redrawing the list (so the box you're typing in keeps focus).
+      const refresh = (i) => {
+        const l = lines[i], c = lineCalc(l);
+        const sum = $('[data-sum="' + i + '"]', box); if (sum) sum.textContent = egp(c.total);
+        const each = $('[data-each="' + i + '"]', box); if (each) each.textContent = egp(c.total / l.qty);
+        renderTotals();
+      };
+      $$('[data-n]', box).forEach((t) => t.oninput = () => { lines[+t.dataset.n].note = t.value; });
+      $$('[data-t]', box).forEach((t) => t.oninput = () => { lines[+t.dataset.t].name = t.value; });
+      $$('[data-q]', box).forEach((inp) => {
+        inp.oninput = () => { const v = parseInt(inp.value, 10); if (v >= 1) { lines[+inp.dataset.q].qty = v; refresh(+inp.dataset.q); } };
+        inp.onchange = () => { lines[+inp.dataset.q].qty = Math.max(1, parseInt(inp.value, 10) || 1); renderLines(); };
+      });
+      $$('[data-p]', box).forEach((inp) => {
+        inp.oninput = () => { const v = parseFloat(inp.value); if (v > 0) { lines[+inp.dataset.p].price = v; refresh(+inp.dataset.p); } };
+        inp.onchange = () => { const v = parseFloat(inp.value); if (!(v > 0)) { toast('Enter a price above 0', true); inp.value = lines[+inp.dataset.p].price; } };
+      });
+      $$('[data-x]', box).forEach((b) => b.onclick = () => { lines.splice(+b.dataset.x, 1); renderLines(); });
       renderTotals();
     };
     // Size and extras pickers for the chosen product, with a live price preview.

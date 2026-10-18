@@ -353,6 +353,19 @@ details.ship-more[open] > summary::before{content:'▾ '}
 .serp-u{font-size:12px;color:#4D5156}
 .serp-t{font-size:17px;line-height:1.3;color:#1A0DAB;margin:2px 0}
 .serp-d{font-size:13px;line-height:1.45;color:#4D5156;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-/* Quote / order lines: editable title for custom items, a description under every item */
-.lines .line .line-title{width:100%;max-width:340px;font-weight:600;padding:6px 8px}
-.lines .line .line-note{grid-column:1/-1;min-height:34px;font-size:13px;padding:6px 8px;resize:vertical}
+/* Quote / order lines: one card per item — title, qty × price = total, description for the PDF */
+.lines{display:flex;flex-direction:column;gap:10px}
+.qline{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:12px;display:flex;flex-direction:column;gap:10px}
+.ql-head{display:flex;align-items:center;gap:8px}
+.ql-head .ql-title{flex:1;min-width:0;font-weight:600;padding:8px 10px}
+.ql-head .ql-name{flex:1;min-width:0}
+.ql-head .ql-x{flex:none}
+.ql-nums{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.ql-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-3)}
+.ql-f input{width:120px;padding:8px 10px;font-size:14px;color:var(--ink)}
+.ql-f b{font-size:14px;color:var(--ink);padding:8px 0;white-space:nowrap}
+.ql-op{padding-bottom:9px;color:var(--ink-3)}
+.ql-sum{margin-left:auto;text-align:right}
+[dir=rtl] .ql-sum{margin-left:0;margin-right:auto;text-align:left}
+.ql-note{min-height:44px;font-size:13px;padding:8px 10px;resize:vertical}
+@media (max-width:520px){.ql-f input{width:96px}}
