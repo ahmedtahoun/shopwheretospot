@@ -53,7 +53,8 @@ function create_order(array $in, array $opts = []): array
                 if ($cname === '' || $cprice <= 0) throw new ShopError('Custom items need a description and a price.');
                 $lineTotal = round($cprice * $qty); // whole pounds, so "30 for 7,000" can be entered as 233.33 each
                 $ship = !isset($it['ship']) || !empty($it['ship']);
-                $lines[] = ['id' => 'custom', 'name' => $cname, 'qty' => $qty, 'price' => $cprice, 'total' => $lineTotal, 'cat' => $ship ? 'custom' : 'services'];
+                $lines[] = ['id' => 'custom', 'name' => $cname, 'qty' => $qty, 'price' => $cprice, 'total' => $lineTotal, 'cat' => $ship ? 'custom' : 'services']
+                    + ($team && str_in($it['note'] ?? '', 1000) !== '' ? ['note' => str_in($it['note'], 1000)] : []);
                 $subtotal += $lineTotal;
                 if ($ship) $physical += $lineTotal;
                 $personalized = true;
@@ -71,6 +72,7 @@ function create_order(array $in, array $opts = []): array
             $line = ['id' => $p['id'], 'name' => $lineName, 'qty' => $qty, 'price' => $unit, 'total' => $lineTotal, 'cat' => $p['cat']];
             if ((float) $p['cost'] > 0) $line['cost'] = (float) $p['cost']; // unit cost at the time of sale, for profit
             if ($variant) $line['variant'] = (string) $variant['id'];
+            if ($team && str_in($it['note'] ?? '', 1000) !== '') $line['note'] = str_in($it['note'], 1000);
             if ($addons) $line['addons'] = $addons;
             // Partner brand's product: remember the brand and its commission at the time of sale.
             if (!empty($p['brand_id']) && ($brand = brand_get((int) $p['brand_id']))) {
@@ -331,6 +333,33 @@ function lead_from_order(array $in, array $order, ?int $repId, string $channel =
 // ---------- quotes ----------
 const QUOTE_STATUSES = ['Draft', 'Sent', 'Accepted', 'Declined'];
 
+// Every quote's customer is kept as a lead: an existing lead (by phone or email) gets a note and moves
+// to Quoted; someone new becomes a Quoted lead. The quote is linked to it. Safe to call more than once.
+function link_quote_lead(int $quoteId): void
+{
+    $st = db()->prepare('SELECT * FROM quotes WHERE id = ?');
+    $st->execute([$quoteId]);
+    $q = $st->fetch();
+    if (!$q) return;
+    if ($q['lead_id']) {
+        $has = db()->prepare('SELECT 1 FROM leads WHERE id = ?');
+        $has->execute([(int) $q['lead_id']]);
+        if ($has->fetchColumn()) return;
+    }
+    $note = substr((string) $q['created_at'], 0, 10) . ' · Quote ' . quote_number($quoteId) . ' · EGP ' . number_format((float) $q['total']);
+    $contact = trim($q['phone'] . ($q['email'] !== '' ? ' · ' . $q['email'] : ''), ' ·');
+    $lead = find_lead(phone_key((string) $q['phone']), email_key((string) $q['email']));
+    if ($lead) {
+        touch_lead($lead, $note, in_array($lead['status'], ['New', 'Contacted'], true) ? 'Quoted' : null, $q['rep_id'] ? (int) $q['rep_id'] : null, $contact);
+        $leadId = (int) $lead['id'];
+    } else {
+        $items = implode(', ', array_map(function ($i) { return $i['qty'] . '× ' . $i['name']; }, json_decode((string) $q['items'], true) ?: []));
+        $leadId = insert_lead(['name' => $q['customer'], 'contact' => $contact, 'cat' => mb_substr($items, 0, 120), 'source' => 'Quote',
+            'status' => 'Quoted', 'notes' => $note, 'assigned_to' => $q['rep_id'] ?: null]);
+    }
+    db()->prepare('UPDATE quotes SET lead_id = ? WHERE id = ?')->execute([$leadId, $quoteId]);
+}
+
 function quote_number(int $id): string
 {
     return 'Q-' . (1000 + $id);
@@ -345,14 +374,15 @@ function price_quote_items(array $items): array
     $lines = []; $clean = []; $subtotal = 0.0; $physical = 0.0;
     foreach ($items as $it) {
         $qty = max(1, min(99999, (int) ($it['qty'] ?? 1)));
+        $note = str_in($it['note'] ?? '', 1000); // optional description shown under the item on the quote
         if (!empty($it['custom'])) {
             $cname = str_in($it['name'] ?? '', 160);
             $cprice = round((float) ($it['price'] ?? 0), 2);
             if ($cname === '' || $cprice <= 0) throw new ShopError('Custom items need a description and a price.');
             $lineTotal = round($cprice * $qty);
             $ship = !isset($it['ship']) || !empty($it['ship']);
-            $lines[] = ['id' => 'custom', 'name' => $cname, 'qty' => $qty, 'price' => $cprice, 'total' => $lineTotal, 'cat' => $ship ? 'custom' : 'services'];
-            $clean[] = ['custom' => 1, 'name' => $cname, 'price' => $cprice, 'qty' => $qty, 'ship' => $ship ? 1 : 0];
+            $lines[] = ['id' => 'custom', 'name' => $cname, 'qty' => $qty, 'price' => $cprice, 'total' => $lineTotal, 'cat' => $ship ? 'custom' : 'services'] + ($note !== '' ? ['note' => $note] : []);
+            $clean[] = ['custom' => 1, 'name' => $cname, 'price' => $cprice, 'qty' => $qty, 'ship' => $ship ? 1 : 0, 'note' => $note];
             $subtotal += $lineTotal;
             if ($ship) $physical += $lineTotal;
             continue;
@@ -362,8 +392,8 @@ function price_quote_items(array $items): array
         if (!$p) throw new ShopError('A product in the quote is no longer available.');
         $addonIds = array_values(array_map('strval', (array) ($it['addons'] ?? [])));
         [$unit, $lineTotal, $variant, $addons, $lineName] = price_line($p, isset($it['variant']) ? (string) $it['variant'] : null, $addonIds, $qty);
-        $lines[] = ['id' => $p['id'], 'name' => $lineName, 'qty' => $qty, 'price' => $unit, 'total' => $lineTotal, 'cat' => $p['cat']];
-        $clean[] = ['id' => $p['id'], 'variant' => $variant ? (string) $variant['id'] : null, 'addons' => $addonIds, 'qty' => $qty];
+        $lines[] = ['id' => $p['id'], 'name' => $lineName, 'qty' => $qty, 'price' => $unit, 'total' => $lineTotal, 'cat' => $p['cat']] + ($note !== '' ? ['note' => $note] : []);
+        $clean[] = ['id' => $p['id'], 'variant' => $variant ? (string) $variant['id'] : null, 'addons' => $addonIds, 'qty' => $qty, 'note' => $note];
         $subtotal += $lineTotal;
         if ($p['cat'] !== 'services') $physical += $lineTotal;
     }

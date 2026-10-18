@@ -788,9 +788,10 @@
       '<div class="row" id="nOpts"></div><div class="small muted" id="nPreview"></div>' +
       '<div class="lines" id="nLines"></div>' +
       '<details id="nCustomBox"><summary class="small" style="cursor:pointer;font-weight:600">＋ Custom item (anything not in the catalog)</summary>' +
-      '<div class="row" style="margin-top:8px"><input type="text" id="cName" placeholder="Description, e.g. 30 mixed stands with logo" style="flex:1;min-width:200px">' +
-      '<input type="number" id="cQty" min="1" value="1" style="width:70px" aria-label="Custom quantity"><span class="small">× EGP</span><input type="number" id="cPrice" min="0" step="0.01" style="width:100px" placeholder="each" aria-label="Price each">' +
-      '<label class="row small"><input type="checkbox" id="cShip" checked> needs delivery</label><button type="button" class="btn sm" id="cAdd">Add</button></div>' +
+      '<div class="stack" style="margin-top:8px;gap:8px"><input type="text" id="cName" maxlength="160" placeholder="Item title, e.g. Vinyl wall branding with installation">' +
+      '<textarea id="cNote" maxlength="1000" style="min-height:60px" placeholder="Description (optional) — size, material, what’s included… Shows under the title on the quote"></textarea>' +
+      '<div class="row"><input type="number" id="cQty" min="1" value="1" style="width:80px" aria-label="Custom quantity"><span class="small">× EGP</span><input type="number" id="cPrice" min="0" step="0.01" style="width:110px" placeholder="each" aria-label="Price each">' +
+      '<label class="row small"><input type="checkbox" id="cShip" checked> needs delivery</label><span class="spacer"></span><button type="button" class="btn sm primary" id="cAdd">Add item</button></div></div>' +
       '<div class="small muted" style="margin-top:4px">Tip: for "30 for EGP 7,000" enter 30 × 233.33 — totals round to whole pounds.</div></details></div>' +
 
       '<div class="card stack" id="nDelivery"><b>Delivery' + (isQuote ? ' <span class="hint">optional on a quote</span>' : '') + '</b>' +
@@ -835,10 +836,10 @@
       if (prefill.districtId && prefill.cityId) area = { districtId: prefill.districtId, cityId: prefill.cityId, title: prefill.district || 'Saved area', sub: prefill.city || '' };
       const missing = [];
       (prefill.items || []).forEach((it, i) => {
-        if (it.custom) { lines.push({ custom: true, key: 'c' + i + Date.now(), name: it.name, price: +it.price, qty: +it.qty, ship: !!+it.ship }); return; }
+        if (it.custom) { lines.push({ custom: true, key: 'c' + i + Date.now(), name: it.name, note: it.note || '', price: +it.price, qty: +it.qty, ship: !!+it.ship }); return; }
         const p = cat.products.find((x) => x.id === it.id);
         if (!p) { missing.push(it.id); return; }
-        lines.push({ key: p.id + '|' + (it.variant || '') + '|' + (it.addons || []).slice().sort().join('+'), p, variant: it.variant || ((p.variants || [])[0] || {}).id, addons: it.addons || [], qty: +it.qty || 1 });
+        lines.push({ key: p.id + '|' + (it.variant || '') + '|' + (it.addons || []).slice().sort().join('+'), p, variant: it.variant || ((p.variants || [])[0] || {}).id, addons: it.addons || [], qty: +it.qty || 1, note: it.note || '' });
       });
       if (missing.length) toast(missing.length + ' item(s) from the quote are no longer in the catalog — add them again', true);
     }
@@ -869,10 +870,15 @@
     const renderLines = () => {
       $('#nLines').innerHTML = lines.length ? lines.map((l, i) => { const c = lineCalc(l);
         const [ln1, ln2] = splitName(c.name);
-        return '<div class="line"><span><b>' + esc(ln1) + '</b>' + (ln2 ? ' <span class="it-sz">' + esc(ln2) + '</span>' : '') + (l.custom ? ' <span class="pill">custom</span>' : '') + '<div class="small muted">' + egp(c.total / l.qty) + ' each</div></span>' +
+        // Custom items: the title can be changed here. Every item can carry a description for the quote / invoice.
+        return '<div class="line"><span>' + (l.custom ? '<input type="text" class="line-title" data-t="' + i + '" maxlength="160" value="' + esc(l.name) + '" aria-label="Item title"> <span class="pill">custom</span>'
+          : '<b>' + esc(ln1) + '</b>' + (ln2 ? ' <span class="it-sz">' + esc(ln2) + '</span>' : '')) + '<div class="small muted">' + egp(c.total / l.qty) + ' each</div></span>' +
         '<input type="number" min="1" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity">' +
-        '<b style="text-align:right">' + egp(c.total) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button></div>'; }).join('')
+        '<b style="text-align:right">' + egp(c.total) + '</b><button type="button" class="btn sm" data-x="' + i + '" aria-label="Remove">✕</button>' +
+        '<textarea class="line-note" data-n="' + i + '" maxlength="1000" rows="1" placeholder="Add a description (optional, shows on the PDF)">' + esc(l.note || '') + '</textarea></div>'; }).join('')
         : '<div class="small muted" style="padding:6px 0">No products yet.</div>';
+      $$('[data-n]', $('#nLines')).forEach((t) => t.oninput = () => { lines[+t.dataset.n].note = t.value; });
+      $$('[data-t]', $('#nLines')).forEach((t) => t.oninput = () => { lines[+t.dataset.t].name = t.value; });
       $$('[data-q]', $('#nLines')).forEach((inp) => inp.onchange = () => { lines[+inp.dataset.q].qty = Math.max(1, +inp.value || 1); renderLines(); });
       $$('[data-x]', $('#nLines')).forEach((b) => b.onclick = () => { lines.splice(+b.dataset.x, 1); renderLines(); });
       renderTotals();
@@ -936,13 +942,18 @@
       renderLines();
     };
     pickList();
-    $('#cAdd').onclick = () => {
+    // Adds the custom item being typed. Also run on save, so a filled-in item isn't lost when "Add item" wasn't pressed.
+    const addCustom = (quiet) => {
       const name = $('#cName').value.trim(), price = +$('#cPrice').value, qty = Math.max(1, +$('#cQty').value || 1);
-      if (!name || !(price > 0)) return toast('Enter a description and a price for the custom item', true);
-      lines.push({ custom: true, key: 'c' + Date.now(), name, price, qty, ship: $('#cShip').checked });
-      $('#cName').value = ''; $('#cPrice').value = ''; $('#cQty').value = 1;
+      if (!name && !(price > 0)) return true;
+      if (!name || !(price > 0)) { $('#nCustomBox').open = true; toast('Enter a title and a price for the custom item', true); return false; }
+      lines.push({ custom: true, key: 'c' + Date.now(), name, note: $('#cNote').value.trim(), price, qty, ship: $('#cShip').checked });
+      $('#cName').value = ''; $('#cNote').value = ''; $('#cPrice').value = ''; $('#cQty').value = 1;
       renderLines();
+      if (!quiet) toast('Item added');
+      return true;
     };
+    $('#cAdd').onclick = () => addCustom(false);
     ['#nDisc', '#nShip', '#nPay', '#nDep'].forEach((sel) => { const el = $(sel); if (el) { el.oninput = renderTotals; el.onchange = renderTotals; } });
     renderLines();
 
@@ -1018,10 +1029,13 @@
 
     $('#nf').onsubmit = async (e) => {
       e.preventDefault();
+      if (!addCustom(true)) return;
+      if (lines.some((l) => l.custom && !String(l.name).trim())) return toast('Give every custom item a title', true);
       if (!lines.length) return toast('Add at least one product', true);
       if (!isQuote && physicalProducts() && !area) return toast('Choose the delivery area', true);
       const data = formData(e.target);
-      data.items = lines.map((l) => l.custom ? { custom: 1, name: l.name, price: l.price, qty: l.qty, ship: l.ship ? 1 : 0 } : { id: l.p.id, variant: l.variant, addons: l.addons, qty: l.qty });
+      data.items = lines.map((l) => l.custom ? { custom: 1, name: String(l.name).trim(), note: (l.note || '').trim(), price: l.price, qty: l.qty, ship: l.ship ? 1 : 0 }
+        : { id: l.p.id, variant: l.variant, addons: l.addons, qty: l.qty, note: (l.note || '').trim() });
       if (area) { data.city_id = area.cityId; data.district_id = area.districtId; }
       if (data.shipping === '') delete data.shipping;
       if (prefill && prefill.leadId) data.lead_id = prefill.leadId;
@@ -1419,7 +1433,7 @@
         '<div class="small muted">' + esc([q.phone, q.email, [q.district, q.city].filter(Boolean).join(', ')].filter(Boolean).join(' · ')) + '</div></div>' + pill(QUOTE_TONE, q.status) + '</div>' +
         '<div class="small muted">Created ' + dateTime(q.createdAt) + (q.rep ? ' by ' + esc(q.rep) : '') + (q.sentAt ? ' · sent ' + dateTime(q.sentAt) : '') + (q.validUntil ? ' · valid until ' + esc(fmtDay(q.validUntil)) : '') + '</div>' +
         (q.orderNumber ? '<div class="chosen">' + icon('bag') + '<span>Accepted — became order <b>' + esc(q.orderNumber) + '</b></span><span class="spacer"></span><button class="btn sm" id="qOrder">Open order</button></div>' : '') + '</div>' +
-      '<div class="card"><div class="list">' + q.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + '<div class="small muted">' + egp(it.total / it.qty) + ' each</div></span><span>' + egp(it.total) + '</span></div>').join('') +
+      '<div class="card"><div class="list">' + q.items.map((it) => '<div class="li"><span>' + esc(it.qty + '× ' + it.name) + (it.note ? '<div class="small" style="white-space:pre-line">' + esc(it.note) + '</div>' : '') + '<div class="small muted">' + egp(it.total / it.qty) + ' each</div></span><span>' + egp(it.total) + '</span></div>').join('') +
         '<div class="li muted"><span>Subtotal</span><span>' + egp(q.subtotal) + '</span></div>' +
         (q.discount ? '<div class="li muted"><span>Discount</span><span>−' + egp(q.discount) + '</span></div>' : '') +
         '<div class="li muted"><span>Delivery</span><span>' + (q.shipping ? egp(q.shipping) : 'Free') + '</span></div>' +

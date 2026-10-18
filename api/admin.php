@@ -943,17 +943,15 @@ try {
         if ($id) {
             db()->prepare('UPDATE quotes SET ' . implode(' = ?, ', explode(', ', $cols)) . " = ?, updated_at = datetime('now') WHERE id = ?")->execute(array_merge($vals, [$id]));
             log_activity($u, 'Updated quote', quote_number($id) . ' · EGP ' . number_format($total));
+            link_quote_lead($id);
         } else {
             db()->prepare("INSERT INTO quotes ($cols, created_by) VALUES (" . rtrim(str_repeat('?, ', 23), ', ') . ', ?)')->execute(array_merge($vals, [(int) $u['id']]));
             $id = (int) db()->lastInsertId();
             log_activity($u, 'Created quote', quote_number($id) . ' · ' . $name . ' · EGP ' . number_format($total));
-            // The lead moves to Quoted, with the quote noted on it.
+            // The customer is kept as a lead (an existing one moves to Quoted, with the quote noted on it).
             $lead = $leadId ? (function ($lid) { $st = db()->prepare('SELECT * FROM leads WHERE id = ?'); $st->execute([$lid]); return $st->fetch() ?: null; })($leadId) : null;
-            if (!$lead) $lead = find_lead(phone_key($vals[2]), email_key($email));
-            if ($lead) {
-                touch_lead($lead, date('Y-m-d') . ' · Quote ' . quote_number($id) . ' · EGP ' . number_format($total), in_array($lead['status'], ['New', 'Contacted'], true) ? 'Quoted' : null, (int) $u['id']);
-                db()->prepare('UPDATE quotes SET lead_id = ? WHERE id = ?')->execute([(int) $lead['id'], $id]);
-            }
+            if ($lead) touch_lead($lead, date('Y-m-d') . ' · Quote ' . quote_number($id) . ' · EGP ' . number_format($total), in_array($lead['status'], ['New', 'Contacted'], true) ? 'Quoted' : null, (int) $u['id']);
+            else link_quote_lead($id);
         }
         json_out(['quote' => quote_out(load_quote($id))]);
 
@@ -1150,6 +1148,16 @@ try {
         $q = load_quote((int) ($_GET['id'] ?? 0));
         assert_quote_access($u, $q);
         json_out(['quote' => quote_out($q), 'me' => $u['name']]);
+
+    // Terms and notes edited on the quote page are kept with the quote.
+    case 'quote_text':
+        $u = require_perm('sell');
+        $b = body();
+        $q = load_quote((int) ($b['id'] ?? 0));
+        assert_quote_access($u, $q);
+        db()->prepare("UPDATE quotes SET terms = ?, design_notes = ?, updated_at = datetime('now') WHERE id = ?")
+            ->execute([str_in($b['terms'] ?? '', 2000), str_in($b['notes'] ?? '', 2000), (int) $q['id']]);
+        json_out(['ok' => true]);
 
     // ---------- quick search ----------
 

@@ -50,6 +50,12 @@
   .foot{margin-top:auto;padding-top:28px;display:flex;justify-content:space-between;gap:20px;color:#8E8980;font-size:11.5px;border-top:1px solid #ECE9E4}
   .stamp{display:inline-block;margin-top:6px;border:2px solid #2F7A4A;color:#2F7A4A;border-radius:8px;padding:4px 12px;font-weight:700;letter-spacing:.14em;transform:rotate(-4deg)}
   .hint{font-size:12px;color:#8E8980}
+  td .note{margin-top:3px;font-size:12px;line-height:1.5;color:#5F5B55;white-space:pre-line}
+  /* While making the PDF: A4 layout on any screen, no edit outlines */
+  body.exporting .page{width:210mm;min-height:296mm;margin:0;padding:18mm 16mm;box-shadow:none}
+  body.exporting .meta{grid-template-columns:1.3fr 1fr 1fr}
+  body.exporting .notes{grid-template-columns:1fr 1fr}
+  body.exporting .edit{border-color:transparent !important;background:none !important}
   .err{max-width:520px;margin:80px auto;background:#fff;border-radius:16px;padding:28px;text-align:center}
   @media (max-width:860px){.page{width:auto;min-height:0;margin:12px;padding:22px}.meta,.notes{grid-template-columns:1fr}}
   @media print{
@@ -74,7 +80,29 @@
   const egp = (n) => 'EGP ' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
   const day = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const app = document.getElementById('app');
-  let data;
+  let data, csrf = null;
+  async function api(action, body) {
+    if (!csrf) csrf = (await fetch('../api/admin.php?action=session', { credentials: 'same-origin' }).then((r) => r.json())).csrf;
+    const res = await fetch('../api/admin.php?action=' + action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || 'Something went wrong');
+    return j;
+  }
+  // A4 PDF of the page, made in the browser (html2pdf.js, loaded the first time it's needed).
+  function loadPdfLib() {
+    if (window.html2pdf) return Promise.resolve();
+    return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+  }
+  async function pdfFile(name) {
+    await loadPdfLib();
+    document.body.classList.add('exporting');
+    try {
+      const worker = window.html2pdf().set({ margin: 0, filename: name, image: { type: 'jpeg', quality: 0.95 }, pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 900 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(document.querySelector('.page'));
+      const pdf = await worker.toPdf().get('pdf');
+      return { save: () => pdf.save(name), output: (t) => pdf.output(t) };
+    } finally { document.body.classList.remove('exporting'); }
+  }
 
   // Partner brand statement: ?brand=ID&month=YYYY-MM — what was sold, our commission and their share.
   const brandId = +params.get('brand');
@@ -144,9 +172,9 @@
     app.innerHTML =
       '<div class="bar"><a class="btn" href="./#' + (saved ? 'quotes' : 'orders') + '">← Dashboard</a>' +
       (saved ? '' : '<div class="seg"><button data-t="quote" class="' + (isQ ? 'on' : '') + '">Quote</button><button data-t="invoice" class="' + (isQ ? '' : 'on') + '">Invoice</button></div>') +
-      '<span class="hint">Click the notes to edit them before printing.</span><span class="sp"></span>' +
-      (wa ? '<a class="btn wa" href="' + esc(wa) + '" target="_blank" rel="noopener">Send on WhatsApp</a>' : '') +
-      '<button class="btn primary" id="print">Print / Save as PDF</button></div>' +
+      '<span class="hint" id="hint">' + (saved ? 'Click the terms or notes to edit them — changes are saved.' : 'Click the notes to edit them before downloading.') + '</span><span class="sp"></span>' +
+      (wa ? '<a class="btn wa" id="wa" href="' + esc(wa) + '" target="_blank" rel="noopener">Send on WhatsApp</a>' : '') +
+      '<button class="btn" id="print">Print</button><button class="btn primary" id="pdf">Download PDF</button></div>' +
       '<div class="page">' +
         '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>' + SHOP.name + '</b><small>Marketing, products &amp; production</small></span></div>' +
           '<div class="doc"><h1>' + (isQ ? 'QUOTE' : 'INVOICE') + '</h1><div class="num">' + no + '</div></div></div>' +
@@ -157,7 +185,7 @@
           '<div><h4>From</h4><p>' + SHOP.address + '</p><p>' + SHOP.phone + '</p><p>' + SHOP.email + '</p></div>' +
         '</div>' +
         '<table><thead><tr><th style="width:44px">#</th><th>Item</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>' +
-          o.items.map((it, i) => { const total = it.total != null ? it.total : it.qty * it.price; return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(it.name) + '</b></td><td class="r">' + it.qty + '</td><td class="r">' + egp(total / it.qty) + '</td><td class="r">' + egp(total) + '</td></tr>'; }).join('') +
+          o.items.map((it, i) => { const total = it.total != null ? it.total : it.qty * it.price; return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(it.name) + '</b>' + (it.note ? '<div class="note">' + esc(it.note) + '</div>' : '') + '</td><td class="r">' + it.qty + '</td><td class="r">' + egp(total / it.qty) + '</td><td class="r">' + egp(total) + '</td></tr>'; }).join('') +
         '</tbody></table>' +
         '<div class="totals"><div><span>Subtotal</span><span class="r">' + egp(o.subtotal) + '</span></div>' +
           (o.discount ? '<div><span>Discount' + (o.promo ? ' (' + esc(o.promo) + ')' : '') + '</span><span class="r">−' + egp(o.discount) + '</span></div>' : '') +
@@ -166,13 +194,55 @@
           (!isQ ? data.payments.map((p) => '<div class="paid"><span>' + (p.amount < 0 ? 'Refund' : 'Paid') + ' · ' + esc(p.methodLabel) + ' · ' + esc(new Date(p.at.replace(' ', 'T') + 'Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + '</span><span class="r">−' + egp(p.amount) + '</span></div>').join('') +
             (o.due > 0 ? '<div class="due"><span>Balance due</span><span class="r">' + egp(o.due) + '</span></div>' : '<div style="justify-content:flex-end"><span class="stamp">PAID</span></div>') : '') +
         '</div>' +
-        '<div class="notes"><div><h4>' + (isQ ? 'Terms' : 'Payment') + '</h4><div class="edit" contenteditable="true">' + (isQ
+        '<div class="notes"><div><h4>' + (isQ ? 'Terms' : 'Payment') + '</h4><div class="edit" id="terms" contenteditable="true">' + (isQ
             ? (saved && o.terms ? esc(o.terms) : 'All prices are in Egyptian Pounds (EGP).\nThis quote is valid until ' + day(valid) + '.\nDelivery across Egypt.')
             : 'Payment by cash on delivery, bank transfer or InstaPay.\nAll prices are in Egyptian Pounds (EGP).') + '</div></div>' +
-          '<div><h4>Notes</h4><div class="edit" contenteditable="true">' + esc(o.designNotes || (o.businessName ? 'Personalised for ' + o.businessName + '.' : '')) + '</div></div></div>' +
+          '<div><h4>Notes</h4><div class="edit" id="notes" contenteditable="true">' + esc(o.designNotes || (o.businessName ? 'Personalised for ' + o.businessName + '.' : '')) + '</div></div></div>' +
         '<div class="foot"><span>' + SHOP.name + ' · ' + SHOP.web + '</span><span>Thank you for your business.</span></div>' +
       '</div>';
     document.getElementById('print').onclick = () => window.print();
+    const fileName = (isQ ? 'Quote ' : 'Invoice ') + no + ' - ' + o.customer.replace(/[\\/:*?"<>|]+/g, '') + '.pdf';
+    const pdfBtn = document.getElementById('pdf');
+    pdfBtn.onclick = async () => {
+      pdfBtn.disabled = true; pdfBtn.textContent = 'Preparing…';
+      try { (await pdfFile(fileName)).save(); } catch (e) { alert('Could not make the PDF here — use Print and choose "Save as PDF".'); }
+      pdfBtn.disabled = false; pdfBtn.textContent = 'Download PDF';
+    };
+    // WhatsApp: on phones the PDF is attached straight away (share sheet); on computers it's downloaded first,
+    // then the chat opens with the message ready — attach the downloaded file there.
+    const waBtn = document.getElementById('wa');
+    if (waBtn) waBtn.onclick = async (e) => {
+      e.preventDefault();
+      const chat = window.open('', '_blank');
+      try {
+        const pdf = await pdfFile(fileName);
+        const blob = pdf.output('blob');
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+          if (chat) chat.close();
+          await navigator.share({ files: [file], text: decodeURIComponent(waBtn.href.split('text=')[1] || '') }).catch(() => {});
+          return;
+        }
+        pdf.save();
+      } catch (err) {}
+      if (chat) chat.location = waBtn.href; else location.href = waBtn.href;
+    };
+    // Saved quotes: edits to the terms and notes are kept with the quote.
+    if (saved && isQ) {
+      let t;
+      const keep = () => {
+        clearTimeout(t);
+        t = setTimeout(async () => {
+          const hint = document.getElementById('hint');
+          try {
+            await api('quote_text', { id: o.id, terms: document.getElementById('terms').innerText.trim(), notes: document.getElementById('notes').innerText.trim() });
+            o.terms = document.getElementById('terms').innerText.trim(); o.designNotes = document.getElementById('notes').innerText.trim();
+            hint.textContent = 'Saved ✓';
+          } catch (err) { hint.textContent = 'Couldn’t save the notes: ' + err.message; }
+        }, 700);
+      };
+      ['terms', 'notes'].forEach((k) => document.getElementById(k).addEventListener('input', keep));
+    }
     document.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { type = b.dataset.t; history.replaceState(null, '', '?type=' + type + '&id=' + id); render(); });
   }
   load();

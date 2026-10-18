@@ -91,7 +91,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 27;
+const SCHEMA_VERSION = 28;
 
 function db(): PDO
 {
@@ -524,6 +524,8 @@ function migrate(PDO $pdo): void
     seed_a_stand($pdo);
     seed_qr_coasters($pdo);
     seed_nfc_qr_stand($pdo);
+    // Quotes made before every quote's customer was kept as a lead.
+    foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
 
 // Printed NFC + QR acrylic stand (Google review, social media or payment designs) in four sizes.
