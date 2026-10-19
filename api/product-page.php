@@ -34,7 +34,16 @@ $title = $product['seoTitle'];
 $desc = $product['seoDesc'];
 // The page's language from the first byte, so search engines index the Arabic page as Arabic.
 $html = replace_once($html, '<html>', $ar ? '<html lang="ar" dir="rtl">' : '<html lang="en" dir="ltr">');
-$image = $product['imageUrls'][0] ?? seo_abs('images/og-share.png');
+$image = $product['imageUrls'][0] ?? seo_abs('images/share-card.jpg');
+
+// Link-preview bots (WhatsApp, Facebook…) get only the preview tags, so the card shows up in time.
+require __DIR__ . '/share-page.php';
+if (share_is_preview_bot()) {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: public, max-age=300');
+    echo share_card_html($title, $desc, $image, $product['url'], $ar ? 'ar' : 'en');
+    exit;
+}
 
 $meta = function (string $html, string $attr, string $key, string $value): string {
     $pattern = '/<meta ' . $attr . '="' . preg_quote($key, '/') . '" content="[^"]*">/';

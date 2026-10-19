@@ -92,7 +92,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 30;
+const SCHEMA_VERSION = 31;
 
 function db(): PDO
 {
@@ -574,10 +574,12 @@ function migrate(PDO $pdo): void
             ['ترحيب', "أهلًا بحضرتك في Where To Spot 👋\nإزاي أقدر أساعدك؟", 1],
             ['التوصيل', "التوصيل لكل محافظات مصر خلال 2–5 أيام عمل، والدفع عند الاستلام متاح 🚚", 2],
             ['طرق الدفع', "طرق الدفع: الدفع عند الاستلام، أو بالبطاقة، أو المحافظ الإلكترونية، أو إنستاباي 💳", 3],
-            ['المتجر', "تقدر تشوف كل المنتجات والأسعار هنا: https://shop.wheretospot.com", 4],
+            ['المتجر', "تقدر تشوف كل المنتجات والأسعار هنا 👇\nhttps://shop.wheretospot.com/ar", 4],
             ['متابعة', "أهلًا بحضرتك، حبيت أطمن هل محتاج أي تفاصيل تانية عشان نبدأ الطلب؟ 😊", 5],
         ] as $row) $q->execute($row);
     }
+    // The shop link in the quick replies: /ar shows a proper preview card in WhatsApp (see api/share-page.php).
+    $pdo->prepare('UPDATE wa_quick SET body = ? WHERE body = ?')->execute(["تقدر تشوف كل المنتجات والأسعار هنا 👇\nhttps://shop.wheretospot.com/ar", "تقدر تشوف كل المنتجات والأسعار هنا: https://shop.wheretospot.com"]);
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
