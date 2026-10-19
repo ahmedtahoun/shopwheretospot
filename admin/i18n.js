@@ -59,7 +59,8 @@
     // dashboard
     '+ New order': '+ طلب جديد', 'Revenue': 'الإيرادات', 'excl. cancelled & returned': 'بدون الملغي والمرتجع', 'Waiting to confirm': 'في انتظار التأكيد',
     'Call them now →': 'اتصل بهم الآن ←', 'Shipped': 'تم الشحن', 'on the way now': 'في الطريق الآن', 'Delivered': 'تم التسليم', 'all time': 'منذ البداية',
-    'Cancelled / returned': 'ملغي / مرتجع', 'To collect': 'المطلوب تحصيله', 'everything is paid': 'كل شيء مدفوع', 'Open quotes': 'عروض أسعار مفتوحة',
+    'Cancelled / returned': 'ملغي / مرتجع', 'To collect': 'المطلوب تحصيله', 'everything is paid': 'كل شيء مدفوع', 'Open quotes': 'عروض أسعار مفتوحة', 'Quotes issued': 'عروض الأسعار الصادرة', 'all quotes': 'كل العروض', 'Open': 'مفتوحة',
+    'waiting for an answer': 'في انتظار الرد', 'Closed (accepted)': 'مغلقة (مقبولة)', 'declined or expired': 'مرفوضة أو منتهية',
     'View →': 'عرض ←', 'Make a quote →': 'اعمل عرض سعر ←', 'View pending →': 'عرض المعلّقة ←', 'orders': 'طلبات', 'New leads': 'عملاء محتملون جدد',
     'Open leads →': 'فتح العملاء المحتملين ←', 'Live products': 'منتجات معروضة', 'Manage →': 'إدارة ←', 'Daily revenue (EGP)': 'الإيرادات اليومية (ج.م)',
     'Orders per day': 'الطلبات في اليوم', 'Recent orders': 'أحدث الطلبات', 'All orders': 'كل الطلبات', 'No orders yet.': 'لا توجد طلبات بعد.', 'Manage': 'إدارة',
@@ -392,7 +393,7 @@
     // leads, quotes, customers
     [/^! Overdue · (.+)$/, '! متأخر · $1'], [/^WhatsApp (.+)$/, 'واتساب $1'], [/^\+ (\d+) more in the List view$/, '+ $1 آخرين في عرض القائمة'],
     [/^This number or email already belongs to “(.+)” \((.+)\)(.*)$/, function (m, a, s, r) { return 'هذا الرقم أو الإيميل مسجّل بالفعل لـ "' + a + '" (' + (tr(s) || s) + ')' + r; }],
-    [/^(\d+)% of answered quotes$/, '$1% من العروض التي تم الرد عليها'], [/^(.+) waiting for an answer$/, '$1 في انتظار الرد'],
+    [/^(\d+)% of answered quotes$/, '$1% من العروض التي تم الرد عليها'], [/^(\d+)% win rate$/, 'نسبة النجاح $1%'], [/^(.+) waiting for an answer$/, '$1 في انتظار الرد'],
     [/^No (draft|sent|accepted|declined|expired) quotes\.$/, function (m, s) { return 'لا توجد عروض أسعار (' + D[s[0].toUpperCase() + s.slice(1)] + ').'; }],
     [/^Created (.+?)(?: by (.+))?$/, function (m, a, b) { return 'أُنشئ ' + a + (b ? ' بواسطة ' + b : ''); }], [/^sent (.+)$/, 'أُرسل $1'], [/^valid until (.+)$/, 'صالح حتى $1'],
     [/^Quote (\S+)$/, 'عرض السعر $1'], [/^Delete quote (.+)\?$/, 'حذف عرض السعر $1؟'], [/^since (.+)$/, 'منذ $1'],

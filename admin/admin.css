@@ -369,3 +369,4 @@ details.ship-more[open] > summary::before{content:'▾ '}
 [dir=rtl] .ql-sum{margin-left:0;margin-right:auto;text-align:left}
 .ql-note{min-height:44px;font-size:13px;padding:8px 10px;resize:vertical}
 @media (max-width:520px){.ql-f input{width:96px}}
+.seg .seg-n{display:inline-block;min-width:18px;padding:0 5px;margin-inline-start:2px;border-radius:999px;background:rgba(0,0,0,.07);font-size:11px;font-weight:600;line-height:17px;text-align:center}

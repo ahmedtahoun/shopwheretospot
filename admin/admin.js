@@ -1408,13 +1408,21 @@
     S.quotes = d.quotes;
     const st = S.quoteStatus || '';
     const list = d.quotes.filter((q) => !st || q.status === st);
-    const open = d.quotes.filter((q) => q.status === 'Draft' || q.status === 'Sent');
-    const accepted = d.quotes.filter((q) => q.status === 'Accepted').length;
-    const decided = accepted + d.quotes.filter((q) => q.status === 'Declined' || q.status === 'Expired').length;
+    // Quote totals by outcome (only here — quotes aren't sales, so they stay out of the dashboard).
+    const sum = (arr) => arr.reduce((a, q) => a + q.total, 0);
+    const byStatus = (...ss) => d.quotes.filter((q) => ss.includes(q.status));
+    const open = byStatus('Draft', 'Sent'), won = byStatus('Accepted'), lost = byStatus('Declined', 'Expired');
+    const answered = won.length + lost.length;
+    const kpi = (label, count, amount, note, tone) => '<div class="kpi"><div class="label">' + label + '</div><div class="value">' + count + '</div>' +
+      '<div class="note"><b class="' + (tone || '') + '">' + egp(amount) + '</b>' + (note ? ' · <span>' + note + '</span>' : '') + '</div></div>';
     $('#main').innerHTML = header('Quotes', 'Prices you offer before an order. Nothing is taken from stock or counted as a sale until the customer accepts.', '<button class="btn primary" id="newQuote">+ New quote</button>') +
-      '<div class="kpis"><div class="kpi"><div class="label">Open quotes</div><div class="value">' + open.length + '</div><div class="note">' + egp(open.reduce((a, q) => a + q.total, 0)) + ' waiting for an answer</div></div>' +
-      '<div class="kpi"><div class="label">Accepted</div><div class="value">' + accepted + '</div><div class="note">' + (decided ? Math.round(accepted / decided * 100) + '% of answered quotes' : 'no answers yet') + '</div></div></div>' +
-      '<div class="row" style="margin-bottom:16px"><div class="seg" id="qtabs">' + ['', 'Draft', 'Sent', 'Accepted', 'Declined', 'Expired'].map((t) => '<button data-s="' + t + '" class="' + (t === st ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div></div>' +
+      '<div class="kpis">' + kpi('Quotes issued', d.quotes.length, sum(d.quotes), 'all quotes') +
+        kpi('Open', open.length, sum(open), 'waiting for an answer') +
+        kpi('Closed (accepted)', won.length, sum(won), answered ? Math.round(won.length / answered * 100) + '% win rate' : 'no answers yet', 'pay-ok') +
+        kpi('Lost', lost.length, sum(lost), 'declined or expired') + '</div>' +
+      '<div class="row" style="margin-bottom:16px"><div class="seg" id="qtabs">' + ['', 'Draft', 'Sent', 'Accepted', 'Declined', 'Expired'].map((t) => {
+        const n = t ? byStatus(t).length : d.quotes.length;
+        return '<button data-s="' + t + '" class="' + (t === st ? 'on' : '') + '"><span>' + (t || 'All') + '</span> <span class="seg-n">' + n + '</span></button>'; }).join('') + '</div></div>' +
       (list.length ? '<div class="table-wrap"><table><thead><tr><th>Quote</th><th>Customer</th><th>Items</th><th>Status</th><th>Valid until</th><th class="num">Total</th></tr></thead><tbody>' +
         list.map((q) => '<tr class="click" data-q="' + q.id + '"><td><b>' + esc(q.number) + '</b><div class="small muted">' + dateTime(q.createdAt) + (q.rep ? ' · ' + esc(q.rep) : '') + '</div></td>' +
           '<td>' + esc(q.customer) + '<div class="small muted">' + esc([q.businessName, q.phone].filter(Boolean).join(' · ')) + '</div></td>' +
