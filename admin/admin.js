@@ -123,9 +123,9 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
+      ['dashboard', 'Dashboard', 'home'], ['inbox', 'WhatsApp', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
       ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
+    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -134,7 +134,7 @@
       '<div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>Where To Spot</b><small>Team workspace</small></span></div>' +
       (can('orders_only') ? '' : '<button class="searchbtn" id="searchBtn">' + icon('search') + '<span>Search</span><kbd>/</kbd></button>') +
       '<div class="nav-label">Workspace</div>' +
-      nav.map(([k, label, ic]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '">' + icon(ic) + '<span>' + label + '</span></a>').join('') +
+      nav.map(([k, label, ic]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '">' + icon(ic) + '<span>' + label + '</span>' + (k === 'inbox' ? '<span class="nav-badge" id="waBadge"' + (S.waUnread ? '' : ' hidden') + '>' + (S.waUnread || '') + '</span>' : '') + '</a>').join('') +
       '<div class="nav-label">Shop</div>' +
       '<a class="nav" href="../index.html" target="_blank" rel="noopener">' + icon('external') + '<span>View shop</span></a>' +
       (isStandalone() ? '' : '<button class="nav" id="installBtn"' + (installEvt || isIOS() ? '' : ' hidden') + '>' + icon('download') + '<span>Install the app</span></button>') +
@@ -148,8 +148,10 @@
     $('#pwBtn').onclick = changePassword;
     const sb = $('#searchBtn'); if (sb) sb.onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    document.body.classList.toggle('in-inbox', S.route === 'inbox');
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    waWatch();
   }
 
   const authAside = () => '<aside class="auth-side"><span class="logo"><img src="../images/logo.png" alt=""></span>' +
@@ -223,6 +225,10 @@
     tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+    send: '<path d="M4 12 20 4l-6 16-3-7z"/><path d="m11 13 9-9"/>',
+    clip: '<path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    bolt: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
@@ -1495,6 +1501,275 @@
     const oo = $('#qOrder'); if (oo) oo.onclick = async () => { const d = await api('orders', { query: '&q=' + encodeURIComponent(q.orderNumber) }); const o = d.orders.find((x) => x.id === q.orderId); if (o) orderDrawer(o); };
   }
 
+
+  // ---------- WhatsApp inbox ----------
+  // One business number; every chat lands here. Team members see their own chats (and unassigned ones),
+  // managers see everything and hand chats out. Updates come by polling (every few seconds while open).
+  const waTime = (s) => { if (!s) return ''; const d = new Date(s.replace(' ', 'T') + 'Z'); const now = new Date();
+    return d.toDateString() === now.toDateString() ? d.toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString(LOC, { day: 'numeric', month: 'short' }); };
+  const waMins = (s) => s ? Math.max(0, Math.round((Date.now() - new Date(s.replace(' ', 'T') + 'Z').getTime()) / 60000)) : 0;
+  const waAgo = (m) => m < 60 ? m + ' min' : m < 1440 ? Math.floor(m / 60) + ' h' : Math.floor(m / 1440) + ' d';
+  const waSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+  const waLink = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>');
+  const WA_TICK = { sent: '✓', delivered: '✓✓', read: '✓✓', failed: '⚠' };
+
+  // Unread badge + a sound (and a notification, if allowed) when a new customer message arrives — on every page.
+  function waWatch() {
+    if (!can('whatsapp') || waWatch.on) return;
+    waWatch.on = true;
+    const tick = async () => {
+      if (!S.user || !can('whatsapp')) { waWatch.on = false; return; }
+      try {
+        const d = await api('wa_unread');
+        S.waUnread = d.unread;
+        const b = $('#waBadge'); if (b) { b.textContent = d.unread || ''; b.hidden = !d.unread; }
+        document.title = (d.unread ? '(' + d.unread + ') ' : '') + document.title.replace(/^\(\d+\) /, '');
+        if (waWatch.last != null && d.lastIn > waWatch.last) {
+          waBeep();
+          if (S.route !== 'inbox' && window.Notification && Notification.permission === 'granted') new Notification('New WhatsApp message', { body: 'Open the WhatsApp inbox', icon: '../images/logo.png' });
+          if (S.route === 'inbox' && waInbox.refresh) waInbox.refresh();
+        }
+        waWatch.last = d.lastIn;
+      } catch (e) { /* offline for a moment */ }
+      setTimeout(tick, S.route === 'inbox' ? 6000 : 20000);
+    };
+    tick();
+  }
+  function waBeep() {
+    try {
+      const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+      o.connect(g); g.connect(a.destination); o.frequency.value = 880; g.gain.setValueAtTime(0.0001, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, a.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.35);
+      o.start(); o.stop(a.currentTime + 0.4);
+    } catch (e) {}
+  }
+
+  const waInbox = { view: null, q: '', chatId: null, data: null, chat: null, msgs: [], lastId: 0, timer: null };
+
+  async function pageInbox() {
+    const st = waInbox;
+    if (!st.view) st.view = can('whatsapp_all') ? 'all' : 'mine';
+    $('#main').innerHTML = '<div class="wa" id="wa"><section class="wa-list"><div class="wa-lh"><div class="row"><h1>WhatsApp</h1><span class="spacer"></span><span id="waMe"></span></div>' +
+      '<div class="seg wa-tabs" id="waTabs"></div><input type="search" id="waQ" placeholder="Search name or number" value="' + esc(st.q) + '"></div><div class="wa-items" id="waItems"><div class="muted small" style="padding:16px">Loading…</div></div></section>' +
+      '<section class="wa-chat" id="waChat"><div class="wa-empty">' + icon('chat') + '<div>Choose a chat</div></div></section></div>';
+    let qt;
+    $('#waQ').oninput = (e) => { clearTimeout(qt); qt = setTimeout(() => { st.q = e.target.value; loadList(); }, 300); };
+    const loadList = async () => {
+      const d = await api('wa_chats', { query: '&view=' + st.view + '&q=' + encodeURIComponent(st.q) });
+      if (S.route !== 'inbox') return;
+      st.data = d;
+      renderTabs(); renderList();
+      if (!st.timer) poll();
+    };
+    st.refresh = () => { loadList(); if (st.chatId) loadChat(true); };
+    const renderTabs = () => {
+      const c = st.data.counts, me = st.data.me;
+      const tabs = [['mine', 'Mine', c.mine.unread || ''], ['unassigned', 'Unassigned', c.unassigned || '']].concat(me.all ? [['waiting', 'Waiting', c.waiting || ''], ['all', 'All', '']] : [['all', 'All', '']]).concat([['closed', 'Closed', '']]);
+      $('#waTabs').innerHTML = tabs.map(([k, l, n]) => '<button data-v="' + k + '" class="' + (st.view === k ? 'on' : '') + '"><span>' + l + '</span>' + (n ? ' <span class="seg-n">' + n + '</span>' : '') + '</button>').join('');
+      $$('#waTabs button').forEach((b) => b.onclick = () => { st.view = b.dataset.v; loadList(); });
+      $('#waMe').innerHTML = (!st.data.ready ? '<span class="pill warn" title="Settings → WhatsApp">Not connected</span> ' : '') +
+        (me.agent ? '<label class="row small wa-away"><input type="checkbox" id="waAway"' + (me.away ? '' : ' checked') + '> <span>Taking chats</span></label>' : '') +
+        (window.Notification && Notification.permission === 'default' ? ' <button class="btn sm" id="waNotif" title="Get a notification for new messages">🔔</button>' : '');
+      const aw = $('#waAway'); if (aw) aw.onchange = async () => { await api('wa_away', { method: 'POST', body: { away: !aw.checked } }); toast(aw.checked ? 'You’ll get new chats' : 'No new chats will be given to you'); };
+      const nb = $('#waNotif'); if (nb) nb.onclick = () => Notification.requestPermission().then(() => renderTabs());
+    };
+    const renderList = () => {
+      const list = st.data.chats;
+      $('#waItems').innerHTML = list.length ? list.map((c) => {
+        const wait = c.waitingSince ? waMins(c.waitingSince) : 0;
+        return '<button class="wa-item' + (c.id === st.chatId ? ' on' : '') + (c.unread ? ' unread' : '') + '" data-c="' + c.id + '">' +
+          '<span class="wa-av">' + esc((c.name || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          '<span class="wa-it"><span class="wa-row"><b>' + esc(c.name) + '</b><small>' + waTime(c.lastAt) + '</small></span>' +
+          '<span class="wa-row"><span class="wa-last">' + (c.lastDir === 'out' ? '<span class="muted">You: </span>' : '') + esc(c.lastText || '') + '</span>' + (c.unread ? '<span class="wa-n">' + c.unread + '</span>' : '') + '</span>' +
+          '<span class="wa-tags">' + (wait ? '<span class="wa-wait' + (wait >= 10 ? ' late' : '') + '">⏱ ' + waAgo(wait) + '</span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') +
+            (st.data.me.all ? '<span class="muted">' + esc(c.agent || 'Unassigned') + '</span>' : '') + (c.leadStatus ? pill(LEAD_TONE, c.leadStatus) : '') + '</span></span></button>';
+      }).join('') : '<div class="muted small" style="padding:16px">' + (st.view === 'mine' ? 'No chats for you right now.' : 'No chats here.') + '</div>';
+      $$('#waItems [data-c]').forEach((b) => b.onclick = () => openChat(+b.dataset.c));
+    };
+    const openChat = async (id) => {
+      st.chatId = id; st.msgs = []; st.lastId = 0;
+      $('#wa').classList.add('open');
+      renderList();
+      $('#waChat').innerHTML = '<div class="wa-empty"><div>Loading…</div></div>';
+      await loadChat(false);
+    };
+    const loadChat = async (update) => {
+      const id = st.chatId;
+      let d;
+      try { d = await api('wa_chat', { query: '&id=' + id + '&read=1' + (update ? '&after=' + st.lastId : '') }); } catch (e) { if (!update) $('#waChat').innerHTML = '<div class="wa-empty">' + esc(e.message) + '</div>'; return; }
+      if (id !== st.chatId || S.route !== 'inbox') return;
+      const isNew = !update;
+      st.chat = d.chat; st.lead = d.lead; st.orders = d.orders; st.quotes = d.quotes;
+      if (isNew) st.msgs = d.messages; else st.msgs = st.msgs.concat(d.messages);
+      const ticks = {}; d.ticks.forEach((t) => ticks[t.id] = t);
+      st.msgs.forEach((m) => { if (ticks[m.id]) { m.status = ticks[m.id].status; m.error = ticks[m.id].error; } });
+      if (st.msgs.length) st.lastId = st.msgs[st.msgs.length - 1].id;
+      if (isNew) { renderChat(); return; }
+      // Live update: add new messages and refresh ticks without redrawing (a playing video keeps playing).
+      if (d.messages.length) appendMessages(d.messages);
+      d.ticks.forEach((t) => { const el = $('#waMsgs [data-m="' + t.id + '"] .wa-tick'); if (el && !el.classList.contains(t.status)) { el.className = 'wa-tick ' + t.status; el.textContent = WA_TICK[t.status] || ''; el.title = t.error || t.status; } });
+      const headKey = JSON.stringify([d.chat.assignedTo, d.chat.status, d.chat.name]);
+      if (headKey !== st.headKey) renderHead();
+      if (d.chat.windowOpen !== st.composeOpen) renderCompose();
+    };
+    const renderChat = () => {
+      $('#waChat').innerHTML = '<header class="wa-ch" id="waHead"></header><div class="wa-body"><div class="wa-msgs" id="waMsgs"></div><aside class="wa-side" id="waSide"></aside></div><footer class="wa-compose" id="waCompose"></footer>';
+      renderHead(); renderMessages(); renderSide(); renderCompose();
+    };
+    const renderHead = () => {
+      const c = st.chat, all = st.data && st.data.me.all;
+      st.headKey = JSON.stringify([c.assignedTo, c.status, c.name]);
+      const agents = (st.data && st.data.agents) || [];
+      $('#waHead').innerHTML = '<button class="btn sm wa-back" id="waBack" aria-label="Back">' + icon('back') + '</button>' +
+        '<span class="wa-av">' + esc((c.name || '?').charAt(0).toUpperCase()) + '</span><div class="wa-who"><b>' + esc(c.name) + '</b><small dir="ltr">' + esc(c.phone) + (c.profileName && c.profileName !== c.name ? ' · ' + esc(c.profileName) : '') + '</small></div>' +
+        '<span class="spacer"></span>' +
+        (all ? '<select id="waAssign" title="Who handles this chat"><option value="">Unassigned</option>' + agents.map((a) => '<option value="' + a.id + '"' + (a.id === c.assignedTo ? ' selected' : '') + '>' + esc(a.name) + (a.away ? ' (away)' : '') + '</option>').join('') +
+            (c.assignedTo && !agents.some((a) => a.id === c.assignedTo) ? '<option value="' + c.assignedTo + '" selected>' + esc(c.agent || '') + '</option>' : '') + '</select>'
+          : !c.assignedTo ? '<button class="btn sm primary" id="waTake">Take this chat</button>' : '') +
+        '<button class="btn sm" id="waClose">' + (c.status === 'closed' ? 'Reopen' : 'Close chat') + '</button>' +
+        '<button class="btn sm wa-info-btn" id="waInfo">' + icon('person') + '</button>';
+      $('#waBack').onclick = () => { $('#wa').classList.remove('open'); st.chatId = null; renderList(); };
+      const as = $('#waAssign'); if (as) as.onchange = async () => { try { const r = await api('wa_assign', { method: 'POST', body: { chat_id: c.id, user_id: as.value ? +as.value : null } }); st.chat = r.chat; toast(as.value ? 'Chat given to ' + r.chat.agent : 'Chat unassigned'); loadList(); } catch (e) { toast(e.message, true); } };
+      const tk = $('#waTake'); if (tk) tk.onclick = async () => { try { const r = await api('wa_assign', { method: 'POST', body: { chat_id: c.id, user_id: S.user.id } }); st.chat = r.chat; renderHead(); loadList(); toast('The chat is yours'); } catch (e) { toast(e.message, true); } };
+      $('#waClose').onclick = async () => { try { const r = await api('wa_close', { method: 'POST', body: { chat_id: c.id, open: c.status === 'closed' } }); st.chat = r.chat; renderHead(); loadList(); toast(r.chat.status === 'closed' ? 'Chat closed — it reopens if the customer writes again' : 'Chat reopened'); } catch (e) { toast(e.message, true); } };
+      $('#waInfo').onclick = () => $('#wa').classList.toggle('side-open');
+    };
+    const msgHtml = (m) => {
+      const media = m.media ? '../api/admin.php?action=wa_media&id=' + m.id : '';
+      let inner = '';
+      if (m.kind === 'image' && media) inner = '<a href="' + media + '" target="_blank" rel="noopener"><img class="wa-img" src="' + media + '" alt="Photo" loading="lazy"></a>';
+      else if (m.kind === 'sticker' && media) inner = '<img class="wa-sticker" src="' + media + '" alt="Sticker" loading="lazy">';
+      else if (m.kind === 'video' && media) inner = '<video class="wa-img" src="' + media + '" controls preload="metadata"></video>';
+      else if (m.kind === 'audio' && media) inner = '<audio src="' + media + '" controls preload="none"></audio>';
+      else if (media) inner = '<a class="wa-doc" href="' + media + '" target="_blank" rel="noopener">' + icon('file') + '<span><b>' + esc(m.media.name || 'Document') + '</b><small>' + waSize(m.media.size) + '</small></span></a>';
+      else if (['image', 'video', 'audio', 'document'].includes(m.kind)) inner = '<div class="muted small">(' + m.kind + ' not available)</div>';
+      if (m.kind === 'reaction') return '<div class="wa-sys">Reacted ' + esc(m.body) + '</div>';
+      const text = m.body ? '<div class="wa-text">' + waLink(m.body) + '</div>' : '';
+      const ad = m.ad ? '<div class="wa-adref">📣 From ad: <b>' + esc(m.ad.headline || 'Facebook / Instagram ad') + '</b>' + (m.ad.url ? ' · <a href="' + esc(m.ad.url) + '" target="_blank" rel="noopener">view</a>' : '') + '</div>' : '';
+      const meta = '<span class="wa-meta">' + (m.dir === 'out' && m.by ? esc(m.by) + ' · ' : '') + new Date(m.at.replace(' ', 'T') + 'Z').toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) +
+        (m.dir === 'out' ? ' <span class="wa-tick ' + esc(m.status) + '" title="' + esc(m.error || m.status) + '">' + (WA_TICK[m.status] || '') + '</span>' : '') + '</span>';
+      return '<div class="wa-msg ' + m.dir + (m.status === 'failed' ? ' failed' : '') + '" data-m="' + m.id + '">' + ad + inner + text + (m.status === 'failed' && m.error ? '<div class="wa-err">' + esc(m.error) + '</div>' : '') + meta + '</div>';
+    };
+    const dayOf = (m) => new Date(m.at.replace(' ', 'T') + 'Z').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' });
+    const withDays = (list) => list.map((m) => { const d = dayOf(m); const sep = d !== st.day ? '<div class="wa-day">' + esc(d) + '</div>' : ''; st.day = d; return sep + msgHtml(m); }).join('');
+    // Keep the newest message in view while photos load, unless the person has scrolled up to read.
+    const stickDown = (box) => {
+      st.stick = true;
+      box.onscroll = () => { st.stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80; };
+      box.addEventListener('load', (e) => { if (st.stick && /IMG|VIDEO/.test(e.target.tagName)) box.scrollTop = box.scrollHeight; }, true);
+      box.addEventListener('loadedmetadata', () => { if (st.stick) box.scrollTop = box.scrollHeight; }, true);
+    };
+    const renderMessages = () => {
+      const box = $('#waMsgs'); if (!box) return;
+      st.day = '';
+      box.innerHTML = withDays(st.msgs) || '<div class="muted small wa-none" style="text-align:center;padding:20px">No messages yet.</div>';
+      stickDown(box);
+      box.scrollTop = box.scrollHeight;
+    };
+    // New messages at the bottom; the list only scrolls down if you were already at the bottom.
+    const appendMessages = (list) => {
+      const box = $('#waMsgs'); if (!box) return;
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      const none = $('.wa-none', box); if (none) none.remove();
+      list = list.filter((m) => !$('[data-m="' + m.id + '"]', box));
+      box.insertAdjacentHTML('beforeend', withDays(list));
+      if (atBottom || list.some((m) => m.dir === 'out')) box.scrollTop = box.scrollHeight;
+    };
+    const renderSide = () => {
+      const c = st.chat, l = st.lead;
+      $('#waSide').innerHTML = '<div class="stack" style="gap:12px">' +
+        (c.ad ? '<div class="card wa-adcard"><small class="muted">Came from ad</small><b>' + esc(c.ad.headline || '—') + '</b>' + (c.ad.body ? '<div class="small">' + esc(c.ad.body) + '</div>' : '') + (c.ad.id ? '<small class="muted">Ad ID ' + esc(c.ad.id) + '</small>' : '') + '</div>' : '') +
+        (l ? '<div class="card stack" style="gap:8px"><small class="muted">Lead</small><input type="text" id="waLeadName" value="' + esc(l.name) + '" aria-label="Customer name">' +
+          '<select id="waLeadStatus">' + S.meta.leadStatuses.map((s2) => '<option value="' + s2 + '"' + (s2 === l.status ? ' selected' : '') + '>' + s2 + '</option>').join('') + '</select>' +
+          '<div class="small muted">' + esc(l.source || '') + (l.cat ? ' · ' + esc(l.cat) : '') + '</div>' +
+          '<textarea id="waLeadNote" rows="2" placeholder="Add a note (e.g. call back Thursday)"></textarea><button class="btn sm" id="waLeadSave">Save</button>' +
+          (l.notes ? '<details><summary class="small">Notes</summary><div class="small" style="white-space:pre-line;margin-top:6px">' + esc(l.notes) + '</div></details>' : '') + '</div>' : '') +
+        '<div class="row"><button class="btn sm" id="waQuote">' + icon('file') + 'New quote</button><button class="btn sm" id="waOrder">' + icon('cart') + 'New order</button></div>' +
+        (st.quotes.length ? '<div class="card"><small class="muted">Quotes</small><div class="list">' + st.quotes.map((q) => '<div class="li small"><a href="doc.html?quote=' + q.id + '" target="_blank" rel="noopener">' + esc(q.number) + '</a><span>' + esc(q.status) + ' · ' + egp(q.total) + '</span></div>').join('') + '</div></div>' : '') +
+        (st.orders.length ? '<div class="card"><small class="muted">Orders</small><div class="list">' + st.orders.map((o) => '<div class="li small"><span>' + esc(o.number) + '</span><span>' + esc(o.status) + ' · ' + egp(o.total) + '</span></div>').join('') + '</div></div>' : '') + '</div>';
+      const save = $('#waLeadSave');
+      if (save) save.onclick = async () => {
+        try {
+          await api('wa_lead', { method: 'POST', body: { chat_id: c.id, name: $('#waLeadName').value, status: $('#waLeadStatus').value, note: $('#waLeadNote').value } });
+          toast('Lead saved'); await loadChat(false);
+        } catch (e) { toast(e.message, true); }
+      };
+      const pre = () => ({ name: l ? l.name : c.name, phone: c.phone, leadId: c.leadId, interest: c.ad ? c.ad.headline : '' });
+      $('#waQuote').onclick = () => newOrderDrawer(Object.assign(pre(), { mode: 'quote' }));
+      $('#waOrder').onclick = () => newOrderDrawer(pre());
+    };
+    const renderCompose = () => {
+      const c = st.chat;
+      st.composeOpen = c.windowOpen;
+      if (!c.windowOpen) {
+        $('#waCompose').innerHTML = '<div class="wa-closed">' + icon('clock') + '<span>More than 24 hours since the customer’s last message, so WhatsApp only allows an approved template here (coming soon). The chat opens again as soon as the customer writes.</span></div>';
+        return;
+      }
+      const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
+      $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div>' +
+        '<div class="wa-cbar"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
+        '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>' +
+        '<textarea id="waText" rows="1" placeholder="Write a message" title="Enter sends · Shift+Enter adds a new line"></textarea>' +
+        '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
+        '<div class="wa-window small muted">Free replies for about ' + left + ' more hour' + (left === 1 ? '' : 's') + '</div>';
+      const ta = $('#waText');
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; };
+      ta.oninput = grow;
+      const send = async () => {
+        const text = ta.value.trim(); if (!text) return;
+        $('#waSend').disabled = true;
+        try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text } }); ta.value = ''; grow(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
+        catch (e) { toast(e.message, true); }
+        $('#waSend').disabled = false; ta.focus();
+      };
+      $('#waSend').onclick = send;
+      ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+      $('#waFile').onchange = async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const caption = file.type.startsWith('audio') ? '' : ta.value.trim();
+        const fd = new FormData(); fd.append('chat_id', c.id); fd.append('file', file); fd.append('caption', caption);
+        toast('Sending ' + file.name + '…');
+        try { const r = await api('wa_send_file', { method: 'POST', form: fd }); if (caption) { ta.value = ''; grow(); } st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); toast('Sent'); }
+        catch (err) { toast(err.message, true); }
+        e.target.value = '';
+      };
+      const ql = $('#waQuickList');
+      $('#waQuickBtn').onclick = () => {
+        const quick = (st.data && st.data.quick) || [];
+        ql.innerHTML = quick.map((q, i) => '<button data-q="' + i + '"><b>' + esc(q.title) + '</b><span>' + esc(q.body) + '</span></button>').join('') +
+          (can('whatsapp_all') ? '<button class="wa-qm" id="waQuickManage">✎ Edit quick replies</button>' : '');
+        ql.hidden = !ql.hidden;
+        $$('[data-q]', ql).forEach((b) => b.onclick = () => { ta.value = (ta.value ? ta.value + '\n' : '') + quick[+b.dataset.q].body; ql.hidden = true; grow(); ta.focus(); });
+        const qm = $('#waQuickManage'); if (qm) qm.onclick = () => { ql.hidden = true; waQuickDrawer(); };
+      };
+    };
+    const poll = () => {
+      clearTimeout(st.timer);
+      st.timer = setTimeout(async () => {
+        if (S.route !== 'inbox' || !S.user) { st.timer = null; return; }
+        try { await loadList(); if (st.chatId) await loadChat(true); } catch (e) {}
+        poll();
+      }, 5000);
+    };
+    clearTimeout(st.timer); st.timer = null;
+    await loadList();
+    if (st.chatId) openChat(st.chatId);
+    else if (S.openWaChat) { const id = S.openWaChat; S.openWaChat = null; openChat(id); }
+  }
+
+  function waQuickDrawer() {
+    const draw = (list) => {
+      const d = openDrawer('Quick replies', '<div class="stack">' + list.map((q) => '<div class="card stack" style="gap:6px"><input type="text" data-t="' + q.id + '" value="' + esc(q.title) + '"><textarea data-b="' + q.id + '" rows="3">' + esc(q.body) + '</textarea>' +
+        '<div class="row"><span class="spacer"></span><button class="btn sm danger" data-del="' + q.id + '">Delete</button><button class="btn sm" data-save="' + q.id + '">Save</button></div></div>').join('') +
+        '<div class="card stack" style="gap:6px"><b>New quick reply</b><input type="text" id="qrT" placeholder="Name, e.g. Prices"><textarea id="qrB" rows="3" placeholder="The message"></textarea><div class="row"><span class="spacer"></span><button class="btn sm primary" id="qrAdd">Add</button></div></div></div>');
+      const done = (r) => { if (waInbox.data) waInbox.data.quick = r.quick; draw(r.quick); toast('Saved'); };
+      $$('[data-save]', d).forEach((b) => b.onclick = async () => { try { done(await api('wa_quick_save', { method: 'POST', body: { id: +b.dataset.save, title: $('[data-t="' + b.dataset.save + '"]', d).value, body: $('[data-b="' + b.dataset.save + '"]', d).value } })); } catch (e) { toast(e.message, true); } });
+      $$('[data-del]', d).forEach((b) => b.onclick = async () => { if (!confirm('Delete this quick reply?')) return; try { done(await api('wa_quick_delete', { method: 'POST', body: { id: +b.dataset.del } })); } catch (e) { toast(e.message, true); } });
+      $('#qrAdd', d).onclick = async () => { try { done(await api('wa_quick_save', { method: 'POST', body: { title: $('#qrT', d).value, body: $('#qrB', d).value } })); } catch (e) { toast(e.message, true); } };
+    };
+    draw((waInbox.data && waInbox.data.quick) || []);
+  }
+
   // ---------- customers ----------
   async function pageCustomers() {
     const d = await api('customers');
@@ -1765,6 +2040,42 @@
       '<div class="hint">Secret values are never shown here. The connection test asks Paymob to prepare a EGP 1 payment that nobody pays — nothing is charged.</div></div>';
     $('#psRe').onclick = () => pageSettings(false);
     const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
+    $('#main').insertAdjacentHTML('beforeend', '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>');
+    waSettings(false);
+  }
+
+  // Settings → WhatsApp: connection, webhook address, who takes chats, how long videos are kept.
+  async function waSettings(test) {
+    const box = $('#waSettings'); if (!box) return;
+    let d;
+    try { d = await api('wa_settings', { query: test ? '&test=1' : '' }); } catch (e) { box.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+    const ok = (b) => b ? '<span class="pill good">✓</span>' : '<span class="pill bad">✕ Missing</span>';
+    const mb = (b) => b == null ? '—' : b > 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : Math.round(b / 1048576) + ' MB';
+    box.innerHTML = '<h2>WhatsApp<span class="spacer"></span>' + (d.ready ? '<span class="pill good">✓ Connected</span>' : '<span class="pill warn">Not connected yet</span>') + '</h2>' +
+      '<div class="list">' +
+        '<div class="li"><span>Access key (token)</span><span>' + ok(d.token) + '</span></div>' +
+        '<div class="li"><span>Phone number ID</span><span>' + ok(d.phoneId) + '</span></div>' +
+        '<div class="li"><span>App secret (checks that messages really come from Meta)</span><span>' + ok(d.appSecret) + '</span></div>' +
+        '<div class="li"><span>Verify token (for the webhook)</span><span>' + ok(d.verifyToken) + '</span></div>' +
+        (d.info ? '<div class="li"><span>Number</span><span><b dir="ltr">' + esc(d.info.display_phone_number || '') + '</b> · ' + esc(d.info.verified_name || '') + (d.info.quality_rating ? ' · quality ' + esc(d.info.quality_rating) : '') + '</span></div>' : '') +
+        (d.error ? '<div class="li"><span>Connection</span><span class="pill bad">✕ ' + esc(d.error) + '</span></div>' : '') +
+        '<div class="li"><span>Webhook address (paste in Meta → WhatsApp → Configuration)</span><span><code dir="ltr">' + esc(d.webhook) + '</code> <button class="btn sm" id="waCopy">Copy</button></span></div>' +
+      '</div>' +
+      (d.token && d.phoneId ? '<div class="row"><button class="btn" id="waTest">Test connection</button></div>' : '<div class="hint">Add the “whatsapp” block to api/config.local.php on the server (see config.local.example.php). Secret values are never shown here.</div>') +
+      '<h3 style="margin:6px 0 0">Who takes WhatsApp chats</h3><div class="hint">New chats go to these people in turn. “Away” skips someone (they can also switch it themselves in the inbox).</div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Takes chats</th><th>Away</th></tr></thead><tbody>' +
+        d.users.map((u) => '<tr><td>' + esc(u.name) + '</td><td class="small muted">' + esc(u.role) + '</td><td><input type="checkbox" data-agent="' + u.id + '"' + (u.agent ? ' checked' : '') + '></td><td><input type="checkbox" data-away="' + u.id + '"' + (u.away ? ' checked' : '') + '></td></tr>').join('') +
+      '</tbody></table></div>' +
+      '<div class="grid2"><label class="field">Keep videos for (days) <span class="hint">0 = keep forever. Photos, voice notes and documents are always kept.</span><input type="number" id="waDays" min="0" max="3650" value="' + d.videoDays + '"></label>' +
+        '<div class="field"><span>Space used by chat files</span><b>' + mb(d.storage) + '</b><span class="hint">' + (d.diskFree ? mb(d.diskFree) + ' free on the server · ' : '') + d.chats + ' chats</span></div></div>' +
+      '<div class="row"><button class="btn primary" id="waSave">Save WhatsApp settings</button></div>';
+    $('#waCopy').onclick = () => { navigator.clipboard.writeText(d.webhook).then(() => toast('Copied')); };
+    const tb = $('#waTest'); if (tb) tb.onclick = () => waSettings(true);
+    $('#waSave').onclick = async () => {
+      const agents = d.users.map((u) => ({ id: u.id, agent: $('[data-agent="' + u.id + '"]').checked, away: $('[data-away="' + u.id + '"]').checked }));
+      try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value } }); toast('WhatsApp settings saved'); }
+      catch (e) { toast(e.message, true); }
+    };
   }
 
   // ---------- partner brands ----------

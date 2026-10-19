@@ -29,6 +29,20 @@ return [
         'card_integration_id' => 0,     // "Online Card" integration ID
         'wallet_integration_id' => 0,   // "Mobile Wallet" integration ID (0 = don't offer wallets)
     ],
+    // WhatsApp Business (Meta Cloud API) — the inbox in the dashboard. From Meta for Developers → your app:
+    //   token:            a permanent System User access token (Business settings → System users → Generate token,
+    //                     with whatsapp_business_messaging + whatsapp_business_management)
+    //   phone_number_id:  WhatsApp → API Setup → "Phone number ID" (not the phone number itself)
+    //   app_secret:       App settings → Basic → App secret (checks that incoming messages really come from Meta)
+    //   verify_token:     any long random text you choose; paste the same text in WhatsApp → Configuration → Webhook
+    // Webhook address: https://shop.wheretospot.com/api/whatsapp-webhook.php (subscribe to "messages").
+    'whatsapp' => [
+        'token' => 'EAAG…',
+        'phone_number_id' => '123456789012345',
+        'app_secret' => '…',
+        'verify_token' => 'choose-a-long-random-text',
+        'graph_version' => 'v23.0',
+    ],
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],
 ];

@@ -214,6 +214,25 @@
     const waBtn = document.getElementById('wa');
     if (waBtn) waBtn.onclick = async (e) => {
       e.preventDefault();
+      // Customer already chatting with our WhatsApp business number (last 24 h): the PDF goes straight into that chat.
+      try {
+        const w = await fetch('../api/admin.php?action=wa_window&phone=' + encodeURIComponent(o.phone || ''), { credentials: 'same-origin' }).then((r) => r.ok ? r.json() : null);
+        if (w && w.ready && w.open) {
+          waBtn.textContent = 'Sending…';
+          const pdf = await pdfFile(fileName);
+          const fd = new FormData();
+          fd.append('phone', o.phone); fd.append('caption', (isQ ? 'Quote ' : 'Invoice ') + no + ' · ' + egp(o.total));
+          fd.append('file', new File([pdf.output('blob')], fileName, { type: 'application/pdf' }));
+          if (!csrf) csrf = (await fetch('../api/admin.php?action=session', { credentials: 'same-origin' }).then((r) => r.json())).csrf;
+          const res = await fetch('../api/admin.php?action=wa_send_file', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf || '' }, body: fd });
+          const j = await res.json().catch(() => ({}));
+          waBtn.textContent = 'Send on WhatsApp';
+          if (!res.ok) { alert(j.error || 'Could not send it on WhatsApp.'); return; }
+          if (saved && isQ && o.status === 'Draft') api('quote_status', { id: o.id, status: 'Sent' }).catch(() => {});
+          document.getElementById('hint').textContent = 'Sent in the customer’s WhatsApp chat ✓';
+          return;
+        }
+      } catch (err) { waBtn.textContent = 'Send on WhatsApp'; }
       const chat = window.open('', '_blank');
       try {
         const pdf = await pdfFile(fileName);

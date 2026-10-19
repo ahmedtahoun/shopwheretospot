@@ -38,12 +38,13 @@ class ShopError extends RuntimeException {}
 const ROLES = [
     // 'revenue': sales totals, profit and money figures (owner and managers only).
     // 'orders_only': telesales — orders and the order counts, nothing else.
-    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups', 'revenue'],
-    'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity', 'revenue'],
-    'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
+    // 'whatsapp': the WhatsApp inbox (their own chats); 'whatsapp_all': every chat, and giving chats to people.
+    'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups', 'revenue', 'whatsapp', 'whatsapp_all'],
+    'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity', 'revenue', 'whatsapp', 'whatsapp_all'],
+    'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders', 'whatsapp'],
     // Everyone except owner and manager sees only the orders credited to them (the ones they entered).
-    'staff' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders'],
-    'telesales' => ['dashboard', 'orders', 'sell', 'orders_only', 'own_orders'],
+    'staff' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders', 'whatsapp'],
+    'telesales' => ['dashboard', 'orders', 'sell', 'orders_only', 'own_orders', 'whatsapp'],
 ];
 // Order lifecycle, including production of personalised items. Cancelled/Returned put stock back.
 // 'Awaiting payment': an online-payment order whose payment Paymob hasn't confirmed yet (hidden from lists and totals).
@@ -91,7 +92,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 29;
+const SCHEMA_VERSION = 30;
 
 function db(): PDO
 {
@@ -526,6 +527,57 @@ function migrate(PDO $pdo): void
     seed_a_stand($pdo);
     seed_qr_coasters($pdo);
     seed_nfc_qr_stand($pdo);
+    // WhatsApp inbox: chats (one per customer number), their messages, quick replies, small settings.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS wa_chats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        wa_id TEXT NOT NULL UNIQUE,
+        name TEXT DEFAULT '',
+        lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+        assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        unread INTEGER NOT NULL DEFAULT 0,
+        last_in_at TEXT, last_out_at TEXT, last_at TEXT,
+        last_text TEXT DEFAULT '', last_dir TEXT DEFAULT '',
+        waiting_since TEXT,
+        first_in_at TEXT, first_reply_at TEXT, first_reply_by INTEGER,
+        ad_id TEXT DEFAULT '', ad_headline TEXT DEFAULT '', ad_url TEXT DEFAULT '', ad_body TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_wa_chats_last ON wa_chats(last_at)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_wa_chats_agent ON wa_chats(assigned_to, last_at)');
+    $pdo->exec("CREATE TABLE IF NOT EXISTS wa_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL REFERENCES wa_chats(id) ON DELETE CASCADE,
+        wamid TEXT DEFAULT '',
+        dir TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'text',
+        body TEXT DEFAULT '',
+        media_path TEXT DEFAULT '', media_mime TEXT DEFAULT '', media_name TEXT DEFAULT '', media_size INTEGER NOT NULL DEFAULT 0,
+        status TEXT DEFAULT '',
+        error TEXT DEFAULT '',
+        user_id INTEGER,
+        meta TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_wa_messages_chat ON wa_messages(chat_id, id)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_wa_messages_wamid ON wa_messages(wamid)');
+    $pdo->exec("CREATE TABLE IF NOT EXISTS wa_quick (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0)");
+    $userCols = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    // wa_agent: takes WhatsApp chats; wa_away: skipped when new chats are handed out.
+    foreach (['wa_agent' => 'INTEGER NOT NULL DEFAULT 0', 'wa_away' => 'INTEGER NOT NULL DEFAULT 0', 'wa_last_assigned' => 'TEXT'] as $col => $type) {
+        if (!in_array($col, $userCols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN $col $type");
+    }
+    if (!(int) $pdo->query('SELECT COUNT(*) FROM wa_quick')->fetchColumn()) {
+        $q = $pdo->prepare('INSERT INTO wa_quick (title, body, sort) VALUES (?, ?, ?)');
+        foreach ([
+            ['ترحيب', "أهلًا بحضرتك في Where To Spot 👋\nإزاي أقدر أساعدك؟", 1],
+            ['التوصيل', "التوصيل لكل محافظات مصر خلال 2–5 أيام عمل، والدفع عند الاستلام متاح 🚚", 2],
+            ['طرق الدفع', "طرق الدفع: الدفع عند الاستلام، أو بالبطاقة، أو المحافظ الإلكترونية، أو إنستاباي 💳", 3],
+            ['المتجر', "تقدر تشوف كل المنتجات والأسعار هنا: https://shop.wheretospot.com", 4],
+            ['متابعة', "أهلًا بحضرتك، حبيت أطمن هل محتاج أي تفاصيل تانية عشان نبدأ الطلب؟ 😊", 5],
+        ] as $row) $q->execute($row);
+    }
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
@@ -693,6 +745,7 @@ require __DIR__ . '/paymob.php';
 require __DIR__ . '/customers.php';
 require __DIR__ . '/brands.php';
 require __DIR__ . '/seo-lib.php';
+require __DIR__ . '/whatsapp.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void
@@ -757,7 +810,7 @@ function current_user(): ?array
 {
     start_session();
     if (empty($_SESSION['uid'])) return null;
-    $st = db()->prepare('SELECT id, name, email, phone, role, ref_code, active FROM users WHERE id = ?');
+    $st = db()->prepare('SELECT id, name, email, phone, role, ref_code, active, wa_agent, wa_away FROM users WHERE id = ?');
     $st->execute([$_SESSION['uid']]);
     $u = $st->fetch();
     if (!$u || !$u['active']) return null;

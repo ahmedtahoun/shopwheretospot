@@ -977,6 +977,227 @@ try {
         log_activity($u, 'Deleted quote', quote_number((int) $q['id']));
         json_out(['ok' => true]);
 
+    // ---------- WhatsApp inbox ----------
+
+    // Chat list for the inbox (and the numbers behind the badges).
+    case 'wa_chats':
+        $u = require_perm('whatsapp');
+        $all = in_array('whatsapp_all', $u['perms'], true);
+        $view = (string) ($_GET['view'] ?? 'mine');
+        $q = trim(str_in($_GET['q'] ?? '', 60));
+        $where = [];
+        $args = [];
+        if (!$all) { $where[] = '(c.assigned_to = ? OR c.assigned_to IS NULL)'; $args[] = (int) $u['id']; }
+        if ($view === 'mine') { $where[] = 'c.assigned_to = ?'; $args[] = (int) $u['id']; $where[] = "c.status = 'open'"; }
+        elseif ($view === 'unassigned') { $where[] = 'c.assigned_to IS NULL'; $where[] = "c.status = 'open'"; }
+        elseif ($view === 'waiting') { $where[] = 'c.waiting_since IS NOT NULL'; $where[] = "c.status = 'open'"; }
+        elseif ($view === 'closed') { $where[] = "c.status = 'closed'"; }
+        else { $where[] = "c.status = 'open'"; }
+        if ($q !== '') {
+            $digits = preg_replace('/\D/', '', $q);
+            $where[] = '(c.name LIKE ? OR l.name LIKE ?' . (strlen($digits) >= 3 ? ' OR c.wa_id LIKE ?' : '') . ')';
+            array_push($args, '%' . $q . '%', '%' . $q . '%');
+            if (strlen($digits) >= 3) $args[] = '%' . substr($digits, -9) . '%';
+        }
+        $st = db()->prepare('SELECT c.*, u.name AS agent_name, l.name AS lead_name, l.status AS lead_status FROM wa_chats c LEFT JOIN users u ON u.id = c.assigned_to LEFT JOIN leads l ON l.id = c.lead_id'
+            . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY c.last_at DESC LIMIT 300');
+        $st->execute($args);
+        $chats = array_map('wa_chat_out', $st->fetchAll());
+        // Badge numbers for each view.
+        $mine = db()->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(unread), 0) AS unread, SUM(CASE WHEN waiting_since IS NOT NULL THEN 1 ELSE 0 END) AS waiting FROM wa_chats WHERE status = 'open' AND assigned_to = ?");
+        $mine->execute([(int) $u['id']]);
+        $counts = ['mine' => $mine->fetch(), 'unassigned' => (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE status = 'open' AND assigned_to IS NULL")->fetchColumn()];
+        if ($all) $counts['waiting'] = (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL")->fetchColumn();
+        $agents = db()->query('SELECT id, name, wa_away FROM users WHERE active = 1 AND wa_agent = 1 ORDER BY name')->fetchAll();
+        $quick = db()->query('SELECT id, title, body FROM wa_quick ORDER BY sort, id')->fetchAll();
+        try { wa_cleanup(); } catch (Throwable $e) {}
+        json_out(['chats' => $chats, 'counts' => $counts, 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
+            'quick' => $quick, 'ready' => wa_ready(), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all]]);
+
+    // Small and frequent: the unread badge and new-message sound on every page.
+    case 'wa_unread':
+        $u = require_perm('whatsapp');
+        // Your chats plus the ones nobody has taken yet.
+        $st = db()->prepare("SELECT COALESCE(SUM(unread), 0) FROM wa_chats WHERE status = 'open' AND (assigned_to = ? OR assigned_to IS NULL)");
+        $st->execute([(int) $u['id']]);
+        $last = db()->prepare("SELECT COALESCE(MAX(m.id), 0) FROM wa_messages m JOIN wa_chats c ON c.id = m.chat_id WHERE m.dir = 'in' AND m.kind != 'reaction' AND (c.assigned_to = ? OR c.assigned_to IS NULL)");
+        $last->execute([(int) $u['id']]);
+        json_out(['unread' => (int) $st->fetchColumn(), 'lastIn' => (int) $last->fetchColumn()]);
+
+    // One chat with its messages (all, or only those after ?after=<message id> for live updates).
+    case 'wa_chat':
+        $u = require_perm('whatsapp');
+        $chat = wa_chat_for_user($u, (int) ($_GET['id'] ?? 0));
+        $after = (int) ($_GET['after'] ?? 0);
+        $st = db()->prepare('SELECT m.*, u.name AS user_name FROM wa_messages m LEFT JOIN users u ON u.id = m.user_id WHERE m.chat_id = ? AND m.id > ? ORDER BY m.id DESC LIMIT 300');
+        $st->execute([(int) $chat['id'], $after]);
+        $msgs = array_reverse(array_map('wa_message_out', $st->fetchAll()));
+        // Status changes (delivered/read) of the latest sent messages, so ticks update live.
+        $ticks = db()->prepare("SELECT id, status, error FROM wa_messages WHERE chat_id = ? AND dir = 'out' ORDER BY id DESC LIMIT 40");
+        $ticks->execute([(int) $chat['id']]);
+        // Opened by the person it belongs to (or an unassigned chat): read. A manager looking in doesn't clear someone else's unread.
+        if (!empty($_GET['read']) && (int) $chat['unread'] > 0 && (!$chat['assigned_to'] || (int) $chat['assigned_to'] === (int) $u['id'])) wa_mark_read($chat);
+        $full = wa_chat_out(wa_chat_row((int) $chat['id']));
+        $lead = null;
+        if ($chat['lead_id']) {
+            $l = db()->prepare('SELECT l.*, u.name AS assigned_name FROM leads l LEFT JOIN users u ON u.id = l.assigned_to WHERE l.id = ?');
+            $l->execute([(int) $chat['lead_id']]);
+            if ($row = $l->fetch()) $lead = ['id' => (int) $row['id'], 'name' => $row['name'], 'contact' => $row['contact'], 'status' => $row['status'], 'source' => $row['source'], 'cat' => $row['cat'], 'notes' => $row['notes'], 'assigned' => $row['assigned_name'], 'createdAt' => $row['created_at']];
+        }
+        // What this customer already has with us.
+        $key = phone_key(wa_local_phone($chat['wa_id']));
+        $orders = []; $quotes = [];
+        if ($key) {
+            $o = db()->prepare("SELECT id, status, total, created_at FROM orders WHERE status != 'Awaiting payment' AND REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
+            $o->execute(['%' . $key]);
+            foreach ($o->fetchAll() as $r) $orders[] = ['id' => (int) $r['id'], 'number' => order_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'at' => $r['created_at']];
+            $qq = db()->prepare("SELECT id, status, total, created_at FROM quotes WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
+            $qq->execute(['%' . $key]);
+            foreach ($qq->fetchAll() as $r) $quotes[] = ['id' => (int) $r['id'], 'number' => quote_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'at' => $r['created_at']];
+        }
+        json_out(['chat' => $full, 'messages' => $msgs, 'ticks' => array_map(function ($t) { return ['id' => (int) $t['id'], 'status' => $t['status'], 'error' => $t['error']]; }, $ticks->fetchAll()),
+            'lead' => $lead, 'orders' => $orders, 'quotes' => $quotes]);
+
+    case 'wa_send':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $id = wa_send_text($chat, str_in($b['text'] ?? '', 4096), (int) $u['id']);
+        wa_claim($chat, $u);
+        json_out(['message' => wa_message_out(wa_message_row($id))]);
+
+    // A file from the team (multipart: chat_id or phone, file, caption).
+    case 'wa_send_file':
+        $u = require_perm('whatsapp');
+        $f = $_FILES['file'] ?? null;
+        if (!$f || ($f['error'] ?? 4) === 4) fail('Choose a file.');
+        if (in_array($f['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) fail('This file is bigger than the server allows for uploads (ask the hosting to raise upload_max_filesize), or send a smaller file.');
+        if ($f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'])) fail('The upload didn’t finish. Try again.');
+        if (!empty($_POST['chat_id'])) $chat = wa_chat_for_user($u, (int) $_POST['chat_id']);
+        else {
+            $waId = wa_id_from_phone((string) ($_POST['phone'] ?? ''));
+            $chat = $waId ? wa_chat_by_wa_id($waId) : null;
+            if (!$chat) fail('This customer hasn’t messaged our WhatsApp number yet, so WhatsApp only allows an approved template. Use “Open WhatsApp” instead.');
+            $chat = wa_chat_for_user($u, (int) $chat['id']);
+        }
+        $name = preg_replace('/[\/\\\\:*?"<>|]+/', '', (string) $f['name']) ?: 'file';
+        $id = wa_send_file($chat, $f['tmp_name'], mb_substr($name, 0, 160), str_in($_POST['caption'] ?? '', 1024), (int) $u['id']);
+        wa_claim($chat, $u);
+        json_out(['message' => wa_message_out(wa_message_row($id))]);
+
+    // Is there a chat with this phone where we can still write freely? (quote / invoice page)
+    case 'wa_window':
+        $u = require_perm('whatsapp');
+        $waId = wa_id_from_phone((string) ($_GET['phone'] ?? ''));
+        $chat = $waId ? wa_chat_by_wa_id($waId) : null;
+        json_out(['ready' => wa_ready(), 'chatId' => $chat ? (int) $chat['id'] : null, 'open' => $chat ? wa_window_open($chat) : false]);
+
+    case 'wa_assign':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $to = !empty($b['user_id']) ? (int) $b['user_id'] : null;
+        $all = in_array('whatsapp_all', $u['perms'], true);
+        // Everyone can take an unassigned chat for themselves; only managers move chats between people.
+        if (!$all && !($to === (int) $u['id'] && !$chat['assigned_to'])) fail('Only a manager can give a chat to someone else.', 403);
+        if ($to) { $ok = db()->prepare('SELECT name FROM users WHERE id = ? AND active = 1'); $ok->execute([$to]); $toName = $ok->fetchColumn(); if (!$toName) fail('Unknown team member.'); }
+        wa_assign((int) $chat['id'], $to);
+        if ($to && $chat['lead_id']) db()->prepare('UPDATE leads SET assigned_to = ? WHERE id = ?')->execute([$to, (int) $chat['lead_id']]);
+        log_activity($u, 'WhatsApp chat assigned', wa_local_phone($chat['wa_id']) . ' → ' . ($to ? $toName : 'nobody'));
+        json_out(['chat' => wa_chat_out(wa_chat_row((int) $chat['id']))]);
+
+    case 'wa_close':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $open = !empty($b['open']);
+        db()->prepare('UPDATE wa_chats SET status = ?, waiting_since = CASE WHEN ? THEN waiting_since ELSE NULL END, unread = CASE WHEN ? THEN unread ELSE 0 END WHERE id = ?')
+            ->execute([$open ? 'open' : 'closed', $open ? 1 : 0, $open ? 1 : 0, (int) $chat['id']]);
+        json_out(['chat' => wa_chat_out(wa_chat_row((int) $chat['id']))]);
+
+    // The lead behind a chat: status and a note, from the inbox (also for telesales, for their own chats).
+    case 'wa_lead':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        if (!$chat['lead_id']) fail('This chat has no lead.');
+        $status = (string) ($b['status'] ?? '');
+        if ($status !== '' && !in_array($status, LEAD_STATUSES, true)) fail('Unknown status.');
+        $note = str_in($b['note'] ?? '', 1000);
+        $l = db()->prepare('SELECT * FROM leads WHERE id = ?');
+        $l->execute([(int) $chat['lead_id']]);
+        $lead = $l->fetch();
+        if (!$lead) fail('Lead not found.', 404);
+        $name = str_in($b['name'] ?? '', 120);
+        if ($name !== '') db()->prepare('UPDATE leads SET name = ? WHERE id = ?')->execute([$name, (int) $lead['id']]);
+        if ($note !== '' || $status !== '') {
+            touch_lead($lead, $note !== '' ? date('Y-m-d') . ' · ' . $u['name'] . ': ' . $note : '', $status !== '' ? $status : null, null);
+        }
+        log_activity($u, 'Updated lead from WhatsApp', $lead['name'] . ($status !== '' ? ' → ' . $status : ''));
+        json_out(['ok' => true]);
+
+    // Team member marks themselves away (no new chats handed to them) or back.
+    case 'wa_away':
+        $u = require_perm('whatsapp');
+        db()->prepare('UPDATE users SET wa_away = ? WHERE id = ?')->execute([empty(body()['away']) ? 0 : 1, (int) $u['id']]);
+        json_out(['ok' => true]);
+
+    case 'wa_quick_save':
+        $u = require_perm('whatsapp_all');
+        $b = body();
+        $title = str_in($b['title'] ?? '', 60); $text = str_in($b['body'] ?? '', 2000);
+        if ($title === '' || $text === '') fail('Enter a name and the message.');
+        if (!empty($b['id'])) db()->prepare('UPDATE wa_quick SET title = ?, body = ? WHERE id = ?')->execute([$title, $text, (int) $b['id']]);
+        else db()->prepare('INSERT INTO wa_quick (title, body, sort) VALUES (?, ?, (SELECT COALESCE(MAX(sort), 0) + 1 FROM wa_quick))')->execute([$title, $text]);
+        json_out(['quick' => db()->query('SELECT id, title, body FROM wa_quick ORDER BY sort, id')->fetchAll()]);
+
+    case 'wa_quick_delete':
+        $u = require_perm('whatsapp_all');
+        db()->prepare('DELETE FROM wa_quick WHERE id = ?')->execute([(int) (body()['id'] ?? 0)]);
+        json_out(['quick' => db()->query('SELECT id, title, body FROM wa_quick ORDER BY sort, id')->fetchAll()]);
+
+    // Settings page: connection, who takes chats, how long videos are kept, space used.
+    case 'wa_settings':
+        $u = require_perm('backups');
+        $c = wa_cfg();
+        $users = db()->query('SELECT id, name, role, wa_agent, wa_away FROM users WHERE active = 1 ORDER BY name')->fetchAll();
+        $info = null; $error = '';
+        if (!empty($_GET['test'])) {
+            try { $info = wa_graph('GET', '/' . rawurlencode((string) wa_cfg('phone_number_id')) . '?fields=display_phone_number,verified_name,quality_rating,code_verification_status,name_status'); }
+            catch (Throwable $e) { $error = $e->getMessage(); }
+        }
+        json_out(['token' => !empty($c['token']), 'phoneId' => !empty($c['phone_number_id']), 'appSecret' => !empty($c['app_secret']), 'verifyToken' => !empty($c['verify_token']),
+            'ready' => wa_ready(), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
+            'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away']]; }, $users),
+            'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
+            'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
+
+    case 'wa_settings_save':
+        $u = require_perm('backups');
+        $b = body();
+        if (isset($b['video_days'])) wa_set_setting('video_days', max(0, min(3650, (int) $b['video_days'])));
+        foreach ((array) ($b['agents'] ?? []) as $a) {
+            db()->prepare('UPDATE users SET wa_agent = ?, wa_away = ? WHERE id = ?')->execute([empty($a['agent']) ? 0 : 1, empty($a['away']) ? 0 : 1, (int) ($a['id'] ?? 0)]);
+        }
+        log_activity($u, 'Updated WhatsApp settings');
+        json_out(['ok' => true]);
+
+    // A photo, video, voice note or document from a chat — only for the team, never public.
+    case 'wa_media':
+        $u = require_perm('whatsapp');
+        $m = wa_message_row((int) ($_GET['id'] ?? 0));
+        wa_chat_for_user($u, (int) $m['chat_id']);
+        $path = wa_media_dir() . '/' . $m['media_path'];
+        if ($m['media_path'] === '' || strpos($m['media_path'], '..') !== false || !is_file($path)) fail('This file is no longer available.', 404);
+        header('Content-Type: ' . ($m['media_mime'] ?: 'application/octet-stream'));
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: private, max-age=86400');
+        header('X-Content-Type-Options: nosniff');
+        $dl = !empty($_GET['download']) || !preg_match('#^(image|video|audio)/|^application/pdf$#', (string) $m['media_mime']);
+        header('Content-Disposition: ' . ($dl ? 'attachment' : 'inline') . '; filename="' . rawurlencode($m['media_name'] ?: basename($m['media_path'])) . '"');
+        readfile($path);
+        exit;
+
     // ---------- promo codes ----------
 
     // ---------- partner brands ----------
@@ -1520,3 +1741,56 @@ function csv_out(string $filename, array $rows): void
     fclose($out);
     exit;
 }
+
+// ---------- WhatsApp helpers ----------
+
+function wa_chat_row(int $id): array
+{
+    $st = db()->prepare('SELECT c.*, u.name AS agent_name, l.name AS lead_name, l.status AS lead_status FROM wa_chats c LEFT JOIN users u ON u.id = c.assigned_to LEFT JOIN leads l ON l.id = c.lead_id WHERE c.id = ?');
+    $st->execute([$id]);
+    $c = $st->fetch();
+    if (!$c) fail('Chat not found.', 404);
+    return $c;
+}
+
+// A chat this person may open: managers any; others their own and unassigned ones.
+function wa_chat_for_user(array $u, int $id): array
+{
+    $c = wa_chat_row($id);
+    if (!in_array('whatsapp_all', $u['perms'], true) && $c['assigned_to'] && (int) $c['assigned_to'] !== (int) $u['id']) fail('Chat not found.', 404);
+    return $c;
+}
+
+// Replying to an unassigned chat makes it yours.
+function wa_claim(array $chat, array $u): void
+{
+    if (!$chat['assigned_to']) wa_assign((int) $chat['id'], (int) $u['id']);
+}
+
+function wa_message_row(int $id): array
+{
+    $st = db()->prepare('SELECT m.*, u.name AS user_name FROM wa_messages m LEFT JOIN users u ON u.id = m.user_id WHERE m.id = ?');
+    $st->execute([$id]);
+    $m = $st->fetch();
+    if (!$m) fail('Message not found.', 404);
+    return $m;
+}
+
+function wa_chat_out(array $c): array
+{
+    return ['id' => (int) $c['id'], 'waId' => $c['wa_id'], 'phone' => wa_local_phone($c['wa_id']), 'name' => $c['lead_name'] ?: $c['name'] ?: wa_local_phone($c['wa_id']),
+        'profileName' => $c['name'], 'leadId' => $c['lead_id'] === null ? null : (int) $c['lead_id'], 'leadStatus' => $c['lead_status'] ?? null,
+        'assignedTo' => $c['assigned_to'] === null ? null : (int) $c['assigned_to'], 'agent' => $c['agent_name'] ?? null, 'status' => $c['status'],
+        'unread' => (int) $c['unread'], 'lastAt' => $c['last_at'], 'lastText' => $c['last_text'], 'lastDir' => $c['last_dir'], 'waitingSince' => $c['waiting_since'],
+        'lastInAt' => $c['last_in_at'], 'windowOpen' => wa_window_open($c), 'windowEnds' => $c['last_in_at'] ? gmdate('Y-m-d H:i:s', strtotime($c['last_in_at'] . ' UTC') + 86400) : null,
+        'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at']];
+}
+
+function wa_message_out(array $m): array
+{
+    $meta = $m['meta'] ? (json_decode($m['meta'], true) ?: []) : [];
+    return ['id' => (int) $m['id'], 'dir' => $m['dir'], 'kind' => $m['kind'], 'body' => $m['body'], 'status' => $m['status'], 'error' => $m['error'],
+        'media' => $m['media_path'] !== '' ? ['mime' => $m['media_mime'], 'name' => $m['media_name'], 'size' => (int) $m['media_size']] : null,
+        'by' => $m['user_name'] ?? null, 'at' => $m['created_at'], 'ad' => isset($meta['referral']) ? ['headline' => $meta['referral']['headline'] ?? '', 'url' => $meta['referral']['source_url'] ?? ''] : null];
+}
+
