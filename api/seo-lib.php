@@ -187,7 +187,7 @@ function seo_price_text(array $p, bool $ar = false): string
 // The shop's own details (Organization + store), for the home page and llms.txt.
 function seo_org_jsonld(): array
 {
-    return ['@context' => 'https://schema.org', '@type' => 'OnlineStore', 'name' => SEO_SITE, 'url' => seo_base(), 'logo' => seo_abs('images/logo.png'),
+    return ['@context' => 'https://schema.org', '@type' => 'OnlineStore', 'name' => SEO_SITE, 'url' => seo_base(), 'logo' => seo_abs('images/logo-round.png'),
         'email' => 'info@wheretospot.com', 'telephone' => '+20 127 766 0666', 'currenciesAccepted' => 'EGP', 'areaServed' => 'EG',
         'address' => ['@type' => 'PostalAddress', 'streetAddress' => 'MQR, El Wahat Road', 'addressLocality' => '6th of October City', 'addressRegion' => 'Giza', 'addressCountry' => 'EG'],
         'sameAs' => ['https://instagram.com/wheretospot', 'https://facebook.com/wheretospot', 'https://tiktok.com/@wheretospot']];

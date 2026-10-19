@@ -5,7 +5,7 @@ a{color:inherit}
 nav{position:sticky;top:0;z-index:10;background:rgba(247,243,237,.94);backdrop-filter:blur(10px);border-bottom:1px solid #DDD6CC}
 nav .in{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:'Instrument Serif',serif;font-style:italic;font-size:25px}
-.brand img{border-radius:8px;background:#22201D;padding:3px 6px;object-fit:contain}
+.brand img{width:40px;height:40px;border-radius:50%;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.18)}
 nav .links{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;font-weight:500}
 nav .links a{text-decoration:none;color:#6B6660}
 nav .links a:hover,nav .links a[aria-current]{color:#A8552F}
