@@ -251,6 +251,78 @@ function team_performance(string $month, ?int $onlyUser = null): array
     return ['month' => $month, 'members' => $rows];
 }
 
+// Commissions for a month. Earned on delivered orders, in the month they were delivered, on what the customer
+// paid for the products (order total without shipping). An order delivered in an earlier month and returned this
+// month comes off this month (the earlier month's figures don't change). Also shows what each person sold this month and what is still on the way.
+function team_commissions(string $month): array
+{
+    [$month, $from, $to] = cairo_month_bounds($month);
+    $pdo = db();
+    // Each person's rate: this month's, or the last one set before it.
+    $rates = [];
+    $st = $pdo->prepare('SELECT user_id, commission_pct FROM targets WHERE commission_pct IS NOT NULL AND month <= ? ORDER BY month');
+    $st->execute([$month]);
+    foreach ($st as $r) $rates[(int) $r['user_id']] = (float) $r['commission_pct'];
+    $members = [];
+    foreach ($pdo->query("SELECT id, name, role, active FROM users ORDER BY name")->fetchAll() as $u) {
+        $members[(int) $u['id']] = ['id' => (int) $u['id'], 'name' => $u['name'], 'role' => $u['role'], 'active' => (int) $u['active'],
+            'pct' => $rates[(int) $u['id']] ?? 0.0, 'sold' => 0, 'soldValue' => 0.0, 'delivered' => 0, 'base' => 0.0, 'returnedLater' => 0, 'returnedBase' => 0.0,
+            'open' => 0, 'openValue' => 0.0, 'lost' => 0, 'commission' => 0.0, 'orders' => []];
+    }
+    $net = function (array $o): float { return round(max(0, (float) $o['total'] - (float) $o['shipping']), 2); };
+    // Sold this month (not cancelled/returned), and lost this month.
+    $st = $pdo->prepare("SELECT rep_id, status, total, shipping FROM orders WHERE rep_id IS NOT NULL AND status != 'Awaiting payment' AND created_at >= ? AND created_at < ?");
+    $st->execute([$from, $to]);
+    foreach ($st as $o) {
+        if (!isset($members[(int) $o['rep_id']])) continue;
+        $m = &$members[(int) $o['rep_id']];
+        if (in_array($o['status'], ['Cancelled', 'Returned'], true)) $m['lost']++;
+        else { $m['sold']++; $m['soldValue'] += $net($o); }
+        unset($m);
+    }
+    // Still on the way (any month): commission once delivered.
+    foreach ($pdo->query("SELECT rep_id, total, shipping FROM orders WHERE rep_id IS NOT NULL AND status NOT IN ('Awaiting payment','Delivered','Cancelled','Returned')") as $o) {
+        if (!isset($members[(int) $o['rep_id']])) continue;
+        $members[(int) $o['rep_id']]['open']++;
+        $members[(int) $o['rep_id']]['openValue'] += $net($o);
+    }
+    // Delivered this month, and returned this month after being delivered in an earlier month.
+    $st = $pdo->prepare("SELECT id, rep_id, customer, status, total, shipping, created_at, delivered_at, updated_at FROM orders
+        WHERE rep_id IS NOT NULL AND delivered_at IS NOT NULL AND (
+            (delivered_at >= :f AND delivered_at < :t AND (status = 'Delivered' OR (status IN ('Returned','Cancelled') AND updated_at >= :t))) OR
+            (status IN ('Returned','Cancelled') AND delivered_at < :f AND updated_at >= :f AND updated_at < :t))
+        ORDER BY delivered_at");
+    $st->execute([':f' => $from, ':t' => $to]);
+    foreach ($st as $o) {
+        if (!isset($members[(int) $o['rep_id']])) continue;
+        $m = &$members[(int) $o['rep_id']];
+        $base = $net($o);
+        // Returned in this month after an earlier month's delivery comes off; returned after this month still counts here.
+        $back = $o['status'] !== 'Delivered' && $o['delivered_at'] < $from;
+        if ($back) { $m['returnedLater']++; $m['returnedBase'] += $base; } else { $m['delivered']++; $m['base'] += $base; }
+        $m['orders'][] = ['id' => (int) $o['id'], 'number' => order_number((int) $o['id']), 'customer' => $o['customer'], 'status' => $o['status'],
+            'createdAt' => $o['created_at'], 'deliveredAt' => $o['delivered_at'], 'returnedAt' => $back ? $o['updated_at'] : null, 'returnedLater' => !$back && $o['status'] !== 'Delivered' ? $o['updated_at'] : null,
+            'total' => (float) $o['total'], 'shipping' => (float) $o['shipping'], 'base' => $back ? -$base : $base];
+        unset($m);
+    }
+    $totals = ['sold' => 0, 'soldValue' => 0.0, 'delivered' => 0, 'base' => 0.0, 'commission' => 0.0];
+    $out = [];
+    foreach ($members as $m) {
+        $m['base'] = round($m['base'] - $m['returnedBase'], 2);
+        $m['commission'] = round($m['base'] * $m['pct'] / 100, 2);
+        foreach (['soldValue', 'openValue', 'returnedBase'] as $k) $m[$k] = round($m[$k], 2);
+        foreach ($m['orders'] as &$x) $x['commission'] = round($x['base'] * $m['pct'] / 100, 2);
+        unset($x);
+        // People who sell, or who had anything this month.
+        $sells = in_array($m['role'], ['sales', 'telesales', 'staff'], true) && $m['active'];
+        if (!$sells && !$m['sold'] && !$m['orders'] && !$m['open'] && !$m['pct']) continue;
+        foreach (['sold', 'soldValue', 'delivered', 'base', 'commission'] as $k) $totals[$k] += $m[$k];
+        $out[] = $m;
+    }
+    usort($out, function ($a, $b) { return [$b['commission'], $b['soldValue']] <=> [$a['commission'], $a['soldValue']]; });
+    return ['month' => $month, 'members' => $out, 'totals' => $totals];
+}
+
 // ---------- leads: one lead per phone number / email ----------
 
 // Last 9 digits of an Egyptian number, so 01012345678, +20 101 234 5678 and 00201012345678 all match.

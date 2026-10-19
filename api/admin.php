@@ -240,6 +240,26 @@ try {
         log_activity($u, 'Updated targets', $month);
         json_out(['ok' => true]);
 
+    case 'commissions':
+        require_perm('targets');
+        require_perm('revenue');
+        json_out(team_commissions((string) ($_GET['month'] ?? '')));
+
+    case 'commission_rate':
+        $u = require_perm('targets');
+        require_perm('revenue');
+        $b = body();
+        [$month] = cairo_month_bounds((string) ($b['month'] ?? ''));
+        $uid = (int) ($b['user_id'] ?? 0);
+        $pct = max(0, min(100, round((float) ($b['pct'] ?? 0), 2)));
+        $name = db()->prepare('SELECT name FROM users WHERE id = ?');
+        $name->execute([$uid]);
+        $name = $name->fetchColumn();
+        if ($name === false) fail('Team member not found.', 404);
+        db()->prepare('INSERT INTO targets (user_id, month, commission_pct) VALUES (?, ?, ?) ON CONFLICT(user_id, month) DO UPDATE SET commission_pct = excluded.commission_pct')->execute([$uid, $month, $pct]);
+        log_activity($u, 'Set commission rate', $name . ' · ' . $pct . '% from ' . $month);
+        json_out(team_commissions($month));
+
     // ---------- team-entered orders ----------
 
     case 'order_catalog':

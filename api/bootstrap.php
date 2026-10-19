@@ -92,7 +92,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 33;
+const SCHEMA_VERSION = 34;
 
 function db(): PDO
 {
@@ -589,6 +589,17 @@ function migrate(PDO $pdo): void
     // "Exhibition Stands" holds acrylic stands for counters and tables: named for what it is (only if still the old name).
     $pdo->prepare("UPDATE categories SET label = 'Acrylic Stands', descr = 'Clear and printed acrylic stands for menus, prices, QR codes and table numbers' WHERE key = 'stands' AND label = 'Exhibition Stands'")->execute();
     $pdo->prepare("UPDATE categories SET label_ar = 'ستاندات أكريليك', descr_ar = 'ستاندات أكريليك شفافة ومطبوعة للمنيو والأسعار وأكواد QR وأرقام الطاولات' WHERE key = 'stands' AND label_ar IN ('', 'ستاندات المعارض')")->execute();
+    // Commissions: when an order was delivered (commission is earned in the month of delivery),
+    // and each person's commission rate per month (kept with their monthly targets).
+    $orderCols = $pdo->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('delivered_at', $orderCols, true)) {
+        $pdo->exec('ALTER TABLE orders ADD COLUMN delivered_at TEXT');
+        // Orders delivered before this: the courier collection time, or the last change to the order.
+        $pdo->exec("UPDATE orders SET delivered_at = COALESCE((SELECT MIN(p.created_at) FROM payments p WHERE p.order_id = orders.id AND p.note = 'Collected on delivery'), updated_at) WHERE status = 'Delivered'");
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_orders_delivered ON orders(rep_id, delivered_at)');
+    }
+    $targetCols = $pdo->query('PRAGMA table_info(targets)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('commission_pct', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN commission_pct REAL');
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
@@ -935,6 +946,11 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     }
     $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
         ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);
+    // The delivery date decides which month's commission the order counts toward.
+    if ($status === 'Delivered' && $o['status'] !== 'Delivered') $pdo->prepare("UPDATE orders SET delivered_at = datetime('now') WHERE id = ?")->execute([$id]);
+    // Moved back by mistake: no longer delivered. Returned/cancelled after delivery keeps the date, so a return in a
+    // later month can come off that month's commission.
+    if ($o['status'] === 'Delivered' && $isOpen && $status !== 'Delivered') $pdo->prepare('UPDATE orders SET delivered_at = NULL WHERE id = ?')->execute([$id]);
     // Delivered: whatever was still owed was collected by the courier or in person.
     if ($status === 'Delivered' && $o['status'] !== 'Delivered') {
         $due = round((float) $o['total'] - order_paid($id), 2);

@@ -461,3 +461,9 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
   .wa-ch select{max-width:120px}
 }
 .wa-quick[hidden]{display:none}
+
+/* Commissions */
+.comm tbody tr{cursor:pointer}
+.comm tbody tr:hover td{background:var(--line-2)}
+.pct-in{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.pct-in input{width:72px;padding:6px 8px}

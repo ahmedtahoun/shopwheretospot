@@ -124,8 +124,8 @@
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['inbox', 'WhatsApp', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
-      ['leads', 'Leads', 'inbox'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
+      ['leads', 'Leads', 'inbox'], ['commissions', 'Commissions', 'coins'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
+    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -148,7 +148,7 @@
     $('#pwBtn').onclick = changePassword;
     const sb = $('#searchBtn'); if (sb) sb.onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     document.body.classList.toggle('in-inbox', S.route === 'inbox');
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
     waWatch();
@@ -229,6 +229,7 @@
     clip: '<path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/>',
     back: '<path d="M15 5l-7 7 7 7"/>',
     bolt: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+    coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
 
@@ -317,7 +318,7 @@
   function teamPerformanceCard(perf, monthName, money) {
     const rows = perf.members.filter((m) => m.orders || m.orders_target || m.revenue_target || m.role === 'sales' || m.role === 'telesales');
     return '<div class="card" style="margin-top:16px"><h2>Team this month · ' + esc(monthName) + '<span class="spacer"></span>' +
-      (can('targets') ? '<button class="btn sm" id="setTargets">🎯 Set targets</button>' : '') + '</h2>' +
+      (can('targets') && money ? '<a class="btn sm" href="#commissions">' + icon('coins') + 'Commissions</a>' : '') + (can('targets') ? '<button class="btn sm" id="setTargets">🎯 Set targets</button>' : '') + '</h2>' +
       (rows.length ? '<div class="table-wrap" style="border:none"><table class="perf"><thead><tr><th>Team member</th><th>Orders</th>' + (money ? '<th>Sales (EGP)</th>' : '') + '<th class="num">Delivered</th><th class="num">Cancelled / returned</th><th>Last order</th></tr></thead><tbody>' +
         rows.map((m) => '<tr><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + '</div></td>' +
           '<td>' + m.orders + (m.orders_target ? ' <span class="muted">/ ' + m.orders_target + '</span>' : '') + progress(m.orders, m.orders_target) + '</td>' +
@@ -2082,7 +2083,78 @@
   // Brands that supply products we sell under their logo; we keep a commission on each sale.
   const brandChip = (id) => { const b = (S.brands || []).find((x) => x.id === id); return b ? ' <span class="pill brand-pill">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : '★ ') + esc(b.name) + '</span>' : ''; };
   const monthLabel = (m) => new Date(m + '-01T00:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
-  const lastMonths = (n) => Array.from({ length: n }, (_, i) => { const x = new Date(); x.setDate(1); x.setMonth(x.getMonth() - i); return x.toISOString().slice(0, 7); });
+  const lastMonths = (n) => Array.from({ length: n }, (_, i) => { const x = new Date(); x.setDate(1); x.setMonth(x.getMonth() - i); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); });
+
+  // ---------- commissions ----------
+  // Earned on delivered orders, in the month they're delivered, on the products' value (order total without shipping).
+  async function pageCommissions() {
+    const d = await api('commissions', { query: '&month=' + (S.commMonth || '') });
+    S.commMonth = d.month;
+    const t = d.totals;
+    const ords = (n) => n + (n === 1 ? ' order' : ' orders');
+    $('#main').innerHTML = header('Commissions', 'What each person sold, and the commission they earned in the month. Check it at the end of the month.',
+      '<select id="cMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' +
+      '<button class="btn" id="cCsv">' + icon('download') + 'Download sheet</button>') +
+      '<div class="kpis">' + kpi('Commission to pay', egp(t.commission), esc(monthLabel(d.month))) +
+        kpi('Delivered sales', egp(t.base), ords(t.delivered) + ' delivered · without shipping') +
+        kpi('Sold this month', egp(t.soldValue), ords(t.sold) + ' taken') + '</div>' +
+      '<div class="card"><div class="table-wrap" style="border:none"><table class="perf comm"><thead><tr><th>Team member</th><th>Rate</th><th class="num">Commission</th><th class="num">Delivered this month</th><th class="num">Sold this month</th><th class="num">Still on the way</th></tr></thead><tbody>' +
+      (d.members.length ? d.members.map((m) => '<tr data-m="' + m.id + '"><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + (m.active ? '' : ' · left') + '</div></td>' +
+        '<td><span class="pct-in"><input type="number" min="0" max="100" step="0.5" data-pct="' + m.id + '" value="' + (m.pct || '') + '" placeholder="0">%</span></td>' +
+        '<td class="num"><b class="' + (m.commission > 0 ? 'pay-ok' : '') + '">' + egp(m.commission) + '</b>' + (m.pct ? '' : '<div class="small pay-part">set a rate</div>') + '</td>' +
+        '<td class="num">' + egp(m.base) + '<div class="small muted">' + ords(m.delivered) + '</div>' + (m.returnedLater ? '<div class="small pay-part">−' + egp(m.returnedBase) + ' returned</div>' : '') + '</td>' +
+        '<td class="num">' + egp(m.soldValue) + '<div class="small muted">' + ords(m.sold) + '</div>' + (m.lost ? '<div class="small muted">' + m.lost + ' cancelled / returned</div>' : '') + '</td>' +
+        '<td class="num">' + egp(m.openValue) + '<div class="small muted">' + ords(m.open) + '</div></td></tr>').join('')
+        : '<tr><td colspan="6" class="muted">No sales people yet. Add them in Team.</td></tr>') +
+      '</tbody></table></div></div>' +
+      '<p class="small muted" style="margin-top:14px">How it’s worked out: an order counts once it’s delivered, in the month it was delivered, on what the customer paid for the products (shipping not included). ' +
+      'If a delivered order comes back in a later month, it comes off that month. Orders count toward whoever they’re credited to. A rate applies from the month you set it on. Click a person to see their orders.</p>';
+    $('#cMonth').onchange = (e) => { S.commMonth = e.target.value; pageCommissions(); };
+    $$('[data-pct]').forEach((inp) => {
+      inp.onclick = (e) => e.stopPropagation();
+      inp.onchange = async () => {
+        try { await api('commission_rate', { method: 'POST', body: { month: d.month, user_id: +inp.dataset.pct, pct: +inp.value || 0 } }); toast('Rate saved'); pageCommissions(); }
+        catch (err) { toast(err.message, true); }
+      };
+    });
+    $$('[data-m]').forEach((r) => r.onclick = () => commissionDrawer(d, d.members.find((m) => m.id === +r.dataset.m)));
+    $('#cCsv').onclick = () => commissionSheet(d);
+  }
+
+  function commissionDrawer(d, m) {
+    const ords = (n) => n + (n === 1 ? ' order' : ' orders');
+    const day = (s) => s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleDateString(LOC, { day: 'numeric', month: 'short' }) : '—';
+    openDrawer(m.name + ' · ' + monthLabel(d.month),
+      '<div class="stack"><div class="kpis" style="margin:0">' + kpi('Commission', egp(m.commission), (m.pct || 0) + '% of ' + egp(m.base)) +
+        kpi('Delivered', String(m.delivered), 'orders this month') + kpi('Still on the way', egp(m.openValue), ords(m.open)) + '</div>' +
+      (m.orders.length ? '<div class="table-wrap"><table><thead><tr><th>Order</th><th>Delivered</th><th class="num">Products</th><th class="num">Commission</th></tr></thead><tbody>' +
+        m.orders.map((o) => '<tr><td><a href="#" data-o="' + o.id + '"><b>' + esc(o.number) + '</b></a><div class="small muted">' + esc(o.customer) + ' · ordered ' + day(o.createdAt) + '</div></td>' +
+          '<td>' + (o.returnedAt ? '<span class="pay-part">' + esc(o.status) + ' ' + day(o.returnedAt) + '</span><div class="small muted">delivered ' + day(o.deliveredAt) + '</div>' : day(o.deliveredAt) + (o.returnedLater ? '<div class="small muted">' + esc(o.status) + ' ' + day(o.returnedLater) + '</div>' : '')) + '</td>' +
+          '<td class="num">' + (o.base < 0 ? '−' : '') + egp(Math.abs(o.base)) + (o.shipping ? '<div class="small muted">+ ' + egp(o.shipping) + ' shipping</div>' : '') + '</td>' +
+          '<td class="num"><b' + (o.commission < 0 ? ' class="pay-part"' : '') + '>' + (o.commission < 0 ? '−' : '') + egp(Math.abs(o.commission)) + '</b></td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="card muted small">No delivered orders this month.</div>') + '</div>',
+      '<span class="spacer"></span><button class="btn" data-close>Close</button>');
+    $$('#drawer [data-o]').forEach((a) => a.onclick = async (e) => {
+      e.preventDefault();
+      const r = await api('orders', { query: '&q=' + encodeURIComponent('WTS-' + (1000 + +a.dataset.o)) });
+      const o = r.orders.find((x) => x.id === +a.dataset.o); if (o) orderDrawer(o);
+    });
+  }
+
+  // One sheet for the month (opens in Excel or Google Sheets): a summary per person, then every order.
+  function commissionSheet(d) {
+    const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+    const rows = [['Month', d.month], [], ['Team member', 'Rate %', 'Orders sold', 'Sold (EGP)', 'Orders delivered', 'Delivered products (EGP)', 'Returned later (EGP)', 'Commission (EGP)', 'Still on the way (EGP)']];
+    d.members.forEach((m) => rows.push([m.name, m.pct, m.sold, m.soldValue, m.delivered, m.base, m.returnedBase, m.commission, m.openValue]));
+    rows.push([], ['Team member', 'Order', 'Customer', 'Status', 'Ordered', 'Delivered', 'Products (EGP)', 'Shipping (EGP)', 'Commission (EGP)']);
+    d.members.forEach((m) => m.orders.forEach((o) => rows.push([m.name, o.number, o.customer, o.status, (o.createdAt || '').slice(0, 10), (o.deliveredAt || '').slice(0, 10), o.base, o.shipping, o.commission])));
+    const csv = '﻿' + rows.map((r) => r.map(q).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'commissions-' + d.month + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
 
   async function pageBrands() {
     const month = S.brandMonth || new Date().toISOString().slice(0, 7);
