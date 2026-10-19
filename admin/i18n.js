@@ -42,8 +42,8 @@
     'owner': 'المالك', 'manager': 'مدير', 'sales': 'مبيعات', 'staff': 'موظف', 'telesales': 'مبيعات تليفونية',
     'Everything, including team, settings and revenue': 'كل شيء، بما فيه الفريق والإعدادات والإيرادات',
     'Products, orders, leads, activity and revenue': 'المنتجات والطلبات والعملاء المحتملون والنشاط والإيرادات',
-    'Enters orders and leads · sees only their own orders · no revenue': 'يسجّل الطلبات والعملاء المحتملين · يرى طلباته فقط · بدون إيرادات',
-    'Orders only · sees only the orders they entered · order counts, no revenue': 'الطلبات فقط · يرى الطلبات التي سجّلها فقط · عدد الطلبات بدون إيرادات',
+    'Enters orders and leads · sees only their own orders and their money': 'يسجّل الطلبات والعملاء المحتملين · يرى طلباته فقط وقيمتها',
+    'Orders only · sees only the orders they entered and their money': 'الطلبات فقط · يرى الطلبات التي سجّلها فقط وقيمتها',
     '→': '←', '←': '→', ',': '،', 'or': 'أو',
 
     // sign in
@@ -369,11 +369,12 @@
     [/^(\d+) leads?$/, function (m, c) { return n(c, ['عميل واحد', 'عميلان', 'عملاء', 'عميلًا']); }], [/^won · (\d+)%$/, 'تم البيع · $1%'],
     [/^(\d+) pcs$/, '$1 قطعة'], [/^(-?\d+) left$/, 'متبقي $1'], [/^(\d+) orders?$/, function (m, c) { return n(c, ORD); }],
     [/^(\d+)% of target · (.+) to go$/, '$1% من الهدف · متبقي $2'],
+    [/^(\d+(?:\.\d+)?)% of (.+) delivered$/, '$1% من $2 تم تسليمها'],
     [/^(\d+(?:\.\d+)?)% of (.+)$/, '$1% من $2'], [/^(\d+) orders? delivered$/, function (m, c) { return n(c, ORD) + ' تم تسليمها'; }], [/^without shipping$/, 'بدون الشحن'],
     [/^(\d+) orders? taken$/, function (m, c) { return n(c, ORD); }], [/^(\d+) cancelled \/ returned$/, '$1 ملغي / مرتجع'], [/^−(.+) returned$/, '−$1 مرتجع'],
     [/^(Returned|Cancelled) (.+)$/, function (m, s, d) { return (s === 'Returned' ? 'مرتجع ' : 'ملغي ') + d; }], [/^(delivered|ordered) (.+)$/, function (m, s, d) { return (s === 'delivered' ? 'تم التسليم ' : 'تاريخ الطلب ') + d; }],
     [/^\+ (.+) shipping$/, '+ $1 شحن'],
-    [/^salaries (.+)$/, 'المرتبات $1'], [/^salary (.+) \+ commission$/, 'المرتب $1 + العمولة'],
+    [/^salaries (.+)$/, 'المرتبات $1'], [/^My commission · (.+)$/, function (m, a) { return 'عمولتي · ' + a; }], [/^(.+) delivered$/, '$1 تم تسليمها'], [/^(.+) more on the way$/, '$1 أخرى في الطريق'], [/^salary (.+) \+ commission$/, 'المرتب $1 + العمولة'],
     // orders
     [/^(\d+) shown$/, 'عدد الطلبات: $1'], [/^(\d+) open orders$/, function (m, c) { return n(c, ORD) + ' مفتوحة'; }], [/^only orders credited to you$/, 'طلباتك فقط'],
     [/^(\d+) selected$/, 'تم تحديد $1'], [/^Select (.+)$/, 'تحديد $1'], [/^(\d+) of (\d+) shipments updated$/, 'تم تحديث $1 من $2 شحنة'],

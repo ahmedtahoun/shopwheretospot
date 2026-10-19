@@ -72,8 +72,8 @@
   const itemHtml = (it) => { const [a, b] = splitName(it.name); return '<span class="it"><b class="it-q">' + esc(it.qty) + '×</b> ' + esc(a) + (b ? ' <span class="it-sz">' + esc(b) + '</span>' : '') + '</span>'; };
   const pill = (map, s) => { const t = map[s] || ['', '•']; return '<span class="pill ' + t[0] + '">' + t[1] + ' ' + esc(s) + '</span>'; };
   const ROLE_INFO = { owner: 'Everything, including team, settings and revenue', manager: 'Products, orders, leads, activity and revenue',
-    sales: 'Enters orders and leads · sees only their own orders · no revenue', staff: 'Enters orders and leads · sees only their own orders · no revenue',
-    telesales: 'Orders only · sees only the orders they entered · order counts, no revenue' };
+    sales: 'Enters orders and leads · sees only their own orders and their money', staff: 'Enters orders and leads · sees only their own orders and their money',
+    telesales: 'Orders only · sees only the orders they entered and their money' };
 
   // ---------- drawer ----------
   function openDrawer(title, bodyHtml, footHtml) {
@@ -252,11 +252,13 @@
     $('#main').innerHTML = header('Dashboard', 'Hello ' + esc(S.user.name.split(' ')[0]) + ' — here’s ' + (d.own ? 'your work in' : '') + ' the last ' + d.days + ' days.', actions) +
       (mine ? '<div class="me">' + targetCard('My orders · ' + monthName, mine.orders, mine.orders_target, (n) => n) +
         (money ? targetCard('My sales · ' + monthName, mine.revenue, mine.revenue_target, egp)
-          : '<div class="kpi"><div class="label">My delivered · ' + esc(monthName) + '</div><div class="value">' + mine.delivered + '</div><div class="note">' + mine.lost + ' cancelled or returned</div></div>') + '</div>' : '') +
+          : '<div class="kpi"><div class="label">My delivered · ' + esc(monthName) + '</div><div class="value">' + mine.delivered + '</div><div class="note">' + mine.lost + ' cancelled or returned</div></div>') +
+        (d.myCommission ? '<div class="kpi"><div class="label">My commission · ' + esc(monthName) + '</div><div class="value pay-ok">' + egp(d.myCommission.commission) + '</div><div class="note">' +
+          d.myCommission.pct + '% of ' + egp(d.myCommission.base) + ' delivered' + (d.myCommission.pending > 0 ? ' · ' + egp(d.myCommission.pending) + ' more on the way' : '') + '</div></div>' : '') + '</div>' : '') +
       '<div class="kpis">' +
       (money ? kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') : kpi('Waiting to confirm', k.pending, '<a href="#orders" data-status="Pending">Call them now →</a>')) +
       kpi('Orders', k.orders, money ? 'avg ' + egp(k.aov) : 'last ' + d.days + ' days, excl. cancelled') +
-      (money ? '' : kpi('Shipped', k.shipped, 'on the way now') + kpi('Delivered', k.delivered, 'all time') + kpi('Cancelled / returned', k.lost, 'all time')) +
+      (money && !d.own ? '' : kpi('Shipped', k.shipped, 'on the way now') + kpi('Delivered', k.delivered, 'all time') + kpi('Cancelled / returned', k.lost, 'all time')) +
       (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance' : 'everything is paid') : '') +
       (d.openQuotes ? kpi('Open quotes', d.openQuotes.n, d.openQuotes.n ? (money ? egp(d.openQuotes.value) + ' waiting · ' : '') + '<a href="#quotes">View →</a>' : '<a href="#quotes">Make a quote →</a>') : '') +
       (money ? kpi('Waiting to confirm', k.pending, can('orders') ? '<a href="#orders" data-status="Pending">View pending →</a>' : 'orders') : '') +

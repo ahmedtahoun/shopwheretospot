@@ -92,11 +92,13 @@ try {
 
     case 'dashboard':
         $u = require_perm('dashboard');
-        $money = in_array('revenue', $u['perms'], true);
+        $revenue = in_array('revenue', $u['perms'], true);
         $ordersOnly = in_array('orders_only', $u['perms'], true);
         $days = max(7, min(365, (int) ($_GET['days'] ?? 30)));
         $pdo = db();
         $own = in_array('own_orders', $u['perms'], true);
+        // Money figures: the whole shop for owner and managers; sales people see the money of their own orders.
+        $money = $revenue || $own;
         $scope = $own ? ' AND rep_id = ' . (int) $u['id'] : '';
         $since = gmdate('Y-m-d', time() - ($days - 1) * 86400);
         $valid = "status NOT IN ('Cancelled','Returned','Awaiting payment')";
@@ -165,7 +167,7 @@ try {
         $collect = $st->fetch();
         // Estimated gross profit for the period, from unit costs (saved on each order line, or the product's current cost).
         $profit = null;
-        if ($money) {
+        if ($revenue) {
             $costs = [];
             foreach ($pdo->query('SELECT id, cost FROM products')->fetchAll() as $p) $costs[$p['id']] = (float) $p['cost'];
             $st = $pdo->prepare("SELECT items, discount FROM orders WHERE $valid AND date(created_at) >= ?");
@@ -192,6 +194,15 @@ try {
         }
         // Only the owner and managers see money totals; everyone else gets the counts.
         $perf = team_performance($month, $own ? (int) $u['id'] : null);
+        // A sales person's own commission this month (once the owner has set their rate).
+        $myCommission = null;
+        if ($own) {
+            foreach (team_commissions($month)['members'] as $m) {
+                if ($m['id'] !== (int) $u['id'] || !$m['pct']) continue;
+                $myCommission = ['pct' => $m['pct'], 'commission' => $m['commission'], 'base' => $m['base'], 'delivered' => $m['delivered'],
+                    'pending' => round($m['openValue'] * $m['pct'] / 100, 2), 'open' => $m['open']];
+            }
+        }
         if (!$money) {
             $k['revenue'] = null;
             foreach ($series as &$x) unset($x['revenue']);
@@ -206,7 +217,7 @@ try {
         json_out([
             'days' => $days, 'own' => $own, 'money' => $money, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
             'toCollect' => $money ? ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']] : null, 'profit' => $profit, 'leadSources' => $leadSources,
-            'openQuotes' => $openQuotes,
+            'openQuotes' => $openQuotes, 'myCommission' => $myCommission,
             'kpi' => [
                 'revenue' => $money ? (float) $k['revenue'] : null, 'orders' => (int) $k['n'],
                 'aov' => $money && $k['n'] ? round($k['revenue'] / $k['n']) : null,

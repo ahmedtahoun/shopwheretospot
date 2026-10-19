@@ -205,7 +205,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .prog > i{display:block;height:100%;background:linear-gradient(90deg,#C8774E,var(--accent));border-radius:999px}
 .prog.done > i{background:var(--good)}
 .perf td{vertical-align:top}
-.me{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.me{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px}
 .me .kpi .value{font-size:28px}
 @media (max-width:820px){.me{grid-template-columns:1fr}}
 /* new order lines */

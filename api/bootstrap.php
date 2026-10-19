@@ -42,7 +42,8 @@ const ROLES = [
     'owner' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'team', 'targets', 'activity', 'backups', 'revenue', 'whatsapp', 'whatsapp_all'],
     'manager' => ['dashboard', 'products', 'orders', 'sell', 'leads', 'targets', 'activity', 'revenue', 'whatsapp', 'whatsapp_all'],
     'sales' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders', 'whatsapp'],
-    // Everyone except owner and manager sees only the orders credited to them (the ones they entered).
+    // Everyone except owner and manager sees only the orders credited to them (the ones they entered),
+    // with the money of those orders and their own commission.
     'staff' => ['dashboard', 'orders', 'sell', 'leads', 'own_orders', 'whatsapp'],
     'telesales' => ['dashboard', 'orders', 'sell', 'orders_only', 'own_orders', 'whatsapp'],
 ];
