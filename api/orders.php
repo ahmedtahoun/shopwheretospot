@@ -259,14 +259,17 @@ function team_commissions(string $month): array
     [$month, $from, $to] = cairo_month_bounds($month);
     $pdo = db();
     // Each person's rate: this month's, or the last one set before it.
-    $rates = [];
-    $st = $pdo->prepare('SELECT user_id, commission_pct FROM targets WHERE commission_pct IS NOT NULL AND month <= ? ORDER BY month');
+    $rates = []; $salaries = [];
+    $st = $pdo->prepare('SELECT user_id, commission_pct, salary FROM targets WHERE (commission_pct IS NOT NULL OR salary IS NOT NULL) AND month <= ? ORDER BY month');
     $st->execute([$month]);
-    foreach ($st as $r) $rates[(int) $r['user_id']] = (float) $r['commission_pct'];
+    foreach ($st as $r) {
+        if ($r['commission_pct'] !== null) $rates[(int) $r['user_id']] = (float) $r['commission_pct'];
+        if ($r['salary'] !== null) $salaries[(int) $r['user_id']] = (float) $r['salary'];
+    }
     $members = [];
     foreach ($pdo->query("SELECT id, name, role, active FROM users ORDER BY name")->fetchAll() as $u) {
         $members[(int) $u['id']] = ['id' => (int) $u['id'], 'name' => $u['name'], 'role' => $u['role'], 'active' => (int) $u['active'],
-            'pct' => $rates[(int) $u['id']] ?? 0.0, 'sold' => 0, 'soldValue' => 0.0, 'delivered' => 0, 'base' => 0.0, 'returnedLater' => 0, 'returnedBase' => 0.0,
+            'pct' => $rates[(int) $u['id']] ?? 0.0, 'salary' => $salaries[(int) $u['id']] ?? 0.0, 'sold' => 0, 'soldValue' => 0.0, 'delivered' => 0, 'base' => 0.0, 'returnedLater' => 0, 'returnedBase' => 0.0,
             'open' => 0, 'openValue' => 0.0, 'lost' => 0, 'commission' => 0.0, 'orders' => []];
     }
     $net = function (array $o): float { return round(max(0, (float) $o['total'] - (float) $o['shipping']), 2); };
@@ -305,21 +308,23 @@ function team_commissions(string $month): array
             'total' => (float) $o['total'], 'shipping' => (float) $o['shipping'], 'base' => $back ? -$base : $base];
         unset($m);
     }
-    $totals = ['sold' => 0, 'soldValue' => 0.0, 'delivered' => 0, 'base' => 0.0, 'commission' => 0.0];
+    $totals = ['sold' => 0, 'soldValue' => 0.0, 'delivered' => 0, 'base' => 0.0, 'commission' => 0.0, 'salary' => 0.0, 'pay' => 0.0];
     $out = [];
     foreach ($members as $m) {
         $m['base'] = round($m['base'] - $m['returnedBase'], 2);
         $m['commission'] = round($m['base'] * $m['pct'] / 100, 2);
+        // Salary plus commission (a return can make commission negative; it comes off the salary).
+        $m['pay'] = round($m['salary'] + $m['commission'], 2);
         foreach (['soldValue', 'openValue', 'returnedBase'] as $k) $m[$k] = round($m[$k], 2);
         foreach ($m['orders'] as &$x) $x['commission'] = round($x['base'] * $m['pct'] / 100, 2);
         unset($x);
         // People who sell, or who had anything this month.
         $sells = in_array($m['role'], ['sales', 'telesales', 'staff'], true) && $m['active'];
-        if (!$sells && !$m['sold'] && !$m['orders'] && !$m['open'] && !$m['pct']) continue;
-        foreach (['sold', 'soldValue', 'delivered', 'base', 'commission'] as $k) $totals[$k] += $m[$k];
+        if (!$sells && !$m['sold'] && !$m['orders'] && !$m['open'] && !$m['pct'] && !$m['salary']) continue;
+        foreach (['sold', 'soldValue', 'delivered', 'base', 'commission', 'salary', 'pay'] as $k) $totals[$k] += $m[$k];
         $out[] = $m;
     }
-    usort($out, function ($a, $b) { return [$b['commission'], $b['soldValue']] <=> [$a['commission'], $a['soldValue']]; });
+    usort($out, function ($a, $b) { return [$b['pay'], $b['soldValue']] <=> [$a['pay'], $a['soldValue']]; });
     return ['month' => $month, 'members' => $out, 'totals' => $totals];
 }
 

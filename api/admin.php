@@ -251,13 +251,21 @@ try {
         $b = body();
         [$month] = cairo_month_bounds((string) ($b['month'] ?? ''));
         $uid = (int) ($b['user_id'] ?? 0);
-        $pct = max(0, min(100, round((float) ($b['pct'] ?? 0), 2)));
         $name = db()->prepare('SELECT name FROM users WHERE id = ?');
         $name->execute([$uid]);
         $name = $name->fetchColumn();
         if ($name === false) fail('Team member not found.', 404);
-        db()->prepare('INSERT INTO targets (user_id, month, commission_pct) VALUES (?, ?, ?) ON CONFLICT(user_id, month) DO UPDATE SET commission_pct = excluded.commission_pct')->execute([$uid, $month, $pct]);
-        log_activity($u, 'Set commission rate', $name . ' · ' . $pct . '% from ' . $month);
+        // Commission rate and/or monthly salary, from this month on.
+        if (array_key_exists('pct', $b)) {
+            $pct = max(0, min(100, round((float) $b['pct'], 2)));
+            db()->prepare('INSERT INTO targets (user_id, month, commission_pct) VALUES (?, ?, ?) ON CONFLICT(user_id, month) DO UPDATE SET commission_pct = excluded.commission_pct')->execute([$uid, $month, $pct]);
+            log_activity($u, 'Set commission rate', $name . ' · ' . $pct . '% from ' . $month);
+        }
+        if (array_key_exists('salary', $b)) {
+            $salary = max(0, min(10000000, round((float) $b['salary'], 2)));
+            db()->prepare('INSERT INTO targets (user_id, month, salary) VALUES (?, ?, ?) ON CONFLICT(user_id, month) DO UPDATE SET salary = excluded.salary')->execute([$uid, $month, $salary]);
+            log_activity($u, 'Set salary', $name . ' · EGP ' . $salary . ' from ' . $month);
+        }
         json_out(team_commissions($month));
 
     // ---------- team-entered orders ----------

@@ -92,7 +92,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 34;
+const SCHEMA_VERSION = 35;
 
 function db(): PDO
 {
@@ -600,6 +600,8 @@ function migrate(PDO $pdo): void
     }
     $targetCols = $pdo->query('PRAGMA table_info(targets)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('commission_pct', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN commission_pct REAL');
+    // Monthly salary, kept the same way: set once, carries on to the following months.
+    if (!in_array('salary', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN salary REAL');
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }

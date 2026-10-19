@@ -124,7 +124,7 @@
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['inbox', 'WhatsApp', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
-      ['leads', 'Leads', 'inbox'], ['commissions', 'Commissions', 'coins'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
+      ['leads', 'Leads', 'inbox'], ['commissions', 'Salaries & commissions', 'coins'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
     ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
@@ -2092,28 +2092,34 @@
     S.commMonth = d.month;
     const t = d.totals;
     const ords = (n) => n + (n === 1 ? ' order' : ' orders');
-    $('#main').innerHTML = header('Commissions', 'What each person sold, and the commission they earned in the month. Check it at the end of the month.',
+    $('#main').innerHTML = header('Salaries & commissions', 'Each person’s salary, what they sold, and the commission they earned in the month. Check it at the end of the month.',
       '<select id="cMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' +
       '<button class="btn" id="cCsv">' + icon('download') + 'Download sheet</button>') +
-      '<div class="kpis">' + kpi('Commission to pay', egp(t.commission), esc(monthLabel(d.month))) +
+      '<div class="kpis">' + kpi('Total to pay', egp(t.pay), esc(monthLabel(d.month)) + ' · salaries + commission') +
+        kpi('Commission', egp(t.commission), 'salaries ' + egp(t.salary)) +
         kpi('Delivered sales', egp(t.base), ords(t.delivered) + ' delivered · without shipping') +
         kpi('Sold this month', egp(t.soldValue), ords(t.sold) + ' taken') + '</div>' +
-      '<div class="card"><div class="table-wrap" style="border:none"><table class="perf comm"><thead><tr><th>Team member</th><th>Rate</th><th class="num">Commission</th><th class="num">Delivered this month</th><th class="num">Sold this month</th><th class="num">Still on the way</th></tr></thead><tbody>' +
+      '<div class="card"><div class="table-wrap" style="border:none"><table class="perf comm"><thead><tr><th>Team member</th><th>Salary</th><th>Rate</th><th class="num">Commission</th><th class="num">Total to pay</th><th class="num">Delivered this month</th><th class="num">Sold this month</th><th class="num">Still on the way</th></tr></thead><tbody>' +
       (d.members.length ? d.members.map((m) => '<tr data-m="' + m.id + '"><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + (m.active ? '' : ' · left') + '</div></td>' +
+        '<td><span class="pct-in sal-in"><input type="number" min="0" step="100" data-sal="' + m.id + '" value="' + (m.salary || '') + '" placeholder="0"></span></td>' +
         '<td><span class="pct-in"><input type="number" min="0" max="100" step="0.5" data-pct="' + m.id + '" value="' + (m.pct || '') + '" placeholder="0">%</span></td>' +
         '<td class="num"><b class="' + (m.commission > 0 ? 'pay-ok' : '') + '">' + egp(m.commission) + '</b>' + (m.pct ? '' : '<div class="small pay-part">set a rate</div>') + '</td>' +
+        '<td class="num"><b>' + egp(m.pay) + '</b></td>' +
         '<td class="num">' + egp(m.base) + '<div class="small muted">' + ords(m.delivered) + '</div>' + (m.returnedLater ? '<div class="small pay-part">−' + egp(m.returnedBase) + ' returned</div>' : '') + '</td>' +
         '<td class="num">' + egp(m.soldValue) + '<div class="small muted">' + ords(m.sold) + '</div>' + (m.lost ? '<div class="small muted">' + m.lost + ' cancelled / returned</div>' : '') + '</td>' +
         '<td class="num">' + egp(m.openValue) + '<div class="small muted">' + ords(m.open) + '</div></td></tr>').join('')
-        : '<tr><td colspan="6" class="muted">No sales people yet. Add them in Team.</td></tr>') +
+        : '<tr><td colspan="8" class="muted">No sales people yet. Add them in Team.</td></tr>') +
       '</tbody></table></div></div>' +
       '<p class="small muted" style="margin-top:14px">How it’s worked out: an order counts once it’s delivered, in the month it was delivered, on what the customer paid for the products (shipping not included). ' +
-      'If a delivered order comes back in a later month, it comes off that month. Orders count toward whoever they’re credited to. A rate applies from the month you set it on. Click a person to see their orders.</p>';
+      'If a delivered order comes back in a later month, it comes off that month. Orders count toward whoever they’re credited to. A salary or rate applies from the month you set it on, and carries on until you change it. Click a person to see their orders.</p>';
     $('#cMonth').onchange = (e) => { S.commMonth = e.target.value; pageCommissions(); };
-    $$('[data-pct]').forEach((inp) => {
+    $$('[data-pct],[data-sal]').forEach((inp) => {
       inp.onclick = (e) => e.stopPropagation();
       inp.onchange = async () => {
-        try { await api('commission_rate', { method: 'POST', body: { month: d.month, user_id: +inp.dataset.pct, pct: +inp.value || 0 } }); toast('Rate saved'); pageCommissions(); }
+        const sal = 'sal' in inp.dataset;
+        const body = { month: d.month, user_id: +(inp.dataset.sal || inp.dataset.pct) };
+        body[sal ? 'salary' : 'pct'] = +inp.value || 0;
+        try { await api('commission_rate', { method: 'POST', body }); toast(sal ? 'Salary saved' : 'Rate saved'); pageCommissions(); }
         catch (err) { toast(err.message, true); }
       };
     });
@@ -2125,7 +2131,7 @@
     const ords = (n) => n + (n === 1 ? ' order' : ' orders');
     const day = (s) => s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleDateString(LOC, { day: 'numeric', month: 'short' }) : '—';
     openDrawer(m.name + ' · ' + monthLabel(d.month),
-      '<div class="stack"><div class="kpis" style="margin:0">' + kpi('Commission', egp(m.commission), (m.pct || 0) + '% of ' + egp(m.base)) +
+      '<div class="stack"><div class="kpis" style="margin:0">' + kpi('Total to pay', egp(m.pay), 'salary ' + egp(m.salary) + ' + commission') + kpi('Commission', egp(m.commission), (m.pct || 0) + '% of ' + egp(m.base)) +
         kpi('Delivered', String(m.delivered), 'orders this month') + kpi('Still on the way', egp(m.openValue), ords(m.open)) + '</div>' +
       (m.orders.length ? '<div class="table-wrap"><table><thead><tr><th>Order</th><th>Delivered</th><th class="num">Products</th><th class="num">Commission</th></tr></thead><tbody>' +
         m.orders.map((o) => '<tr><td><a href="#" data-o="' + o.id + '"><b>' + esc(o.number) + '</b></a><div class="small muted">' + esc(o.customer) + ' · ordered ' + day(o.createdAt) + '</div></td>' +
@@ -2144,14 +2150,14 @@
   // One sheet for the month (opens in Excel or Google Sheets): a summary per person, then every order.
   function commissionSheet(d) {
     const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
-    const rows = [['Month', d.month], [], ['Team member', 'Rate %', 'Orders sold', 'Sold (EGP)', 'Orders delivered', 'Delivered products (EGP)', 'Returned later (EGP)', 'Commission (EGP)', 'Still on the way (EGP)']];
-    d.members.forEach((m) => rows.push([m.name, m.pct, m.sold, m.soldValue, m.delivered, m.base, m.returnedBase, m.commission, m.openValue]));
+    const rows = [['Month', d.month], [], ['Team member', 'Salary (EGP)', 'Rate %', 'Commission (EGP)', 'Total to pay (EGP)', 'Orders sold', 'Sold (EGP)', 'Orders delivered', 'Delivered products (EGP)', 'Returned later (EGP)', 'Still on the way (EGP)']];
+    d.members.forEach((m) => rows.push([m.name, m.salary, m.pct, m.commission, m.pay, m.sold, m.soldValue, m.delivered, m.base, m.returnedBase, m.openValue]));
     rows.push([], ['Team member', 'Order', 'Customer', 'Status', 'Ordered', 'Delivered', 'Products (EGP)', 'Shipping (EGP)', 'Commission (EGP)']);
     d.members.forEach((m) => m.orders.forEach((o) => rows.push([m.name, o.number, o.customer, o.status, (o.createdAt || '').slice(0, 10), (o.deliveredAt || '').slice(0, 10), o.base, o.shipping, o.commission])));
     const csv = '﻿' + rows.map((r) => r.map(q).join(',')).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = 'commissions-' + d.month + '.csv';
+    a.download = 'salaries-commissions-' + d.month + '.csv';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }

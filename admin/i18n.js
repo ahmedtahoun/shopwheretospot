@@ -344,12 +344,14 @@
     'A product in the order is no longer available. Please refresh.': 'منتج في الطلب لم يعد متاحًا. أعد تحميل الصفحة.', 'A product in the quote is no longer available.': 'منتج في عرض السعر لم يعد متاحًا.',
     'Referral code not recognised — check it or leave it blank.': 'كود الإحالة غير معروف — راجعه أو اتركه فارغًا.', 'Please enter a valid email.': 'اكتب إيميل صحيح.',
     'Commissions': 'العمولات', 'What each person sold, and the commission they earned in the month. Check it at the end of the month.': 'مبيعات كل شخص والعمولة التي استحقها في الشهر. راجعها في آخر الشهر.',
+    'Salaries & commissions': 'المرتبات والعمولات', 'Each person’s salary, what they sold, and the commission they earned in the month. Check it at the end of the month.': 'مرتب كل شخص ومبيعاته والعمولة التي استحقها في الشهر. راجعها في آخر الشهر.',
+    'Total to pay': 'الإجمالي المستحق', 'Salary': 'المرتب', 'Salary saved': 'تم حفظ المرتب', 'salaries + commission': 'مرتبات + عمولة',
     'Download sheet': 'تحميل الشيت', 'Commission to pay': 'العمولة المستحقة', 'Delivered sales': 'مبيعات تم تسليمها', 'Sold this month': 'المبيعات هذا الشهر', 'Rate': 'النسبة',
     'Delivered this month': 'تم تسليمه هذا الشهر', 'Commission': 'العمولة', 'Still on the way': 'لسه في الطريق', 'set a rate': 'حدد النسبة', 'Rate saved': 'تم حفظ النسبة', 'left': 'غادر',
     'No sales people yet. Add them in Team.': 'لا يوجد موظفو مبيعات بعد. أضفهم من الفريق.', 'No delivered orders this month.': 'لا توجد طلبات تم تسليمها هذا الشهر.',
     'orders this month': 'طلبات هذا الشهر',
-    'How it’s worked out: an order counts once it’s delivered, in the month it was delivered, on what the customer paid for the products (shipping not included). If a delivered order comes back in a later month, it comes off that month. Orders count toward whoever they’re credited to. A rate applies from the month you set it on. Click a person to see their orders.':
-      'طريقة الحساب: الطلب يُحسب بعد تسليمه، في الشهر الذي تم تسليمه فيه، على قيمة المنتجات التي دفعها العميل (بدون الشحن). لو طلب تم تسليمه رجع في شهر لاحق، يُخصم من ذلك الشهر. الطلبات تُحسب لمن تُنسب إليه. النسبة تسري من الشهر الذي حددتها فيه. اضغط على أي شخص لترى طلباته.',
+    'How it’s worked out: an order counts once it’s delivered, in the month it was delivered, on what the customer paid for the products (shipping not included). If a delivered order comes back in a later month, it comes off that month. Orders count toward whoever they’re credited to. A salary or rate applies from the month you set it on, and carries on until you change it. Click a person to see their orders.':
+      'طريقة الحساب: الطلب يُحسب بعد تسليمه، في الشهر الذي تم تسليمه فيه، على قيمة المنتجات التي دفعها العميل (بدون الشحن). لو طلب تم تسليمه رجع في شهر لاحق، يُخصم من ذلك الشهر. الطلبات تُحسب لمن تُنسب إليه. المرتب أو النسبة يسري من الشهر الذي حددته فيه ويستمر حتى تغيّره. اضغط على أي شخص لترى طلباته.',
     'Something went wrong. Please try again.': 'حدث خطأ. حاول مرة أخرى.', 'Error': 'خطأ', 'Too many tries. Please wait a while.': 'محاولات كثيرة. انتظر قليلًا.',
   };
 
@@ -371,6 +373,7 @@
     [/^(\d+) orders? taken$/, function (m, c) { return n(c, ORD); }], [/^(\d+) cancelled \/ returned$/, '$1 ملغي / مرتجع'], [/^−(.+) returned$/, '−$1 مرتجع'],
     [/^(Returned|Cancelled) (.+)$/, function (m, s, d) { return (s === 'Returned' ? 'مرتجع ' : 'ملغي ') + d; }], [/^(delivered|ordered) (.+)$/, function (m, s, d) { return (s === 'delivered' ? 'تم التسليم ' : 'تاريخ الطلب ') + d; }],
     [/^\+ (.+) shipping$/, '+ $1 شحن'],
+    [/^salaries (.+)$/, 'المرتبات $1'], [/^salary (.+) \+ commission$/, 'المرتب $1 + العمولة'],
     // orders
     [/^(\d+) shown$/, 'عدد الطلبات: $1'], [/^(\d+) open orders$/, function (m, c) { return n(c, ORD) + ' مفتوحة'; }], [/^only orders credited to you$/, 'طلباتك فقط'],
     [/^(\d+) selected$/, 'تم تحديد $1'], [/^Select (.+)$/, 'تحديد $1'], [/^(\d+) of (\d+) shipments updated$/, 'تم تحديث $1 من $2 شحنة'],
