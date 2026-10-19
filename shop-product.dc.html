@@ -367,7 +367,14 @@ class Component extends DCLogic {
     if (mod.CATEGORIES) this.catLabels = Object.fromEntries(mod.CATEGORIES.map(c => [c.key, c.label]));
     const id = new URLSearchParams(location.search).get('id') || decodeURIComponent((location.pathname.match(/\/p\/([^/?#]+)/) || [])[1] || '');
     const product = id ? inv.find(p => p.id === id) : inv.find(p => p.status === 'Active');
-    if (!product) { if (final) this.setState({ notFound: true, product: null }); return false; }
+    if (!product) {
+      if (final) {
+        this.setState({ notFound: true, product: null });
+        // A /p/ page with its plain copy (#seo-product): show that rather than leave the page empty.
+        if (document.getElementById('seo-product')) document.documentElement.classList.remove('js');
+      }
+      return false;
+    }
     const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
     const first = !this.state.product;
     const keep = this.state.variantId && (product.variants || []).some(v => v.id === this.state.variantId);

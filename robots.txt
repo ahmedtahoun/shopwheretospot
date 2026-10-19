@@ -3,6 +3,8 @@ User-agent: *
 Allow: /
 Allow: /api/seo.php
 Allow: /api/img.php
+# The shop's pages load their product list from here; Google needs it to see products when it runs the page.
+Allow: /api/public.php
 Disallow: /admin/
 Disallow: /api/
 Disallow: /uploads/orders/
