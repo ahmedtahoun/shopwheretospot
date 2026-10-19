@@ -88,7 +88,8 @@
     if (!res.ok) throw new Error(j.error || 'Something went wrong');
     return j;
   }
-  // A4 PDF of the page, made in the browser (html2pdf.js, loaded the first time it's needed).
+  // A4 PDF of the page, made in the browser (html2pdf.js, loaded the first time it's needed). No fixed window
+  // width and no scroll offset: either one shifts and cuts the page on wide or scrolled screens.
   function loadPdfLib() {
     if (window.html2pdf) return Promise.resolve();
     return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
@@ -98,7 +99,7 @@
     document.body.classList.add('exporting');
     try {
       const worker = window.html2pdf().set({ margin: 0, filename: name, image: { type: 'jpeg', quality: 0.95 }, pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 900 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(document.querySelector('.page'));
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(document.querySelector('.page'));
       const pdf = await worker.toPdf().get('pdf');
       return { save: () => pdf.save(name), output: (t) => pdf.output(t) };
     } finally { document.body.classList.remove('exporting'); }
