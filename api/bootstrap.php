@@ -92,7 +92,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 32;
+const SCHEMA_VERSION = 33;
 
 function db(): PDO
 {
@@ -285,7 +285,7 @@ function migrate(PDO $pdo): void
         if (!in_array($col, $catCols, true)) $pdo->exec("ALTER TABLE categories ADD COLUMN $col $type");
     }
     $catAr = ['nfc' => ['حلول NFC', 'كروت وستاندات تقييم جوجل باللمس'], 'cosmetics' => ['مستحضرات التجميل', 'عناية بالبشرة بتركيبات نظيفة'],
-        'stands' => ['ستاندات المعارض', 'أجنحة وستاندات عرض للمعارض والفعاليات'], 'pets' => ['منتجات الحيوانات الأليفة', 'مستلزمات يومية للحيوانات الأليفة'],
+        'stands' => ['ستاندات أكريليك', 'ستاندات أكريليك شفافة ومطبوعة للمنيو والأسعار وأكواد QR وأرقام الطاولات'], 'pets' => ['منتجات الحيوانات الأليفة', 'مستلزمات يومية للحيوانات الأليفة'],
         'school' => ['أدوات المدارس الصيفية', 'أنشطة للمعسكرات والبرامج الصيفية'], 'gift' => ['هدايا مميزة', 'مجموعات هدايا مختارة'],
         'services' => ['خطط التسويق', 'خطط شهرية لجلب العملاء'], 'acrylic' => ['منتجات الأكريليك', 'ستاندات وعلب عرض من الأكريليك']];
 
@@ -586,6 +586,9 @@ function migrate(PDO $pdo): void
         foreach (['nfc' => 1, 'stands' => 2, 'coffee' => 3, 'gift' => 4, 'pets' => 5, 'school' => 6, 'cosmetics' => 8] as $k => $n) $order->execute([$n, $k]);
         wa_set_setting('cats_reordered', true);
     }
+    // "Exhibition Stands" holds acrylic stands for counters and tables: named for what it is (only if still the old name).
+    $pdo->prepare("UPDATE categories SET label = 'Acrylic Stands', descr = 'Clear and printed acrylic stands for menus, prices, QR codes and table numbers' WHERE key = 'stands' AND label = 'Exhibition Stands'")->execute();
+    $pdo->prepare("UPDATE categories SET label_ar = 'ستاندات أكريليك', descr_ar = 'ستاندات أكريليك شفافة ومطبوعة للمنيو والأسعار وأكواد QR وأرقام الطاولات' WHERE key = 'stands' AND label_ar IN ('', 'ستاندات المعارض')")->execute();
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
@@ -720,7 +723,7 @@ function seed_catalog(PDO $pdo): void
     $cats = [
         ['nfc', 'NFC Solutions', 'Tap-to-review cards for Google reviews', 1],
         ['cosmetics', 'Cosmetics', 'Clean-formula skincare & beauty', 2],
-        ['stands', 'Exhibition Stands', 'Modular booths & displays for events', 3],
+        ['stands', 'Acrylic Stands', 'Clear and printed acrylic stands for menus, prices, QR codes and table numbers', 3],
         ['gift', 'Premium & Gift', 'Curated gifting collections', 4],
         ['pets', 'Pet Products', 'Everyday gear for pets', 5],
         ['school', 'Summer School Kits', 'Activity kits for camps & programs', 6],
