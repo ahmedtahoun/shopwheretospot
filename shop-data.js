@@ -471,3 +471,34 @@ export function img(src, w) {
 }
 // Small and large versions for <img srcset>, so phones download the smaller one.
 export function imgSet(src, small, large) { const a = img(src, small), b = img(src, large); return a === src ? '' : a + ' ' + small + 'w, ' + b + ' ' + large + 'w'; }
+
+// Shop entrances for each kind of visitor (?for=… or the share links /business, /cafes, /coffee, /beauty).
+// Each shows only its own categories, with the products listed in `first` at the top, its own headline,
+// and (wholesale: true) a request-a-quote form for Bonds wholesale / private-label coffee.
+// Texts are English; the Arabic shop translates them (i18n.js).
+export const FOR_PAGES = {
+  business: {
+    door: 'For your business', doorLine: 'Google reviews, payments & printed stands', img: 'images/nfc-qr-stand-1.jpg',
+    eyebrow: 'For businesses', title: 'Get more reviews, followers and payments',
+    lead: 'NFC & QR stands and cards for Google reviews, social media and InstaPay, printed with your design — plus custom acrylic stands, coasters and monthly marketing plans.',
+    cats: ['nfc', 'stands'], first: ['nfc-qr-stand', 'acr-qr-coaster', 'acr-a-stand-8x10', 'nfc1'], plans: true,
+  },
+  cafes: {
+    door: 'For cafés & restaurants', doorLine: 'Review stands, QR menus & coffee supply', img: 'images/acrylic-a-stand-table.jpg',
+    eyebrow: 'For cafés & restaurants', title: 'Everything your café needs to grow',
+    lead: 'Google review stands, QR menu coasters and table numbers printed with your logo — and specialty coffee from Bonds Coffee Roasters, wholesale or under your own label.',
+    cats: ['nfc', 'stands', 'coffee'], first: ['acr-a-stand-8x10', 'acr-qr-coaster', 'nfc-qr-stand'], wholesale: true,
+  },
+  coffee: {
+    door: 'Specialty coffee', doorLine: 'Fresh beans from our roasting partners', img: 'images/brands/bonds-chrome.jpg',
+    eyebrow: 'Specialty coffee', title: 'Freshly roasted coffee beans',
+    lead: 'Blends and single origins from Bonds Coffee Roasters, in 250 g and 1 kg, delivered across Egypt. Buying for a café or office? Ask for wholesale prices.',
+    cats: ['coffee'], first: [], wholesale: true, brands: true,
+  },
+  beauty: {
+    door: 'Beauty & skincare', doorLine: 'Korean skincare, original products', img: 'images/faceshop-rice-water-eye-cream.png',
+    eyebrow: 'Beauty & skincare', title: 'Korean skincare',
+    lead: 'Original products from The Face Shop and Round Lab, delivered across Egypt with cash on delivery.',
+    cats: ['cosmetics'], first: [],
+  },
+};

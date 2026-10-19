@@ -40,3 +40,39 @@ function share_shop_link(string $lang): void
         $base . '/images/share-card.jpg', $base . '/' . $lang, $lang);
     exit;
 }
+
+// /business, /cafes, /coffee, /beauty, /bonds: a link per kind of visitor. People land on that part of the
+// shop (index.html?for=…); the preview card speaks to them. Arabic by default, ?lang=en for English.
+const SHARE_PAGES = [
+    'business' => ['for=business', 'business.jpg',
+        ['ستاندات وكروت تقييم جوجل NFC + QR | Where To Spot', 'زوّد تقييماتك على جوجل ومتابعينك ومدفوعاتك: ستاندات وكروت NFC وQR مطبوعة بتصميمك، كوسترات وستاندات أكريليك، وخطط تسويق شهرية. الدفع عند الاستلام.'],
+        ['Google review NFC + QR stands & cards | Where To Spot', 'Get more Google reviews, followers and payments: NFC & QR stands and cards printed with your design, acrylic coasters and stands, and monthly marketing plans. Cash on delivery.']],
+    'cafes' => ['for=cafes', 'cafes.jpg',
+        ['كل اللي الكافيه محتاجه | Where To Spot', 'ستاندات تقييم جوجل، كوسترات منيو QR وأرقام طاولات مطبوعة بلوجو الكافيه — وقهوة مختصة من بوندز بالجملة أو باسمك التجاري.'],
+        ['Everything your café needs | Where To Spot', 'Google review stands, QR menu coasters and table numbers printed with your logo — plus specialty coffee from Bonds, wholesale or under your own label.']],
+    'coffee' => ['for=coffee', 'coffee.jpg',
+        ['قهوة مختصة محمصة طازة | Where To Spot', 'بلندات وقهوة أحادية المصدر من بوندز لتحميص القهوة، 250 جم و1 كجم، توصيل لكل مصر والدفع عند الاستلام. أسعار جملة للكافيهات.'],
+        ['Freshly roasted specialty coffee | Where To Spot', 'Blends and single origins from Bonds Coffee Roasters, 250 g and 1 kg, delivered across Egypt with cash on delivery. Wholesale prices for cafés.']],
+    'beauty' => ['for=beauty', 'beauty.jpg',
+        ['عناية كورية بالبشرة | Where To Spot', 'منتجات أصلية من ذا فيس شوب وراوند لاب، توصيل لكل مصر والدفع عند الاستلام.'],
+        ['Korean skincare | Where To Spot', 'Original products from The Face Shop and Round Lab, delivered across Egypt with cash on delivery.']],
+    'bonds' => ['brand=bonds', 'coffee.jpg',
+        ['بوندز لتحميص القهوة — شريك رسمي | Where To Spot', 'قهوة بوندز المختصة: بلندات وأحادية المصدر، وبرامج قهوة للكافيهات وتحميص حسب الطلب وعلامتك الخاصة.'],
+        ['Bonds Coffee Roasters — official partner | Where To Spot', 'Bonds specialty coffee: blends and single origins, coffee programs for cafés, tailored roasting and private label.']],
+];
+
+function share_for_link(string $key): void
+{
+    $base = 'https://shop.wheretospot.com';
+    [$query, $img, $ar, $en] = SHARE_PAGES[$key];
+    $lang = ($_GET['lang'] ?? '') === 'en' ? 'en' : 'ar';
+    if (!share_is_preview_bot()) {
+        header('Location: ' . $base . '/?' . $query . (isset($_GET['lang']) ? '&lang=' . $lang : '') . '#products', true, 302);
+        exit;
+    }
+    [$title, $desc] = $lang === 'en' ? $en : $ar;
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: public, max-age=3600');
+    echo share_card_html($title, $desc, $base . '/images/share/' . $img, $base . '/' . $key . ($lang === 'en' ? '?lang=en' : ''), $lang);
+    exit;
+}

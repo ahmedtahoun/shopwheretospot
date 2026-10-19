@@ -180,6 +180,30 @@
   .ptoolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;border-bottom:1px solid #DDD6CC;margin-bottom:36px}
   .ptabs{display:flex;gap:28px;overflow-x:auto;scrollbar-width:none}
   .shop-top{padding-top:clamp(28px,4vw,52px)}
+  /* "What are you looking for?" and the entrance header (business / cafés / coffee / beauty) */
+  .doors-wrap{margin:0 0 clamp(28px,4vw,44px)}
+  .doors-h{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(30px,4.4vw,48px);line-height:1.08;margin:0 0 20px}
+  .doors-h em{font-style:italic;color:var(--accent)}
+  .doors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .door{display:flex;flex-direction:column;background:#fff;border:1px solid #E4DED5;border-radius:22px;overflow:hidden;text-decoration:none;color:#22201D;position:relative;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+  .door:hover{transform:translateY(-3px);box-shadow:0 14px 28px -14px rgba(20,18,16,.28);border-color:#C9C0B2}
+  .door-img{display:block;aspect-ratio:16/10;background:#EFE9E1;overflow:hidden}
+  .door-img img{width:100%;height:100%;object-fit:cover;display:block}
+  .door-t{display:flex;flex-direction:column;gap:3px;padding:14px 16px 16px}
+  .door-t b{font-size:15.5px}
+  .door-t small{font-size:13px;color:#6B6660;line-height:1.4}
+  .door-go{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;font-weight:700}
+  [dir=rtl] .door-go{right:auto;left:12px}
+  .fhero{background:#fff;border:1px solid #E4DED5;border-radius:24px;padding:clamp(18px,3vw,30px);margin:0 0 24px}
+  .fh-back{border:none;background:none;color:#6B6660;font:inherit;font-size:13.5px;cursor:pointer;padding:0;margin:0 0 12px}
+  .fh-back:hover{color:#22201D}
+  .fh-title{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,44px);line-height:1.1;margin:0 0 10px}
+  .fh-lead{font-size:15px;line-height:1.65;color:#6B6660;max-width:62ch;margin:0}
+  .fh-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .fh-acts:empty{display:none}
+  .fh-form{margin-top:16px;max-width:560px}
+  @media (max-width:900px){.doors{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:520px){.doors{gap:10px}.door{border-radius:18px}.door-t{padding:10px 12px 12px}.door-t b{font-size:14px}.door-t small{font-size:12px}.door-go{width:28px;height:28px;top:8px;right:8px}}
   .shop-head{margin-bottom:22px}
   .shop-title{font-size:clamp(30px,4vw,46px)}
   .catrow{display:flex;gap:clamp(14px,2.4vw,28px);overflow-x:auto;scrollbar-width:none;padding:8px 4px 14px;margin:0 -4px}
@@ -538,6 +562,43 @@
   </nav>
 
   <section id="products" class="wrap sec shop-top">
+    <sc-if value="{{ showDoors }}" hint-placeholder-val="{{ false }}">
+      <div class="doors-wrap">
+        <div class="eyebrow">Where To Spot</div>
+        <h1 class="doors-h">What are you <em>looking for?</em></h1>
+        <div class="doors">
+          <sc-for list="{{ doors }}" as="dr" hint-placeholder-count="4">
+            <a class="door" href="{{ dr.href }}" onClick="{{ dr.onClick }}">
+              <span class="door-img"><img src="{{ dr.img }}" alt="" loading="lazy"></span>
+              <span class="door-t"><b>{{ dr.title }}</b><small>{{ dr.line }}</small></span>
+              <span class="door-go" aria-hidden="true">→</span>
+            </a>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ forHero }}" hint-placeholder-val="{{ null }}">
+      <div class="fhero">
+        <button type="button" class="fh-back" onClick="{{ clearFor }}">← See the whole shop</button>
+        <div class="eyebrow">{{ forHero.eyebrow }}</div>
+        <h1 class="fh-title">{{ forHero.title }}</h1>
+        <p class="fh-lead">{{ forHero.lead }}</p>
+        <div class="fh-acts">
+          <sc-if value="{{ forHero.wholesale }}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-accent" onClick="{{ openBrandQuote }}">Wholesale &amp; private-label coffee</button></sc-if>
+          <sc-if value="{{ forHero.plans }}" hint-placeholder-val="{{ false }}"><a class="btn btn-line" href="plans.html">See marketing plans</a></sc-if>
+        </div>
+        <sc-if value="{{ forWholesaleOpen }}" hint-placeholder-val="{{ false }}">
+          <form class="bh-form fh-form" onSubmit="{{ submitWholesale }}">
+            <p class="bh-lead">Coffee for your café, restaurant or office from Bonds Coffee Roasters: wholesale prices, tailored roasting, or coffee under your own brand name. Tell us what you need and we’ll reply with a quote, usually the same day.</p>
+            <input required="{{ true }}" value="{{ brandQuote.name }}" onChange="{{ setBrandQuoteName }}" placeholder="Your name" autocomplete="name" aria-label="Your name"/>
+            <input required="{{ true }}" value="{{ brandQuote.contact }}" onChange="{{ setBrandQuoteContact }}" placeholder="Phone or email" autocomplete="tel" aria-label="Phone or email"/>
+            <textarea value="{{ brandQuote.details }}" onChange="{{ setBrandQuoteDetails }}" placeholder="Business name, what you need and roughly how much (e.g. 20 kg a month for our café)" aria-label="What you need"></textarea>
+            <button type="submit" class="btn btn-accent">Send request</button>
+          </form>
+        </sc-if>
+        <sc-if value="{{ forWholesaleSent }}" hint-placeholder-val="{{ false }}"><div class="bh-done">Thank you — we’ve got your request and will contact you shortly.</div></sc-if>
+      </div>
+    </sc-if>
     <div class="sec-head shop-head">
       <div>
         <div class="eyebrow">Where To Spot · Shop</div>
@@ -694,7 +755,7 @@
     <div>
       <div class="eyebrow">Where To Spot · Giza, Egypt</div>
       <h1>Get found.<br>Get reviewed.<br><em>Get customers.</em></h1>
-      <p class="hero-lede">NFC Google-review cards and stands, Korean skincare, and monthly lead-generation plans for Egyptian businesses. Clear prices in EGP, delivered across Egypt.</p>
+      <p class="hero-lede">NFC Google-review cards and stands, printed acrylic stands and coasters, and monthly lead-generation plans for Egyptian businesses — plus specialty coffee and skincare from our partner brands. Clear prices in EGP, delivered across Egypt.</p>
       <div class="hero-ctas">
         <a href="#products" class="btn btn-accent">Shop products <span aria-hidden="true">→</span></a>
         <a href="plans.html" class="btn btn-line">See marketing plans</a>
@@ -1249,7 +1310,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{}, &quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A8552F&quot;,&quot;options&quot;:[&quot;#A8552F&quot;,&quot;#6B8F71&quot;,&quot;#6B4257&quot;,&quot;#2B3A4A&quot;]}, &quot;freeShippingThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1500,&quot;min&quot;:0,&quot;max&quot;:10000,&quot;step&quot;:50,&quot;unit&quot;:&quot;EGP&quot;,&quot;section&quot;:&quot;Store settings&quot;}}">
 class Component extends DCLogic {
   state = {
-    activeCat: 'all', activeBrand: '', brandQuoteOpen: false, brandQuoteSent: false, brandQuote: { name: '', contact: '', details: '' },
+    activeCat: 'all', activeBrand: '', activeFor: '', brandQuoteOpen: false, brandQuoteSent: false, brandQuote: { name: '', contact: '', details: '' },
     inventory: [],
     search: '',
     cart: [],
@@ -1364,7 +1425,7 @@ class Component extends DCLogic {
     if (cached) {
       if (mod.CATEGORIES) this.categories = mod.CATEGORIES.filter(c => c.key !== 'services').map(c => ({ key: c.key, label: c.label, desc: c.desc, placeholder: c.label + ' photo' }));
       const bp = (new URLSearchParams(location.search).get('brand') || '').toLowerCase();
-      this.setState({ inventory: cached, isLoading: false, cart: mod.loadCart(), wishlist: mod.loadWishlist(), visibleCount: 12, activeBrand: mod.BRANDS.some(b => b.slug === bp) ? bp : '' });
+      this.setState({ inventory: cached, isLoading: false, cart: mod.loadCart(), wishlist: mod.loadWishlist(), visibleCount: 12, activeBrand: mod.BRANDS.some(b => b.slug === bp) ? bp : '', activeFor: this.forFromUrl(mod) });
     }
     const [live, acct] = await Promise.all([mod.fetchCatalog(), fetch('api/public.php?action=account', { credentials: 'same-origin' }).then(r => r.json()).catch(() => null)]);
     const inventory = live || mod.loadInventory();
@@ -1408,7 +1469,7 @@ class Component extends DCLogic {
     const brandParam = (params.get('brand') || '').toLowerCase();
     const activeBrand = mod.BRANDS.some(b => b.slug === brandParam) ? brandParam : '';
     if (activeBrand) setTimeout(() => this.scrollToId('products'), 300);
-    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 12, activeBrand,
+    this.setState({ inventory, cart: cart0, cartOpen, checkoutStep, wishlist: mod.loadWishlist(), isLoading: false, orders, form, checkoutMode, visibleCount: 12, activeBrand, activeFor: activeBrand ? '' : this.forFromUrl(mod),
       ...(payResult ? { payResult, orderNumber: params.get('order') || '', payReason: params.get('reason') || '' } : {}) });
   }
 
@@ -1579,7 +1640,35 @@ class Component extends DCLogic {
       this.setState({ brandQuoteOpen: false, brandQuoteSent: true, brandQuote: { name: '', contact: '', details: '' } });
     } catch (err) { this.showToast(err.message); }
   };
-  setBrand = (slug) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeBrand: slug, visibleCount: 12 }, () => slug && this.scrollToId('products')); };
+  setBrand = (slug) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeBrand: slug, activeFor: '', visibleCount: 12 }, () => slug && this.scrollToId('products')); };
+  // Which shop entrance to open: ?for=… in the link, else the one this visitor chose last time (plain visits only).
+  forFromUrl(mod) {
+    const q = new URLSearchParams(location.search);
+    const f = (q.get('for') || '').toLowerCase();
+    if (mod.FOR_PAGES[f]) { try { localStorage.setItem('wts_for', f); } catch (e) {} return f; }
+    if ([...q.keys()].some(k => k !== 'lang')) return '';
+    let saved = ''; try { saved = localStorage.getItem('wts_for') || ''; } catch (e) {}
+    return mod.FOR_PAGES[saved] ? saved : '';
+  }
+  // Open an entrance (or '' = the whole shop); the address follows, so it can be shared as it is.
+  setFor = (key) => (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try { if (key) localStorage.setItem('wts_for', key); else localStorage.removeItem('wts_for'); } catch (err) {}
+    const q = new URLSearchParams(location.search); q.delete('brand');
+    if (key) q.set('for', key); else q.delete('for');
+    try { history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + '#products'); } catch (err) {}
+    this.setState({ activeFor: key, activeCat: 'all', activeBrand: '', search: '', visibleCount: 12, brandQuoteOpen: false, brandQuoteSent: false }, () => this.scrollToId('products'));
+  };
+  // Wholesale / private-label coffee request from the café and coffee pages (saved as a lead).
+  submitWholesale = async (e) => {
+    e.preventDefault();
+    const s = this.state;
+    try {
+      await this._sd.postJSON('lead', { name: s.brandQuote.name, contact: s.brandQuote.contact, cat: 'Bonds wholesale / private label', source: 'Shop — ' + s.activeFor + ' page · wholesale coffee',
+        notes: 'Needs: Bonds wholesale / private-label coffee' + (s.brandQuote.details.trim() ? '\n' + s.brandQuote.details.trim() : '') });
+      this.setState({ brandQuoteOpen: false, brandQuoteSent: true, brandQuote: { name: '', contact: '', details: '' } });
+    } catch (err) { this.showToast(err.message); }
+  };
   clearFilters = () => this.setState({ activeCat: 'all', activeBrand: '', inStockOnly: false, priceMin: '', priceMax: '', sortKey: 'popular', search: '', visibleCount: 12 });
   setSort = (k) => () => this.setState({ sortKey: k, visibleCount: 12 });
   setPrice = (min, max) => () => this.setState({ priceMin: min, priceMax: max, visibleCount: 12 });
@@ -1862,11 +1951,12 @@ class Component extends DCLogic {
     const s = this.state;
     const term = s.search.trim().toLowerCase();
     const active = s.inventory.filter(p => p.status === 'Active' && p.cat !== 'services');
-    const cats = this.activeCategories();
+    const forPage = s.activeFor && this._sd && this._sd.FOR_PAGES ? this._sd.FOR_PAGES[s.activeFor] || null : null;
+    const cats = this.activeCategories().filter(c => !forPage || forPage.cats.includes(c.key));
     const brandOf = (p) => this._sd ? this._sd.brandOf(p) : null;
     const brands = this._sd ? this._sd.BRANDS : [];
     const curBrand = s.activeBrand ? brands.find(b => b.slug === s.activeBrand) || null : null;
-    let filtered = active.filter(p => (s.activeCat === 'all' || p.cat === s.activeCat) && (!curBrand || p.brandId === curBrand.id) && (!term || p.name.toLowerCase().includes(term) || (p.nameEn || '').toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || ((brandOf(p) || {}).name || '').toLowerCase().includes(term) || ((brandOf(p) || {}).nameEn || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
+    let filtered = active.filter(p => (!forPage || forPage.cats.includes(p.cat)) && (s.activeCat === 'all' || p.cat === s.activeCat) && (!curBrand || p.brandId === curBrand.id) && (!term || p.name.toLowerCase().includes(term) || (p.nameEn || '').toLowerCase().includes(term) || (p.vendor || '').toLowerCase().includes(term) || ((brandOf(p) || {}).name || '').toLowerCase().includes(term) || ((brandOf(p) || {}).nameEn || '').toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term) || (p.desc || '').toLowerCase().includes(term)));
     if (s.inStockOnly) filtered = filtered.filter(p => p.stock > 0);
     const min = s.priceMin !== '' ? Number(s.priceMin) : null;
     const max = s.priceMax !== '' ? Number(s.priceMax) : null;
@@ -1878,6 +1968,11 @@ class Component extends DCLogic {
     else if (s.sortKey === 'price_desc') filtered = [...filtered].sort((a, b) => b.price - a.price);
     else if (s.sortKey === 'new') filtered = [...filtered].sort((a, b) => (b.id > a.id ? 1 : -1));
     else filtered = [...filtered].sort((a, b) => (popularity[b.id] || 0) - (popularity[a.id] || 0));
+    // An entrance puts its key products first (unless a price sort was chosen).
+    if (forPage && forPage.first.length && (s.sortKey === 'popular' || !s.sortKey)) {
+      const rank = (p) => { const i = forPage.first.indexOf(p.id); return i < 0 ? 99 : i; };
+      filtered = [...filtered].sort((a, b) => rank(a) - rank(b));
+    }
     const currentZone = (s.areaZones || []).find(z => z.id === s.form.zoneId) || null;
     const pickedArea = (() => {
       if (!s.form.districtId) return { title: '', sub: '' };
@@ -1905,7 +2000,7 @@ class Component extends DCLogic {
       fg: s.activeCat === t.key ? '#22201D' : '#6B6660',
       active: s.activeCat === t.key ? 'true' : 'false', ring: s.activeCat === t.key ? accent : 'transparent',
       isAll: t.key === 'all', img: t.key === 'all' ? '' : this.catThumb(t.key, active),
-      count: t.key === 'all' ? active.length : active.filter(p => p.cat === t.key).length
+      count: t.key === 'all' ? active.filter(p => !forPage || forPage.cats.includes(p.cat)).length : active.filter(p => p.cat === t.key).length
     }));
 
     const fmt = (n) => this._sd ? this._sd.fmtPrice(n) : 'EGP ' + Math.round(n || 0);
@@ -1978,7 +2073,13 @@ class Component extends DCLogic {
       brandHero: curBrand ? { name: curBrand.name, about: curBrand.about || curBrand.tagline || '', logo: curBrand.logo ? this._sd.img(curBrand.logo, 300) : '', link: curBrand.link || '' } : null,
       brandQuoteOpen: !!curBrand && s.brandQuoteOpen, brandQuoteSent: !!curBrand && s.brandQuoteSent, brandQuote: s.brandQuote, openBrandQuote: this.openBrandQuote, submitBrandQuote: this.submitBrandQuote,
       setBrandQuoteName: this.setBrandQuoteField('name'), setBrandQuoteContact: this.setBrandQuoteField('contact'), setBrandQuoteDetails: this.setBrandQuoteField('details'),
-      showBrandStrip: !curBrand && !s.isLoading && brands.length > 0,
+      showBrandStrip: !curBrand && !s.isLoading && brands.length > 0 && (!forPage || !!forPage.brands),
+      // "What are you looking for?" — on the plain shop only.
+      showDoors: !forPage && !curBrand && !term && s.activeCat === 'all',
+      doors: this._sd && this._sd.FOR_PAGES ? Object.entries(this._sd.FOR_PAGES).map(([k, d]) => ({ title: d.door, line: d.doorLine, img: this._sd.img(d.img, 600), onClick: this.setFor(k), href: '?for=' + k + '#products' })) : [],
+      forHero: forPage ? { eyebrow: forPage.eyebrow, title: forPage.title, lead: forPage.lead, plans: !!forPage.plans, wholesale: !!forPage.wholesale } : null,
+      forWholesaleOpen: !!forPage && !!forPage.wholesale && s.brandQuoteOpen, forWholesaleSent: !!forPage && s.brandQuoteSent, submitWholesale: this.submitWholesale,
+      clearFor: this.setFor(''),
       brandStrip: brands.map(b => ({ name: b.name, logo: b.logo ? this._sd.img(b.logo, 160) : '', onClick: this.setBrand(b.slug) })),
       showMeta: !s.isLoading, resultsLabel: nLabel(filtered.length), showNLabel: 'Show ' + nLabel(filtered.length),
       wishCount: s.wishlist.length || null,

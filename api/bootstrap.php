@@ -92,7 +92,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 31;
+const SCHEMA_VERSION = 32;
 
 function db(): PDO
 {
@@ -580,6 +580,12 @@ function migrate(PDO $pdo): void
     }
     // The shop link in the quick replies: /ar shows a proper preview card in WhatsApp (see api/share-page.php).
     $pdo->prepare('UPDATE wa_quick SET body = ? WHERE body = ?')->execute(["تقدر تشوف كل المنتجات والأسعار هنا 👇\nhttps://shop.wheretospot.com/ar", "تقدر تشوف كل المنتجات والأسعار هنا: https://shop.wheretospot.com"]);
+    // Business tools lead the shop: NFC and stands first, coffee next, skincare last (once; the admin can reorder).
+    if (!wa_setting('cats_reordered')) {
+        $order = $pdo->prepare('UPDATE categories SET sort = ? WHERE key = ?');
+        foreach (['nfc' => 1, 'stands' => 2, 'coffee' => 3, 'gift' => 4, 'pets' => 5, 'school' => 6, 'cosmetics' => 8] as $k => $n) $order->execute([$n, $k]);
+        wa_set_setting('cats_reordered', true);
+    }
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
