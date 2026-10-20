@@ -1,4 +1,4 @@
-// Floating "Need help?" assistant for the shop pages.
+// Floating chat assistant for the shop pages (a little face in the corner).
 // It understands typed questions in English and Arabic (including Egyptian Arabic) with plain
 // rules — no AI service, no API keys: keyword matching on normalised text, the live product
 // catalog for prices, the shop's delivery / payment / returns facts, order tracking, and a short
@@ -23,20 +23,23 @@
   const css = `
   :host{all:initial}
   *{box-sizing:border-box;font-family:${AR ? '"IBM Plex Sans Arabic",' : ''}'Work Sans',system-ui,-apple-system,sans-serif}
-  .launch{position:fixed;right:22px;bottom:calc(22px + var(--wts-chat-offset, 0px));z-index:80;display:flex;align-items:center;gap:10px;border:none;cursor:pointer;
-    background:#22201D;color:#F7F3ED;border-radius:999px;padding:8px 20px 8px 8px;font-size:14.5px;font-weight:600;
-    box-shadow:0 18px 40px -16px rgba(20,18,16,.55);transition:transform .2s ease,box-shadow .2s ease}
-  .launch:hover{transform:translateY(-2px);box-shadow:0 22px 44px -16px rgba(20,18,16,.6)}
+  .launch{position:fixed;right:22px;bottom:calc(22px + var(--wts-chat-offset, 0px));z-index:80;display:block;border:none;background:none;padding:0;cursor:pointer;
+    border-radius:36%;filter:drop-shadow(0 14px 22px rgba(60,40,160,.35));transition:transform .2s ease}
+  .launch:hover{transform:translateY(-2px)}
+  .launch .bud{width:64px;height:64px}
+  .launch .bud .eyes{gap:9px}
+  .launch .bud .eyes i{width:10px;height:17px}
+  .launch:focus-visible{outline:3px solid #6A55F5;outline-offset:4px}
   .bud{width:42px;height:42px;border-radius:36%;background:linear-gradient(140deg,#4C6FFF 0%,#6A55F5 55%,#7E46EE 100%);display:grid;place-items:center;position:relative;flex:none;
     box-shadow:inset 0 -3px 6px rgba(40,20,120,.25),inset 0 2px 4px rgba(255,255,255,.25);transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
   .bud .eyes{display:flex;gap:6px;transition:transform .14s ease-out;will-change:transform}
   .bud .eyes i{width:7px;height:12px;border-radius:50%;background:#fff;animation:blink 5s infinite}
   @keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
-  .launch .bud::after{content:'';position:absolute;right:-1px;top:-1px;width:11px;height:11px;border-radius:50%;background:#4CC26B;border:2px solid #22201D}
+  .launch .bud::after{content:'';position:absolute;right:1px;top:1px;width:14px;height:14px;border-radius:50%;background:#4CC26B;border:2.5px solid #fff}
   .launch:hover .bud{transform:rotate(-8deg) scale(1.06)}
   @media (prefers-reduced-motion:reduce){.bud .eyes i{animation:none}.bud,.bud .eyes{transition:none}}
   .launch.hide{opacity:0;pointer-events:none;transform:translateY(10px)}
-  .tease{position:fixed;right:22px;bottom:86px;z-index:80;max-width:270px;background:#fff;color:#22201D;border-radius:18px 18px 4px 18px;
+  .tease{position:fixed;right:22px;bottom:100px;z-index:80;max-width:270px;background:#fff;color:#22201D;border-radius:18px 18px 4px 18px;
     padding:14px 36px 14px 16px;font-size:14px;line-height:1.45;box-shadow:0 20px 50px -20px rgba(20,18,16,.45);cursor:pointer;
     animation:up .35s cubic-bezier(.2,.8,.2,1)}
   .tease b{display:block;font-size:14.5px;margin-bottom:2px}
@@ -100,9 +103,9 @@
     .panel{right:0;left:0;bottom:0;width:100vw;height:88dvh;border-radius:22px 22px 0 0;animation:sheet .3s cubic-bezier(.2,.8,.2,1)}
     .grab{display:block;position:absolute;top:7px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:4px;background:rgba(255,255,255,.35)}
     .head{position:relative;padding-top:22px}
-    .launch{right:16px;bottom:calc(16px + var(--wts-chat-offset, 0px));padding:8px}
-    .launch .txt{display:none}
-    .tease{right:16px;bottom:calc(76px + var(--wts-chat-offset, 0px))}
+    .launch{right:16px;bottom:calc(16px + var(--wts-chat-offset, 0px))}
+    .launch .bud{width:58px;height:58px}
+    .tease{right:16px;bottom:calc(88px + var(--wts-chat-offset, 0px))}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   `;
@@ -571,7 +574,7 @@
       const showTease = !seen() && !st.leadSent && host.dataset.tease === '1' && !matchMedia('(max-width:760px)').matches;
       r.innerHTML =
         (showTease ? '<div class="tease" id="tease"><button class="x" id="tx" aria-label="' + L('Dismiss', 'إغلاق') + '">✕</button><b>' + L('Looking for something specific?', 'بتدور على حاجة معينة؟') + '</b>' + L('Ask me about prices, delivery, or get a quote.', 'اسألني عن الأسعار أو التوصيل أو اطلب عرض سعر.') + '</div>' : '') +
-        '<button class="launch" id="lb" aria-label="' + L('Chat with us', 'تحدث معنا') + '">' + '<span class="bud" aria-hidden="true">' + eyes + '</span><span class="txt">' + L('Need help?', 'محتاج مساعدة؟') + '</span></button>';
+        '<button class="launch" id="lb" aria-label="' + L('Chat with us', 'تحدث معنا') + '">' + '<span class="bud" aria-hidden="true">' + eyes + '</span></button>';
       root.getElementById('lb').onclick = openChat;
       look();
       const tz = root.getElementById('tease');
@@ -646,7 +649,7 @@
       const b = el.parentNode.getBoundingClientRect();
       if (!b.width) return;
       const dx = ptr[0] - (b.left + b.width / 2), dy = ptr[1] - (b.top + b.height / 2);
-      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 140);
+      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 140) * b.width / 42; // bigger face, wider look
       el.style.transform = 'translate(' + (dx / d * 5 * k).toFixed(2) + 'px,' + (dy / d * 4 * k).toFixed(2) + 'px)';
     });
   }
@@ -656,7 +659,7 @@
       setInterval(() => {
         const el = !document.hidden && root.querySelector('.launch .eyes');
         if (!el) return;
-        el.style.transform = Math.random() < .4 ? '' : 'translate(' + ((Math.random() * 2 - 1) * 4).toFixed(1) + 'px,' + ((Math.random() * 2 - 1) * 3).toFixed(1) + 'px)';
+        el.style.transform = Math.random() < .4 ? '' : 'translate(' + ((Math.random() * 2 - 1) * 6).toFixed(1) + 'px,' + ((Math.random() * 2 - 1) * 4).toFixed(1) + 'px)';
       }, 2600);
     }
   }
