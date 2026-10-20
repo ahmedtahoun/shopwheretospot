@@ -478,7 +478,7 @@ export function imgSet(src, small, large) { const a = img(src, small), b = img(s
 // Texts are English; the Arabic shop translates them (i18n.js).
 export const FOR_PAGES = {
   business: {
-    door: 'For your business', doorLine: 'Google reviews, payments & printed stands', img: 'images/nfc-qr-stand-1.jpg',
+    door: 'For your business', doorLine: 'Google reviews, payments & printed stands', img: 'images/doors/business.jpg',
     eyebrow: 'For businesses', title: 'Get more reviews, followers and payments',
     lead: 'NFC & QR stands and cards for Google reviews, social media and InstaPay, printed with your design — plus custom acrylic stands, coasters and monthly marketing plans.',
     cats: ['nfc', 'stands'], first: ['nfc-qr-stand', 'acr-qr-coaster', 'acr-a-stand-8x10', 'nfc1'], plans: true,
