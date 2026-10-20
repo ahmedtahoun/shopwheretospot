@@ -25,6 +25,7 @@ $config = [
     'alert_emails' => [],   // extra addresses that always get alerts
     'smtp' => null,
     'bosta' => [],
+    'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {

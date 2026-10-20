@@ -2066,7 +2066,11 @@
         '<div class="li"><span>Webhook address (paste in Meta → WhatsApp → Configuration)</span><span><code dir="ltr">' + esc(d.webhook) + '</code> <button class="btn sm" id="waCopy">Copy</button></span></div>' +
       '</div>' +
       (d.live ? waLiveChecks(d) : '') +
-      (d.token && d.phoneId ? '<div class="row"><button class="btn" id="waTest">' + (d.live ? 'Check again' : 'Test connection & go-live checks') + '</button></div>' : '<div class="hint">Add the “whatsapp” block to api/config.local.php on the server (see config.local.example.php). Secret values are never shown here.</div>') +
+      // Always there, like Paymob's: re-read the keys on the server, or ask Meta for the full go-live check.
+      '<div class="row"><button class="btn" id="waRecheck">Check again</button>' +
+        '<button class="btn primary" id="waTest"' + (d.token && d.phoneId ? '' : ' disabled title="Add the access key and phone number ID first"') + '>Test connection with WhatsApp</button></div>' +
+      '<div class="hint"><span>' + (d.token && d.phoneId ? 'The test asks Meta about your number, access key and webhook. Nothing is sent to customers.'
+        : 'Add the “whatsapp” block to api/config.local.php on the server (see config.local.example.php), then press Check again.') + '</span> <span>Secret values are never shown here.</span></div>' +
       '<h3 style="margin:6px 0 0">Who takes WhatsApp chats</h3><div class="hint">New chats go to these people in turn. “Away” skips someone (they can also switch it themselves in the inbox).</div>' +
       '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Takes chats</th><th>Away</th></tr></thead><tbody>' +
         d.users.map((u) => '<tr><td>' + esc(u.name) + '</td><td class="small muted">' + esc(u.role) + '</td><td><input type="checkbox" data-agent="' + u.id + '"' + (u.agent ? ' checked' : '') + '></td><td><input type="checkbox" data-away="' + u.id + '"' + (u.away ? ' checked' : '') + '></td></tr>').join('') +
@@ -2075,7 +2079,8 @@
         '<div class="field"><span>Space used by chat files</span><b>' + mb(d.storage) + '</b><span class="hint">' + (d.diskFree ? mb(d.diskFree) + ' free on the server · ' : '') + d.chats + ' chats</span></div></div>' +
       '<div class="row"><button class="btn primary" id="waSave">Save WhatsApp settings</button></div>';
     $('#waCopy').onclick = () => { navigator.clipboard.writeText(d.webhook).then(() => toast('Copied')); };
-    const tb = $('#waTest'); if (tb) tb.onclick = () => waSettings(true);
+    const tb = $('#waTest'); if (tb) tb.onclick = async () => { tb.disabled = true; tb.textContent = 'Checking…'; await waSettings(true); };
+    $('#waRecheck').onclick = async () => { await waSettings(!!d.live); toast('Checked'); };
     const rg = $('#waReg'); if (rg) rg.onclick = async () => {
       try { await api('wa_register', { method: 'POST', body: { pin: $('#waPin').value } }); toast('Number registered'); waSettings(true); } catch (e) { toast(e.message, true); }
     };
