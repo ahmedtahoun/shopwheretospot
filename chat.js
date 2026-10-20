@@ -93,7 +93,11 @@
   .pc-t > span{color:${ACCENT};font-weight:700}
   .pc-a{display:flex;gap:8px;margin-top:4px}
   .pc-a a{font-size:12.5px;font-weight:700;color:#22201D;text-decoration:none;border:1px solid #D6CEC2;border-radius:999px;padding:5px 10px}
-  .pc-a a.add{background:#22201D;color:#fff;border-color:#22201D}
+  .pc-a{flex-wrap:wrap}
+  .pc-a a.add{background:#fff;color:#22201D;border-color:#22201D}
+  .pc-a a.buy{background:${ACCENT};color:#fff;border-color:${ACCENT}}
+  .pc-out{font-size:12.5px;font-weight:700;color:#8A8478;padding:5px 2px}
+  .pc-v{margin-top:4px;max-width:100%;font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid #D6CEC2;border-radius:8px;background:#fff;color:#22201D}
   .lk{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px}
   .lk a{color:${ACCENT};font-weight:700;text-decoration:none}
   .me .lk a{color:#fff}
@@ -203,7 +207,12 @@
 
   const cardFor = (p) => ({ id: p.id, name: AR && p.nameAr ? p.nameAr : p.name, price: priceOf(p), from: !!((p.variants && p.variants.length) || (p.tiers && p.tiers.length)),
     img: p.images && p.images[0] ? 'api/img.php?src=' + encodeURIComponent(p.images[0]) + '&w=160&v=2' : '', options: !!((p.variants && p.variants.length > 1) || (p.addons && p.addons.length)),
-    tiers: (p.tiers && p.tiers.length > 1) || (p.variants || []).some((v) => (v.tiers || []).length > 1) });
+    tiers: (p.tiers && p.tiers.length > 1) || (p.variants || []).some((v) => (v.tiers || []).length > 1),
+    // Sizes to choose from in the card (Add to cart / Buy now), and whether anything is in stock.
+    vars: (p.variants || []).length > 1 ? p.variants.map((v) => ({ id: v.id, label: T(v.label), price: p.discountPct ? v.price * (1 - p.discountPct / 100) : v.price, out: (v.stock | 0) <= 0 })) : null,
+    out: (p.variants || []).length ? p.variants.every((v) => (v.stock | 0) <= 0) : (p.stock | 0) <= 0 });
+  // Size names in Arabic, with the shop's own translations when it has them.
+  const T = (t) => (AR && window.WTS_T ? window.WTS_T(t) : t);
 
   const NEEDS = [
     { id: 'nfc', en: 'NFC review cards & stands', ar: 'كروت وستاندات تقييم NFC', kind: 'product' },
@@ -560,12 +569,34 @@
     render(true);
   }
 
+  // Product cards in the chat: View, Add to cart and Buy now (with a size picker when the product has sizes).
+  const addHref = (id, v, buy) => 'index.html?add=' + encodeURIComponent(id) + (v ? '&v=' + encodeURIComponent(v) : '') + (buy ? '&buy=1' : '');
   function cardsHtml(cards, ar) {
     if (!cards || !cards.length) return '';
-    return '<div class="cards">' + cards.map((c) => '<div class="pc">' + (c.img ? '<img src="' + esc(c.img) + '" alt="" loading="lazy">' : '<span class="pc-ph"></span>') +
-      '<div class="pc-t"><b>' + esc(c.name) + '</b><span>' + (c.from ? (ar ? 'يبدأ من ' : 'from ') : '') + esc(egp(c.price, ar)) + '</span>' +
-      '<div class="pc-a"><a href="/p/' + encodeURIComponent(c.id) + '">' + (ar ? 'التفاصيل' : 'View') + '</a>' +
-      (c.options ? '' : '<a class="add" href="index.html?add=' + encodeURIComponent(c.id) + '">' + (ar ? 'أضف للسلة' : 'Add to cart') + '</a>') + '</div></div></div>').join('') + '</div>';
+    return '<div class="cards">' + cards.map((c) => {
+      // Starts on the cheapest size in stock (the "from" price).
+      const v0 = c.vars ? (c.vars.filter((v) => !v.out).sort((a, b) => a.price - b.price)[0] || c.vars[0]) : null;
+      // Older chat history has no size list: those cards keep View only for products with options.
+      const canBuy = !c.out && (c.vars || !c.options);
+      return '<div class="pc" data-pc="' + esc(c.id) + '">' + (c.img ? '<img src="' + esc(c.img) + '" alt="" loading="lazy">' : '<span class="pc-ph"></span>') +
+        '<div class="pc-t"><b>' + esc(c.name) + '</b><span class="pc-p">' + (v0 ? esc(egp(v0.price, ar)) : (c.from ? (ar ? 'يبدأ من ' : 'from ') : '') + esc(egp(c.price, ar))) + '</span>' +
+        (c.vars && canBuy ? '<select class="pc-v" aria-label="' + (ar ? 'اختار المقاس' : 'Choose a size') + '">' + c.vars.map((v) => '<option value="' + esc(v.id) + '" data-price="' + v.price + '"' +
+          (v === v0 ? ' selected' : '') + (v.out ? ' disabled' : '') + '>' + esc(v.label) + ' — ' + esc(egp(v.price, ar)) + (v.out ? (ar ? ' (نفد)' : ' (sold out)') : '') + '</option>').join('') + '</select>' : '') +
+        '<div class="pc-a"><a href="/p/' + encodeURIComponent(c.id) + '">' + (ar ? 'التفاصيل' : 'View') + '</a>' +
+        (canBuy ? '<a class="add" data-buy="0" href="' + esc(addHref(c.id, v0 && v0.id)) + '">' + (ar ? 'أضف للسلة' : 'Add to cart') + '</a>' +
+          '<a class="buy" data-buy="1" href="' + esc(addHref(c.id, v0 && v0.id, true)) + '">' + (ar ? 'اشتري الآن' : 'Buy now') + '</a>'
+          : c.out ? '<span class="pc-out">' + (ar ? 'نفد حاليًا' : 'Sold out') + '</span>' : '') + '</div></div></div>';
+    }).join('') + '</div>';
+  }
+  // Choosing a size updates the price and the two buttons' links.
+  function wireCards() {
+    root.querySelectorAll('.pc-v').forEach((sel) => {
+      sel.onchange = () => {
+        const pc = sel.closest('.pc'), id = pc.dataset.pc, opt = sel.selectedOptions[0];
+        pc.querySelector('.pc-p').textContent = egp(+opt.dataset.price, AR || hasArabic(pc.textContent));
+        pc.querySelectorAll('[data-buy]').forEach((a) => { a.href = addHref(id, sel.value, a.dataset.buy === '1'); });
+      };
+    });
   }
 
   function render(scroll) {
@@ -608,6 +639,7 @@
     root.getElementById('scrim').onclick = closeChat;
     root.getElementById('rs').onclick = restart;
     root.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => answer(b.dataset.c)));
+    wireCards();
     const f = root.getElementById('f');
     const inp = root.getElementById('in');
     f.onsubmit = (e) => { e.preventDefault(); const v = inp.value; inp.value = ''; if (v.trim() && !typing) answer(v); };

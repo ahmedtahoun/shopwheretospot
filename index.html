@@ -1436,12 +1436,22 @@ class Component extends DCLogic {
     const orders = mod.loadOrders();
     const params = new URLSearchParams(location.search);
     let cart0 = cart;
+    // ?add=<id>[&v=<size>][&buy=1]: from the chat assistant's product cards (Add to cart / Buy now).
     const addId = params.get('add');
-    const addP = addId && inventory.find(p => p.id === addId && p.status === 'Active');
+    let addP = addId && inventory.find(p => p.id === addId && p.status === 'Active');
+    const vs = addP && addP.variants && addP.variants.length ? addP.variants : [];
+    const addV = vs.length ? (vs.find(v => v.id === params.get('v')) || (vs.length === 1 ? vs[0] : null)) : null;
+    // A product with several sizes needs one chosen: without it, open the product page instead.
+    if (addP && vs.length > 1 && !addV) { location.replace('/p/' + encodeURIComponent(addP.id)); return; }
+    const buyNow = !!addP && params.get('buy') === '1';
     if (addP) {
-      const price = addP.discountPct ? Math.round(addP.price * (1 - addP.discountPct / 100) * 100) / 100 : addP.price;
       const name = addP.cat === 'services' ? addP.name + ' (1 month)' : addP.name;
-      cart0 = cart.some(i => i.id === addP.id) ? cart : [...cart, { key: mod.lineKey(addP.id), id: addP.id, name, price, cat: addP.cat, qty: 1 }];
+      const variant = addV ? addV.id : undefined;
+      const key = mod.lineKey(addP.id, variant, []);
+      // Coming back to the same link (Back button, reload) doesn't add it twice.
+      cart0 = cart.some(i => (i.key || mod.lineKey(i.id, i.variant, i.addons)) === key) ? cart
+        : [...cart, { key, id: addP.id, variant, addons: [], name, price: addP.price, cat: addP.cat, qty: 1 }];
+      cart0 = mod.repriceCart(cart0, inventory);
       mod.saveCart(cart0);
       history.replaceState(null, '', location.pathname);
     }
@@ -1449,7 +1459,7 @@ class Component extends DCLogic {
     const payResult = ['ok', 'failed', 'check'].includes(params.get('pay')) ? params.get('pay') : null;
     if (payResult) { cart0 = []; history.replaceState(null, '', location.pathname); }
     const cartOpen = !!addP || !!payResult || params.get('cart') === '1' || params.get('checkout') === '1';
-    const checkoutStep = payResult ? 'success' : params.get('checkout') === '1' && cart.length ? 'info' : this.state.checkoutStep;
+    const checkoutStep = payResult ? 'success' : (params.get('checkout') === '1' && cart.length) || (buyNow && cart0.length) ? 'info' : this.state.checkoutStep;
     let form = this.state.form;
     let checkoutMode = this.state.checkoutMode;
     try {
