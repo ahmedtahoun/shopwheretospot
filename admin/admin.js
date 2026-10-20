@@ -2062,9 +2062,11 @@
         '<div class="li"><span>Verify token (for the webhook)</span><span>' + ok(d.verifyToken) + '</span></div>' +
         (d.info ? '<div class="li"><span>Number</span><span><b dir="ltr">' + esc(d.info.display_phone_number || '') + '</b> · ' + esc(d.info.verified_name || '') + (d.info.quality_rating ? ' · quality ' + esc(d.info.quality_rating) : '') + '</span></div>' : '') +
         (d.error ? '<div class="li"><span>Connection</span><span class="pill bad">✕ ' + esc(d.error) + '</span></div>' : '') +
+        '<div class="li"><span>Last message from Meta</span><span>' + (d.lastWebhook ? dateTime(d.lastWebhook) : '<span class="muted">none yet</span>') + '</span></div>' +
         '<div class="li"><span>Webhook address (paste in Meta → WhatsApp → Configuration)</span><span><code dir="ltr">' + esc(d.webhook) + '</code> <button class="btn sm" id="waCopy">Copy</button></span></div>' +
       '</div>' +
-      (d.token && d.phoneId ? '<div class="row"><button class="btn" id="waTest">Test connection</button></div>' : '<div class="hint">Add the “whatsapp” block to api/config.local.php on the server (see config.local.example.php). Secret values are never shown here.</div>') +
+      (d.live ? waLiveChecks(d) : '') +
+      (d.token && d.phoneId ? '<div class="row"><button class="btn" id="waTest">' + (d.live ? 'Check again' : 'Test connection & go-live checks') + '</button></div>' : '<div class="hint">Add the “whatsapp” block to api/config.local.php on the server (see config.local.example.php). Secret values are never shown here.</div>') +
       '<h3 style="margin:6px 0 0">Who takes WhatsApp chats</h3><div class="hint">New chats go to these people in turn. “Away” skips someone (they can also switch it themselves in the inbox).</div>' +
       '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Takes chats</th><th>Away</th></tr></thead><tbody>' +
         d.users.map((u) => '<tr><td>' + esc(u.name) + '</td><td class="small muted">' + esc(u.role) + '</td><td><input type="checkbox" data-agent="' + u.id + '"' + (u.agent ? ' checked' : '') + '></td><td><input type="checkbox" data-away="' + u.id + '"' + (u.away ? ' checked' : '') + '></td></tr>').join('') +
@@ -2074,11 +2076,40 @@
       '<div class="row"><button class="btn primary" id="waSave">Save WhatsApp settings</button></div>';
     $('#waCopy').onclick = () => { navigator.clipboard.writeText(d.webhook).then(() => toast('Copied')); };
     const tb = $('#waTest'); if (tb) tb.onclick = () => waSettings(true);
+    const rg = $('#waReg'); if (rg) rg.onclick = async () => {
+      try { await api('wa_register', { method: 'POST', body: { pin: $('#waPin').value } }); toast('Number registered'); waSettings(true); } catch (e) { toast(e.message, true); }
+    };
+    $$('[data-sub]').forEach((b) => b.onclick = async () => {
+      try { await api('wa_subscribe', { method: 'POST', body: { waba: b.dataset.sub } }); toast('Webhook connected'); waSettings(true); } catch (e) { toast(e.message, true); }
+    });
     $('#waSave').onclick = async () => {
       const agents = d.users.map((u) => ({ id: u.id, agent: $('[data-agent="' + u.id + '"]').checked, away: $('[data-away="' + u.id + '"]').checked }));
       try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value } }); toast('WhatsApp settings saved'); }
       catch (e) { toast(e.message, true); }
     };
+  }
+
+  // What still stands between the number and real customer chats, in order, each with what to do.
+  function waLiveChecks(d) {
+    const L = d.live, n = L.number || {}, t = L.token;
+    const step = (okv, title, todo) => '<div class="li" style="align-items:flex-start"><span><b>' + (okv ? '✓ ' : okv === false ? '✕ ' : '• ') + esc(title) + '</b>' + (okv ? '' : '<div class="small muted" style="margin-top:3px">' + todo + '</div>') + '</span>' +
+      '<span>' + (okv ? '<span class="pill good">Done</span>' : okv === false ? '<span class="pill bad">To do</span>' : '<span class="pill">Check</span>') + '</span></div>';
+    const wabas = Object.entries(L.wabas || {});
+    const registered = n.status === 'CONNECTED' || n.platform_type === 'CLOUD_API';
+    return '<h3 style="margin:10px 0 0">Go-live checklist</h3><div class="list">' +
+      step(!!n.display_phone_number, 'Meta accepts the access key and phone number ID', 'Check the token and phone_number_id in api/config.local.php.') +
+      step(t ? t.valid && !t.expires : null, 'The access key never expires', t && t.expires ? 'This key expires ' + esc(new Date(t.expires * 1000).toLocaleString(LOC)) + '. Make a permanent one: Business settings → System users → Generate token (whatsapp_business_messaging + whatsapp_business_management), then replace it in api/config.local.php.' : 'Couldn’t read the key’s details.') +
+      step(n.display_phone_number ? !/^\+?1[\s-]?555/.test(n.display_phone_number) && n.account_mode !== 'SANDBOX' : null, 'Your own number (not Meta’s test number)', 'You’re on Meta’s test number. Add your real number in WhatsApp Manager → Phone numbers, then put its Phone number ID in api/config.local.php.') +
+      step(n.display_phone_number ? registered : null, 'The number is registered with the WhatsApp API',
+        'Enter the number’s six-digit two-step PIN (set it in WhatsApp Manager → Phone numbers → Two-step verification if you never did) and press Register.' +
+        '<div class="row" style="margin-top:6px"><input id="waPin" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" style="width:130px"><button class="btn sm" id="waReg">Register</button></div>') +
+      step(n.name_status ? n.name_status === 'APPROVED' || n.name_status === 'AVAILABLE_WITHOUT_REVIEW' : null, 'Display name approved' + (n.verified_name ? ' (' + esc(n.verified_name) + ')' : ''), 'Status: ' + esc(n.name_status || 'unknown') + '. Meta reviews it, usually within a day or two; until then you can still chat but sending may be limited.') +
+      (wabas.length ? wabas.map(([id, on]) => step(on, 'Messages are sent to this dashboard (webhook connected to WhatsApp account ' + id + ')',
+        'Press Connect. Also check Meta → your app → WhatsApp → Configuration: callback URL and verify token saved, and “messages” subscribed.' +
+        '<div class="row" style="margin-top:6px"><button class="btn sm" data-sub="' + esc(id) + '">Connect</button></div>')).join('')
+        : step(null, 'Webhook connected', 'Couldn’t find the WhatsApp account ID from the access key. Add ’waba_id’ (WhatsApp Manager → Account tools → WhatsApp account ID) to the whatsapp block in api/config.local.php.')) +
+      step(d.lastWebhook ? true : null, 'A real message arrived', 'Send a WhatsApp message to the business number from your own phone, then press Check again. It should also appear in the WhatsApp inbox.') +
+      '</div>';
   }
 
   // ---------- partner brands ----------

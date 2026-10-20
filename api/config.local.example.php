@@ -42,6 +42,7 @@ return [
         'app_secret' => '…',
         'verify_token' => 'choose-a-long-random-text',
         'graph_version' => 'v23.0',
+        // 'waba_id' => '…',  // optional: WhatsApp Manager → Account tools → WhatsApp account ID (found automatically from the token when left out)
     ],
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],

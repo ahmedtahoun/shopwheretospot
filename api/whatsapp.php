@@ -71,6 +71,13 @@ function wa_error_text(array $e, int $code = 0): string
         190 => 'The WhatsApp access key has expired or is wrong. Update it in api/config.local.php.',
         100 => 'WhatsApp rejected the request (check the phone number ID in api/config.local.php).',
         131030 => 'This number isn’t on the test number’s allowed list (Meta test mode).',
+        133010 => 'The WhatsApp number isn’t registered yet. Settings → WhatsApp → Register the number.',
+        133005 => 'Wrong PIN. Use the six-digit two-step verification PIN of this number (or reset it in WhatsApp Manager).',
+        131031 => 'Meta has locked this WhatsApp account. Check WhatsApp Manager for the reason.',
+        131042 => 'There’s a payment problem on the WhatsApp account. Add or fix the payment method in WhatsApp Manager.',
+        368 => 'Meta has temporarily blocked this account for policy reasons. Check WhatsApp Manager.',
+        131049 => 'Meta didn’t deliver this message to keep engagement healthy. Try again later or reply when the customer writes.',
+        132001 => 'That message template doesn’t exist or isn’t approved yet.',
     ];
     if (isset($known[$c])) return $known[$c];
     $msg = $e['error_data']['details'] ?? $e['message'] ?? $e['title'] ?? ('HTTP ' . $code);
@@ -233,6 +240,8 @@ function wa_download_media(string $mediaId, string $kind, string $filename = '')
 // Everything Meta sends to the webhook: new messages and delivery/read updates.
 function wa_handle_webhook(array $payload): void
 {
+    // For Settings → WhatsApp: proof that Meta is delivering to us, and when.
+    wa_set_setting('last_webhook', gmdate('Y-m-d H:i:s'));
     foreach ((array) ($payload['entry'] ?? []) as $entry) {
         foreach ((array) ($entry['changes'] ?? []) as $change) {
             $v = $change['value'] ?? [];
@@ -389,4 +398,36 @@ function wa_cleanup(): void
 function wa_storage_bytes(): int
 {
     return (int) db()->query("SELECT COALESCE(SUM(media_size), 0) FROM wa_messages WHERE media_path != ''")->fetchColumn();
+}
+
+
+// ---------- going live: what Settings → WhatsApp checks ----------
+// Everything Meta must have in place for real customer messages to arrive here and replies to go out.
+function wa_live_status(): array
+{
+    $out = ['number' => null, 'token' => null, 'wabas' => [], 'errors' => []];
+    try {
+        $out['number'] = wa_graph('GET', '/' . rawurlencode((string) wa_cfg('phone_number_id')) . '?fields=display_phone_number,verified_name,quality_rating,code_verification_status,name_status,status,platform_type,account_mode,throughput');
+    } catch (Throwable $e) { $out['errors'][] = $e->getMessage(); }
+    // The access key itself: does it expire, and which WhatsApp accounts it can manage.
+    $appId = null;
+    try {
+        $t = wa_graph('GET', '/debug_token?input_token=' . rawurlencode((string) wa_cfg('token')))['data'] ?? [];
+        $appId = isset($t['app_id']) ? (string) $t['app_id'] : null;
+        $out['token'] = ['expires' => (int) ($t['expires_at'] ?? 0), 'valid' => !empty($t['is_valid']), 'scopes' => $t['scopes'] ?? []];
+        foreach ((array) ($t['granular_scopes'] ?? []) as $g) {
+            if (($g['scope'] ?? '') === 'whatsapp_business_management') foreach ((array) ($g['target_ids'] ?? []) as $id) $out['wabas'][(string) $id] = null;
+        }
+    } catch (Throwable $e) { $out['errors'][] = $e->getMessage(); }
+    if (wa_cfg('waba_id')) $out['wabas'] = [(string) wa_cfg('waba_id') => null] + $out['wabas'];
+    // Is our app subscribed to each WhatsApp account (without it Meta sends no messages to the webhook)?
+    foreach (array_keys($out['wabas']) as $id) {
+        try {
+            $apps = wa_graph('GET', '/' . rawurlencode($id) . '/subscribed_apps')['data'] ?? [];
+            $ids = array_map(function ($a) { return (string) ($a['whatsapp_business_api_data']['id'] ?? $a['id'] ?? ''); }, $apps);
+            $out['wabas'][$id] = $appId ? in_array($appId, $ids, true) : (bool) $apps;
+        } catch (Throwable $e) { $out['wabas'][$id] = false; $out['errors'][] = $e->getMessage(); }
+    }
+    $out['lastWebhook'] = wa_setting('last_webhook', null);
+    return $out;
 }

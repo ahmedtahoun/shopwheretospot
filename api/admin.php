@@ -1201,15 +1201,34 @@ try {
         $c = wa_cfg();
         $users = db()->query('SELECT id, name, role, wa_agent, wa_away FROM users WHERE active = 1 ORDER BY name')->fetchAll();
         $info = null; $error = '';
-        if (!empty($_GET['test'])) {
-            try { $info = wa_graph('GET', '/' . rawurlencode((string) wa_cfg('phone_number_id')) . '?fields=display_phone_number,verified_name,quality_rating,code_verification_status,name_status'); }
-            catch (Throwable $e) { $error = $e->getMessage(); }
+        $live = null;
+        if (!empty($_GET['test']) && wa_cfg('token') && wa_cfg('phone_number_id')) {
+            $live = wa_live_status();
+            $info = $live['number'];
+            $error = $live['errors'][0] ?? '';
         }
         json_out(['token' => !empty($c['token']), 'phoneId' => !empty($c['phone_number_id']), 'appSecret' => !empty($c['app_secret']), 'verifyToken' => !empty($c['verify_token']),
-            'ready' => wa_ready(), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
+            'ready' => wa_ready(), 'live' => $live, 'lastWebhook' => wa_setting('last_webhook', null), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
             'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away']]; }, $users),
             'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
             'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
+
+    // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
+    case 'wa_register':
+        $u = require_perm('backups');
+        $pin = preg_replace('/\D/', '', (string) (body()['pin'] ?? ''));
+        if (strlen($pin) !== 6) fail('Enter the six-digit PIN.');
+        wa_graph('POST', '/' . rawurlencode((string) wa_cfg('phone_number_id')) . '/register', ['messaging_product' => 'whatsapp', 'pin' => $pin]);
+        log_activity($u, 'Registered the WhatsApp number');
+        json_out(['ok' => true]);
+
+    case 'wa_subscribe':
+        $u = require_perm('backups');
+        $id = preg_replace('/\D/', '', (string) (body()['waba'] ?? ''));
+        if ($id === '') fail('No WhatsApp account to connect.');
+        wa_graph('POST', '/' . $id . '/subscribed_apps');
+        log_activity($u, 'Connected the WhatsApp webhook');
+        json_out(['ok' => true]);
 
     case 'wa_settings_save':
         $u = require_perm('backups');
