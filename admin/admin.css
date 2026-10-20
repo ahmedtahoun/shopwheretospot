@@ -489,3 +489,6 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .prod-filters{margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .prod-filters select{width:auto;max-width:230px}
 .prod-filters input[type=search]{max-width:280px}
+
+/* Team: last device under the count */
+.dev-last{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

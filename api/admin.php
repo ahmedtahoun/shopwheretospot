@@ -65,7 +65,8 @@ try {
         $_SESSION['uid'] = (int) $u['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(16));
         db()->prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?")->execute([$u['id']]);
-        log_activity($u, 'Signed in');
+        device_check((int) $u['id'], true);
+        log_activity($u, 'Signed in', device_label(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 400)));
         json_out(['ok' => true]);
 
     case 'logout':
@@ -1662,8 +1663,34 @@ try {
         require_perm('dashboard');
         // Everyone can see names (for assigning leads); only owners get the full list.
         $u = current_user();
-        $cols = in_array('team', $u['perms'], true) ? 'id, name, email, phone, role, ref_code, active, notify, created_at, last_login' : 'id, name, role';
+        $owner = in_array('team', $u['perms'], true);
+        $cols = $owner ? "id, name, email, phone, role, ref_code, active, notify, created_at, last_login,
+            (SELECT COUNT(*) FROM user_devices d WHERE d.user_id = users.id AND d.revoked = 0) AS devices,
+            (SELECT label FROM user_devices d WHERE d.user_id = users.id ORDER BY d.last_seen DESC LIMIT 1) AS last_device" : 'id, name, role';
         json_out(['team' => db()->query("SELECT $cols FROM users ORDER BY active DESC, name")->fetchAll()]);
+
+    // The phone or computer this person is using: model and screen size, from the browser.
+    case 'device_hints':
+        $u = require_perm('dashboard');
+        device_hints((int) $u['id'], body());
+        json_out(['ok' => true]);
+
+    case 'devices':
+        require_perm('team');
+        json_out(['devices' => device_list((int) ($_GET['user'] ?? 0))]);
+
+    // Sign a device out: its next request goes back to the sign-in page (signing in again is allowed;
+    // to stop someone completely, untick "Can sign in").
+    case 'device_signout':
+        $u = require_perm('team');
+        $b = body();
+        $st = db()->prepare('SELECT d.id, d.label, d.user_id, us.name FROM user_devices d JOIN users us ON us.id = d.user_id WHERE d.id = ?');
+        $st->execute([(int) ($b['id'] ?? 0)]);
+        $d = $st->fetch();
+        if (!$d) fail('Device not found.', 404);
+        db()->prepare('UPDATE user_devices SET revoked = 1 WHERE id = ?')->execute([$d['id']]);
+        log_activity($u, 'Signed out a device', $d['name'] . ' · ' . $d['label']);
+        json_out(['devices' => device_list((int) $d['user_id'])]);
 
     case 'team_save':
         $u = require_perm('team');

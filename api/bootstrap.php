@@ -94,7 +94,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 37;
+const SCHEMA_VERSION = 38;
 
 function db(): PDO
 {
@@ -606,6 +606,8 @@ function migrate(PDO $pdo): void
     if (!in_array('salary', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN salary REAL');
     // Expenses and suppliers (api/expenses.php).
     expenses_migrate($pdo);
+    // Which devices each team member signs in from (api/devices.php).
+    devices_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -777,6 +779,7 @@ require __DIR__ . '/brands.php';
 require __DIR__ . '/seo-lib.php';
 require __DIR__ . '/whatsapp.php';
 require __DIR__ . '/expenses.php';
+require __DIR__ . '/devices.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void
@@ -841,12 +844,16 @@ function current_user(): ?array
 {
     start_session();
     if (empty($_SESSION['uid'])) return null;
+    static $cache = [];
+    if (isset($cache[$_SESSION['uid']])) return $cache[$_SESSION['uid']];
     $st = db()->prepare('SELECT id, name, email, phone, role, ref_code, active, wa_agent, wa_away FROM users WHERE id = ?');
     $st->execute([$_SESSION['uid']]);
     $u = $st->fetch();
     if (!$u || !$u['active']) return null;
+    // The owner signed this device out (Team → person → Devices): end the session here.
+    if (!device_check((int) $u['id'])) { $_SESSION = []; session_destroy(); return null; }
     $u['perms'] = ROLES[$u['role']] ?? [];
-    return $u;
+    return $cache[$u['id']] = $u;
 }
 
 function require_perm(string $perm): array

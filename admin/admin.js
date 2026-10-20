@@ -105,12 +105,27 @@
     try {
       const s = await api('session');
       S.user = s.user; S.csrf = s.csrf; S.meta = s;
+      if (S.user) sendDeviceHints();
     } catch (e) {
       app.innerHTML = '<div class="auth"><div class="auth-card"><h1>Can’t reach the server</h1><p>' + esc(e.message) + '</p></div></div>';
       return;
     }
     window.addEventListener('hashchange', route);
     route();
+  }
+
+  // The phone or computer in use (Team → person → Devices): Android Chrome gives the exact model;
+  // iPhones only the screen size, which narrows down the model. Sent once per sign-in.
+  async function sendDeviceHints() {
+    const key = 'wts-dev-' + S.user.id;
+    try { if (sessionStorage.getItem(key)) return; } catch (e) {}
+    const h = { screen: Math.round(screen.width) + 'x' + Math.round(screen.height) };
+    try {
+      const uad = navigator.userAgentData;
+      if (uad && uad.getHighEntropyValues) { const v = await uad.getHighEntropyValues(['model', 'platform', 'platformVersion']); h.model = v.model || ''; h.platform = v.platform || ''; h.platformVersion = v.platformVersion || ''; }
+    } catch (e) {}
+    if (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) h.platform = 'iPadOS';
+    try { await api('device_hints', { method: 'POST', body: h }); sessionStorage.setItem(key, '1'); } catch (e) {}
   }
 
   function route() {
@@ -2586,11 +2601,11 @@
   async function pageTeam() {
     await loadTeam();
     $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', (can('targets') ? '<button class="btn" id="teamTargets">🎯 Monthly targets</button>' : '') + '<button class="btn" id="testMail">Send test alert to me</button><button class="btn primary" id="addU">+ Add team member</button>') +
-      '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Referral code</th><th>Order alerts</th><th>Status</th><th>Last sign-in</th></tr></thead><tbody>' +
+      '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Referral code</th><th>Order alerts</th><th>Status</th><th>Devices</th><th>Last sign-in</th></tr></thead><tbody>' +
       S.team.map((u) => '<tr class="click" data-id="' + u.id + '"><td><b>' + esc(u.name) + '</b>' + (u.id === S.user.id ? ' <span class="pill">You</span>' : '') + '<div class="small muted">' + esc(u.email) + (u.phone ? ' · ' + esc(u.phone) : '') + '</div></td>' +
         '<td><b>' + esc(u.role) + '</b><div class="small muted">' + esc(ROLE_INFO[u.role]) + '</div></td><td>' + (u.ref_code ? '<code>' + esc(u.ref_code) + '</code>' : '—') + '</td>' +
         '<td>' + (u.notify ? '<span class="pill info">✉ Email</span>' : '<span class="muted">Off</span>') + '</td>' +
-        '<td>' + (u.active ? '<span class="pill good">✓ Active</span>' : '<span class="pill bad">✕ Disabled</span>') + '</td><td class="small muted">' + dateTime(u.last_login) + '</td></tr>').join('') +
+        '<td>' + (u.active ? '<span class="pill good">✓ Active</span>' : '<span class="pill bad">✕ Disabled</span>') + '</td><td><b>' + (u.devices || 0) + '</b>' + (u.last_device ? '<div class="small muted dev-last">' + esc(u.last_device) + '</div>' : '') + '</td><td class="small muted">' + dateTime(u.last_login) + '</td></tr>').join('') +
       '</tbody></table></div>' +
       '<p class="muted small" style="margin-top:14px">Referral codes: when a customer enters a team member’s code at checkout, the order is credited to them. Orders a team member enters in the dashboard are credited to them too, and count toward their monthly target.</p>';
     $('#addU').onclick = () => userDrawer(null);
@@ -2620,14 +2635,32 @@
       '<label class="field">' + (isNew ? 'Password' : 'New password') + ' <span class="hint">' + (isNew ? 'At least 8 characters — share it with them privately' : 'Leave blank to keep the current one') + '</span>' +
       '<input type="password" name="password" ' + (isNew ? 'required minlength="8"' : '') + ' autocomplete="new-password"></label>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="notify" ' + (u.notify ? 'checked' : '') + '> Email me new orders and enquiries</label>' +
-      '<label class="row" style="font-weight:600"><input type="checkbox" name="active" ' + (u.active ? 'checked' : '') + '> Can sign in</label></form>';
+      '<label class="row" style="font-weight:600"><input type="checkbox" name="active" ' + (u.active ? 'checked' : '') + '> Can sign in</label></form>' +
+      (isNew ? '' : '<div class="stack" style="margin-top:22px"><h3 style="margin:0">Devices</h3><div class="hint">Phones and computers ' + esc(u.name.split(' ')[0]) + ' signed in from. Android shows the exact model; iPhones only show the likely models (Apple hides it).</div><div id="devList" class="muted small">Loading…</div></div>');
     openDrawer(isNew ? 'Add team member' : u.name, body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="uf" type="submit">Save</button>');
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
+    if (!isNew) loadDevices(u);
     $('#uf').onsubmit = async (e) => {
       e.preventDefault();
       try { await api('team_save', { method: 'POST', body: Object.assign({ id: u.id || 0 }, formData(e.target)) }); closeDrawer(); toast('Team member saved'); pageTeam(); }
       catch (err) { toast(err.message, true); }
     };
+  }
+
+  async function loadDevices(u, list) {
+    const box = $('#devList'); if (!box) return;
+    if (!list) { try { list = (await api('devices', { query: '&user=' + u.id })).devices; } catch (e) { box.textContent = e.message; return; } }
+    const used = list.filter((d) => !d.signedOut).length;
+    box.className = '';
+    box.innerHTML = list.length ? '<div class="small muted" style="margin-bottom:8px">' + used + (used === 1 ? ' device' : ' devices') + ' in use' + (list.length > used ? ' · ' + (list.length - used) + ' signed out' : '') + '</div>' +
+      '<div class="list">' + list.map((d) => '<div class="li" style="align-items:flex-start"><span><b>' + esc(d.label || 'Unknown device') + '</b>' + (d.thisDevice ? ' <span class="pill info">This device</span>' : '') + (d.signedOut ? ' <span class="pill">Signed out</span>' : '') +
+        '<div class="small muted">Last used ' + dateTime(d.lastSeen) + ' · first ' + dateTime(d.firstSeen) + ' · ' + d.logins + (d.logins === 1 ? ' sign-in' : ' sign-ins') + (d.ip ? ' · IP <span dir="ltr">' + esc(d.ip) + '</span>' : '') + '</div></span>' +
+        (d.signedOut || d.thisDevice ? '' : '<button type="button" class="btn sm danger" data-devout="' + d.id + '">Sign out</button>') + '</div>').join('') + '</div>'
+      : '<div class="muted small">No sign-ins recorded yet — devices show up from the next time they sign in or open the dashboard.</div>';
+    $$('[data-devout]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Sign ' + u.name + ' out on this device? They can sign in again with their password. To stop them completely, untick “Can sign in”.')) return;
+      try { const r = await api('device_signout', { method: 'POST', body: { id: +b.dataset.devout } }); toast('Device signed out'); loadDevices(u, r.devices); } catch (err) { toast(err.message, true); }
+    });
   }
 
   // ---------- activity ----------
