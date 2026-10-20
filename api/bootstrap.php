@@ -94,7 +94,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 36;
+const SCHEMA_VERSION = 37;
 
 function db(): PDO
 {
@@ -606,6 +606,8 @@ function migrate(PDO $pdo): void
     if (!in_array('salary', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN salary REAL');
     // Expenses and suppliers (api/expenses.php).
     expenses_migrate($pdo);
+    // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
+    $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }

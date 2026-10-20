@@ -2374,6 +2374,12 @@
         (b.month ? '<div class="brand-nums"><div><span class="small muted">Sold in ' + esc(monthLabel(d.month)) + '</span><b>' + egp(b.month.sales) + '</b><span class="small muted">' + b.month.pieces + ' pcs · ' + b.month.orders + ' orders</span></div>' +
           '<div><span class="small muted">You keep</span><b class="pay-ok">' + egp(b.month.commission + b.month.margin) + '</b>' + (b.month.margin ? '<span class="small muted">' + egp(b.month.commission) + ' commission + ' + egp(b.month.margin) + ' margin</span>' : '') + '</div>' +
           '<div><span class="small muted">Owed to the brand now</span><b' + (b.balance.owed > 0 ? ' class="pay-part"' : '') + '>' + egp(b.balance.owed) + '</b><span class="small muted">' + (b.balance.pending ? egp(b.balance.pending) + ' more once delivered' : 'delivered orders only') + '</span></div></div>' : '') +
+        // The brand's products: click one to open it in Products.
+        (b.items && b.items.length ? '<div class="brand-items">' + b.items.map((p) => '<button type="button" class="brand-item" data-op="' + esc(p.id) + '" title="Open in Products">' +
+          (p.img ? '<img src="../img/120/' + encodeURI(p.img) + '" alt="" loading="lazy">' : '<span class="bi-ph"></span>') +
+          '<span class="bi-t"><b>' + esc(p.name) + '</b><span class="small muted">' + (p.from ? 'from ' : '') + egp(p.price) + (p.sizes > 1 ? ' · ' + p.sizes + ' sizes' : '') +
+          ' · ' + (p.stock > 0 ? p.stock + ' in stock' : '<span class="pay-part">out of stock</span>') + '</span></span>' +
+          (p.status === 'Active' ? '' : '<span class="pill">' + esc(p.status) + '</span>') + '<span class="bi-go">Edit →</span></button>').join('') + '</div>' : '') +
         '<div class="row"><button class="btn sm" data-edit="' + b.id + '">Edit brand</button>' + (b.month ? '<button class="btn sm primary" data-st="' + b.id + '">Statement & payments</button>' : '') +
           '<span class="spacer"></span><button class="btn sm" data-add="' + b.id + '">+ Add product</button></div></div>').join('') + '</div>'
         : '<div class="card empty">No partner brands yet. Press “Add brand”.</div>') +
@@ -2384,6 +2390,7 @@
     $$('[data-edit]').forEach((b) => b.onclick = () => brandDrawer(d.brands.find((x) => x.id === +b.dataset.edit)));
     $$('[data-st]').forEach((b) => b.onclick = () => brandStatement(+b.dataset.st, d.month));
     $$('[data-add]').forEach((b) => b.onclick = () => { S.newBrand = +b.dataset.add; location.hash = '#products'; });
+    $$('[data-op]').forEach((b) => b.onclick = () => { S.openProduct = b.dataset.op; location.hash = '#products'; });
   }
 
   function brandDrawer(b) {
