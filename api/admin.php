@@ -214,8 +214,10 @@ try {
             if ($openQuotes) unset($openQuotes['value']);
             $perf['members'] = array_map(function ($m) { unset($m['revenue'], $m['revenue_target']); return $m; }, $perf['members']);
         }
+        // Money going out in the same period (owner and managers only).
+        $spent = $revenue ? expenses_since($since) : null;
         json_out([
-            'days' => $days, 'own' => $own, 'money' => $money, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
+            'days' => $days, 'own' => $own, 'money' => $money, 'spent' => $spent, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
             'toCollect' => $money ? ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']] : null, 'profit' => $profit, 'leadSources' => $leadSources,
             'openQuotes' => $openQuotes, 'myCommission' => $myCommission,
             'kpi' => [
@@ -278,6 +280,97 @@ try {
             log_activity($u, 'Set salary', $name . ' · EGP ' . $salary . ' from ' . $month);
         }
         json_out(team_commissions($month));
+
+    // ---------- expenses & suppliers (owner and managers) ----------
+
+    case 'expenses':
+        require_perm('revenue');
+        json_out(expenses_report((string) ($_GET['month'] ?? '')));
+
+    case 'expense_save':
+        $u = require_perm('revenue');
+        $b = body();
+        $id = (int) ($b['id'] ?? 0);
+        $amount = round((float) ($b['amount'] ?? 0), 2);
+        if ($amount <= 0 || $amount > 10000000) fail('Enter the amount paid.');
+        $category = str_in($b['category'] ?? '', 60);
+        if ($category === '') fail('Choose what the money was for.');
+        $supplierId = (int) ($b['supplier_id'] ?? 0) ?: null;
+        if ($supplierId) {
+            $st = db()->prepare('SELECT id FROM suppliers WHERE id = ?');
+            $st->execute([$supplierId]);
+            if (!$st->fetchColumn()) fail('Supplier not found.');
+        }
+        $vals = [expense_day($b['on'] ?? ''), $category, $amount, str_in($b['note'] ?? '', 300), $supplierId, expense_order_id($b['order'] ?? '')];
+        $pdo = db();
+        tx_begin();
+        if ($id) {
+            $pdo->prepare('UPDATE expenses SET spent_on = ?, category = ?, amount = ?, note = ?, supplier_id = ?, order_id = ? WHERE id = ?')->execute(array_merge($vals, [$id]));
+        } else {
+            $pdo->prepare('INSERT INTO expenses (spent_on, category, amount, note, supplier_id, order_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')->execute(array_merge($vals, [(int) $u['id']]));
+            // A supplier bill paid (partly) on the spot.
+            $paidNow = round((float) ($b['paid_now'] ?? 0), 2);
+            if ($supplierId && $paidNow > 0) {
+                $pdo->prepare('INSERT INTO supplier_payments (supplier_id, amount, paid_on, note, created_by) VALUES (?, ?, ?, ?, ?)')
+                    ->execute([$supplierId, min($paidNow, $amount), $vals[0], 'Paid with the bill', (int) $u['id']]);
+            }
+        }
+        tx_commit();
+        log_activity($u, $id ? 'Edited an expense' : 'Added an expense', $category . ' · EGP ' . $amount);
+        json_out(['ok' => true]);
+
+    case 'expense_delete':
+        $u = require_perm('revenue');
+        $id = (int) (body()['id'] ?? 0);
+        $st = db()->prepare('SELECT category, amount FROM expenses WHERE id = ?');
+        $st->execute([$id]);
+        $e = $st->fetch();
+        if (!$e) fail('Expense not found.', 404);
+        db()->prepare('DELETE FROM expenses WHERE id = ?')->execute([$id]);
+        log_activity($u, 'Deleted an expense', $e['category'] . ' · EGP ' . $e['amount']);
+        json_out(['ok' => true]);
+
+    case 'supplier_save':
+        $u = require_perm('revenue');
+        $b = body();
+        $id = (int) ($b['id'] ?? 0);
+        $name = str_in($b['name'] ?? '', 80);
+        if ($name === '') fail('Enter the supplier’s name.');
+        $vals = [$name, str_in($b['phone'] ?? '', 40), str_in($b['makes'] ?? '', 120), str_in($b['notes'] ?? '', 500), empty($b['active']) && $id ? 0 : 1];
+        if ($id) db()->prepare('UPDATE suppliers SET name = ?, phone = ?, makes = ?, notes = ?, active = ? WHERE id = ?')->execute(array_merge($vals, [$id]));
+        else db()->prepare('INSERT INTO suppliers (name, phone, makes, notes, active) VALUES (?, ?, ?, ?, ?)')->execute($vals);
+        log_activity($u, $id ? 'Edited a supplier' : 'Added a supplier', $name);
+        json_out(['ok' => true, 'id' => $id ?: (int) db()->lastInsertId()]);
+
+    case 'supplier_pay':
+        $u = require_perm('revenue');
+        $b = body();
+        $sid = (int) ($b['supplier_id'] ?? 0);
+        $amount = round((float) ($b['amount'] ?? 0), 2);
+        if ($amount <= 0 || $amount > 10000000) fail('Enter the amount paid.');
+        $st = db()->prepare('SELECT name FROM suppliers WHERE id = ?');
+        $st->execute([$sid]);
+        $name = $st->fetchColumn();
+        if ($name === false) fail('Supplier not found.', 404);
+        db()->prepare('INSERT INTO supplier_payments (supplier_id, amount, paid_on, note, created_by) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$sid, $amount, expense_day($b['on'] ?? ''), str_in($b['note'] ?? '', 300), (int) $u['id']]);
+        log_activity($u, 'Paid a supplier', $name . ' · EGP ' . $amount);
+        json_out(supplier_statement($sid));
+
+    case 'supplier_payment_delete':
+        $u = require_perm('revenue');
+        $id = (int) (body()['id'] ?? 0);
+        $st = db()->prepare('SELECT supplier_id, amount FROM supplier_payments WHERE id = ?');
+        $st->execute([$id]);
+        $p = $st->fetch();
+        if (!$p) fail('Payment not found.', 404);
+        db()->prepare('DELETE FROM supplier_payments WHERE id = ?')->execute([$id]);
+        log_activity($u, 'Deleted a supplier payment', 'EGP ' . $p['amount']);
+        json_out(supplier_statement((int) $p['supplier_id']));
+
+    case 'supplier_statement':
+        require_perm('revenue');
+        json_out(supplier_statement((int) ($_GET['id'] ?? 0)));
 
     // ---------- team-entered orders ----------
 

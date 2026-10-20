@@ -94,7 +94,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 35;
+const SCHEMA_VERSION = 36;
 
 function db(): PDO
 {
@@ -604,6 +604,8 @@ function migrate(PDO $pdo): void
     if (!in_array('commission_pct', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN commission_pct REAL');
     // Monthly salary, kept the same way: set once, carries on to the following months.
     if (!in_array('salary', $targetCols, true)) $pdo->exec('ALTER TABLE targets ADD COLUMN salary REAL');
+    // Expenses and suppliers (api/expenses.php).
+    expenses_migrate($pdo);
     // Quotes made before every quote's customer was kept as a lead.
     foreach ($pdo->query('SELECT id FROM quotes WHERE lead_id IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $qid) link_quote_lead((int) $qid);
 }
@@ -772,6 +774,7 @@ require __DIR__ . '/customers.php';
 require __DIR__ . '/brands.php';
 require __DIR__ . '/seo-lib.php';
 require __DIR__ . '/whatsapp.php';
+require __DIR__ . '/expenses.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

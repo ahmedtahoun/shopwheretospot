@@ -124,8 +124,8 @@
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['inbox', 'WhatsApp', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
-      ['leads', 'Leads', 'inbox'], ['commissions', 'Salaries & commissions', 'coins'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
+      ['leads', 'Leads', 'inbox'], ['commissions', 'Salaries & commissions', 'coins'], ['expenses', 'Expenses & suppliers', 'receipt'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
+    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -148,7 +148,7 @@
     $('#pwBtn').onclick = changePassword;
     const sb = $('#searchBtn'); if (sb) sb.onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, expenses: pageExpenses, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     document.body.classList.toggle('in-inbox', S.route === 'inbox');
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
     waWatch();
@@ -229,6 +229,7 @@
     clip: '<path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/>',
     back: '<path d="M15 5l-7 7 7 7"/>',
     bolt: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+    receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
@@ -259,6 +260,8 @@
       (money ? kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') : kpi('Waiting to confirm', k.pending, '<a href="#orders" data-status="Pending">Call them now →</a>')) +
       kpi('Orders', k.orders, money ? 'avg ' + egp(k.aov) : 'last ' + d.days + ' days, excl. cancelled') +
       (money && !d.own ? '' : kpi('Shipped', k.shipped, 'on the way now') + kpi('Delivered', k.delivered, 'all time') + kpi('Cancelled / returned', k.lost, 'all time')) +
+      (d.spent ? kpi('Expenses', egp(d.spent.total), 'last ' + d.days + ' days · <a href="#expenses">Open →</a>') : '') +
+      (d.spent && d.spent.owed > 0 ? kpi('Owed to suppliers', egp(d.spent.owed), '<a href="#expenses" data-xsup>View suppliers →</a>') : '') +
       (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance' : 'everything is paid') : '') +
       (d.openQuotes ? kpi('Open quotes', d.openQuotes.n, d.openQuotes.n ? (money ? egp(d.openQuotes.value) + ' waiting · ' : '') + '<a href="#quotes">View →</a>' : '<a href="#quotes">Make a quote →</a>') : '') +
       (money ? kpi('Waiting to confirm', k.pending, can('orders') ? '<a href="#orders" data-status="Pending">View pending →</a>' : 'orders') : '') +
@@ -296,6 +299,7 @@
       (!d.own && !can('orders_only') ? teamPerformanceCard(perf, monthName, money) : '');
     $$('#range button').forEach((b) => b.onclick = () => { S.range = +b.dataset.d; pageDashboard(); });
     const dn = $('#dashNew'); if (dn) dn.onclick = () => newOrderDrawer();
+    const xsu = $('[data-xsup]'); if (xsu) xsu.onclick = () => { S.expTab = 'suppliers'; };
     const tb = $('#setTargets'); if (tb) tb.onclick = () => targetsDrawer(perf.month);
     const pend = $('[data-status=Pending]'); if (pend) pend.onclick = () => { S.orderStatus = 'Pending'; };
     drawChart($('#chart'), money ? d.series : d.series.map((x) => ({ ...x, revenue: x.orders })), !money);
@@ -2122,6 +2126,161 @@
   const brandChip = (id) => { const b = (S.brands || []).find((x) => x.id === id); return b ? ' <span class="pill brand-pill">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : '★ ') + esc(b.name) + '</span>' : ''; };
   const monthLabel = (m) => new Date(m + '-01T00:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
   const lastMonths = (n) => Array.from({ length: n }, (_, i) => { const x = new Date(); x.setDate(1); x.setMonth(x.getMonth() - i); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); });
+
+  // ---------- expenses & suppliers ----------
+  // Money going out: everyday costs, and suppliers' bills (owed) and payments (paid in parts or in full).
+  async function pageExpenses() {
+    const d = await api('expenses', { query: '&month=' + (S.expMonth || '') });
+    S.expMonth = d.month; S.exp = d;
+    const tab = S.expTab || 'expenses';
+    const maxCat = Math.max(1, ...d.byCategory.map((c) => c.amount));
+    $('#main').innerHTML = header('Expenses & suppliers', 'Write down what you pay — Bosta, packaging, transport, suppliers — and what you still owe your suppliers.',
+      '<select id="xMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' +
+      '<button class="btn" id="xCsv">' + icon('download') + 'Download sheet</button><button class="btn primary" id="xAdd">+ Add expense</button>') +
+      '<div class="kpis">' + kpi('Spent this month', egp(d.total), d.expenses.length + (d.expenses.length === 1 ? ' entry' : ' entries')) +
+        kpi('Sales this month', egp(d.sales), 'orders placed, without cancelled & returned') +
+        kpi('Left after expenses', egp(d.net), 'sales − expenses') +
+        kpi('Owed to suppliers', egp(d.owed), d.paidSuppliers ? 'paid ' + egp(d.paidSuppliers) + ' this month' : 'all time') + '</div>' +
+      (d.byCategory.length ? '<div class="card"><h2>Where the money went · ' + esc(monthLabel(d.month)) + '</h2>' + d.byCategory.map((c) =>
+        '<div class="hbar"><span>' + esc(c.category) + '</span><div class="track"><div class="fill" style="width:' + (c.amount / maxCat * 100) + '%"></div></div><span class="num" style="text-align:right;white-space:nowrap;min-width:90px">' + egp(c.amount) + '</span></div>').join('') + '</div>' : '') +
+      '<div class="row" style="margin:16px 0 12px"><div class="seg" id="xTabs"><button data-t="expenses" class="' + (tab === 'expenses' ? 'on' : '') + '">Expenses</button><button data-t="suppliers" class="' + (tab === 'suppliers' ? 'on' : '') + '">Suppliers <span class="seg-n">' + d.suppliers.length + '</span></button></div>' +
+        '<span class="spacer"></span>' + (tab === 'suppliers' ? '<button class="btn" id="xSup">+ Add supplier</button>' : '') + '</div>' +
+      (tab === 'expenses'
+        ? (d.expenses.length ? '<div class="card"><div class="table-wrap" style="border:none"><table><thead><tr><th>Date</th><th>For</th><th>Details</th><th class="num">Amount</th><th></th></tr></thead><tbody>' +
+          d.expenses.map((e) => '<tr><td class="small">' + esc(dayLabel(e.on)) + '</td><td><b>' + esc(e.category) + '</b></td><td class="small">' + esc(e.note || '') +
+            (e.supplier ? '<div class="muted">Supplier: ' + esc(e.supplier) + '</div>' : '') + (e.order ? '<div class="muted">Order ' + esc(e.order) + '</div>' : '') + (e.by ? '<div class="muted">by ' + esc(e.by) + '</div>' : '') + '</td>' +
+            '<td class="num"><b>' + egp(e.amount) + '</b></td><td class="num" style="white-space:nowrap"><button class="btn sm" data-xe="' + e.id + '">Edit</button> <button class="btn sm danger" data-xd="' + e.id + '">Delete</button></td></tr>').join('') +
+          '</tbody></table></div></div>' : '<div class="card empty">Nothing written down for ' + esc(monthLabel(d.month)) + ' yet. Press “Add expense”.</div>')
+        : (d.suppliers.length ? '<div class="brand-grid">' + d.suppliers.map((s) => '<div class="card' + (s.active ? '' : ' off') + '"><div class="row"><span style="flex:1;min-width:0"><b>' + esc(s.name) + '</b>' +
+            '<div class="small muted">' + esc(s.makes || '') + (s.phone ? ' · <span dir="ltr">' + esc(s.phone) + '</span>' : '') + '</div></span>' + (s.active ? '' : '<span class="pill">Not used now</span>') + '</div>' +
+            '<div class="brand-nums"><div><span class="small muted">Billed (all time)</span><b>' + egp(s.billed) + '</b><span class="small muted">' + (s.monthBilled ? egp(s.monthBilled) + ' this month' : '&nbsp;') + '</span></div>' +
+              '<div><span class="small muted">Paid</span><b>' + egp(s.paid) + '</b><span class="small muted">&nbsp;</span></div>' +
+              '<div><span class="small muted">' + (s.balance < 0 ? 'Paid in advance' : 'Still owed') + '</span><b class="' + (s.balance > 0 ? 'pay-part' : 'pay-ok') + '">' + egp(Math.abs(s.balance)) + '</b><span class="small muted">' + (s.balance > 0 ? 'to pay' : 'all settled') + '</span></div></div>' +
+            '<div class="row"><button class="btn sm" data-sb="' + s.id + '">+ Bill</button><button class="btn sm primary" data-sp="' + s.id + '">Pay</button><button class="btn sm" data-ss="' + s.id + '">Statement</button><span class="spacer"></span><button class="btn sm" data-se="' + s.id + '">Edit</button></div></div>').join('') + '</div>'
+          : '<div class="card empty">No suppliers yet. Add the people who print and produce for you, then record their bills and what you pay them.</div>')) +
+      '<p class="small muted" style="margin-top:14px">A supplier’s bill counts as an expense in the month of the bill; paying it only lowers what you owe (it isn’t counted twice). “Left after expenses” is a quick cash view: this month’s sales minus this month’s expenses.</p>';
+    $('#xMonth').onchange = (e) => { S.expMonth = e.target.value; pageExpenses(); };
+    $$('#xTabs button').forEach((b) => b.onclick = () => { S.expTab = b.dataset.t; pageExpenses(); });
+    $('#xAdd').onclick = () => expenseDrawer(null);
+    $('#xCsv').onclick = () => expensesSheet(d);
+    const xs = $('#xSup'); if (xs) xs.onclick = () => supplierDrawer(null);
+    $$('[data-xe]').forEach((b) => b.onclick = () => expenseDrawer(d.expenses.find((e) => e.id === +b.dataset.xe)));
+    $$('[data-xd]').forEach((b) => b.onclick = async () => {
+      const e = d.expenses.find((x) => x.id === +b.dataset.xd);
+      if (!confirm('Delete this expense?\n\n' + e.category + ' · ' + egp(e.amount))) return;
+      try { await api('expense_delete', { method: 'POST', body: { id: e.id } }); toast('Expense deleted'); pageExpenses(); } catch (err) { toast(err.message, true); }
+    });
+    $$('[data-sb]').forEach((b) => b.onclick = () => expenseDrawer(null, +b.dataset.sb));
+    $$('[data-sp]').forEach((b) => b.onclick = () => supplierPayDrawer(d.suppliers.find((s) => s.id === +b.dataset.sp)));
+    $$('[data-ss]').forEach((b) => b.onclick = () => supplierStatement(+b.dataset.ss));
+    $$('[data-se]').forEach((b) => b.onclick = () => supplierDrawer(d.suppliers.find((s) => s.id === +b.dataset.se)));
+  }
+  const dayLabel = (s) => s ? new Date(s + 'T00:00:00').toLocaleDateString(LOC, { day: 'numeric', month: 'short' }) : '—';
+  const todayCairo = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date());
+
+  // Add or edit an expense. supplierId: a new bill from that supplier.
+  function expenseDrawer(e, supplierId) {
+    const d = S.exp;
+    const isNew = !e;
+    e = e || { on: todayCairo(), category: supplierId ? d.supplierCategory : '', amount: '', note: '', supplierId: supplierId || null, order: '' };
+    const sups = d.suppliers.filter((s) => s.active || s.id === e.supplierId);
+    openDrawer(isNew ? (supplierId ? 'New bill · ' + (d.suppliers.find((s) => s.id === supplierId) || {}).name : 'Add expense') : 'Edit expense',
+      '<form id="xf" class="stack">' +
+      '<div class="grid2"><label class="field">Date<input type="date" name="on" value="' + esc(e.on) + '" required></label>' +
+        '<label class="field">Amount (EGP)<input type="number" name="amount" min="0" step="0.01" inputmode="decimal" value="' + esc(e.amount) + '" required placeholder="0"></label></div>' +
+      '<label class="field">What was it for? <span class="hint">Choose one or type your own</span><input name="category" list="xCats" value="' + esc(e.category) + '" required maxlength="60" placeholder="e.g. Bosta shipping">' +
+        '<datalist id="xCats">' + d.categories.map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist></label>' +
+      '<div class="chips-row">' + d.categories.map((c) => '<button type="button" class="chip-btn" data-cat="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div>' +
+      '<label class="field">Supplier <span class="hint">Only for bills from someone who produces for you</span><select name="supplier_id"><option value="">— none —</option>' +
+        sups.map((s) => '<option value="' + s.id + '"' + (s.id === e.supplierId ? ' selected' : '') + '>' + esc(s.name) + (s.balance > 0 ? ' (owed ' + egp(s.balance) + ')' : '') + '</option>').join('') + '</select></label>' +
+      (isNew ? '<label class="field" id="xPaidWrap"' + (e.supplierId ? '' : ' hidden') + '>Paid now (EGP) <span class="hint">Leave 0 if you haven’t paid yet; the rest stays as owed</span><input type="number" name="paid_now" min="0" step="0.01" placeholder="0"></label>' : '') +
+      '<label class="field">Order <span class="hint">Optional — e.g. WTS-1015 for a Bosta return fee</span><input name="order" value="' + esc(e.order || '') + '" placeholder="WTS-…" dir="ltr"></label>' +
+      '<label class="field">Note<input name="note" maxlength="300" value="' + esc(e.note || '') + '" placeholder="e.g. 20 boxes, Uber to the printer"></label></form>',
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="xSave">' + (isNew ? 'Add' : 'Save') + '</button>');
+    const f = $('#xf');
+    $$('[data-cat]').forEach((b) => b.onclick = () => { f.category.value = b.dataset.cat; });
+    f.supplier_id.onchange = () => {
+      const w = $('#xPaidWrap'); if (w) w.hidden = !f.supplier_id.value;
+      if (f.supplier_id.value && !f.category.value) f.category.value = d.supplierCategory;
+    };
+    $('#xSave').onclick = async () => {
+      if (!f.reportValidity()) return;
+      try {
+        await api('expense_save', { method: 'POST', body: { id: isNew ? 0 : e.id, on: f.on.value, amount: f.amount.value, category: f.category.value, supplier_id: f.supplier_id.value, paid_now: f.paid_now ? f.paid_now.value : 0, order: f.order.value, note: f.note.value } });
+        closeDrawer(); toast(isNew ? 'Expense added' : 'Expense saved');
+        if (f.on.value.slice(0, 7) !== S.expMonth) S.expMonth = f.on.value.slice(0, 7);
+        pageExpenses();
+      } catch (err) { toast(err.message, true); }
+    };
+  }
+
+  function supplierDrawer(s) {
+    const isNew = !s;
+    s = s || { name: '', phone: '', makes: '', notes: '', active: true };
+    openDrawer(isNew ? 'Add supplier' : 'Edit supplier',
+      '<form id="sf" class="stack"><label class="field">Name<input name="name" required maxlength="80" value="' + esc(s.name) + '"></label>' +
+      '<div class="grid2"><label class="field">Phone<input name="phone" maxlength="40" dir="ltr" value="' + esc(s.phone) + '"></label>' +
+        '<label class="field">What they make<input name="makes" maxlength="120" value="' + esc(s.makes) + '" placeholder="e.g. Acrylic cutting & UV print"></label></div>' +
+      '<label class="field">Notes<textarea name="notes" maxlength="500">' + esc(s.notes) + '</textarea></label>' +
+      (isNew ? '' : '<label class="row" style="gap:8px;font-weight:600"><input type="checkbox" name="active"' + (s.active ? ' checked' : '') + '> Still working with them</label>') + '</form>',
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="sSave">Save</button>');
+    $('#sSave').onclick = async () => {
+      const f = $('#sf'); if (!f.reportValidity()) return;
+      try { await api('supplier_save', { method: 'POST', body: { id: isNew ? 0 : s.id, ...formData(f) } }); closeDrawer(); toast('Supplier saved'); S.expTab = 'suppliers'; pageExpenses(); }
+      catch (err) { toast(err.message, true); }
+    };
+  }
+
+  function supplierPayDrawer(s) {
+    openDrawer('Pay ' + s.name,
+      '<form id="pf" class="stack"><div class="card small">' + (s.balance > 0 ? 'You owe <b>' + egp(s.balance) + '</b>.' : 'Nothing owed right now — a payment now counts as paid in advance.') + '</div>' +
+      '<div class="grid2"><label class="field">Amount (EGP)<input type="number" name="amount" min="0" step="0.01" required value="' + (s.balance > 0 ? s.balance : '') + '"></label>' +
+        '<label class="field">Date<input type="date" name="on" value="' + todayCairo() + '" required></label></div>' +
+      '<label class="field">Note<input name="note" maxlength="300" placeholder="e.g. cash, InstaPay, part of the October bill"></label></form>',
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="pSave">Record payment</button>');
+    $('#pSave').onclick = async () => {
+      const f = $('#pf'); if (!f.reportValidity()) return;
+      try { await api('supplier_pay', { method: 'POST', body: { supplier_id: s.id, amount: f.amount.value, on: f.on.value, note: f.note.value } }); closeDrawer(); toast('Payment recorded'); S.expTab = 'suppliers'; pageExpenses(); }
+      catch (err) { toast(err.message, true); }
+    };
+  }
+
+  async function supplierStatement(id) {
+    let d;
+    try { d = await api('supplier_statement', { query: '&id=' + id }); } catch (e) { toast(e.message, true); return; }
+    const s = d.supplier;
+    openDrawer(s.name + ' · statement',
+      '<div class="stack"><div class="kpis" style="margin:0">' + kpi('Billed', egp(s.billed), 'all time') + kpi('Paid', egp(s.paid), 'all time') +
+        kpi(s.balance < 0 ? 'Paid in advance' : 'Still owed', egp(Math.abs(s.balance)), s.balance > 0 ? 'to pay' : 'all settled') + '</div>' +
+      (d.rows.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>What</th><th class="num">Amount</th><th class="num">Owed after</th><th></th></tr></thead><tbody>' +
+        d.rows.map((r) => '<tr><td class="small">' + esc(dayLabel(r.on)) + '</td><td>' + (r.type === 'bill' ? '<b>Bill</b>' : '<b class="pay-ok">Payment</b>') +
+          '<div class="small muted">' + esc(r.note || '') + (r.order ? ' · ' + esc(r.order) : '') + (r.by ? ' · by ' + esc(r.by) : '') + '</div></td>' +
+          '<td class="num">' + (r.type === 'bill' ? '+' : '−') + egp(r.amount) + '</td><td class="num small">' + egp(r.balance) + '</td>' +
+          '<td class="num">' + (r.type === 'payment' ? '<button class="btn sm danger" data-pd="' + r.id + '">Delete</button>' : '') + '</td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="card muted small">No bills or payments yet.</div>') + '</div>',
+      '<button class="btn" data-sb2>+ Bill</button><span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" data-sp2>Pay</button>');
+    $('[data-sb2]').onclick = () => expenseDrawer(null, s.id);
+    $('[data-sp2]').onclick = () => supplierPayDrawer(s);
+    $$('[data-pd]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Delete this payment?')) return;
+      try { await api('supplier_payment_delete', { method: 'POST', body: { id: +b.dataset.pd } }); toast('Payment deleted'); await pageExpenses(); supplierStatement(id); } catch (err) { toast(err.message, true); }
+    });
+  }
+
+  // The month as a sheet (opens in Excel or Google Sheets).
+  function expensesSheet(d) {
+    const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const rows = [['Month', d.month], ['Spent', d.total], ['Sales', d.sales], ['Left after expenses', d.net], ['Owed to suppliers', d.owed], [],
+      ['Date', 'For', 'Amount (EGP)', 'Supplier', 'Order', 'Note', 'By']];
+    d.expenses.forEach((e) => rows.push([e.on, e.category, e.amount, e.supplier || '', e.order || '', e.note || '', e.by || '']));
+    rows.push([], ['Supplier', 'Billed (all time)', 'Paid', 'Still owed']);
+    d.suppliers.forEach((s) => rows.push([s.name, s.billed, s.paid, s.balance]));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + rows.map((r) => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'expenses-' + d.month + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
 
   // ---------- commissions ----------
   // Earned on delivered orders, in the month they're delivered, on the products' value (order total without shipping).
