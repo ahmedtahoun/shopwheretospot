@@ -2164,7 +2164,7 @@
         kpi('Left after expenses', egp(d.net), 'sales − expenses') +
         kpi('Owed to suppliers', egp(d.owed), d.paidSuppliers ? 'paid ' + egp(d.paidSuppliers) + ' this month' : 'all time') + '</div>' +
       (d.byCategory.length ? '<div class="card"><h2>Where the money went · ' + esc(monthLabel(d.month)) + '</h2>' + d.byCategory.map((c) =>
-        '<div class="hbar"><span>' + esc(c.category) + '</span><div class="track"><div class="fill" style="width:' + (c.amount / maxCat * 100) + '%"></div></div><span class="num" style="text-align:right;white-space:nowrap;min-width:90px">' + egp(c.amount) + '</span></div>').join('') + '</div>' : '') +
+        '<div class="hbar money"><span>' + esc(c.category) + '</span><div class="track"><div class="fill" style="width:' + (c.amount / maxCat * 100) + '%"></div></div><span class="num">' + egp(c.amount) + '</span></div>').join('') + '</div>' : '') +
       '<div class="row" style="margin:16px 0 12px"><div class="seg" id="xTabs"><button data-t="expenses" class="' + (tab === 'expenses' ? 'on' : '') + '">Expenses</button><button data-t="suppliers" class="' + (tab === 'suppliers' ? 'on' : '') + '">Suppliers <span class="seg-n">' + d.suppliers.length + '</span></button></div>' +
         '<span class="spacer"></span>' + (tab === 'suppliers' ? '<button class="btn" id="xSup">+ Add supplier</button>' : '') + '</div>' +
       (tab === 'expenses'
