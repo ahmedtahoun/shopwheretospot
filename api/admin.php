@@ -1359,20 +1359,20 @@ try {
         $money = in_array('revenue', $u['perms'], true);
         $counts = [];
         foreach (db()->query("SELECT brand_id, COUNT(*) n, SUM(status = 'Active') live FROM products WHERE brand_id IS NOT NULL GROUP BY brand_id") as $r) $counts[(int) $r['brand_id']] = $r;
-        // Each brand's products, to find and open them from the brand card.
-        $items = [];
-        foreach (db()->query("SELECT p.id, p.name, p.status, p.price, p.stock, p.variants, p.brand_id,
-                (SELECT path FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort, i.id LIMIT 1) AS img
-            FROM products p WHERE p.brand_id IS NOT NULL ORDER BY p.status = 'Active' DESC, p.sort, p.name") as $p) {
+        // Each brand's product health for its card (the list itself is in Products, filtered by brand).
+        // Stock counts every size; low = 5 or fewer, like the dashboard's low-stock list.
+        $health = [];
+        foreach (db()->query("SELECT brand_id, status, stock, variants FROM products WHERE brand_id IS NOT NULL") as $p) {
+            $h = &$health[(int) $p['brand_id']];
+            $h = ($h ?? []) + ['hidden' => 0, 'out' => 0, 'low' => 0];
+            if ($p['status'] !== 'Active') { $h['hidden']++; unset($h); continue; }
             $vs = json_decode((string) $p['variants'], true) ?: [];
-            $prices = array_map(function ($v) { return (float) ($v['price'] ?? 0); }, $vs);
-            $items[(int) $p['brand_id']][] = ['id' => $p['id'], 'name' => $p['name'], 'status' => $p['status'], 'img' => $p['img'],
-                'price' => $prices ? min($prices) : (float) $p['price'], 'from' => count($prices) > 1,
-                'stock' => $vs ? array_sum(array_map(function ($v) { return (int) ($v['stock'] ?? 0); }, $vs)) : (int) $p['stock'],
-                'sizes' => count($vs)];
+            $stock = $vs ? array_sum(array_map(function ($v) { return (int) ($v['stock'] ?? 0); }, $vs)) : (int) $p['stock'];
+            if ($stock <= 0) $h['out']++; elseif ($stock <= 5) $h['low']++;
+            unset($h);
         }
-        $out = array_map(function ($b) use ($month, $counts, $money, $items) {
-            $b['items'] = $items[$b['id']] ?? [];
+        $out = array_map(function ($b) use ($month, $counts, $money, $health) {
+            $b['health'] = $health[$b['id']] ?? ['hidden' => 0, 'out' => 0, 'low' => 0];
             $b['products'] = (int) ($counts[$b['id']]['n'] ?? 0);
             $b['live'] = (int) ($counts[$b['id']]['live'] ?? 0);
             if ($money) { $b['month'] = brand_totals(brand_lines($b['id'], $month)); $b['balance'] = brand_balance($b['id']); }

@@ -1101,14 +1101,32 @@
     S.products = d.products; S.cats = d.categories; S.brands = d.brands || [];
     const cat = S.prodCat || '';
     const q = (S.prodQ || '').toLowerCase();
-    const list = d.products.filter((p) => (!cat || p.cat === cat) && (!q || (p.name + ' ' + p.sku + ' ' + p.vendor).toLowerCase().includes(q)));
+    // Filters that keep a long catalogue manageable: partner brand, status / stock, and sort order.
+    const brand = S.prodBrand || '', show = S.prodShow || '', sort = S.prodSort || '';
+    const stockOf = (p) => p.variants && p.variants.length ? p.variants.reduce((a, v) => a + (+v.stock || 0), 0) : (+p.stock || 0);
+    const priceOf = (p) => (p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? p.fromPrice : (p.discountPct ? p.price * (1 - p.discountPct / 100) : p.price);
+    const physical = (p) => p.cat !== 'services';
+    const shows = { live: (p) => p.status === 'Active', hidden: (p) => p.status !== 'Active', out: (p) => p.status === 'Active' && physical(p) && stockOf(p) <= 0,
+      low: (p) => p.status === 'Active' && physical(p) && stockOf(p) > 0 && stockOf(p) <= 5 };
+    let list = d.products.filter((p) => (!cat || p.cat === cat) && (!q || (p.name + ' ' + (p.nameAr || '') + ' ' + p.sku + ' ' + p.vendor).toLowerCase().includes(q)) &&
+      (!brand || (brand === 'own' ? !p.brandId : p.brandId === +brand)) && (!show || shows[show](p)));
+    const sorts = { name: (a, b) => a.name.localeCompare(b.name), price: (a, b) => priceOf(a) - priceOf(b), 'price-desc': (a, b) => priceOf(b) - priceOf(a), stock: (a, b) => stockOf(a) - stockOf(b) };
+    if (sorts[sort]) list = list.slice().sort(sorts[sort]);
+    const filtered = !!(cat || q || brand || show);
     const catName = (c) => (AR && c.label_ar) || c.label;
     const catLabel = (k) => { const c = d.categories.find((x) => x.key === k); return c ? catName(c) : k; };
     $('#main').innerHTML = header('Products', d.products.length + ' products · ' + d.categories.length + ' categories',
       '<button class="btn" id="catsBtn">Categories</button><button class="btn primary" id="addBtn">+ Add product</button>') +
-      '<div class="row" style="margin-bottom:14px"><select id="cat" style="max-width:220px"><option value="">All categories</option>' +
-      d.categories.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === cat ? ' selected' : '') + '>' + esc(catName(c)) + ' (' + c.count + ')</option>').join('') +
-      '</select><span class="spacer"></span><input type="search" id="q" placeholder="Search name, SKU, brand" value="' + esc(S.prodQ || '') + '" style="max-width:280px"></div>' +
+      '<div class="row prod-filters"><select id="cat"><option value="">All categories</option>' +
+      d.categories.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === cat ? ' selected' : '') + '>' + esc(catName(c)) + ' (' + c.count + ')</option>').join('') + '</select>' +
+      (S.brands.length ? '<select id="pBrand"><option value="">All brands</option><option value="own"' + (brand === 'own' ? ' selected' : '') + '>Our own products</option>' +
+        S.brands.map((b) => '<option value="' + b.id + '"' + (String(b.id) === brand ? ' selected' : '') + '>' + esc(b.name) + ' (' + d.products.filter((p) => p.brandId === b.id).length + ')</option>').join('') + '</select>' : '') +
+      '<select id="pShow">' + [['', 'All statuses'], ['live', 'Live in the shop'], ['hidden', 'Hidden (draft / archived)'], ['out', 'Out of stock'], ['low', 'Low stock (5 or fewer)']].map(([v, l]) =>
+        '<option value="' + v + '"' + (v === show ? ' selected' : '') + '>' + l + (v ? ' (' + d.products.filter(shows[v]).length + ')' : '') + '</option>').join('') + '</select>' +
+      '<select id="pSort">' + [['', 'Sort: shop order'], ['name', 'Sort: name'], ['price', 'Sort: price, low first'], ['price-desc', 'Sort: price, high first'], ['stock', 'Sort: stock, lowest first']].map(([v, l]) =>
+        '<option value="' + v + '"' + (v === sort ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+      '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, SKU, brand" value="' + esc(S.prodQ || '') + '"></div>' +
+      (filtered ? '<div class="small muted" style="margin:-4px 0 12px">Showing ' + list.length + ' of ' + d.products.length + ' · <a href="#" id="pClear">Clear filters</a></div>' : '') +
       (list.length ? '<div class="table-wrap"><table><thead><tr><th></th><th>Product</th><th>Category</th><th class="num">Price</th><th class="num">Stock</th><th>Status</th></tr></thead><tbody>' +
         list.map((p) => {
           const img = p.images[0] ? thumb(p.images[0].path, 120) : '';
@@ -1116,9 +1134,13 @@
           return '<tr class="click" data-id="' + esc(p.id) + '"><td style="width:60px">' + (img ? '<img class="thumb" src="' + esc(img) + '" alt="" loading="lazy">' : '<div class="thumb"></div>') + '</td>' +
             '<td><b>' + esc(p.name) + '</b>' + brandChip(p.brandId) + '<div class="small muted">' + esc([p.sku, p.vendor].filter(Boolean).join(' · ')) + ' · ' + p.images.length + ' photo' + (p.images.length === 1 ? '' : 's') + '</div></td>' +
             '<td>' + esc(catLabel(p.cat)) + (p.variants && p.variants.length ? '<div class="small muted">' + p.variants.length + ' sizes</div>' : '') + '</td><td class="num">' + ((p.variants && p.variants.length) || (p.tiers && p.tiers.length) ? '<span class="small muted">from </span>' : '') + egp(sale) + (p.discountPct ? '<div class="small muted"><s>' + egp(p.price) + '</s></div>' : '') + (p.period ? '<div class="small muted">/ month</div>' : '') + '</td>' +
-            '<td class="num">' + (p.cat === 'services' ? '—' : (p.stock <= 5 ? '<span class="pill warn">⚠ ' + p.stock + '</span>' : p.stock)) + '</td><td>' + pill(PRODUCT_TONE, p.status) + '</td></tr>';
-        }).join('') + '</tbody></table></div>' : '<div class="card empty">No products here yet. <button class="btn primary sm" id="addBtn2">Add one</button></div>');
+            '<td class="num">' + (p.cat === 'services' ? '—' : (stockOf(p) <= 5 ? '<span class="pill warn">⚠ ' + stockOf(p) + '</span>' : stockOf(p))) + '</td><td>' + pill(PRODUCT_TONE, p.status) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : filtered ? '<div class="card empty">No products match these filters.</div>' : '<div class="card empty">No products here yet. <button class="btn primary sm" id="addBtn2">Add one</button></div>');
     $('#cat').onchange = (e) => { S.prodCat = e.target.value; pageProducts(); };
+    const pb = $('#pBrand'); if (pb) pb.onchange = (e) => { S.prodBrand = e.target.value; pageProducts(); };
+    $('#pShow').onchange = (e) => { S.prodShow = e.target.value; pageProducts(); };
+    $('#pSort').onchange = (e) => { S.prodSort = e.target.value; pageProducts(); };
+    const pc = $('#pClear'); if (pc) pc.onclick = (e) => { e.preventDefault(); S.prodCat = S.prodQ = S.prodBrand = S.prodShow = ''; pageProducts(); };
     let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.prodQ = e.target.value; pageProducts().then(() => { const el = $('#q'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }, 250); };
     $('#addBtn').onclick = () => productDrawer(null);
     const a2 = $('#addBtn2'); if (a2) a2.onclick = () => productDrawer(null);
@@ -2374,12 +2396,12 @@
         (b.month ? '<div class="brand-nums"><div><span class="small muted">Sold in ' + esc(monthLabel(d.month)) + '</span><b>' + egp(b.month.sales) + '</b><span class="small muted">' + b.month.pieces + ' pcs · ' + b.month.orders + ' orders</span></div>' +
           '<div><span class="small muted">You keep</span><b class="pay-ok">' + egp(b.month.commission + b.month.margin) + '</b>' + (b.month.margin ? '<span class="small muted">' + egp(b.month.commission) + ' commission + ' + egp(b.month.margin) + ' margin</span>' : '') + '</div>' +
           '<div><span class="small muted">Owed to the brand now</span><b' + (b.balance.owed > 0 ? ' class="pay-part"' : '') + '>' + egp(b.balance.owed) + '</b><span class="small muted">' + (b.balance.pending ? egp(b.balance.pending) + ' more once delivered' : 'delivered orders only') + '</span></div></div>' : '') +
-        // The brand's products: click one to open it in Products.
-        (b.items && b.items.length ? '<div class="brand-items">' + b.items.map((p) => '<button type="button" class="brand-item" data-op="' + esc(p.id) + '" title="Open in Products">' +
-          (p.img ? '<img src="../img/120/' + encodeURI(p.img) + '" alt="" loading="lazy">' : '<span class="bi-ph"></span>') +
-          '<span class="bi-t"><b>' + esc(p.name) + '</b><span class="small muted">' + (p.from ? 'from ' : '') + egp(p.price) + (p.sizes > 1 ? ' · ' + p.sizes + ' sizes' : '') +
-          ' · ' + (p.stock > 0 ? p.stock + ' in stock' : '<span class="pay-part">out of stock</span>') + '</span></span>' +
-          (p.status === 'Active' ? '' : '<span class="pill">' + esc(p.status) + '</span>') + '<span class="bi-go">Edit →</span></button>').join('') + '</div>' : '') +
+        // Product health in one line, whatever the number of products; the list itself opens in Products, filtered.
+        '<div class="brand-health">' + (b.products ? '<button class="btn sm" data-bp="' + b.id + '">View products (' + b.products + ') →</button>' : '') +
+          (b.health.out ? '<button class="chip-btn warn" data-bp="' + b.id + '" data-show="out">⚠ ' + b.health.out + ' out of stock</button>' : '') +
+          (b.health.low ? '<button class="chip-btn" data-bp="' + b.id + '" data-show="low">' + b.health.low + ' low stock</button>' : '') +
+          (b.health.hidden ? '<button class="chip-btn" data-bp="' + b.id + '" data-show="hidden">' + b.health.hidden + ' hidden</button>' : '') +
+          (b.products && !b.health.out && !b.health.low ? '<span class="small pay-ok">✓ All in stock</span>' : '') + '</div>' +
         '<div class="row"><button class="btn sm" data-edit="' + b.id + '">Edit brand</button>' + (b.month ? '<button class="btn sm primary" data-st="' + b.id + '">Statement & payments</button>' : '') +
           '<span class="spacer"></span><button class="btn sm" data-add="' + b.id + '">+ Add product</button></div></div>').join('') + '</div>'
         : '<div class="card empty">No partner brands yet. Press “Add brand”.</div>') +
@@ -2390,7 +2412,7 @@
     $$('[data-edit]').forEach((b) => b.onclick = () => brandDrawer(d.brands.find((x) => x.id === +b.dataset.edit)));
     $$('[data-st]').forEach((b) => b.onclick = () => brandStatement(+b.dataset.st, d.month));
     $$('[data-add]').forEach((b) => b.onclick = () => { S.newBrand = +b.dataset.add; location.hash = '#products'; });
-    $$('[data-op]').forEach((b) => b.onclick = () => { S.openProduct = b.dataset.op; location.hash = '#products'; });
+    $$('[data-bp]').forEach((b) => b.onclick = () => { S.prodBrand = b.dataset.bp; S.prodShow = b.dataset.show || ''; S.prodCat = ''; S.prodQ = ''; location.hash = '#products'; });
   }
 
   function brandDrawer(b) {
