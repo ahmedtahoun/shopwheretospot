@@ -27,8 +27,14 @@
     background:#22201D;color:#F7F3ED;border-radius:999px;padding:8px 20px 8px 8px;font-size:14.5px;font-weight:600;
     box-shadow:0 18px 40px -16px rgba(20,18,16,.55);transition:transform .2s ease,box-shadow .2s ease}
   .launch:hover{transform:translateY(-2px);box-shadow:0 22px 44px -16px rgba(20,18,16,.6)}
-  .launch .ic{width:40px;height:40px;border-radius:50%;background:${ACCENT};display:grid;place-items:center;position:relative}
-  .launch .ic::after{content:'';position:absolute;right:1px;top:1px;width:10px;height:10px;border-radius:50%;background:#4CC26B;border:2px solid #22201D}
+  .bud{width:42px;height:42px;border-radius:36%;background:linear-gradient(140deg,#4C6FFF 0%,#6A55F5 55%,#7E46EE 100%);display:grid;place-items:center;position:relative;flex:none;
+    box-shadow:inset 0 -3px 6px rgba(40,20,120,.25),inset 0 2px 4px rgba(255,255,255,.25);transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+  .bud .eyes{display:flex;gap:6px;transition:transform .14s ease-out;will-change:transform}
+  .bud .eyes i{width:7px;height:12px;border-radius:50%;background:#fff;animation:blink 5s infinite}
+  @keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+  .launch .bud::after{content:'';position:absolute;right:-1px;top:-1px;width:11px;height:11px;border-radius:50%;background:#4CC26B;border:2px solid #22201D}
+  .launch:hover .bud{transform:rotate(-8deg) scale(1.06)}
+  @media (prefers-reduced-motion:reduce){.bud .eyes i{animation:none}.bud,.bud .eyes{transition:none}}
   .launch.hide{opacity:0;pointer-events:none;transform:translateY(10px)}
   .tease{position:fixed;right:22px;bottom:86px;z-index:80;max-width:270px;background:#fff;color:#22201D;border-radius:18px 18px 4px 18px;
     padding:14px 36px 14px 16px;font-size:14px;line-height:1.45;box-shadow:0 20px 50px -20px rgba(20,18,16,.45);cursor:pointer;
@@ -43,6 +49,7 @@
   .head{background:#22201D;color:#F7F3ED;padding:18px 18px 18px 20px;display:flex;align-items:center;gap:12px}
   .av{width:42px;height:42px;border-radius:50%;background:#F7F3ED;display:grid;place-items:center;flex:none;overflow:hidden}
   .av img{width:34px;height:20px;object-fit:contain;background:#22201D;border-radius:5px;padding:2px 3px}
+  .av.bud{background:linear-gradient(140deg,#4C6FFF 0%,#6A55F5 55%,#7E46EE 100%);border-radius:36%;overflow:visible}
   .who{flex:1;min-width:0}
   .who b{display:block;font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:21px;line-height:1.1}
   .rtl .m.bot{border-bottom-left-radius:18px;border-bottom-right-radius:6px}
@@ -106,7 +113,8 @@
   root.innerHTML = '<style>' + css + '</style><div id="r"></div>';
   const r = root.getElementById('r');
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const chatIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>';
+  // The chat buddy: a little face whose eyes follow the pointer (and blink now and then).
+  const eyes = '<span class="eyes"><i></i><i></i></span>';
   const sendIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   const waIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-3.3-.8-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.8s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>';
 
@@ -563,8 +571,9 @@
       const showTease = !seen() && !st.leadSent && host.dataset.tease === '1' && !matchMedia('(max-width:760px)').matches;
       r.innerHTML =
         (showTease ? '<div class="tease" id="tease"><button class="x" id="tx" aria-label="' + L('Dismiss', 'إغلاق') + '">✕</button><b>' + L('Looking for something specific?', 'بتدور على حاجة معينة؟') + '</b>' + L('Ask me about prices, delivery, or get a quote.', 'اسألني عن الأسعار أو التوصيل أو اطلب عرض سعر.') + '</div>' : '') +
-        '<button class="launch" id="lb" aria-label="' + L('Chat with us', 'تحدث معنا') + '">' + '<span class="ic">' + chatIcon + '</span><span class="txt">' + L('Need help?', 'محتاج مساعدة؟') + '</span></button>';
+        '<button class="launch" id="lb" aria-label="' + L('Chat with us', 'تحدث معنا') + '">' + '<span class="bud" aria-hidden="true">' + eyes + '</span><span class="txt">' + L('Need help?', 'محتاج مساعدة؟') + '</span></button>';
       root.getElementById('lb').onclick = openChat;
+      look();
       const tz = root.getElementById('tease');
       if (tz) {
         tz.onclick = openChat;
@@ -577,7 +586,7 @@
     const ar = st.lastAr;
     r.innerHTML = '<div class="scrim" id="scrim"></div>' +
       '<section class="panel' + (AR ? ' rtl' : '') + '" dir="' + (AR ? 'rtl' : 'ltr') + '" role="dialog" aria-label="' + L('Chat with Where To Spot', 'تحدث مع Where To Spot') + '">' +
-        '<div class="head"><span class="grab"></span><div class="av"><img src="images/logo.png" alt=""></div>' +
+        '<div class="head"><span class="grab"></span><div class="av bud" aria-hidden="true">' + eyes + '</div>' +
           '<div class="who"><b>Where To Spot</b><span>' + L('Assistant · replies instantly', 'المساعد · يرد فورًا') + '</span></div>' +
           '<button class="hbtn" id="rs" title="' + L('Start over', 'ابدأ من جديد') + '" aria-label="' + L('Start over', 'ابدأ من جديد') + '">↺</button>' +
           '<button class="hbtn" id="cl" title="' + L('Close', 'إغلاق') + '" aria-label="' + L('Close chat', 'إغلاق المحادثة') + '">✕</button></div>' +
@@ -600,6 +609,7 @@
     const inp = root.getElementById('in');
     f.onsubmit = (e) => { e.preventDefault(); const v = inp.value; inp.value = ''; if (v.trim() && !typing) answer(v); };
     if (matchMedia('(min-width:521px)').matches) setTimeout(() => inp.focus(), 30);
+    look();
     const msgs = root.getElementById('msgs');
     if (msgs && scroll !== false) { msgs.scrollTop = msgs.scrollHeight; requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; }); }
   }
@@ -625,6 +635,31 @@
   // Other parts of the site can open the assistant, e.g. <a href="#chat">.
   window.wtsOpenChat = openChat;
   window.addEventListener('hashchange', () => { if (location.hash === '#chat') openChat(); });
+
+  // Eyes look toward the mouse; on touch screens they glance around now and then.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let ptr = null, raf = 0;
+  function look() {
+    raf = 0;
+    if (!ptr) return;
+    root.querySelectorAll('.eyes').forEach((el) => {
+      const b = el.parentNode.getBoundingClientRect();
+      if (!b.width) return;
+      const dx = ptr[0] - (b.left + b.width / 2), dy = ptr[1] - (b.top + b.height / 2);
+      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 140);
+      el.style.transform = 'translate(' + (dx / d * 5 * k).toFixed(2) + 'px,' + (dy / d * 4 * k).toFixed(2) + 'px)';
+    });
+  }
+  if (!still) {
+    window.addEventListener('pointermove', (e) => { if (e.pointerType === 'touch') return; ptr = [e.clientX, e.clientY]; if (!raf) raf = requestAnimationFrame(look); }, { passive: true });
+    if (matchMedia('(hover: none)').matches) {
+      setInterval(() => {
+        const el = !document.hidden && root.querySelector('.launch .eyes');
+        if (!el) return;
+        el.style.transform = Math.random() < .4 ? '' : 'translate(' + ((Math.random() * 2 - 1) * 4).toFixed(1) + 'px,' + ((Math.random() * 2 - 1) * 3).toFixed(1) + 'px)';
+      }, 2600);
+    }
+  }
 
   function mount() {
     document.body.appendChild(host);
