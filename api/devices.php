@@ -263,11 +263,11 @@ function team_set_setting(string $key, $value): void
     db()->prepare('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')->execute(['team.' . $key, json_encode($value)]);
 }
 
-// Ask this person for their location now? Only when the owner turned it on, for non-owners,
-// once per sign-in.
+// Ask this person for their location now? When the owner turned it on: everyone (owners too, so the
+// owner can see it working), once per sign-in.
 function login_location_needed(array $u): bool
 {
-    if (!team_setting('ask_location', false) || $u['role'] === 'owner') return false;
+    if (!team_setting('ask_location', false)) return false;
     $id = (int) ($_SESSION['login_id'] ?? 0);
     if (!$id) return false;
     $st = db()->prepare('SELECT loc_status FROM user_logins WHERE id = ? AND user_id = ?');

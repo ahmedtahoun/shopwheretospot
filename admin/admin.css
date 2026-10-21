@@ -492,3 +492,7 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 
 /* Team: last device under the count */
 .dev-last{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Team: the map of a sign-in's location */
+.login-map{padding:4px 0 12px;display:flex;flex-direction:column;gap:6px}
+.login-map iframe{width:100%;height:220px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}

@@ -2696,7 +2696,7 @@
     let d;
     try { d = await api('team_security'); } catch (e) { box.remove(); return; }
     box.innerHTML = '<h2>Sign-in checks</h2><label class="row" style="gap:10px;font-weight:600;align-items:flex-start"><input type="checkbox" id="askLoc"' + (d.askLocation ? ' checked' : '') + ' style="margin-top:3px">' +
-      '<span>Ask team members for their location when they sign in<div class="small muted" style="font-weight:400">Their phone asks “Allow location?” and the answer is saved with that sign-in (Team → person → Recent sign-ins → 📍 Map). Owners aren’t asked. Tell your team before turning it on.</div></span></label>' +
+      '<span>Ask team members for their location when they sign in<div class="small muted" style="font-weight:400">Their phone asks “Allow location?” and the answer is saved with that sign-in (Team → person → Recent sign-ins, with a map). Everyone is asked, owners too. Tell your team before turning it on.</div></span></label>' +
       '<div class="small muted" style="margin-top:8px">Always on: every sign-in records the device, city and internet provider, and you get an email when someone signs in from a new device.</div>';
     $('#askLoc').onchange = async (e) => {
       try { await api('team_security', { method: 'POST', body: { ask_location: e.target.checked } }); toast(e.target.checked ? 'Location will be asked at sign-in' : 'Location won’t be asked'); }
@@ -2710,12 +2710,24 @@
     try { d = await api('person_activity', { query: '&user=' + u.id }); } catch (e) { const b = $('#loginList'); if (b) b.textContent = e.message; return; }
     const lb = $('#loginList'), dl = $('#dayList'); if (!lb || !dl) return;
     lb.className = ''; dl.className = '';
-    lb.innerHTML = d.logins.length ? '<div class="list">' + d.logins.map((l) => '<div class="li" style="align-items:flex-start"><span><b>' + dateTime(l.at) + '</b>' + (l.newDevice ? ' <span class="pill warn">New device</span>' : '') +
+    lb.innerHTML = d.logins.length ? '<div class="list">' + d.logins.map((l, i) => '<div class="li" style="align-items:flex-start"><span><b>' + dateTime(l.at) + '</b>' + (l.newDevice ? ' <span class="pill warn">New device</span>' : '') +
       '<div class="small muted">' + esc(l.device || 'Unknown device') + '</div><div class="small muted">' + [l.city, l.isp].filter(Boolean).map(esc).join(' · ') +
       (l.ip ? (l.city || l.isp ? ' · ' : '') + 'IP <span dir="ltr">' + esc(l.ip) + '</span>' : '') + '</div></span>' +
-      '<span class="small" style="text-align:right;white-space:nowrap">' + (l.location ? '<a href="https://www.google.com/maps?q=' + l.location.lat + ',' + l.location.lng + '" target="_blank" rel="noopener">📍 Map</a><div class="muted">±' + l.location.acc + ' m</div>'
-        : l.locStatus ? '<span class="muted">' + esc(LOC_NOTE[l.locStatus] || '') + '</span>' : '') + '</span></div>').join('') + '</div>'
+      '<span class="small" style="text-align:right;white-space:nowrap">' + (l.location ? '<button type="button" class="btn sm" data-map="' + i + '">📍 Map</button><div class="muted" style="margin-top:4px">±' + l.location.acc + ' m</div>'
+        : l.locStatus ? '<span class="muted">' + esc(LOC_NOTE[l.locStatus] || '') + '</span>' : '') + '</span></div>' +
+      (l.location ? '<div class="login-map" id="map' + i + '" hidden></div>' : '')).join('') + '</div>'
       : '<div class="muted small">No sign-ins recorded yet.</div>';
+    // The map opens inside the page (the newest location opens by itself), with a link to Google Maps.
+    const showMap = (i) => {
+      const box = $('#map' + i), l = d.logins[i]; if (!box || !l.location) return;
+      if (!box.hidden) { box.hidden = true; return; }
+      const q = l.location.lat + ',' + l.location.lng;
+      box.innerHTML = '<iframe title="Location at sign-in" loading="lazy" referrerpolicy="no-referrer" src="https://maps.google.com/maps?q=' + q + '&z=16&output=embed"></iframe>' +
+        '<div class="small"><a href="https://www.google.com/maps?q=' + q + '" target="_blank" rel="noopener">Open in Google Maps ↗</a> · <span dir="ltr">' + l.location.lat.toFixed(5) + ', ' + l.location.lng.toFixed(5) + '</span></div>';
+      box.hidden = false;
+    };
+    $$('[data-map]').forEach((b) => b.onclick = () => showMap(+b.dataset.map));
+    const first = d.logins.findIndex((l) => l.location); if (first >= 0) showMap(first);
     dl.innerHTML = d.days.length ? '<div class="table-wrap"><table><thead><tr><th>Day</th><th>Start</th><th>End</th><th class="num">Dashboard open</th></tr></thead><tbody>' +
       d.days.map((r) => '<tr><td>' + esc(dayName(r.day)) + '</td><td>' + timeOnly(r.first) + '</td><td>' + timeOnly(r.last) + '</td><td class="num">' + hrs(r.onlineMin) + '</td></tr>').join('') + '</tbody></table></div>'
       : '<div class="muted small">No activity in the last 14 days.</div>';
