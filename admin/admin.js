@@ -284,6 +284,9 @@
       (can('products') ? kpi('Live products', k.products, '<a href="#products">Manage →</a>') : '') +
       '</div>' +
       (can('leads') && (d.followUps || []).length ? '<div style="margin-bottom:16px">' + followUpCard(d.followUps) + '</div>' : '') +
+      // Sign-ins from a device the person never used before (owner only, last 7 days).
+      ((d.newDevices || []).length ? '<div class="card" style="margin-bottom:16px"><h2>' + icon('shield') + 'New devices this week<span class="spacer"></span><a class="btn sm" href="#team">Team</a></h2><div class="list">' +
+        d.newDevices.map((n) => '<div class="li"><span><b>' + esc(n.name) + '</b><div class="small muted">' + esc(n.label || 'Unknown device') + (n.city ? ' · ' + esc(n.city) : '') + (n.isp ? ' · ' + esc(n.isp) : '') + '</div></span><span class="small muted">' + dateTime(n.at) + '</span></div>').join('') + '</div></div>' : '') +
       '<div class="dash"><div class="cards">' +
       '<div class="card"><h2>' + (money ? 'Daily revenue (EGP)' : 'Orders per day') + '</h2><div class="chart" id="chart"></div></div>' +
       '<div class="card"><h2>Recent orders<span class="spacer"></span>' + (can('orders') ? '<a class="btn sm" href="#orders">All orders</a>' : '') + '</h2>' +
@@ -2600,7 +2603,7 @@
   // ---------- team ----------
   async function pageTeam() {
     await loadTeam();
-    $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', (can('targets') ? '<button class="btn" id="teamTargets">🎯 Monthly targets</button>' : '') + '<button class="btn" id="testMail">Send test alert to me</button><button class="btn primary" id="addU">+ Add team member</button>') +
+    $('#main').innerHTML = header('Team', 'Who can sign in to this dashboard, and what they can do.', (can('targets') ? '<button class="btn" id="teamTargets">🎯 Monthly targets</button>' : '') + '<button class="btn" id="teamHours">' + icon('clock') + 'Working hours</button><button class="btn" id="testMail">Send test alert to me</button><button class="btn primary" id="addU">+ Add team member</button>') +
       '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Referral code</th><th>Order alerts</th><th>Status</th><th>Devices</th><th>Last sign-in</th></tr></thead><tbody>' +
       S.team.map((u) => '<tr class="click" data-id="' + u.id + '"><td><b>' + esc(u.name) + '</b>' + (u.id === S.user.id ? ' <span class="pill">You</span>' : '') + '<div class="small muted">' + esc(u.email) + (u.phone ? ' · ' + esc(u.phone) : '') + '</div></td>' +
         '<td><b>' + esc(u.role) + '</b><div class="small muted">' + esc(ROLE_INFO[u.role]) + '</div></td><td>' + (u.ref_code ? '<code>' + esc(u.ref_code) + '</code>' : '—') + '</td>' +
@@ -2609,6 +2612,7 @@
       '</tbody></table></div>' +
       '<p class="muted small" style="margin-top:14px">Referral codes: when a customer enters a team member’s code at checkout, the order is credited to them. Orders a team member enters in the dashboard are credited to them too, and count toward their monthly target.</p>';
     $('#addU').onclick = () => userDrawer(null);
+    $('#teamHours').onclick = () => hoursDrawer(7);
     const tt = $('#teamTargets'); if (tt) tt.onclick = () => targetsDrawer('');
     $('#testMail').onclick = async (e) => {
       e.target.disabled = true;
@@ -2636,10 +2640,12 @@
       '<input type="password" name="password" ' + (isNew ? 'required minlength="8"' : '') + ' autocomplete="new-password"></label>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="notify" ' + (u.notify ? 'checked' : '') + '> Email me new orders and enquiries</label>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="active" ' + (u.active ? 'checked' : '') + '> Can sign in</label></form>' +
-      (isNew ? '' : '<div class="stack" style="margin-top:22px"><h3 style="margin:0">Devices</h3><div class="hint">Phones and computers ' + esc(u.name.split(' ')[0]) + ' signed in from. Android shows the exact model; iPhones only show the likely models (Apple hides it).</div><div id="devList" class="muted small">Loading…</div></div>');
+      (isNew ? '' : '<div class="stack" style="margin-top:22px"><h3 style="margin:0">Devices</h3><div class="hint">Phones and computers ' + esc(u.name.split(' ')[0]) + ' signed in from. Android shows the exact model; iPhones only show the likely models (Apple hides it).</div><div id="devList" class="muted small">Loading…</div></div>' +
+        '<div class="stack" style="margin-top:22px"><h3 style="margin:0">Recent sign-ins</h3><div id="loginList" class="muted small">Loading…</div></div>' +
+        '<div class="stack" style="margin-top:22px"><h3 style="margin:0">Working days</h3><div class="hint">First and last use of the dashboard each day, and how long it was open (last 14 days).</div><div id="dayList" class="muted small">Loading…</div></div>');
     openDrawer(isNew ? 'Add team member' : u.name, body, '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" form="uf" type="submit">Save</button>');
     $$('#drawer [data-close]').forEach((b) => b.addEventListener('click', closeDrawer));
-    if (!isNew) loadDevices(u);
+    if (!isNew) { loadDevices(u); loadPersonActivity(u); }
     $('#uf').onsubmit = async (e) => {
       e.preventDefault();
       try { await api('team_save', { method: 'POST', body: Object.assign({ id: u.id || 0 }, formData(e.target)) }); closeDrawer(); toast('Team member saved'); pageTeam(); }
@@ -2654,13 +2660,51 @@
     box.className = '';
     box.innerHTML = list.length ? '<div class="small muted" style="margin-bottom:8px">' + used + (used === 1 ? ' device' : ' devices') + ' in use' + (list.length > used ? ' · ' + (list.length - used) + ' signed out' : '') + '</div>' +
       '<div class="list">' + list.map((d) => '<div class="li" style="align-items:flex-start"><span><b>' + esc(d.label || 'Unknown device') + '</b>' + (d.thisDevice ? ' <span class="pill info">This device</span>' : '') + (d.signedOut ? ' <span class="pill">Signed out</span>' : '') +
-        '<div class="small muted">Last used ' + dateTime(d.lastSeen) + ' · first ' + dateTime(d.firstSeen) + ' · ' + d.logins + (d.logins === 1 ? ' sign-in' : ' sign-ins') + (d.ip ? ' · IP <span dir="ltr">' + esc(d.ip) + '</span>' : '') + '</div></span>' +
+        (d.place ? '<div class="small muted">' + esc(d.place) + '</div>' : '') + '<div class="small muted">Last used ' + dateTime(d.lastSeen) + ' · first ' + dateTime(d.firstSeen) + ' · ' + d.logins + (d.logins === 1 ? ' sign-in' : ' sign-ins') + (d.ip ? ' · IP <span dir="ltr">' + esc(d.ip) + '</span>' : '') + '</div></span>' +
         (d.signedOut || d.thisDevice ? '' : '<button type="button" class="btn sm danger" data-devout="' + d.id + '">Sign out</button>') + '</div>').join('') + '</div>'
       : '<div class="muted small">No sign-ins recorded yet — devices show up from the next time they sign in or open the dashboard.</div>';
     $$('[data-devout]').forEach((b) => b.onclick = async () => {
       if (!confirm('Sign ' + u.name + ' out on this device? They can sign in again with their password. To stop them completely, untick “Can sign in”.')) return;
       try { const r = await api('device_signout', { method: 'POST', body: { id: +b.dataset.devout } }); toast('Device signed out'); loadDevices(u, r.devices); } catch (err) { toast(err.message, true); }
     });
+  }
+
+  const timeOnly = (s) => s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) : '—';
+  const hrs = (m) => m >= 60 ? Math.floor(m / 60) + 'h ' + String(Math.round(m % 60)).padStart(2, '0') + 'm' : Math.round(m) + 'm';
+  const dayName = (d) => new Date(d + 'T00:00:00').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' });
+
+  // One person's recent sign-ins (device, city, provider) and working days.
+  async function loadPersonActivity(u) {
+    let d;
+    try { d = await api('person_activity', { query: '&user=' + u.id }); } catch (e) { const b = $('#loginList'); if (b) b.textContent = e.message; return; }
+    const lb = $('#loginList'), dl = $('#dayList'); if (!lb || !dl) return;
+    lb.className = ''; dl.className = '';
+    lb.innerHTML = d.logins.length ? '<div class="list">' + d.logins.map((l) => '<div class="li" style="align-items:flex-start"><span><b>' + dateTime(l.at) + '</b>' + (l.newDevice ? ' <span class="pill warn">New device</span>' : '') +
+      '<div class="small muted">' + esc(l.device || 'Unknown device') + '</div><div class="small muted">' + [l.city, l.isp].filter(Boolean).map(esc).join(' · ') +
+      (l.ip ? (l.city || l.isp ? ' · ' : '') + 'IP <span dir="ltr">' + esc(l.ip) + '</span>' : '') + '</div></span></div>').join('') + '</div>'
+      : '<div class="muted small">No sign-ins recorded yet.</div>';
+    dl.innerHTML = d.days.length ? '<div class="table-wrap"><table><thead><tr><th>Day</th><th>Start</th><th>End</th><th class="num">Dashboard open</th></tr></thead><tbody>' +
+      d.days.map((r) => '<tr><td>' + esc(dayName(r.day)) + '</td><td>' + timeOnly(r.first) + '</td><td>' + timeOnly(r.last) + '</td><td class="num">' + hrs(r.onlineMin) + '</td></tr>').join('') + '</tbody></table></div>'
+      : '<div class="muted small">No activity in the last 14 days.</div>';
+  }
+
+  // Everyone's days: start, end and time with the dashboard open, plus totals per person.
+  async function hoursDrawer(days) {
+    let d;
+    try { d = await api('team_hours', { query: '&days=' + days }); } catch (e) { toast(e.message, true); return; }
+    const per = {};
+    d.rows.forEach((r) => { const p = per[r.userId] = per[r.userId] || { name: r.name, role: r.role, days: 0, min: 0, starts: [] }; p.days++; p.min += r.onlineMin; p.starts.push(new Date(r.first.replace(' ', 'T') + 'Z')); });
+    const avgStart = (arr) => { const m = arr.reduce((a, t) => a + t.getHours() * 60 + t.getMinutes(), 0) / arr.length; const x = new Date(); x.setHours(Math.floor(m / 60), Math.round(m % 60), 0, 0); return x.toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }); };
+    openDrawer('Working hours',
+      '<div class="stack"><div class="seg" id="hDays">' + [7, 14, 30].map((n) => '<button data-n="' + n + '" class="' + (n === d.days ? 'on' : '') + '">' + n + ' days</button>').join('') + '</div>' +
+      '<div class="hint">Based on when each person has the dashboard open: first and last use each day, and the time it was open (breaks over 15 minutes don’t count).</div>' +
+      (Object.keys(per).length ? '<div class="table-wrap"><table><thead><tr><th>Team member</th><th class="num">Days</th><th class="num">Total open</th><th class="num">Per day</th><th class="num">Usual start</th></tr></thead><tbody>' +
+        Object.values(per).sort((a, b) => b.min - a.min).map((p) => '<tr><td><b>' + esc(p.name) + '</b><div class="small muted">' + esc(p.role) + '</div></td><td class="num">' + p.days + '</td><td class="num">' + hrs(p.min) + '</td><td class="num">' + hrs(p.min / p.days) + '</td><td class="num">' + avgStart(p.starts) + '</td></tr>').join('') +
+        '</tbody></table></div><h3 style="margin:8px 0 0">Day by day</h3><div class="table-wrap"><table><thead><tr><th>Day</th><th>Team member</th><th>Start</th><th>End</th><th class="num">Open</th></tr></thead><tbody>' +
+        d.rows.map((r) => '<tr><td class="small">' + esc(dayName(r.day)) + '</td><td>' + esc(r.name) + '</td><td>' + timeOnly(r.first) + '</td><td>' + timeOnly(r.last) + '</td><td class="num">' + hrs(r.onlineMin) + '</td></tr>').join('') + '</tbody></table></div>'
+        : '<div class="card empty">No activity recorded yet. It starts counting from the next time people use the dashboard.</div>') + '</div>',
+      '<span class="spacer"></span><button class="btn" data-close>Close</button>');
+    $$('#hDays button').forEach((b) => b.onclick = () => hoursDrawer(+b.dataset.n));
   }
 
   // ---------- activity ----------

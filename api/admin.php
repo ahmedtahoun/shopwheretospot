@@ -65,7 +65,7 @@ try {
         $_SESSION['uid'] = (int) $u['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(16));
         db()->prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?")->execute([$u['id']]);
-        device_check((int) $u['id'], true);
+        device_login($u);
         log_activity($u, 'Signed in', device_label(substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 400)));
         json_out(['ok' => true]);
 
@@ -217,8 +217,14 @@ try {
         }
         // Money going out in the same period (owner and managers only).
         $spent = $revenue ? expenses_since($since) : null;
+        // Sign-ins from a device the person never used before, last 7 days (owner).
+        $newDevices = [];
+        if (in_array('team', $u['perms'], true)) {
+            $newDevices = $pdo->query("SELECT l.at, l.city, l.isp, l.user_id, u.name, d.label FROM user_logins l JOIN users u ON u.id = l.user_id LEFT JOIN user_devices d ON d.id = l.device_id
+                WHERE l.new_device = 1 AND l.at >= datetime('now', '-7 days') ORDER BY l.id DESC LIMIT 8")->fetchAll();
+        }
         json_out([
-            'days' => $days, 'own' => $own, 'money' => $money, 'spent' => $spent, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
+            'days' => $days, 'own' => $own, 'money' => $money, 'spent' => $spent, 'newDevices' => $newDevices, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
             'toCollect' => $money ? ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']] : null, 'profit' => $profit, 'leadSources' => $leadSources,
             'openQuotes' => $openQuotes, 'myCommission' => $myCommission,
             'kpi' => [
@@ -1674,6 +1680,20 @@ try {
         $u = require_perm('dashboard');
         device_hints((int) $u['id'], body());
         json_out(['ok' => true]);
+
+    // One person: recent sign-ins (device, city, provider) and the last 14 working days.
+    case 'person_activity':
+        require_perm('team');
+        $id = (int) ($_GET['user'] ?? 0);
+        $since = (new DateTime('-13 days', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+        json_out(['logins' => login_list($id, 20), 'days' => working_hours($since, $id)]);
+
+    // Everyone's working hours for the last 7, 14 or 30 days.
+    case 'team_hours':
+        require_perm('team');
+        $days = in_array((int) ($_GET['days'] ?? 7), [7, 14, 30], true) ? (int) $_GET['days'] : 7;
+        $since = (new DateTime('-' . ($days - 1) . ' days', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+        json_out(['days' => $days, 'since' => $since, 'rows' => working_hours($since)]);
 
     case 'devices':
         require_perm('team');

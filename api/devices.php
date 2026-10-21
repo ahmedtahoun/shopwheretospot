@@ -7,6 +7,29 @@ declare(strict_types=1);
 
 function devices_migrate(PDO $pdo): void
 {
+    // Every sign-in: which device, and from where (city and internet provider from the IP address).
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_logins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_id INTEGER,
+        at TEXT NOT NULL DEFAULT (datetime('now')),
+        ip TEXT DEFAULT '',
+        city TEXT DEFAULT '',
+        isp TEXT DEFAULT '',
+        new_device INTEGER NOT NULL DEFAULT 0
+    )");
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_logins_user ON user_logins(user_id, at)');
+    // City and provider per IP address, kept for 30 days (one lookup per address).
+    $pdo->exec("CREATE TABLE IF NOT EXISTS ip_geo (ip TEXT PRIMARY KEY, city TEXT DEFAULT '', isp TEXT DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))");
+    // Each person's day: first and last time the dashboard was used, and how long it was open (Cairo days).
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_days (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        day TEXT NOT NULL,
+        first_at TEXT NOT NULL,
+        last_at TEXT NOT NULL,
+        online_min REAL NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, day)
+    )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_devices (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -137,11 +160,124 @@ function device_hints(int $uid, array $b): void
 
 function device_list(int $uid): array
 {
-    $st = db()->prepare('SELECT id, dev_id, label, first_seen, last_seen, last_ip, logins, revoked FROM user_devices WHERE user_id = ? ORDER BY revoked, last_seen DESC');
+    $st = db()->prepare("SELECT d.id, d.dev_id, d.label, d.first_seen, d.last_seen, d.last_ip, d.logins, d.revoked,
+            (SELECT TRIM(l.city || CASE WHEN l.isp != '' THEN ' · ' || l.isp ELSE '' END) FROM user_logins l WHERE l.device_id = d.id ORDER BY l.id DESC LIMIT 1) AS place
+        FROM user_devices d WHERE d.user_id = ? ORDER BY d.revoked, d.last_seen DESC");
     $st->execute([$uid]);
     $mine = device_id();
     return array_map(function ($d) use ($mine) {
         return ['id' => (int) $d['id'], 'label' => $d['label'], 'firstSeen' => $d['first_seen'], 'lastSeen' => $d['last_seen'], 'ip' => $d['last_ip'],
-            'logins' => (int) $d['logins'], 'signedOut' => (bool) $d['revoked'], 'thisDevice' => $d['dev_id'] === $mine];
+            'logins' => (int) $d['logins'], 'signedOut' => (bool) $d['revoked'], 'thisDevice' => $d['dev_id'] === $mine, 'place' => trim((string) $d['place'], ' ·')];
+    }, $st->fetchAll());
+}
+
+
+// ---------- sign-ins ----------
+// Called when someone signs in: records the device and the sign-in, looks up the city and provider
+// after the answer is sent, and tells the owner when it's a device this person never used before.
+function device_login(array $u): void
+{
+    $uid = (int) $u['id'];
+    $pdo = db();
+    $dev = device_id();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM user_devices WHERE user_id = ? AND dev_id = ?');
+    $st->execute([$uid, $dev]);
+    $known = (bool) $st->fetchColumn();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM user_devices WHERE user_id = ?');
+    $st->execute([$uid]);
+    $before = (int) $st->fetchColumn();
+    device_check($uid, true);
+    $st = $pdo->prepare('SELECT id, label FROM user_devices WHERE user_id = ? AND dev_id = ?');
+    $st->execute([$uid, $dev]);
+    $d = $st->fetch();
+    $isNew = !$known && $before > 0;
+    $pdo->prepare('INSERT INTO user_logins (user_id, device_id, ip, new_device) VALUES (?, ?, ?, ?)')->execute([$uid, $d['id'] ?? null, device_ip(), $isNew ? 1 : 0]);
+    $loginId = (int) $pdo->lastInsertId();
+    $_SESSION['login_id'] = $loginId;
+    $ip = device_ip();
+    $label = (string) ($d['label'] ?? '');
+    register_shutdown_function(function () use ($loginId, $ip, $isNew, $u, $label) {
+        if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        $g = ip_geo($ip);
+        db()->prepare('UPDATE user_logins SET city = ?, isp = ? WHERE id = ?')->execute([$g['city'], $g['isp'], $loginId]);
+        if ($isNew) device_new_alert($u, $label, $g, $ip);
+    });
+}
+
+// City and internet provider for an IP address. Uses ipinfo.io when 'ipinfo_token' is set in
+// config.local.php, otherwise ipapi.co's free lookup (only the IP address is sent).
+function ip_geo(string $ip): array
+{
+    $none = ['city' => '', 'isp' => ''];
+    if ($ip === '' || !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return $none;
+    $st = db()->prepare("SELECT city, isp FROM ip_geo WHERE ip = ? AND at > datetime('now', '-30 days')");
+    $st->execute([$ip]);
+    if ($row = $st->fetch()) return ['city' => $row['city'], 'isp' => $row['isp']];
+    $token = (string) (cfg('ipinfo_token') ?? '');
+    $url = $token !== '' ? 'https://ipinfo.io/' . rawurlencode($ip) . '/json?token=' . rawurlencode($token) : 'https://ipapi.co/' . rawurlencode($ip) . '/json/';
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_USERAGENT => 'WhereToSpot-Dashboard/1.0']);
+    $j = json_decode((string) curl_exec($ch), true);
+    if (!is_array($j) || !empty($j['error']) || !empty($j['bogon'])) return $none;
+    $city = trim(implode(', ', array_unique(array_filter([$j['city'] ?? '', $j['region'] ?? '']))));
+    // "AS36935 Vodafone Data" → "Vodafone Data"
+    $isp = trim(preg_replace('/^AS\d+\s+/', '', (string) ($j['org'] ?? $j['asn_org'] ?? '')));
+    $out = ['city' => mb_substr($city, 0, 80), 'isp' => mb_substr($isp, 0, 80)];
+    db()->prepare('INSERT INTO ip_geo (ip, city, isp, at) VALUES (?, ?, ?, datetime(\'now\')) ON CONFLICT(ip) DO UPDATE SET city = excluded.city, isp = excluded.isp, at = excluded.at')
+        ->execute([$ip, $out['city'], $out['isp']]);
+    return $out;
+}
+
+// Email to the owner(s): someone signed in from a device they never used before.
+function device_new_alert(array $u, string $label, array $geo, string $ip): void
+{
+    log_activity($u, 'New device', $label . ($geo['city'] ? ' · ' . $geo['city'] : ''));
+    $to = db()->query("SELECT email FROM users WHERE role = 'owner' AND active = 1")->fetchAll(PDO::FETCH_COLUMN);
+    if (!$to) return;
+    $where = trim(implode(' · ', array_filter([$geo['city'], $geo['isp']])));
+    $inner = '<p style="margin:0 0 12px"><b>' . h($u['name']) . '</b> just signed in to the dashboard from a device they haven’t used before.</p>' .
+        '<p style="margin:0 0 6px"><b>Device:</b> ' . h($label) . '</p>' . ($where ? '<p style="margin:0 0 6px"><b>From:</b> ' . h($where) . '</p>' : '') .
+        '<p style="margin:0 0 16px"><b>IP:</b> ' . h($ip) . '</p><p style="margin:0 0 16px">If this wasn’t them, open Team → ' . h($u['name']) . ' → Devices and press Sign out, and change their password.</p>' .
+        btn(rtrim((string) cfg('site_url'), '/') . '/admin/#team', 'Open Team');
+    send_mail($to, 'New device sign-in: ' . $u['name'], email_shell('New device sign-in', $inner),
+        $u['name'] . " signed in from a new device.\nDevice: $label\n" . ($where ? "From: $where\n" : '') . "IP: $ip\n\nIf this wasn't them: Team → " . $u['name'] . ' → Devices → Sign out.');
+}
+
+// ---------- working hours ----------
+// Counts the time the dashboard is open: first and last use each day, and minutes with activity
+// (gaps over 15 minutes, like a closed laptop, don't count). Once a minute at most.
+function device_ping(int $uid): void
+{
+    $now = time();
+    if (($now - (int) ($_SESSION['ping'] ?? 0)) < 60) return;
+    $prev = (int) ($_SESSION['ping'] ?? 0);
+    $_SESSION['ping'] = $now;
+    $tz = new DateTimeZone('Africa/Cairo');
+    $day = (new DateTime('@' . $now))->setTimezone($tz)->format('Y-m-d');
+    $at = gmdate('Y-m-d H:i:s', $now);
+    $gap = $prev && $now - $prev <= 900 ? ($now - $prev) / 60 : 0;
+    db()->prepare('INSERT INTO user_days (user_id, day, first_at, last_at, online_min) VALUES (?, ?, ?, ?, 0)
+        ON CONFLICT(user_id, day) DO UPDATE SET last_at = excluded.last_at, online_min = online_min + ?')->execute([$uid, $day, $at, $at, round($gap, 2)]);
+}
+
+// Last sign-ins of one person, newest first.
+function login_list(int $uid, int $limit = 20): array
+{
+    $st = db()->prepare('SELECT l.*, d.label FROM user_logins l LEFT JOIN user_devices d ON d.id = l.device_id WHERE l.user_id = ? ORDER BY l.id DESC LIMIT ' . max(1, min(100, $limit)));
+    $st->execute([$uid]);
+    return array_map(function ($l) {
+        return ['at' => $l['at'], 'device' => $l['label'], 'ip' => $l['ip'], 'city' => $l['city'], 'isp' => $l['isp'], 'newDevice' => (bool) $l['new_device']];
+    }, $st->fetchAll());
+}
+
+// Working days for everyone (or one person) since a day.
+function working_hours(string $since, ?int $uid = null): array
+{
+    $sql = 'SELECT d.*, u.name, u.role FROM user_days d JOIN users u ON u.id = d.user_id WHERE d.day >= ?' . ($uid ? ' AND d.user_id = ?' : '') . ' ORDER BY d.day DESC, u.name';
+    $st = db()->prepare($sql);
+    $st->execute($uid ? [$since, $uid] : [$since]);
+    return array_map(function ($r) {
+        return ['userId' => (int) $r['user_id'], 'name' => $r['name'], 'role' => $r['role'], 'day' => $r['day'], 'first' => $r['first_at'], 'last' => $r['last_at'], 'onlineMin' => (int) round((float) $r['online_min'])];
     }, $st->fetchAll());
 }

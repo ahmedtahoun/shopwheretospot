@@ -25,6 +25,7 @@ $config = [
     'alert_emails' => [],   // extra addresses that always get alerts
     'smtp' => null,
     'bosta' => [],
+    'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
@@ -94,7 +95,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 38;
+const SCHEMA_VERSION = 39;
 
 function db(): PDO
 {
@@ -852,6 +853,7 @@ function current_user(): ?array
     if (!$u || !$u['active']) return null;
     // The owner signed this device out (Team → person → Devices): end the session here.
     if (!device_check((int) $u['id'])) { $_SESSION = []; session_destroy(); return null; }
+    device_ping((int) $u['id']); // working hours (Team → Working hours)
     $u['perms'] = ROLES[$u['role']] ?? [];
     return $cache[$u['id']] = $u;
 }
