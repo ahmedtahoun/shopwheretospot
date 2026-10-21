@@ -1,0 +1,7 @@
+# Team dashboard: browsers check for a newer copy of the app files every time (an unchanged file
+# isn't downloaded again), so everyone gets the new version right after a deploy.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|html|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

@@ -19,6 +19,11 @@ function devices_migrate(PDO $pdo): void
         new_device INTEGER NOT NULL DEFAULT 0
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_logins_user ON user_logins(user_id, at)');
+    // The phone's GPS location at sign-in, when the owner turned it on and the person allowed it.
+    $cols = $pdo->query('PRAGMA table_info(user_logins)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    foreach (['lat' => 'REAL', 'lng' => 'REAL', 'acc' => 'REAL', 'loc_status' => 'TEXT'] as $c => $t) {
+        if (!in_array($c, $cols, true)) $pdo->exec("ALTER TABLE user_logins ADD COLUMN $c $t");
+    }
     // City and provider per IP address, kept for 30 days (one lookup per address).
     $pdo->exec("CREATE TABLE IF NOT EXISTS ip_geo (ip TEXT PRIMARY KEY, city TEXT DEFAULT '', isp TEXT DEFAULT '', at TEXT NOT NULL DEFAULT (datetime('now')))");
     // Each person's day: first and last time the dashboard was used, and how long it was open (Cairo days).
@@ -244,6 +249,48 @@ function device_new_alert(array $u, string $label, array $geo, string $ip): void
         $u['name'] . " signed in from a new device.\nDevice: $label\n" . ($where ? "From: $where\n" : '') . "IP: $ip\n\nIf this wasn't them: Team → " . $u['name'] . ' → Devices → Sign out.');
 }
 
+// ---------- location at sign-in (owner's choice) ----------
+function team_setting(string $key, $default = null)
+{
+    $st = db()->prepare('SELECT value FROM kv WHERE key = ?');
+    $st->execute(['team.' . $key]);
+    $v = $st->fetchColumn();
+    return $v === false ? $default : json_decode((string) $v, true);
+}
+
+function team_set_setting(string $key, $value): void
+{
+    db()->prepare('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')->execute(['team.' . $key, json_encode($value)]);
+}
+
+// Ask this person for their location now? Only when the owner turned it on, for non-owners,
+// once per sign-in.
+function login_location_needed(array $u): bool
+{
+    if (!team_setting('ask_location', false) || $u['role'] === 'owner') return false;
+    $id = (int) ($_SESSION['login_id'] ?? 0);
+    if (!$id) return false;
+    $st = db()->prepare('SELECT loc_status FROM user_logins WHERE id = ? AND user_id = ?');
+    $st->execute([$id, (int) $u['id']]);
+    return $st->fetchColumn() === null;
+}
+
+// Save the answer for this sign-in: the position, or why there isn't one (not allowed, unavailable).
+function login_location(int $uid, array $b): void
+{
+    $id = (int) ($_SESSION['login_id'] ?? 0);
+    if (!$id) return;
+    if (!isset($b['lat'], $b['lng'])) {
+        $why = in_array($b['denied'] ?? '', ['denied', 'unavailable', 'timeout'], true) ? $b['denied'] : 'denied';
+        db()->prepare('UPDATE user_logins SET loc_status = ? WHERE id = ? AND user_id = ?')->execute([$why, $id, $uid]);
+        return;
+    }
+    $lat = max(-90, min(90, (float) $b['lat']));
+    $lng = max(-180, min(180, (float) $b['lng']));
+    db()->prepare("UPDATE user_logins SET lat = ?, lng = ?, acc = ?, loc_status = 'ok' WHERE id = ? AND user_id = ?")
+        ->execute([round($lat, 6), round($lng, 6), round(max(0, (float) ($b['acc'] ?? 0))), $id, $uid]);
+}
+
 // ---------- working hours ----------
 // Counts the time the dashboard is open: first and last use each day, and minutes with activity
 // (gaps over 15 minutes, like a closed laptop, don't count). Once a minute at most.
@@ -267,7 +314,8 @@ function login_list(int $uid, int $limit = 20): array
     $st = db()->prepare('SELECT l.*, d.label FROM user_logins l LEFT JOIN user_devices d ON d.id = l.device_id WHERE l.user_id = ? ORDER BY l.id DESC LIMIT ' . max(1, min(100, $limit)));
     $st->execute([$uid]);
     return array_map(function ($l) {
-        return ['at' => $l['at'], 'device' => $l['label'], 'ip' => $l['ip'], 'city' => $l['city'], 'isp' => $l['isp'], 'newDevice' => (bool) $l['new_device']];
+        return ['at' => $l['at'], 'device' => $l['label'], 'ip' => $l['ip'], 'city' => $l['city'], 'isp' => $l['isp'], 'newDevice' => (bool) $l['new_device'],
+            'location' => ($l['loc_status'] ?? '') === 'ok' ? ['lat' => (float) $l['lat'], 'lng' => (float) $l['lng'], 'acc' => (int) $l['acc']] : null, 'locStatus' => $l['loc_status'] ?? null];
     }, $st->fetchAll());
 }
 

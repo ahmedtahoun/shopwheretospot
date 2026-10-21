@@ -106,6 +106,7 @@
       const s = await api('session');
       S.user = s.user; S.csrf = s.csrf; S.meta = s;
       if (S.user) sendDeviceHints();
+      if (S.user && s.askLocation) askLoginLocation();
     } catch (e) {
       app.innerHTML = '<div class="auth"><div class="auth-card"><h1>Can’t reach the server</h1><p>' + esc(e.message) + '</p></div></div>';
       return;
@@ -126,6 +127,18 @@
     } catch (e) {}
     if (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) h.platform = 'iPadOS';
     try { await api('device_hints', { method: 'POST', body: h }); sessionStorage.setItem(key, '1'); } catch (e) {}
+  }
+
+  // The owner turned on "Ask for location at sign-in": the phone shows its own Allow / Don't allow,
+  // and the answer is saved once with this sign-in.
+  function askLoginLocation() {
+    const send = (body) => api('login_location', { method: 'POST', body }).catch(() => {});
+    if (!navigator.geolocation) { send({ denied: 'unavailable' }); return; }
+    toast('Please allow your location — it’s saved once with your sign-in.');
+    navigator.geolocation.getCurrentPosition(
+      (p) => send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }),
+      (e) => send({ denied: e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable' }),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
   }
 
   function route() {
@@ -2610,9 +2623,11 @@
         '<td>' + (u.notify ? '<span class="pill info">✉ Email</span>' : '<span class="muted">Off</span>') + '</td>' +
         '<td>' + (u.active ? '<span class="pill good">✓ Active</span>' : '<span class="pill bad">✕ Disabled</span>') + '</td><td><b>' + (u.devices || 0) + '</b>' + (u.last_device ? '<div class="small muted dev-last">' + esc(u.last_device) + '</div>' : '') + '</td><td class="small muted">' + dateTime(u.last_login) + '</td></tr>').join('') +
       '</tbody></table></div>' +
+      '<div class="card" id="teamSec" style="margin-top:16px"></div>' +
       '<p class="muted small" style="margin-top:14px">Referral codes: when a customer enters a team member’s code at checkout, the order is credited to them. Orders a team member enters in the dashboard are credited to them too, and count toward their monthly target.</p>';
     $('#addU').onclick = () => userDrawer(null);
     $('#teamHours').onclick = () => hoursDrawer(7);
+    teamSecurity();
     const tt = $('#teamTargets'); if (tt) tt.onclick = () => targetsDrawer('');
     $('#testMail').onclick = async (e) => {
       e.target.disabled = true;
@@ -2673,7 +2688,23 @@
   const hrs = (m) => m >= 60 ? Math.floor(m / 60) + 'h ' + String(Math.round(m % 60)).padStart(2, '0') + 'm' : Math.round(m) + 'm';
   const dayName = (d) => new Date(d + 'T00:00:00').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' });
 
-  // One person's recent sign-ins (device, city, provider) and working days.
+  const LOC_NOTE = { denied: 'Location not allowed', unavailable: 'Location unavailable', timeout: 'Location timed out' };
+
+  // Owner's choice: ask team members for their location each time they sign in.
+  async function teamSecurity() {
+    const box = $('#teamSec'); if (!box) return;
+    let d;
+    try { d = await api('team_security'); } catch (e) { box.remove(); return; }
+    box.innerHTML = '<h2>Sign-in checks</h2><label class="row" style="gap:10px;font-weight:600;align-items:flex-start"><input type="checkbox" id="askLoc"' + (d.askLocation ? ' checked' : '') + ' style="margin-top:3px">' +
+      '<span>Ask team members for their location when they sign in<div class="small muted" style="font-weight:400">Their phone asks “Allow location?” and the answer is saved with that sign-in (Team → person → Recent sign-ins → 📍 Map). Owners aren’t asked. Tell your team before turning it on.</div></span></label>' +
+      '<div class="small muted" style="margin-top:8px">Always on: every sign-in records the device, city and internet provider, and you get an email when someone signs in from a new device.</div>';
+    $('#askLoc').onchange = async (e) => {
+      try { await api('team_security', { method: 'POST', body: { ask_location: e.target.checked } }); toast(e.target.checked ? 'Location will be asked at sign-in' : 'Location won’t be asked'); }
+      catch (err) { toast(err.message, true); e.target.checked = !e.target.checked; }
+    };
+  }
+
+  // One person's recent sign-ins (device, city, provider, location) and working days.
   async function loadPersonActivity(u) {
     let d;
     try { d = await api('person_activity', { query: '&user=' + u.id }); } catch (e) { const b = $('#loginList'); if (b) b.textContent = e.message; return; }
@@ -2681,7 +2712,9 @@
     lb.className = ''; dl.className = '';
     lb.innerHTML = d.logins.length ? '<div class="list">' + d.logins.map((l) => '<div class="li" style="align-items:flex-start"><span><b>' + dateTime(l.at) + '</b>' + (l.newDevice ? ' <span class="pill warn">New device</span>' : '') +
       '<div class="small muted">' + esc(l.device || 'Unknown device') + '</div><div class="small muted">' + [l.city, l.isp].filter(Boolean).map(esc).join(' · ') +
-      (l.ip ? (l.city || l.isp ? ' · ' : '') + 'IP <span dir="ltr">' + esc(l.ip) + '</span>' : '') + '</div></span></div>').join('') + '</div>'
+      (l.ip ? (l.city || l.isp ? ' · ' : '') + 'IP <span dir="ltr">' + esc(l.ip) + '</span>' : '') + '</div></span>' +
+      '<span class="small" style="text-align:right;white-space:nowrap">' + (l.location ? '<a href="https://www.google.com/maps?q=' + l.location.lat + ',' + l.location.lng + '" target="_blank" rel="noopener">📍 Map</a><div class="muted">±' + l.location.acc + ' m</div>'
+        : l.locStatus ? '<span class="muted">' + esc(LOC_NOTE[l.locStatus] || '') + '</span>' : '') + '</span></div>').join('') + '</div>'
       : '<div class="muted small">No sign-ins recorded yet.</div>';
     dl.innerHTML = d.days.length ? '<div class="table-wrap"><table><thead><tr><th>Day</th><th>Start</th><th>End</th><th class="num">Dashboard open</th></tr></thead><tbody>' +
       d.days.map((r) => '<tr><td>' + esc(dayName(r.day)) + '</td><td>' + timeOnly(r.first) + '</td><td>' + timeOnly(r.last) + '</td><td class="num">' + hrs(r.onlineMin) + '</td></tr>').join('') + '</tbody></table></div>'

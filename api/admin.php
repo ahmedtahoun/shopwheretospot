@@ -31,7 +31,7 @@ try {
         $u = current_user();
         if ($u && empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
         $keyPath = basename(dirname(cfg('data_dir'))) . '/' . basename(cfg('data_dir')) . '/SETUP_KEY.txt';
-        json_out(['user' => $u, 'csrf' => $u ? $_SESSION['csrf'] : null, 'needsSetup' => $needsSetup, 'setupKeyPath' => $needsSetup ? $keyPath : null,
+        json_out(['user' => $u, 'csrf' => $u ? $_SESSION['csrf'] : null, 'needsSetup' => $needsSetup, 'askLocation' => $u ? login_location_needed($u) : false, 'setupKeyPath' => $needsSetup ? $keyPath : null,
             'roles' => array_keys(ROLES), 'orderStatuses' => ORDER_STATUSES, 'leadStatuses' => LEAD_STATUSES]);
 
     case 'setup':
@@ -1681,7 +1681,23 @@ try {
         device_hints((int) $u['id'], body());
         json_out(['ok' => true]);
 
-    // One person: recent sign-ins (device, city, provider) and the last 14 working days.
+    // The phone's GPS location for this sign-in (or that it wasn't allowed), when the owner asks for it.
+    case 'login_location':
+        $u = require_perm('dashboard');
+        login_location((int) $u['id'], body());
+        json_out(['ok' => true]);
+
+    // Owner: ask team members for their location at sign-in (on/off).
+    case 'team_security':
+        $u = require_perm('team');
+        if ($method === 'POST') {
+            $on = !empty(body()['ask_location']);
+            team_set_setting('ask_location', $on);
+            log_activity($u, 'Changed sign-in checks', 'Ask for location at sign-in: ' . ($on ? 'on' : 'off'));
+        }
+        json_out(['askLocation' => (bool) team_setting('ask_location', false)]);
+
+    // One person: recent sign-ins (device, city, provider, location) and the last 14 working days.
     case 'person_activity':
         require_perm('team');
         $id = (int) ($_GET['user'] ?? 0);
