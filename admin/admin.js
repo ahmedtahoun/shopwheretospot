@@ -131,14 +131,38 @@
 
   // The owner turned on "Ask for location at sign-in": the phone shows its own Allow / Don't allow,
   // and the answer is saved once with this sign-in.
+  // iPhones only show "Allow location?" after a tap, so this asks with a button. Kept outside #app so
+  // page changes behind it don't close it.
   function askLoginLocation() {
     const send = (body) => api('login_location', { method: 'POST', body }).catch(() => {});
     if (!navigator.geolocation) { send({ denied: 'unavailable' }); return; }
-    toast('Please allow your location — it’s saved once with your sign-in.');
-    navigator.geolocation.getCurrentPosition(
-      (p) => send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }),
-      (e) => send({ denied: e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable' }),
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+    if (document.getElementById('locAsk')) return;
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+    const help = ios
+      ? 'Location is off for this browser. On your iPhone: Settings → Privacy & Security → Location Services → turn it on → Safari Websites (or Chrome) → While Using the App. Then in Safari tap “aA” next to the address → Website Settings → Location → Allow, and tap Try again.'
+      : 'Location is blocked for this site. Tap the icon next to the address (🔒 or ⚙) → Permissions → Location → Allow, and make sure your phone’s Location is on. Then tap Try again.';
+    const box = document.createElement('div');
+    box.id = 'locAsk';
+    box.innerHTML = '<div class="loc-card" role="dialog" aria-modal="true" aria-labelledby="locT"><div class="loc-pin">📍</div><h2 id="locT">Share your location</h2>' +
+      '<p>Your sign-in is recorded with your location, once, now. You’re not tracked after this.</p><p class="loc-help" hidden></p>' +
+      '<div class="loc-actions"><button class="btn primary" id="locYes">Share my location</button><button class="btn" id="locNo">Not now</button></div></div>';
+    document.body.appendChild(box);
+    const yes = box.querySelector('#locYes'), no = box.querySelector('#locNo'), hp = box.querySelector('.loc-help');
+    const close = () => box.remove();
+    no.onclick = () => { send({ denied: 'skipped' }); close(); };
+    yes.onclick = () => {
+      yes.disabled = true; yes.textContent = 'Getting your location…';
+      navigator.geolocation.getCurrentPosition(
+        (p) => { send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }); close(); toast('Location saved'); },
+        (e) => {
+          yes.disabled = false; yes.textContent = 'Try again';
+          hp.textContent = e.code === 1 ? help : e.code === 3 ? 'Couldn’t get your location in time. Move near a window or turn on Wi-Fi, then tap Try again.' : 'Your phone couldn’t find your location. Make sure Location is on, then tap Try again.';
+          hp.hidden = false;
+          no.textContent = 'Skip';
+          no.onclick = () => { send({ denied: e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable' }); close(); };
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+    };
   }
 
   function route() {
@@ -2688,7 +2712,7 @@
   const hrs = (m) => m >= 60 ? Math.floor(m / 60) + 'h ' + String(Math.round(m % 60)).padStart(2, '0') + 'm' : Math.round(m) + 'm';
   const dayName = (d) => new Date(d + 'T00:00:00').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' });
 
-  const LOC_NOTE = { denied: 'Location not allowed', unavailable: 'Location unavailable', timeout: 'Location timed out' };
+  const LOC_NOTE = { denied: 'Location not allowed', unavailable: 'Location unavailable', timeout: 'Location timed out', skipped: 'Skipped sharing location' };
 
   // Owner's choice: ask team members for their location each time they sign in.
   async function teamSecurity() {

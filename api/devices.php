@@ -281,7 +281,7 @@ function login_location(int $uid, array $b): void
     $id = (int) ($_SESSION['login_id'] ?? 0);
     if (!$id) return;
     if (!isset($b['lat'], $b['lng'])) {
-        $why = in_array($b['denied'] ?? '', ['denied', 'unavailable', 'timeout'], true) ? $b['denied'] : 'denied';
+        $why = in_array($b['denied'] ?? '', ['denied', 'unavailable', 'timeout', 'skipped'], true) ? $b['denied'] : 'denied';
         db()->prepare('UPDATE user_logins SET loc_status = ? WHERE id = ? AND user_id = ?')->execute([$why, $id, $uid]);
         return;
     }
