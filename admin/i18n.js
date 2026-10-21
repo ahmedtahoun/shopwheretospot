@@ -374,11 +374,11 @@
     'Location will be asked at sign-in': 'هيتطلب الموقع عند تسجيل الدخول', 'Location won’t be asked': 'مش هيتطلب الموقع', 'Please allow your location — it’s saved once with your sign-in.': 'من فضلك اسمح بالموقع — بيتحفظ مرة واحدة مع تسجيل دخولك.',
     'Location not allowed': 'الموقع غير مسموح', 'Location unavailable': 'الموقع غير متاح', 'Location timed out': 'انتهت مهلة الموقع', '📍 Map': '📍 الخريطة',
     'Open in Google Maps ↗': 'افتح في خرائط جوجل ↗',
-    'Share your location': 'شارك موقعك', 'Location is part of signing in to the team workspace.': 'الموقع جزء من تسجيل الدخول لمساحة عمل الفريق.',
-    'Share my location': 'شارك موقعي', 'Not now': 'مش دلوقتي', 'Getting your location…': 'جاري تحديد موقعك…', 'Try again': 'حاول تاني', 'Skip': 'تخطي', 'Location saved': 'تم حفظ الموقع', 'Skipped sharing location': 'تخطى مشاركة الموقع',
-    'Location is off: Settings → Privacy & Security → Location Services → Safari Websites → While Using the App.': 'الموقع مقفول: الإعدادات ← الخصوصية والأمان ← خدمات الموقع ← مواقع سفاري ← أثناء استخدام التطبيق.',
-    'Location is off: tap 🔒 next to the address → Permissions → Location → Allow.': 'الموقع مقفول: اضغط 🔒 جنب العنوان ← الأذونات ← الموقع ← سماح.',
-    'Couldn’t get your location. Make sure Location is on, then tap Try again.': 'مقدرناش نحدد موقعك. اتأكد إن الموقع شغال، واضغط حاول تاني.',
+   
+    'Try again': 'حاول تاني', 'Skip': 'تخطي', 'Skipped sharing location': 'تخطى مشاركة الموقع',
+   
+   
+   
     'Working hours': 'ساعات العمل', 'Recent sign-ins': 'آخر تسجيلات الدخول', 'Working days': 'أيام العمل', 'New device': 'جهاز جديد', 'Day by day': 'يوم بيوم',
     'First and last use of the dashboard each day, and how long it was open (last 14 days).': 'أول وآخر استخدام للوحة التحكم كل يوم، ومدة فتحها (آخر 14 يوم).',
     'Based on when each person has the dashboard open: first and last use each day, and the time it was open (breaks over 15 minutes don’t count).': 'حسب وقت فتح كل شخص للوحة التحكم: أول وآخر استخدام كل يوم، ومدة فتحها (الاستراحات أكتر من 15 دقيقة مش بتتحسب).',

@@ -107,9 +107,9 @@
       S.user = s.user; S.csrf = s.csrf; S.meta = s;
       if (S.user) sendDeviceHints();
       if (S.user && s.askLocation) {
-        // Location already asked with the Sign in tap: save the answer. Otherwise ask with the window.
-        if (S.locPending) { const p = S.locPending; S.locPending = null; p.then((r) => { api('login_location', { method: 'POST', body: r }).catch(() => {}); if (r.denied) askLoginLocation(r.denied); }); }
-        else askLoginLocation();
+        // Save the phone's answer quietly (the location, or that it wasn't allowed).
+        const p = S.locPending || locateOnce(); S.locPending = null;
+        p.then((r) => api('login_location', { method: 'POST', body: r }).catch(() => {}));
       }
     } catch (e) {
       app.innerHTML = '<div class="auth"><div class="auth-card"><h1>Can’t reach the server</h1><p>' + esc(e.message) + '</p></div></div>';
@@ -146,44 +146,6 @@
         (e) => res({ denied: e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable' }),
         { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
     });
-  }
-
-  // failed: the Sign in tap already tried and got no location, so open straight on the short help.
-  function askLoginLocation(failed) {
-    const send = (body) => api('login_location', { method: 'POST', body }).catch(() => {});
-    if (!navigator.geolocation) { send({ denied: 'unavailable' }); return; }
-    if (document.getElementById('locAsk')) return;
-    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-    const help = ios
-      ? 'Location is off: Settings → Privacy & Security → Location Services → Safari Websites → While Using the App.'
-      : 'Location is off: tap 🔒 next to the address → Permissions → Location → Allow.';
-    const box = document.createElement('div');
-    box.id = 'locAsk';
-    box.innerHTML = '<div class="loc-card" role="dialog" aria-modal="true" aria-labelledby="locT"><div class="loc-pin">📍</div><h2 id="locT">Share your location</h2>' +
-      '<p>Location is part of signing in to the team workspace.</p><p class="loc-help" hidden></p>' +
-      '<div class="loc-actions"><button class="btn primary" id="locYes">Share my location</button><button class="btn" id="locNo">Not now</button></div></div>';
-    document.body.appendChild(box);
-    const yes = box.querySelector('#locYes'), no = box.querySelector('#locNo'), hp = box.querySelector('.loc-help');
-    const close = () => box.remove();
-    no.onclick = () => { send({ denied: 'skipped' }); close(); };
-    if (failed) {
-      hp.textContent = failed === 'denied' ? help : 'Couldn’t get your location. Make sure Location is on, then tap Try again.';
-      hp.hidden = false; yes.textContent = 'Try again'; no.textContent = 'Skip';
-      no.onclick = () => close(); // the first answer is already saved
-    }
-    yes.onclick = () => {
-      yes.disabled = true; yes.textContent = 'Getting your location…';
-      navigator.geolocation.getCurrentPosition(
-        (p) => { send({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }); close(); toast('Location saved'); },
-        (e) => {
-          yes.disabled = false; yes.textContent = 'Try again';
-          hp.textContent = e.code === 1 ? help : 'Couldn’t get your location. Make sure Location is on, then tap Try again.';
-          hp.hidden = false;
-          no.textContent = 'Skip';
-          no.onclick = () => { send({ denied: e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable' }); close(); };
-        },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
-    };
   }
 
   function route() {
@@ -236,13 +198,12 @@
       langBtn() + '<div><h1>Welcome back</h1><p>Sign in to the Where To Spot team workspace.</p></div>' +
       '<label class="field">Email<input type="email" name="email" required autocomplete="username"></label>' +
       '<label class="field">Password<input type="password" name="password" required autocomplete="current-password"></label>' +
-      '<div class="err" id="err"></div><button class="btn primary" type="submit">Sign in</button>' +
-      (S.meta.locationAtSignIn ? '<p class="small muted" style="margin:0;text-align:center">Location is part of signing in to the team workspace.</p>' : '') + '</form></div>';
+      '<div class="err" id="err"></div><button class="btn primary" type="submit">Sign in</button></form></div>';
     $('#f').onsubmit = async (e) => {
       e.preventDefault();
       $('#err').textContent = '';
-      // The Sign in tap also asks for the location (iPhones only show "Allow location?" from a tap),
-      // so there's no extra window afterwards. It has to start here, before anything is awaited.
+      // The Sign in tap also asks for the location: the phone shows its own "Allow location?" and
+      // nothing else appears (iPhones only show it from a tap, so it starts here, before any await).
       const loc = S.meta.locationAtSignIn ? locateOnce() : null;
       try { await api('login', { method: 'POST', body: formData(e.target) }); S.locPending = loc; await boot(); }
       catch (err) { $('#err').textContent = err.message; }
