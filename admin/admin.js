@@ -144,7 +144,7 @@
     const box = document.createElement('div');
     box.id = 'locAsk';
     box.innerHTML = '<div class="loc-card" role="dialog" aria-modal="true" aria-labelledby="locT"><div class="loc-pin">📍</div><h2 id="locT">Share your location</h2>' +
-      '<p>Your sign-in is recorded with your location, once, now. You’re not tracked after this.</p><p class="loc-help" hidden></p>' +
+      '<p>For account security, we save your location when you sign in.</p><p class="loc-help" hidden></p>' +
       '<div class="loc-actions"><button class="btn primary" id="locYes">Share my location</button><button class="btn" id="locNo">Not now</button></div></div>';
     document.body.appendChild(box);
     const yes = box.querySelector('#locYes'), no = box.querySelector('#locNo'), hp = box.querySelector('.loc-help');
