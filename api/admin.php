@@ -1151,7 +1151,7 @@ try {
         $quick = db()->query('SELECT id, title, body FROM wa_quick ORDER BY sort, id')->fetchAll();
         try { wa_cleanup(); } catch (Throwable $e) {}
         json_out(['chats' => $chats, 'counts' => $counts, 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
-            'quick' => $quick, 'ready' => wa_ready(), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all]]);
+            'quick' => $quick, 'ready' => wa_ready(), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all, 'telegram' => !empty($u['tg_chat_id'])]]);
 
     // Small and frequent: the unread badge and new-message sound on every page.
     case 'wa_unread':
@@ -1161,7 +1161,31 @@ try {
         $st->execute([(int) $u['id']]);
         $last = db()->prepare("SELECT COALESCE(MAX(m.id), 0) FROM wa_messages m JOIN wa_chats c ON c.id = m.chat_id WHERE m.dir = 'in' AND m.kind != 'reaction' AND (c.assigned_to = ? OR c.assigned_to IS NULL)");
         $last->execute([(int) $u['id']]);
+        // The dashboard is on their screen: no Telegram ping while it can beep (api/telegram.php).
+        if (!empty($_GET['vis']) && (!$u['wa_seen_at'] || strtotime($u['wa_seen_at'] . ' UTC') < time() - 15)) db()->prepare("UPDATE users SET wa_seen_at = datetime('now') WHERE id = ?")->execute([(int) $u['id']]);
         json_out(['unread' => (int) $st->fetchColumn(), 'lastIn' => (int) $last->fetchColumn()]);
+
+    // Telegram alerts for this person: connect (a one-time link to the bot), test, or turn off.
+    case 'tg_status':
+        $u = require_perm('whatsapp');
+        json_out(['ready' => tg_ready(), 'linked' => !empty($u['tg_chat_id']), 'name' => (string) ($u['tg_name'] ?? '')]);
+
+    case 'tg_link':
+        $u = require_perm('whatsapp');
+        json_out(['url' => tg_link_url((int) $u['id'])]);
+
+    case 'tg_test':
+        $u = require_perm('whatsapp');
+        if (empty($u['tg_chat_id'])) fail('Connect Telegram first.');
+        if (!tg_send_user($u, '🔔 <b>Test alert · تنبيه تجريبي</b>' . "\n" . 'Telegram alerts work. · تنبيهات تيليجرام شغالة.')) fail('Telegram didn’t deliver the test. Connect Telegram again.');
+        json_out(['ok' => true]);
+
+    case 'tg_unlink':
+        $u = require_perm('whatsapp');
+        if (!empty($u['tg_chat_id']) && tg_ready()) { try { tg_send((string) $u['tg_chat_id'], 'Alerts are off. · تم إيقاف التنبيهات.'); } catch (Throwable $e) {} }
+        db()->prepare("UPDATE users SET tg_chat_id = NULL, tg_name = '' WHERE id = ?")->execute([(int) $u['id']]);
+        log_activity($u, 'Turned off Telegram alerts');
+        json_out(['ok' => true]);
 
     // One chat with its messages (all, or only those after ?after=<message id> for live updates).
     case 'wa_chat':
@@ -1243,6 +1267,7 @@ try {
         wa_assign((int) $chat['id'], $to);
         if ($to && $chat['lead_id']) db()->prepare('UPDATE leads SET assigned_to = ? WHERE id = ?')->execute([$to, (int) $chat['lead_id']]);
         log_activity($u, 'WhatsApp chat assigned', wa_local_phone($chat['wa_id']) . ' → ' . ($to ? $toName : 'nobody'));
+        if ($to && $to !== (int) $u['id']) { try { tg_alert_assigned(wa_chat_row((int) $chat['id']), $to, (string) $u['name']); } catch (Throwable $e) {} }
         json_out(['chat' => wa_chat_out(wa_chat_row((int) $chat['id']))]);
 
     case 'wa_close':
@@ -1299,7 +1324,7 @@ try {
     case 'wa_settings':
         $u = require_perm('backups');
         $c = wa_cfg();
-        $users = db()->query('SELECT id, name, role, wa_agent, wa_away FROM users WHERE active = 1 ORDER BY name')->fetchAll();
+        $users = db()->query('SELECT id, name, role, wa_agent, wa_away, tg_chat_id FROM users WHERE active = 1 ORDER BY name')->fetchAll();
         $info = null; $error = '';
         $live = null;
         if (!empty($_GET['test']) && wa_cfg('token') && wa_cfg('phone_number_id')) {
@@ -1309,8 +1334,8 @@ try {
         }
         json_out(['token' => !empty($c['token']), 'phoneId' => !empty($c['phone_number_id']), 'appSecret' => !empty($c['app_secret']), 'verifyToken' => !empty($c['verify_token']),
             'ready' => wa_ready(), 'live' => $live, 'lastWebhook' => wa_setting('last_webhook', null), 'lastRejected' => wa_setting('last_rejected', null), 'lastNote' => wa_setting('last_note', null), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
-            'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away']]; }, $users),
-            'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
+            'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away'], 'telegram' => !empty($r['tg_chat_id'])]; }, $users),
+            'telegram' => tg_ready(), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
             'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
 
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.

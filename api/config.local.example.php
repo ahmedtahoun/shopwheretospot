@@ -44,6 +44,12 @@ return [
         'graph_version' => 'v23.0',
         // 'waba_id' => '…',  // optional: WhatsApp Manager → Account tools → WhatsApp account ID (found automatically from the token when left out)
     ],
+    // Telegram alerts: a ping on the team's phones when a WhatsApp customer is waiting. In Telegram, message
+    // @BotFather → /newbot → choose a name (e.g. Where To Spot Alerts) → copy the token it gives you here.
+    // Each person then taps "Connect Telegram" in the dashboard's WhatsApp inbox. Nothing else to set up.
+    'telegram' => [
+        'bot_token' => '123456789:AA…',
+    ],
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],
 ];

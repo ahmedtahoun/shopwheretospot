@@ -149,7 +149,10 @@
   }
 
   function route() {
-    const h = (location.hash || '#dashboard').slice(1);
+    let h = (location.hash || '#dashboard').slice(1);
+    // #inbox/<chat id>: the "Open chat" button in a Telegram alert.
+    const m = h.match(/^inbox\/(\d+)$/);
+    if (m) { S.openWaChat = +m[1]; h = 'inbox'; history.replaceState(null, '', '#inbox'); }
     S.route = h || 'dashboard';
     render();
   }
@@ -1590,7 +1593,8 @@
     const tick = async () => {
       if (!S.user || !can('whatsapp')) { waWatch.on = false; return; }
       try {
-        const d = await api('wa_unread');
+        // vis: the dashboard is on screen, so the server skips the Telegram ping (it beeps here instead).
+        const d = await api('wa_unread', { query: document.visibilityState === 'visible' ? '&vis=1' : '' });
         S.waUnread = d.unread;
         const b = $('#waBadge'); if (b) { b.textContent = d.unread || ''; b.hidden = !d.unread; }
         document.title = (d.unread ? '(' + d.unread + ') ' : '') + document.title.replace(/^\(\d+\) /, '');
@@ -1605,6 +1609,42 @@
     };
     tick();
   }
+  // Telegram alerts for the signed-in person: connect, send a test, or turn off (api/telegram.php).
+  async function tgDrawer(done) {
+    let d;
+    try { d = await api('tg_status'); } catch (e) { return toast(e.message, true); }
+    const body = !d.ready
+      ? '<p>Telegram alerts aren’t set up yet. The owner adds the bot token to api/config.local.php on the server (see config.local.example.php).</p>'
+      : d.linked
+        ? '<p><span class="pill good">✓ Connected</span>' + (d.name ? ' <b>' + esc(d.name) + '</b>' : '') + '</p><p class="muted">You get a Telegram message when a WhatsApp customer is waiting for you, and again if they keep writing and nobody has answered for 30 minutes. Not while the dashboard is open on your screen.</p>'
+        : '<p>Get a Telegram message on your phone when a WhatsApp customer is waiting for you, even when the dashboard is closed.</p>' +
+          '<ol class="small"><li>Tap <b>Connect Telegram</b>. Telegram opens.</li><li>Press <b>Start</b> in the bot.</li><li>Come back here: it says Connected.</li></ol>';
+    const foot = !d.ready ? '' : d.linked
+      ? '<button class="btn" id="tgOff">Turn off</button><span class="spacer"></span><button class="btn primary" id="tgTest">Send a test</button>'
+      : '<span class="spacer"></span><button class="btn primary" id="tgGo">Connect Telegram</button>';
+    const w = openDrawer('Telegram alerts', body, foot);
+    const go = $('#tgGo', w);
+    if (go) go.onclick = async () => {
+      // Open the window first (in the tap), then point it at the bot: phones block windows opened later.
+      const win = window.open('about:blank', '_blank');
+      try {
+        const r = await api('tg_link', { method: 'POST' });
+        if (win) win.location.href = r.url; else location.href = r.url;
+        go.disabled = true; go.textContent = 'Waiting for Start…';
+        const until = Date.now() + 5 * 60000;
+        const check = async () => {
+          if (!document.getElementById('drawer')) return;
+          const s = await api('tg_status').catch(() => ({}));
+          if (s.linked) { toast('Telegram connected'); closeDrawer(); if (done) done(); return; }
+          if (Date.now() < until) setTimeout(check, 3000); else { go.disabled = false; go.textContent = 'Connect Telegram'; }
+        };
+        setTimeout(check, 3000);
+      } catch (e) { if (win) win.close(); toast(e.message, true); }
+    };
+    const t = $('#tgTest', w); if (t) t.onclick = async () => { try { await api('tg_test', { method: 'POST' }); toast('Test sent — check Telegram'); } catch (e) { toast(e.message, true); } };
+    const off = $('#tgOff', w); if (off) off.onclick = async () => { try { await api('tg_unlink', { method: 'POST' }); toast('Telegram alerts are off'); closeDrawer(); if (done) done(); } catch (e) { toast(e.message, true); } };
+  }
+
   function waBeep() {
     try {
       const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
@@ -1639,9 +1679,11 @@
       $$('#waTabs button').forEach((b) => b.onclick = () => { st.view = b.dataset.v; loadList(); });
       $('#waMe').innerHTML = (!st.data.ready ? '<span class="pill warn" title="Settings → WhatsApp">Not connected</span> ' : '') +
         (me.agent ? '<label class="row small wa-away"><input type="checkbox" id="waAway"' + (me.away ? '' : ' checked') + '> <span>Taking chats</span></label>' : '') +
-        (window.Notification && Notification.permission === 'default' ? ' <button class="btn sm" id="waNotif" title="Get a notification for new messages">🔔</button>' : '');
+        (window.Notification && Notification.permission === 'default' ? ' <button class="btn sm" id="waNotif" title="Get a notification for new messages">🔔</button>' : '') +
+        ' <button class="btn sm" id="waTg" title="Telegram alerts">' + (me.telegram ? '✈️ ✓' : '✈️ <span>Telegram</span>') + '</button>';
       const aw = $('#waAway'); if (aw) aw.onchange = async () => { await api('wa_away', { method: 'POST', body: { away: !aw.checked } }); toast(aw.checked ? 'You’ll get new chats' : 'No new chats will be given to you'); };
       const nb = $('#waNotif'); if (nb) nb.onclick = () => Notification.requestPermission().then(() => renderTabs());
+      $('#waTg').onclick = () => tgDrawer(() => loadList());
     };
     const renderList = () => {
       const list = st.data.chats;
@@ -2143,9 +2185,10 @@
       '<div class="hint"><span>' + (d.token && d.phoneId ? 'The test asks Meta about your number, access key and webhook. Nothing is sent to customers.'
         : 'Add the “whatsapp” block to api/config.local.php on the server (see config.local.example.php), then press Check again.') + '</span> <span>Secret values are never shown here.</span></div>' +
       '<h3 style="margin:6px 0 0">Who takes WhatsApp chats</h3><div class="hint">New chats go to these people in turn. “Away” skips someone (they can also switch it themselves in the inbox).</div>' +
-      '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Takes chats</th><th>Away</th></tr></thead><tbody>' +
-        d.users.map((u) => '<tr><td>' + esc(u.name) + '</td><td class="small muted">' + esc(u.role) + '</td><td><input type="checkbox" data-agent="' + u.id + '"' + (u.agent ? ' checked' : '') + '></td><td><input type="checkbox" data-away="' + u.id + '"' + (u.away ? ' checked' : '') + '></td></tr>').join('') +
+      '<div class="table-wrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Takes chats</th><th>Away</th><th>Telegram alerts</th></tr></thead><tbody>' +
+        d.users.map((u) => '<tr><td>' + esc(u.name) + '</td><td class="small muted">' + esc(u.role) + '</td><td><input type="checkbox" data-agent="' + u.id + '"' + (u.agent ? ' checked' : '') + '></td><td><input type="checkbox" data-away="' + u.id + '"' + (u.away ? ' checked' : '') + '></td><td>' + (u.telegram ? '<span class="pill good">✓</span>' : '<span class="muted small">—</span>') + '</td></tr>').join('') +
       '</tbody></table></div>' +
+      '<div class="hint">' + (d.telegram ? 'Telegram alerts: each person taps ✈️ Telegram in the WhatsApp inbox to connect their own phone.' : 'Telegram alerts are off: add the “telegram” bot token to api/config.local.php (see config.local.example.php).') + '</div>' +
       '<div class="grid2"><label class="field">Keep videos for (days) <span class="hint">0 = keep forever. Photos, voice notes and documents are always kept.</span><input type="number" id="waDays" min="0" max="3650" value="' + d.videoDays + '"></label>' +
         '<div class="field"><span>Space used by chat files</span><b>' + mb(d.storage) + '</b><span class="hint">' + (d.diskFree ? mb(d.diskFree) + ' free on the server · ' : '') + d.chats + ' chats</span></div></div>' +
       '<div class="row"><button class="btn primary" id="waSave">Save WhatsApp settings</button></div>';

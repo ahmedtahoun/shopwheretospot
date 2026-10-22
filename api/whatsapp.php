@@ -298,6 +298,9 @@ function wa_store_incoming(array $m, string $name): void
     if ($kind === 'reaction') return; // a reaction doesn't need an answer
     db()->prepare("UPDATE wa_chats SET unread = unread + 1, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
         ->execute([$at, $at, mb_substr($preview, 0, 200), $at, $at, $chat['id']]);
+    // A ping on the phone of whoever has the chat (api/telegram.php); never holds up saving the message.
+    try { tg_alert_message(wa_chat_by_wa_id($from), !empty($chat['waiting_since'])); }
+    catch (Throwable $e) { error_log('[shop] telegram alert: ' . $e->getMessage()); }
 }
 
 // Sent → delivered → read (never backwards), or failed with the reason.

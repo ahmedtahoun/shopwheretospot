@@ -27,6 +27,7 @@ $config = [
     'bosta' => [],
     'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
+    'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {
@@ -95,7 +96,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 40;
+const SCHEMA_VERSION = 41;
 
 function db(): PDO
 {
@@ -609,6 +610,8 @@ function migrate(PDO $pdo): void
     expenses_migrate($pdo);
     // Which devices each team member signs in from (api/devices.php).
     devices_migrate($pdo);
+    // Telegram alerts for WhatsApp chats (api/telegram.php).
+    telegram_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -779,6 +782,7 @@ require __DIR__ . '/customers.php';
 require __DIR__ . '/brands.php';
 require __DIR__ . '/seo-lib.php';
 require __DIR__ . '/whatsapp.php';
+require __DIR__ . '/telegram.php';
 require __DIR__ . '/expenses.php';
 require __DIR__ . '/devices.php';
 
@@ -847,7 +851,7 @@ function current_user(): ?array
     if (empty($_SESSION['uid'])) return null;
     static $cache = [];
     if (isset($cache[$_SESSION['uid']])) return $cache[$_SESSION['uid']];
-    $st = db()->prepare('SELECT id, name, email, phone, role, ref_code, active, wa_agent, wa_away FROM users WHERE id = ?');
+    $st = db()->prepare('SELECT id, name, email, phone, role, ref_code, active, wa_agent, wa_away, tg_chat_id, tg_name, wa_seen_at FROM users WHERE id = ?');
     $st->execute([$_SESSION['uid']]);
     $u = $st->fetch();
     if (!$u || !$u['active']) return null;
