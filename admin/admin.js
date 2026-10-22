@@ -2130,6 +2130,7 @@
         (d.info ? '<div class="li"><span>Number</span><span><b dir="ltr">' + esc(d.info.display_phone_number || '') + '</b> · ' + esc(d.info.verified_name || '') + (d.info.quality_rating ? ' · quality ' + esc(d.info.quality_rating) : '') + '</span></div>' : '') +
         (d.error ? '<div class="li"><span>Connection</span><span class="pill bad">✕ ' + esc(d.error) + '</span></div>' : '') +
         '<div class="li"><span>Last message from Meta</span><span>' + (d.lastWebhook ? dateTime(d.lastWebhook) : '<span class="muted">none yet</span>') + '</span></div>' +
+        (d.lastRejected && (!d.lastWebhook || d.lastRejected > d.lastWebhook) ? '<div class="li"><span>Message from Meta rejected · ' + dateTime(d.lastRejected) + '<div class="small muted">Meta is sending, but the app secret in api/config.local.php doesn’t match: copy it again from App settings → Basic → App secret.</div></span><span class="pill bad">✕ App secret</span></div>' : '') +
         '<div class="li"><span>Webhook address (paste in Meta → WhatsApp → Configuration)</span><span><code dir="ltr">' + esc(d.webhook) + '</code> <button class="btn sm" id="waCopy">Copy</button></span></div>' +
       '</div>' +
       (d.live ? waLiveChecks(d) : '') +

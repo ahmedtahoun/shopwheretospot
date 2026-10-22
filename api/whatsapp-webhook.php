@@ -25,6 +25,8 @@ $raw = (string) file_get_contents('php://input');
 $secret = (string) wa_cfg('app_secret', '');
 $sig = (string) ($_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '');
 if ($secret === '' || !hash_equals('sha256=' . hash_hmac('sha256', $raw, $secret), $sig)) {
+    // Shown in Settings → WhatsApp: Meta is sending, but the app secret in config.local.php doesn't match.
+    if ($sig !== '') { try { wa_set_setting('last_rejected', gmdate('Y-m-d H:i:s')); } catch (Throwable $e) {} }
     http_response_code(401);
     exit('Bad signature');
 }
