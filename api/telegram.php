@@ -9,7 +9,8 @@
 //
 // When: every new customer message, straight away (not while the person has the dashboard open on
 // screen: it beeps there already); a reminder when a customer has had no reply for 15 minutes (always,
-// once per wait); and when a manager gives someone a chat. Chats nobody has go to the managers.
+// once per wait); and when a manager gives someone a chat. Chats nobody has go to the managers, and
+// owners and managers also get the 15-minute reminders for everyone's chats (can be turned off).
 //
 // The 15-minute reminders are checked by tg_remind_due(): every minute by the cPanel cron job
 // (api/telegram-cron.php, shown in Settings → WhatsApp), and also whenever a WhatsApp message arrives
@@ -100,6 +101,16 @@ function tg_h(string $s): string
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+// Owners and managers who connected Telegram.
+function tg_managers(): array
+{
+    $roles = array_keys(array_filter(ROLES, function ($p) { return in_array('whatsapp_all', $p, true); }));
+    $in = implode(',', array_fill(0, count($roles), '?'));
+    $st = db()->prepare("SELECT id, name, tg_chat_id, wa_seen_at FROM users WHERE active = 1 AND tg_chat_id IS NOT NULL AND role IN ($in)");
+    $st->execute($roles);
+    return $st->fetchAll();
+}
+
 // Who hears about a chat: the person it's given to, or (nobody has it) the managers.
 function tg_chat_recipients(array $chat): array
 {
@@ -108,11 +119,7 @@ function tg_chat_recipients(array $chat): array
         $st->execute([(int) $chat['assigned_to']]);
         return $st->fetchAll();
     }
-    $roles = array_keys(array_filter(ROLES, function ($p) { return in_array('whatsapp_all', $p, true); }));
-    $in = implode(',', array_fill(0, count($roles), '?'));
-    $st = db()->prepare("SELECT id, name, tg_chat_id, wa_seen_at FROM users WHERE active = 1 AND tg_chat_id IS NOT NULL AND role IN ($in)");
-    $st->execute($roles);
-    return $st->fetchAll();
+    return tg_managers();
 }
 
 // A new customer message: to whoever has the chat, unless the dashboard is on their screen.
@@ -140,8 +147,21 @@ function tg_remind_due(): void
     foreach ($st->fetchAll() as $chat) {
         $done->execute([(int) $chat['id']]);
         $mins = max(TG_REMIND_MINUTES, (int) round((time() - strtotime($chat['waiting_since'] . ' UTC')) / 60));
+        $head = '⏰ No reply for ' . $mins . ' min · محدش رد من ' . $mins . ' دقيقة';
+        $sentTo = [];
         foreach (tg_chat_recipients($chat) as $u) {
-            tg_send_user($u, tg_chat_text($chat, '⏰ No reply for ' . $mins . ' min · محدش رد من ' . $mins . ' دقيقة'), tg_open_button($chat));
+            $sentTo[(int) $u['id']] = true;
+            tg_send_user($u, tg_chat_text($chat, $head), tg_open_button($chat));
+        }
+        // Owners and managers also hear about everyone's unanswered chats, with whose chat it is
+        // (Settings → WhatsApp can turn this off).
+        if (!wa_setting('tg_remind_managers', true) || !$chat['assigned_to']) continue;
+        $who = db()->prepare('SELECT name FROM users WHERE id = ?');
+        $who->execute([(int) $chat['assigned_to']]);
+        $agent = (string) $who->fetchColumn();
+        foreach (tg_managers() as $u) {
+            if (isset($sentTo[(int) $u['id']])) continue;
+            tg_send_user($u, tg_chat_text($chat, $head . "\n" . '👤 ' . tg_h($agent) . '’s chat · محادثة ' . tg_h($agent)), tg_open_button($chat));
         }
     }
 }

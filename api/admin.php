@@ -1336,7 +1336,7 @@ try {
         json_out(['token' => !empty($c['token']), 'phoneId' => !empty($c['phone_number_id']), 'appSecret' => !empty($c['app_secret']), 'verifyToken' => !empty($c['verify_token']),
             'ready' => wa_ready(), 'live' => $live, 'lastWebhook' => wa_setting('last_webhook', null), 'lastRejected' => wa_setting('last_rejected', null), 'lastNote' => wa_setting('last_note', null), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
             'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away'], 'telegram' => !empty($r['tg_chat_id'])]; }, $users),
-            'telegram' => tg_ready(), 'tgCron' => tg_ready() ? tg_cron_url() : null, 'tgLastCron' => wa_setting('tg_cron_at', null), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
+            'telegram' => tg_ready(), 'tgCron' => tg_ready() ? tg_cron_url() : null, 'tgLastCron' => wa_setting('tg_cron_at', null), 'tgRemindManagers' => (bool) wa_setting('tg_remind_managers', true), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
             'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
 
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
@@ -1360,6 +1360,7 @@ try {
         $u = require_perm('backups');
         $b = body();
         if (isset($b['video_days'])) wa_set_setting('video_days', max(0, min(3650, (int) $b['video_days'])));
+        if (isset($b['tg_remind_managers'])) wa_set_setting('tg_remind_managers', !empty($b['tg_remind_managers']));
         foreach ((array) ($b['agents'] ?? []) as $a) {
             db()->prepare('UPDATE users SET wa_agent = ?, wa_away = ? WHERE id = ?')->execute([empty($a['agent']) ? 0 : 1, empty($a['away']) ? 0 : 1, (int) ($a['id'] ?? 0)]);
         }
