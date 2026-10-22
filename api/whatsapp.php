@@ -425,10 +425,20 @@ function wa_live_status(): array
         $appId = isset($t['app_id']) ? (string) $t['app_id'] : null;
         $out['token'] = ['expires' => (int) ($t['expires_at'] ?? 0), 'valid' => !empty($t['is_valid']), 'scopes' => $t['scopes'] ?? []];
         foreach ((array) ($t['granular_scopes'] ?? []) as $g) {
-            if (($g['scope'] ?? '') === 'whatsapp_business_management') foreach ((array) ($g['target_ids'] ?? []) as $id) $out['wabas'][(string) $id] = null;
+            if (in_array($g['scope'] ?? '', ['whatsapp_business_management', 'whatsapp_business_messaging'], true)) foreach ((array) ($g['target_ids'] ?? []) as $id) $out['wabas'][(string) $id] = null;
         }
     } catch (Throwable $e) { $out['errors'][] = $e->getMessage(); }
     if (wa_cfg('waba_id')) $out['wabas'] = [(string) wa_cfg('waba_id') => null] + $out['wabas'];
+    // Which WhatsApp account holds our number: that's the one Meta sends its messages for, so it's the one
+    // that must be connected (adding a number can create a second account next to the test one).
+    $out['owner'] = null;
+    foreach (array_keys($out['wabas']) as $id) {
+        try {
+            foreach ((array) (wa_graph('GET', '/' . rawurlencode($id) . '/phone_numbers?fields=id,display_phone_number')['data'] ?? []) as $n) {
+                if ((string) ($n['id'] ?? '') === (string) wa_cfg('phone_number_id')) { $out['owner'] = (string) $id; break 2; }
+            }
+        } catch (Throwable $e) { /* not allowed to read this account: skip */ }
+    }
     // Is our app subscribed to each WhatsApp account (without it Meta sends no messages to the webhook)?
     foreach (array_keys($out['wabas']) as $id) {
         try {

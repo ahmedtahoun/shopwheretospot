@@ -2170,7 +2170,8 @@
     const L = d.live, n = L.number || {}, t = L.token;
     const step = (okv, title, todo) => '<div class="li" style="align-items:flex-start"><span><b>' + (okv ? '✓ ' : okv === false ? '✕ ' : '• ') + esc(title) + '</b>' + (okv ? '' : '<div class="small muted" style="margin-top:3px">' + todo + '</div>') + '</span>' +
       '<span>' + (okv ? '<span class="pill good">Done</span>' : okv === false ? '<span class="pill bad">To do</span>' : '<span class="pill">Check</span>') + '</span></div>';
-    const wabas = Object.entries(L.wabas || {});
+    // Only the WhatsApp account that holds the number matters; if we couldn't tell which, show them all.
+    const wabas = Object.entries(L.wabas || {}).filter(([id]) => !L.owner || id === L.owner);
     const registered = n.status === 'CONNECTED' || n.platform_type === 'CLOUD_API';
     return '<h3 style="margin:10px 0 0">Go-live checklist</h3><div class="list">' +
       step(!!n.display_phone_number, 'Meta accepts the access key and phone number ID', 'Check the token and phone_number_id in api/config.local.php.') +
@@ -2180,7 +2181,8 @@
         'Enter the number’s six-digit two-step PIN (set it in WhatsApp Manager → Phone numbers → Two-step verification if you never did) and press Register.' +
         '<div class="row" style="margin-top:6px"><input id="waPin" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" style="width:130px"><button class="btn sm" id="waReg">Register</button></div>') +
       step(n.name_status ? n.name_status === 'APPROVED' || n.name_status === 'AVAILABLE_WITHOUT_REVIEW' : null, 'Display name approved' + (n.verified_name ? ' (' + esc(n.verified_name) + ')' : ''), 'Status: ' + esc(n.name_status || 'unknown') + '. Meta reviews it, usually within a day or two; until then you can still chat but sending may be limited.') +
-      (wabas.length ? wabas.map(([id, on]) => step(on, 'Messages are sent to this dashboard (webhook connected to WhatsApp account ' + id + ')',
+      (L.owner === null && wabas.length ? step(false, 'Couldn’t find the WhatsApp account that holds your number', 'In WhatsApp Manager, open the account that has your number, copy its ID, and put it in api/config.local.php as ’waba_id’. Then press Check again.') : '') +
+      (wabas.length ? wabas.map(([id, on]) => step(on, 'Messages are sent to this dashboard (webhook connected to WhatsApp account ' + id + (L.owner === id ? ', which holds your number' : '') + ')',
         'Press Connect. Also check Meta → your app → WhatsApp → Configuration: callback URL and verify token saved, and “messages” subscribed.' +
         '<div class="row" style="margin-top:6px"><button class="btn sm" data-sub="' + esc(id) + '">Connect</button></div>')).join('')
         : step(null, 'Webhook connected', 'Couldn’t find the WhatsApp account ID from the access key. Add ’waba_id’ (WhatsApp Manager → Account tools → WhatsApp account ID) to the whatsapp block in api/config.local.php.')) +
