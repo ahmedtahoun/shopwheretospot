@@ -245,13 +245,22 @@ function wa_handle_webhook(array $payload): void
     foreach ((array) ($payload['entry'] ?? []) as $entry) {
         foreach ((array) ($entry['changes'] ?? []) as $change) {
             $v = $change['value'] ?? [];
-            // Only our own number (a WhatsApp account can hold several).
-            if (wa_cfg('phone_number_id') && isset($v['metadata']['phone_number_id']) && (string) $v['metadata']['phone_number_id'] !== (string) wa_cfg('phone_number_id')) continue;
+            // Only our own number (a WhatsApp account can hold several). Meta's "Test" button uses a made-up
+            // number, so its sample lands here too; Settings shows it as a skipped sample, not a lost chat.
+            if (wa_cfg('phone_number_id') && isset($v['metadata']['phone_number_id']) && (string) $v['metadata']['phone_number_id'] !== (string) wa_cfg('phone_number_id')) {
+                wa_set_setting('last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'other_number', 'number' => (string) ($v['metadata']['display_phone_number'] ?? '')]);
+                continue;
+            }
             $names = [];
             foreach ((array) ($v['contacts'] ?? []) as $c) $names[(string) ($c['wa_id'] ?? '')] = (string) ($c['profile']['name'] ?? '');
             foreach ((array) ($v['messages'] ?? []) as $m) {
-                try { wa_store_incoming($m, $names[(string) ($m['from'] ?? '')] ?? ''); }
-                catch (Throwable $e) { error_log('[shop] whatsapp message failed: ' . $e->getMessage()); }
+                try {
+                    wa_store_incoming($m, $names[(string) ($m['from'] ?? '')] ?? '');
+                    wa_set_setting('last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'saved']);
+                } catch (Throwable $e) {
+                    error_log('[shop] whatsapp message failed: ' . $e->getMessage());
+                    wa_set_setting('last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'error', 'error' => mb_substr($e->getMessage(), 0, 300)]);
+                }
             }
             foreach ((array) ($v['statuses'] ?? []) as $s) wa_store_status($s);
         }
