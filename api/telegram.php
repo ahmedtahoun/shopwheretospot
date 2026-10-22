@@ -7,11 +7,15 @@
 // they press Start, and the bot (api/telegram-webhook.php) links their Telegram chat to their account.
 // The bot's webhook is set up automatically the first time someone connects.
 //
-// When: a chat starts waiting for an answer (new chat, or the customer writes after the team replied),
-// again if they keep writing and nobody answered for 30 minutes, and when a manager gives someone a chat.
-// Not while the person has the dashboard open on screen (it beeps there already).
+// When: every new customer message, straight away (not while the person has the dashboard open on
+// screen: it beeps there already); a reminder when a customer has had no reply for 15 minutes (always,
+// once per wait); and when a manager gives someone a chat. Chats nobody has go to the managers.
+//
+// The 15-minute reminders are checked by tg_remind_due(): every minute by the cPanel cron job
+// (api/telegram-cron.php, shown in Settings → WhatsApp), and also whenever a WhatsApp message arrives
+// or someone has the dashboard open.
 
-const TG_REMIND_MINUTES = 30;
+const TG_REMIND_MINUTES = 15;
 const TG_SEEN_SECONDS = 60;
 
 function tg_token(): string
@@ -111,19 +115,51 @@ function tg_chat_recipients(array $chat): array
     return $st->fetchAll();
 }
 
-// $wasWaiting: the chat was already waiting for an answer before this message.
-function tg_alert_message(array $chat, bool $wasWaiting): void
+// A new customer message: to whoever has the chat, unless the dashboard is on their screen.
+function tg_alert_message(array $chat): void
 {
     if (!tg_ready()) return;
-    if ($wasWaiting && $chat['tg_alerted_at'] && strtotime($chat['tg_alerted_at'] . ' UTC') > time() - TG_REMIND_MINUTES * 60) return;
-    $sent = false;
     foreach (tg_chat_recipients($chat) as $u) {
-        // Dashboard open on their screen: it beeps there, no need to ping the phone too.
         if ($u['wa_seen_at'] && strtotime($u['wa_seen_at'] . ' UTC') > time() - TG_SEEN_SECONDS) continue;
-        $head = $wasWaiting ? '⏰ Still waiting for an answer · لسه مستني رد' : ($chat['assigned_to'] ? '💬 New WhatsApp message · رسالة واتساب جديدة' : '💬 New WhatsApp chat, nobody has it · محادثة جديدة بدون مسؤول');
-        $sent = tg_send_user($u, tg_chat_text($chat, $head), tg_open_button($chat)) || $sent;
+        tg_send_user($u, tg_chat_text($chat, $chat['assigned_to'] ? '💬 New WhatsApp message · رسالة واتساب جديدة' : '💬 WhatsApp message, nobody has this chat · رسالة واتساب بدون مسؤول'), tg_open_button($chat));
     }
-    if ($sent || !$wasWaiting) db()->prepare("UPDATE wa_chats SET tg_alerted_at = datetime('now') WHERE id = ?")->execute([(int) $chat['id']]);
+}
+
+// Customers waiting 15 minutes or more without a reply: one reminder per wait. At most once a minute,
+// however many requests call it. Only waits that started in the last day (no flood of old chats).
+function tg_remind_due(): void
+{
+    if (!tg_ready()) return;
+    $last = (int) wa_setting('tg_remind_run', 0);
+    if ($last > time() - 50) return;
+    wa_set_setting('tg_remind_run', time());
+    $st = db()->prepare("SELECT * FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL AND waiting_since <= datetime('now', ?) AND waiting_since > datetime('now', '-1 day')
+        AND (tg_reminded_for IS NULL OR tg_reminded_for != waiting_since) ORDER BY waiting_since LIMIT 50");
+    $st->execute(['-' . TG_REMIND_MINUTES . ' minutes']);
+    $done = db()->prepare('UPDATE wa_chats SET tg_reminded_for = waiting_since WHERE id = ?');
+    foreach ($st->fetchAll() as $chat) {
+        $done->execute([(int) $chat['id']]);
+        $mins = max(TG_REMIND_MINUTES, (int) round((time() - strtotime($chat['waiting_since'] . ' UTC')) / 60));
+        foreach (tg_chat_recipients($chat) as $u) {
+            tg_send_user($u, tg_chat_text($chat, '⏰ No reply for ' . $mins . ' min · محدش رد من ' . $mins . ' دقيقة'), tg_open_button($chat));
+        }
+    }
+}
+
+// Run the reminder check after the reply has gone out, so nobody waits for Telegram.
+function tg_remind_later(): void
+{
+    register_shutdown_function(function () {
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        try { tg_remind_due(); } catch (Throwable $e) { error_log('[shop] telegram reminders: ' . $e->getMessage()); }
+    });
+}
+
+// The cron job's address (Settings → WhatsApp). The key is made from the bot token.
+function tg_cron_url(): string
+{
+    return rtrim((string) cfg('site_url'), '/') . '/api/telegram-cron.php?key=' . substr(hash_hmac('sha256', 'wts-telegram-cron', tg_token()), 0, 32);
 }
 
 // A manager gave this chat to someone.
@@ -202,5 +238,6 @@ function telegram_migrate(PDO $pdo): void
         if (!in_array($col, $userCols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN $col $type");
     }
     $chatCols = $pdo->query('PRAGMA table_info(wa_chats)')->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('tg_alerted_at', $chatCols, true)) $pdo->exec('ALTER TABLE wa_chats ADD COLUMN tg_alerted_at TEXT');
+    // tg_reminded_for: the waiting_since a 15-minute reminder was already sent for (one per wait).
+    if (!in_array('tg_reminded_for', $chatCols, true)) $pdo->exec('ALTER TABLE wa_chats ADD COLUMN tg_reminded_for TEXT');
 }

@@ -36,6 +36,7 @@ if (!is_array($payload)) { http_response_code(400); exit; }
 try {
     wa_handle_webhook($payload);
     wa_cleanup();
+    tg_remind_later(); // 15-minute reminders (api/telegram.php)
 } catch (Throwable $e) {
     error_log('[shop] whatsapp webhook: ' . $e->getMessage());
 }

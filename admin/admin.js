@@ -1616,7 +1616,7 @@
     const body = !d.ready
       ? '<p>Telegram alerts aren’t set up yet. The owner adds the bot token to api/config.local.php on the server (see config.local.example.php).</p>'
       : d.linked
-        ? '<p><span class="pill good">✓ Connected</span>' + (d.name ? ' <b>' + esc(d.name) + '</b>' : '') + '</p><p class="muted">You get a Telegram message when a WhatsApp customer is waiting for you, and again if they keep writing and nobody has answered for 30 minutes. Not while the dashboard is open on your screen.</p>'
+        ? '<p><span class="pill good">✓ Connected</span>' + (d.name ? ' <b>' + esc(d.name) + '</b>' : '') + '</p><p class="muted">You get every new WhatsApp message on Telegram straight away (not while the dashboard is open on your screen), and a reminder when a customer has had no reply for 15 minutes.</p>'
         : '<p>Get a Telegram message on your phone when a WhatsApp customer is waiting for you, even when the dashboard is closed.</p>' +
           '<ol class="small"><li>Tap <b>Connect Telegram</b>. Telegram opens.</li><li>Press <b>Start</b> in the bot.</li><li>Come back here: it says Connected.</li></ol>';
     const foot = !d.ready ? '' : d.linked
@@ -2189,10 +2189,15 @@
         d.users.map((u) => '<tr><td>' + esc(u.name) + '</td><td class="small muted">' + esc(u.role) + '</td><td><input type="checkbox" data-agent="' + u.id + '"' + (u.agent ? ' checked' : '') + '></td><td><input type="checkbox" data-away="' + u.id + '"' + (u.away ? ' checked' : '') + '></td><td>' + (u.telegram ? '<span class="pill good">✓</span>' : '<span class="muted small">—</span>') + '</td></tr>').join('') +
       '</tbody></table></div>' +
       '<div class="hint">' + (d.telegram ? 'Telegram alerts: each person taps ✈️ Telegram in the WhatsApp inbox to connect their own phone.' : 'Telegram alerts are off: add the “telegram” bot token to api/config.local.php (see config.local.example.php).') + '</div>' +
+      // The 15-minute "no reply" reminders need a cron job that runs every minute.
+      (d.tgCron ? '<div class="list"><div class="li"><span>15-minute reminders · cPanel → Cron Jobs, every minute (* * * * *)<div class="small muted">' +
+        (d.tgLastCron ? '<span>Last run:</span> ' + dateTime(d.tgLastCron) : 'Not running yet. Until it is, reminders only go out while someone has the dashboard open or new WhatsApp messages arrive.') + '</div></span>' +
+        '<span><code dir="ltr" class="small">curl -s "' + esc(d.tgCron) + '"</code> <button class="btn sm" id="tgCronCopy">Copy</button></span></div></div>' : '') +
       '<div class="grid2"><label class="field">Keep videos for (days) <span class="hint">0 = keep forever. Photos, voice notes and documents are always kept.</span><input type="number" id="waDays" min="0" max="3650" value="' + d.videoDays + '"></label>' +
         '<div class="field"><span>Space used by chat files</span><b>' + mb(d.storage) + '</b><span class="hint">' + (d.diskFree ? mb(d.diskFree) + ' free on the server · ' : '') + d.chats + ' chats</span></div></div>' +
       '<div class="row"><button class="btn primary" id="waSave">Save WhatsApp settings</button></div>';
     $('#waCopy').onclick = () => { navigator.clipboard.writeText(d.webhook).then(() => toast('Copied')); };
+    const cc = $('#tgCronCopy'); if (cc) cc.onclick = () => { navigator.clipboard.writeText('curl -s "' + d.tgCron + '" > /dev/null').then(() => toast('Copied')); };
     const tb = $('#waTest'); if (tb) tb.onclick = async () => { tb.disabled = true; tb.textContent = 'Checking…'; await waSettings(true); };
     $('#waRecheck').onclick = async () => { await waSettings(!!d.live); toast('Checked'); };
     const rg = $('#waReg'); if (rg) rg.onclick = async () => {

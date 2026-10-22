@@ -1163,6 +1163,7 @@ try {
         $last->execute([(int) $u['id']]);
         // The dashboard is on their screen: no Telegram ping while it can beep (api/telegram.php).
         if (!empty($_GET['vis']) && (!$u['wa_seen_at'] || strtotime($u['wa_seen_at'] . ' UTC') < time() - 15)) db()->prepare("UPDATE users SET wa_seen_at = datetime('now') WHERE id = ?")->execute([(int) $u['id']]);
+        tg_remind_later(); // 15-minute reminders, also when the cron job isn't set up yet
         json_out(['unread' => (int) $st->fetchColumn(), 'lastIn' => (int) $last->fetchColumn()]);
 
     // Telegram alerts for this person: connect (a one-time link to the bot), test, or turn off.
@@ -1335,7 +1336,7 @@ try {
         json_out(['token' => !empty($c['token']), 'phoneId' => !empty($c['phone_number_id']), 'appSecret' => !empty($c['app_secret']), 'verifyToken' => !empty($c['verify_token']),
             'ready' => wa_ready(), 'live' => $live, 'lastWebhook' => wa_setting('last_webhook', null), 'lastRejected' => wa_setting('last_rejected', null), 'lastNote' => wa_setting('last_note', null), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
             'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away'], 'telegram' => !empty($r['tg_chat_id'])]; }, $users),
-            'telegram' => tg_ready(), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
+            'telegram' => tg_ready(), 'tgCron' => tg_ready() ? tg_cron_url() : null, 'tgLastCron' => wa_setting('tg_cron_at', null), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
             'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
 
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
