@@ -1656,6 +1656,13 @@
     } catch (e) {}
   }
 
+  // Quick replies: {name} becomes the customer's first name. Without a usable name (only a number or a
+  // single letter), it's left out together with the "يا" before it: "أهلًا يا {name} 👋" → "أهلًا 👋".
+  const waFillName = (text, name) => {
+    const first = String(name || '').trim().split(/\s+/)[0] || '';
+    const ok = first.length > 1 && !/\d/.test(first);
+    return text.replace(/(\s*(?:يا|ya|Ya)\s+|\s+)?\{(?:name|الاسم)\}/g, (m, ya) => ok ? (ya || '') + first : '').replace(/ {2,}/g, ' ');
+  };
   // Products for "Send a product", per language (loaded once, then refreshed in the background).
   const waProds = {};
   const waProductList = async (lang, fresh) => {
@@ -1826,7 +1833,8 @@
         (st.quotes.length ? '<div class="card"><small class="muted">Quotes</small><div class="list">' + st.quotes.map((q) => '<div class="li small"><a href="doc.html?quote=' + q.id + '" target="_blank" rel="noopener">' + esc(q.number) + '</a><span>' + esc(q.status) + ' · ' + egp(q.total) + '</span></div>').join('') + '</div></div>' : '') +
         (st.orders.length ? '<div class="card"><small class="muted">Orders</small><div class="list">' + st.orders.map((o) => '<div class="li small wa-ord"><span>' + esc(o.number) + '</span><span>' + esc(o.status) + ' · ' + egp(o.total) + '</span>' +
           // Still to pay: one tap sends the customer a payment link (card or wallet) in this chat.
-          (o.due > 0 && !['Cancelled', 'Returned'].includes(o.status) ? '<span class="wa-due">' + egp(o.due) + ' <span>due</span></span>' + (o.payable && c.windowOpen ? '<button class="btn sm" data-pay="' + o.id + '">💳 <span>Send payment link</span></button>' : '') : '') +
+          (o.due <= 0 && o.paid > 0 && !['Cancelled', 'Returned'].includes(o.status) ? '<span class="wa-paid">✓ <span>Paid</span></span>' : '') +
+          (o.due > 0 && !['Cancelled', 'Returned'].includes(o.status) ? (o.paid > 0 ? '<span class="muted">' + egp(o.paid) + ' <span>paid</span> · </span>' : '') + '<span class="wa-due">' + egp(o.due) + ' <span>due</span></span>' + (o.payable && c.windowOpen ? '<button class="btn sm" data-pay="' + o.id + '">💳 <span>Send payment link</span></button>' : '') : '') +
           '</div>').join('') + '</div></div>' : '') + '</div>';
       const save = $('#waLeadSave');
       if (save) save.onclick = async () => {
@@ -1926,7 +1934,7 @@
         ql.innerHTML = quick.map((q, i) => '<button data-q="' + i + '"><b>' + esc(q.title) + '</b><span>' + esc(q.body) + '</span></button>').join('') +
           (can('whatsapp_all') ? '<button class="wa-qm" id="waQuickManage">✎ Edit quick replies</button>' : '');
         ql.hidden = !ql.hidden; $('#waProdList').hidden = true;
-        $$('[data-q]', ql).forEach((b) => b.onclick = () => { ta.value = (ta.value ? ta.value + '\n' : '') + quick[+b.dataset.q].body; ql.hidden = true; grow(); ta.focus(); });
+        $$('[data-q]', ql).forEach((b) => b.onclick = () => { ta.value = (ta.value ? ta.value + '\n' : '') + waFillName(quick[+b.dataset.q].body, (st.lead && st.lead.name) || c.name); ql.hidden = true; grow(); ta.focus(); });
         const qm = $('#waQuickManage'); if (qm) qm.onclick = () => { ql.hidden = true; waQuickDrawer(); };
       };
     };
@@ -1948,6 +1956,7 @@
     const draw = (list) => {
       const d = openDrawer('Quick replies', '<div class="stack">' + list.map((q) => '<div class="card stack" style="gap:6px"><input type="text" data-t="' + q.id + '" value="' + esc(q.title) + '"><textarea data-b="' + q.id + '" rows="3">' + esc(q.body) + '</textarea>' +
         '<div class="row"><span class="spacer"></span><button class="btn sm danger" data-del="' + q.id + '">Delete</button><button class="btn sm" data-save="' + q.id + '">Save</button></div></div>').join('') +
+        '<div class="hint">Write {name} where the customer’s first name should go, e.g. أهلًا يا {name} 👋</div>' +
         '<div class="card stack" style="gap:6px"><b>New quick reply</b><input type="text" id="qrT" placeholder="Name, e.g. Prices"><textarea id="qrB" rows="3" placeholder="The message"></textarea><div class="row"><span class="spacer"></span><button class="btn sm primary" id="qrAdd">Add</button></div></div></div>');
       const done = (r) => { if (waInbox.data) waInbox.data.quick = r.quick; draw(r.quick); toast('Saved'); };
       $$('[data-save]', d).forEach((b) => b.onclick = async () => { try { done(await api('wa_quick_save', { method: 'POST', body: { id: +b.dataset.save, title: $('[data-t="' + b.dataset.save + '"]', d).value, body: $('[data-b="' + b.dataset.save + '"]', d).value } })); } catch (e) { toast(e.message, true); } });

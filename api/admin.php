@@ -1216,8 +1216,9 @@ try {
             $o = db()->prepare("SELECT id, status, total, created_at FROM orders WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
             $o->execute(['%' . $key]);
             foreach ($o->fetchAll() as $r) {
-                $due = in_array($r['status'], ['Cancelled', 'Returned'], true) ? 0 : max(0, round((float) $r['total'] - order_paid((int) $r['id']), 2));
-                $orders[] = ['id' => (int) $r['id'], 'number' => order_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'due' => $due,
+                $paid = order_paid((int) $r['id']);
+                $due = in_array($r['status'], ['Cancelled', 'Returned'], true) ? 0 : max(0, round((float) $r['total'] - $paid, 2));
+                $orders[] = ['id' => (int) $r['id'], 'number' => order_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'due' => $due, 'paid' => $paid,
                     'payable' => $due > 0 && $r['status'] !== 'Delivered' && (bool) paymob_methods(), 'at' => $r['created_at']];
             }
             $qq = db()->prepare("SELECT id, status, total, created_at FROM quotes WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
@@ -1231,7 +1232,7 @@ try {
         $u = require_perm('whatsapp');
         $b = body();
         $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
-        $id = wa_send_text($chat, str_in($b['text'] ?? '', 4096), (int) $u['id']);
+        $id = wa_send_text($chat, str_in($b['text'] ?? '', 4096), (int) $u['id'], true, true);
         wa_claim($chat, $u);
         json_out(['message' => wa_message_out(wa_message_row($id))]);
 
@@ -1250,7 +1251,8 @@ try {
             $chat = wa_chat_for_user($u, (int) $chat['id']);
         }
         $name = preg_replace('/[\/\\\\:*?"<>|]+/', '', (string) $f['name']) ?: 'file';
-        $id = wa_send_file($chat, $f['tmp_name'], mb_substr($name, 0, 160), str_in($_POST['caption'] ?? '', 1024), (int) $u['id']);
+        // From the inbox: instant (🕓 then ✓). From an order or quote page: waits, so the page can say it was sent.
+        $id = wa_send_file($chat, $f['tmp_name'], mb_substr($name, 0, 160), str_in($_POST['caption'] ?? '', 1024), (int) $u['id'], !empty($_POST['chat_id']));
         wa_claim($chat, $u);
         json_out(['message' => wa_message_out(wa_message_row($id))]);
 
@@ -1289,7 +1291,7 @@ try {
         $amt = number_format($due, $due == floor($due) ? 0 : 2);
         $text = '💳 رابط الدفع لطلبك ' . $num . ' — المبلغ ' . $amt . ' ج.م' . "\n" . 'بالبطاقة أو المحفظة الإلكترونية، دفع آمن عبر Paymob 👇' . "\n" . pay_link_url((int) $o['id'])
             . "\n\n" . 'Pay for order ' . $num . ' (EGP ' . $amt . ') by card or mobile wallet.';
-        $id = wa_send_text($chat, $text, (int) $u['id'], false);
+        $id = wa_send_text($chat, $text, (int) $u['id'], false, true);
         wa_claim($chat, $u);
         log_activity($u, 'Sent a payment link', $num . ' · EGP ' . $amt . ' · WhatsApp ' . wa_local_phone($chat['wa_id']));
         json_out(['message' => wa_message_out(wa_message_row($id))]);

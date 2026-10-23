@@ -327,12 +327,18 @@ function wa_window_open(array $chat): bool
     return $chat['last_in_at'] && strtotime($chat['last_in_at'] . ' UTC') > time() - 86400;
 }
 
-function wa_record_out(array $chat, string $wamid, string $kind, string $body, array $media, int $userId, string $status = 'sent'): int
+// $userId null: sent by the shop itself (e.g. the payment thank-you).
+function wa_record_out(array $chat, string $wamid, string $kind, string $body, array $media, ?int $userId, string $status = 'sent'): int
 {
     db()->prepare("INSERT INTO wa_messages (chat_id, wamid, dir, kind, body, media_path, media_mime, media_name, media_size, status, user_id, created_at) VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
         ->execute([$chat['id'], $wamid, $kind, $body, $media['path'] ?? '', $media['mime'] ?? '', $media['name'] ?? '', $media['size'] ?? 0, $status, $userId]);
     $id = (int) db()->lastInsertId();
     $preview = $body !== '' ? $body : ['image' => '📷 Photo', 'video' => '🎥 Video', 'audio' => '🎤 Voice message', 'document' => '📄 ' . ($media['name'] ?? 'Document')][$kind] ?? '';
+    // An automatic message (no team member) doesn't count as answering the customer.
+    if ($userId === null) {
+        db()->prepare("UPDATE wa_chats SET last_out_at = datetime('now'), last_at = datetime('now'), last_text = ?, last_dir = 'out' WHERE id = ?")->execute([mb_substr($preview, 0, 200), $chat['id']]);
+        return $id;
+    }
     // The customer got an answer: no longer waiting, and the first answer time is kept for the reports.
     db()->prepare("UPDATE wa_chats SET last_out_at = datetime('now'), last_at = datetime('now'), last_text = ?, last_dir = 'out', waiting_since = NULL,
         first_reply_at = COALESCE(first_reply_at, CASE WHEN first_in_at IS NOT NULL THEN datetime('now') END), first_reply_by = COALESCE(first_reply_by, ?) WHERE id = ?")
@@ -340,18 +346,50 @@ function wa_record_out(array $chat, string $wamid, string $kind, string $body, a
     return $id;
 }
 
-function wa_send_text(array $chat, string $text, int $userId, bool $preview = true): int
+// Sending in the background: the message is saved as 'sending' (🕓) and the dashboard gets its answer at
+// once; the call to Meta runs after the reply has gone out. ✓ (or ⚠ with the reason) shows on the chat's
+// next update. One chat's messages go out one at a time, in the order they were written.
+function wa_send_later(int $messageId, int $chatId, callable $send): void
+{
+    register_shutdown_function(function () use ($messageId, $chatId, $send) {
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        ignore_user_abort(true);
+        $dir = wa_media_dir();
+        if (!is_dir($dir)) @mkdir($dir, 0750, true);
+        $lock = @fopen($dir . '/.send-' . $chatId . '.lock', 'c');
+        if ($lock) flock($lock, LOCK_EX);
+        try {
+            $r = $send();
+            db()->prepare("UPDATE wa_messages SET wamid = ?, status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END WHERE id = ?")->execute([(string) ($r['messages'][0]['id'] ?? ''), $messageId]);
+        } catch (Throwable $e) {
+            db()->prepare("UPDATE wa_messages SET status = 'failed', error = ? WHERE id = ?")->execute([mb_substr($e->getMessage(), 0, 300), $messageId]);
+        }
+        if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+    });
+}
+
+// $background: the inbox (instant, 🕓 then ✓); false for other pages, which wait for Meta's answer.
+function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = true, bool $background = false): int
 {
     $text = trim($text);
     if ($text === '') throw new ShopError('Write a message first.');
     if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
-    $r = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
-        'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => $preview]]);
+    $send = function () use ($chat, $text, $preview) {
+        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
+            'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => $preview]]);
+    };
+    if ($background) {
+        $id = wa_record_out($chat, '', 'text', $text, [], $userId, 'sending');
+        wa_send_later($id, (int) $chat['id'], $send);
+        return $id;
+    }
+    $r = $send();
     return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), 'text', $text, [], $userId);
 }
 
 // Send a file the team uploaded (or a document made by the dashboard, e.g. a quote PDF).
-function wa_send_file(array $chat, string $tmpPath, string $name, string $caption, int $userId): int
+function wa_send_file(array $chat, string $tmpPath, string $name, string $caption, ?int $userId, bool $background = false): int
 {
     if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmpPath) ?: 'application/octet-stream';
@@ -368,14 +406,22 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
     $path = wa_media_dir() . '/' . $rel;
     if (!is_dir(dirname($path))) mkdir(dirname($path), 0750, true);
     if (!copy($tmpPath, $path)) throw new ShopError('Could not save the file.');
-    try {
+    $send = function () use ($chat, $path, $mime, $name, $caption, $kind) {
         $up = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/media', ['messaging_product' => 'whatsapp', 'type' => $mime, 'file' => new CURLFile($path, $mime, $name)], true);
         $obj = ['id' => (string) $up['id']];
         if ($caption !== '' && $kind !== 'audio') $obj['caption'] = mb_substr($caption, 0, 1024);
         if ($kind === 'document') $obj['filename'] = mb_substr($name, 0, 240);
-        $r = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => $kind, $kind => $obj]);
-    } catch (Throwable $e) { @unlink($path); throw $e; }
-    return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), $kind, $caption, ['path' => $rel, 'mime' => $mime, 'name' => $name, 'size' => $size], $userId);
+        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => $kind, $kind => $obj]);
+    };
+    $media = ['path' => $rel, 'mime' => $mime, 'name' => $name, 'size' => $size];
+    if ($background) {
+        // The copy stays for the chat history even if WhatsApp refuses it (the message shows ⚠).
+        $id = wa_record_out($chat, '', $kind, $caption, $media, $userId, 'sending');
+        wa_send_later($id, (int) $chat['id'], $send);
+        return $id;
+    }
+    try { $r = $send(); } catch (Throwable $e) { @unlink($path); throw $e; }
+    return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), $kind, $caption, $media, $userId);
 }
 
 // A product from the shop: its photo, with name, short line, price and the link to order as the caption
@@ -392,7 +438,7 @@ function wa_send_product(array $chat, string $productId, bool $ar, int $userId):
         . (!$item['inStock'] ? "\n" . ($ar ? '(غير متوفر حاليًا)' : '(out of stock right now)') : '')
         . "\n🛒 " . ($ar ? 'اطلب من هنا: ' : 'Order here: ') . seo_product_url($p['id'], $ar);
     $photo = $p['images'] ? wa_product_photo((string) $p['images'][0]) : null;
-    if (!$photo) return wa_send_text($chat, $caption, $userId);
+    if (!$photo) return wa_send_text($chat, $caption, $userId, true, true);
     // The photo's id at Meta is kept for 20 days (Meta keeps uploads 30), so sending the same product
     // again is a single quick call. If Meta no longer has it, upload again once.
     $send = function (bool $fresh) use ($chat, $photo, $caption) {
@@ -405,21 +451,9 @@ function wa_send_product(array $chat, string $productId, bool $ar, int $userId):
         return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
             'to' => $chat['wa_id'], 'type' => 'image', 'image' => ['id' => $mid['id'], 'caption' => mb_substr($caption, 0, 1024)]]);
     };
-    // The message shows in the chat straight away (🕓), and is sent to Meta after the reply has gone back
-    // to the dashboard: the tick turns to ✓ (or ⚠ with the reason) on the chat's next update.
     $id = wa_record_out($chat, '', 'image', $caption,
         ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], $userId, 'sending');
-    register_shutdown_function(function () use ($send, $id) {
-        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
-        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
-        ignore_user_abort(true);
-        try {
-            try { $r = $send(false); } catch (ShopError $e) { $r = $send(true); }
-            db()->prepare("UPDATE wa_messages SET wamid = ?, status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END WHERE id = ?")->execute([(string) ($r['messages'][0]['id'] ?? ''), $id]);
-        } catch (Throwable $e) {
-            db()->prepare("UPDATE wa_messages SET status = 'failed', error = ? WHERE id = ?")->execute([mb_substr($e->getMessage(), 0, 300), $id]);
-        }
-    });
+    wa_send_later($id, (int) $chat['id'], function () use ($send) { try { return $send(false); } catch (ShopError $e) { return $send(true); } });
     return $id;
 }
 
@@ -476,6 +510,47 @@ function wa_mark_read(array $chat): void
         try { wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'status' => 'read', 'message_id' => $wamid]); }
         catch (Throwable $e) { /* not important enough to bother the team */ }
     }
+}
+
+// ---------- payments ----------
+
+// A Paymob payment arrived for an order: thank the customer in their WhatsApp chat (when the 24-hour
+// window allows it) and tell whoever handles them on Telegram. Runs after the reply to Paymob/the customer.
+function wa_payment_received(int $orderId, float $amount): void
+{
+    register_shutdown_function(function () use ($orderId, $amount) {
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        ignore_user_abort(true);
+        try {
+            $st = db()->prepare('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE o.id = ?');
+            $st->execute([$orderId]);
+            $o = $st->fetch();
+            if (!$o) return;
+            $num = order_number($orderId);
+            $due = max(0, round((float) $o['total'] - order_paid($orderId), 2));
+            $fmt = function ($n) { return number_format($n, $n == floor($n) ? 0 : 2); };
+            $waId = wa_id_from_phone((string) $o['phone']);
+            $chat = $waId ? wa_chat_by_wa_id($waId) : null;
+            if ($chat && wa_ready() && wa_window_open($chat)) {
+                $text = '✅ تم استلام دفعتك ' . $fmt($amount) . ' ج.م لطلب ' . $num . '. شكرًا لك!'
+                    . ($due > 0 ? "\n" . 'المتبقي: ' . $fmt($due) . ' ج.م' : "\n" . 'طلبك مدفوع بالكامل، وهنتواصل معاك بخصوص التنفيذ والتوصيل.')
+                    . "\n\n" . 'Payment received: EGP ' . $fmt($amount) . ' for order ' . $num . '. Thank you!' . ($due > 0 ? ' Remaining: EGP ' . $fmt($due) . '.' : '');
+                try { wa_send_text($chat, $text, null, false); } catch (Throwable $e) { error_log('[shop] payment thank-you: ' . $e->getMessage()); }
+            }
+            if (!function_exists('tg_ready') || !tg_ready()) return;
+            // Telegram: the chat's person, else the order's rep, else the managers.
+            $who = $chat && $chat['assigned_to'] ? (int) $chat['assigned_to'] : ($o['rep_id'] ? (int) $o['rep_id'] : 0);
+            if ($who) { $u = db()->prepare('SELECT id, name, tg_chat_id FROM users WHERE id = ? AND active = 1 AND tg_chat_id IS NOT NULL'); $u->execute([$who]); $to = $u->fetchAll(); }
+            else $to = tg_managers();
+            $msg = '💳 <b>Payment received · تم الدفع</b>' . "\n" . tg_h((string) $o['customer']) . ' paid <b>EGP ' . $fmt($amount) . '</b> for ' . $num
+                . "\n" . ($due > 0 ? 'Still due · المتبقي: EGP ' . $fmt($due) : '✓ Fully paid · مدفوع بالكامل');
+            $button = $chat ? tg_open_button($chat) : ['Open order · افتح الطلب', rtrim((string) cfg('site_url'), '/') . '/admin/#orders'];
+            foreach ($to as $user) tg_send_user($user, $msg, $button);
+        } catch (Throwable $e) {
+            error_log('[shop] payment received notice: ' . $e->getMessage());
+        }
+    });
 }
 
 // ---------- housekeeping ----------

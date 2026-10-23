@@ -489,6 +489,7 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-pt em{color:var(--bad);font-style:normal}
 .wa-ord{flex-wrap:wrap;row-gap:6px}
 .wa-due{color:var(--bad);font-weight:600}
+.wa-paid{color:var(--good);font-weight:600}
 .wa-ord .btn{width:100%;justify-content:center}
 
 /* Commissions */

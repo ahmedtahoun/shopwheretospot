@@ -182,6 +182,8 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
         if (!$dupe->fetchColumn()) {
             add_payment($orderId, $amountCents / 100, 'paymob', mb_substr($label, 0, 120) . ' · txn ' . $txnId, null);
             log_activity(null, 'Online payment received', order_number($orderId) . ' · EGP ' . number_format($amountCents / 100) . ' · ' . $label);
+            // Thank the customer on WhatsApp and tell the team on Telegram (api/whatsapp.php), once per payment.
+            wa_payment_received($orderId, $amountCents / 100);
         }
         tx_commit();
     } catch (Throwable $e) {
