@@ -289,12 +289,23 @@
   $('use').onclick = usePaste;
   $('paste').onkeydown = function (e) { if (e.key === 'Enter') usePaste(); };
 
-  var qrMatrix = function (text) { var q = qrcode(0, 'M'); q.addData(text); q.make(); return q; };
+  // Error correction H (30%): the code still scans with our face covering its middle.
+  var qrMatrix = function (text) { var q = qrcode(0, 'H'); q.addData(text); q.make(); return q; };
+  // The Where To Spot chat face (the site icon), drawn so it's sharp at any size: blue-purple circle, two eyes.
+  var drawFace = function (ctx, cx, cy, d) {
+    var r = d / 2;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, r * 1.18, 0, Math.PI * 2); ctx.fill();
+    var g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r); g.addColorStop(0, '#4F6BFF'); g.addColorStop(1, '#7B47DD');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    [-1, 1].forEach(function (side) { ctx.beginPath(); ctx.ellipse(cx + side * r * 0.24, cy, r * 0.13, r * 0.22, 0, 0, Math.PI * 2); ctx.fill(); });
+  };
   var drawQr = function (ctx, q, x, y, size) {
     var n = q.getModuleCount(), cell = size / n;
     ctx.fillStyle = '#fff'; ctx.fillRect(x, y, size, size);
     ctx.fillStyle = '#22201D';
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) ctx.fillRect(Math.floor(x + c * cell), Math.floor(y + r * cell), Math.ceil(cell), Math.ceil(cell));
+    drawFace(ctx, x + size / 2, y + size / 2, size * 0.2);
   };
   var roundRect = function (ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
 
