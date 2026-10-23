@@ -1212,9 +1212,14 @@ try {
         $key = phone_key(wa_local_phone($chat['wa_id']));
         $orders = []; $quotes = [];
         if ($key) {
-            $o = db()->prepare("SELECT id, status, total, created_at FROM orders WHERE status != 'Awaiting payment' AND REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
+            // Unpaid online orders too: those are the ones a payment link helps most.
+            $o = db()->prepare("SELECT id, status, total, created_at FROM orders WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
             $o->execute(['%' . $key]);
-            foreach ($o->fetchAll() as $r) $orders[] = ['id' => (int) $r['id'], 'number' => order_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'at' => $r['created_at']];
+            foreach ($o->fetchAll() as $r) {
+                $due = in_array($r['status'], ['Cancelled', 'Returned'], true) ? 0 : max(0, round((float) $r['total'] - order_paid((int) $r['id']), 2));
+                $orders[] = ['id' => (int) $r['id'], 'number' => order_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'due' => $due,
+                    'payable' => $due > 0 && $r['status'] !== 'Delivered' && (bool) paymob_methods(), 'at' => $r['created_at']];
+            }
             $qq = db()->prepare("SELECT id, status, total, created_at FROM quotes WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 5");
             $qq->execute(['%' . $key]);
             foreach ($qq->fetchAll() as $r) $quotes[] = ['id' => (int) $r['id'], 'number' => quote_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'at' => $r['created_at']];
@@ -1250,6 +1255,46 @@ try {
         json_out(['message' => wa_message_out(wa_message_row($id))]);
 
     // Is there a chat with this phone where we can still write freely? (quote / invoice page)
+    // Products to send in a chat (Active ones), with their price in the chosen language.
+    case 'wa_products':
+        require_perm('whatsapp');
+        $ar = ($_GET['lang'] ?? 'ar') !== 'en';
+        [$cats, $brands] = seo_lookups($ar);
+        json_out(['products' => array_map(function ($p) use ($ar, $cats, $brands) {
+            $i = seo_item($p, $ar, $cats, $brands);
+            return ['id' => $p['id'], 'name' => $i['title'], 'other' => $ar ? $p['name'] : ($p['nameAr'] ?: ''), 'cat' => $i['catLabel'], 'price' => seo_price_text($i, $ar),
+                'image' => $p['images'] ? (string) $p['images'][0] : '', 'inStock' => $i['inStock']];
+        }, load_products(true)), 'testPay' => paymob_methods() && paymob_is_test()]);
+
+    case 'wa_send_product':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $id = wa_send_product($chat, str_in($b['product_id'] ?? '', 80), ($b['lang'] ?? 'ar') !== 'en', (int) $u['id']);
+        wa_claim($chat, $u);
+        json_out(['message' => wa_message_out(wa_message_row($id))]);
+
+    // A payment link for one of this customer's orders, sent in the chat (api/pay.php).
+    case 'wa_pay_link':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
+        $st->execute([(int) ($b['order_id'] ?? 0)]);
+        $o = $st->fetch();
+        // Only an order of this customer (same phone number as the chat).
+        if (!$o || !phone_key((string) $o['phone']) || phone_key((string) $o['phone']) !== phone_key(wa_local_phone($chat['wa_id']))) fail('That order isn’t this customer’s.', 404);
+        if ($why = pay_link_problem($o)) fail($why);
+        $num = order_number((int) $o['id']);
+        $due = round((float) $o['total'] - order_paid((int) $o['id']), 2);
+        $amt = number_format($due, $due == floor($due) ? 0 : 2);
+        $text = '💳 رابط الدفع لطلبك ' . $num . ' — المبلغ ' . $amt . ' ج.م' . "\n" . 'بالبطاقة أو المحفظة الإلكترونية، دفع آمن عبر Paymob 👇' . "\n" . pay_link_url((int) $o['id'])
+            . "\n\n" . 'Pay for order ' . $num . ' (EGP ' . $amt . ') by card or mobile wallet.';
+        $id = wa_send_text($chat, $text, (int) $u['id'], false);
+        wa_claim($chat, $u);
+        log_activity($u, 'Sent a payment link', $num . ' · EGP ' . $amt . ' · WhatsApp ' . wa_local_phone($chat['wa_id']));
+        json_out(['message' => wa_message_out(wa_message_row($id))]);
+
     case 'wa_window':
         $u = require_perm('whatsapp');
         $waId = wa_id_from_phone((string) ($_GET['phone'] ?? ''));

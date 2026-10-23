@@ -1814,7 +1814,10 @@
           (l.notes ? '<details><summary class="small">Notes</summary><div class="small" style="white-space:pre-line;margin-top:6px">' + esc(l.notes) + '</div></details>' : '') + '</div>' : '') +
         '<div class="row"><button class="btn sm" id="waQuote">' + icon('file') + 'New quote</button><button class="btn sm" id="waOrder">' + icon('cart') + 'New order</button></div>' +
         (st.quotes.length ? '<div class="card"><small class="muted">Quotes</small><div class="list">' + st.quotes.map((q) => '<div class="li small"><a href="doc.html?quote=' + q.id + '" target="_blank" rel="noopener">' + esc(q.number) + '</a><span>' + esc(q.status) + ' · ' + egp(q.total) + '</span></div>').join('') + '</div></div>' : '') +
-        (st.orders.length ? '<div class="card"><small class="muted">Orders</small><div class="list">' + st.orders.map((o) => '<div class="li small"><span>' + esc(o.number) + '</span><span>' + esc(o.status) + ' · ' + egp(o.total) + '</span></div>').join('') + '</div></div>' : '') + '</div>';
+        (st.orders.length ? '<div class="card"><small class="muted">Orders</small><div class="list">' + st.orders.map((o) => '<div class="li small wa-ord"><span>' + esc(o.number) + '</span><span>' + esc(o.status) + ' · ' + egp(o.total) + '</span>' +
+          // Still to pay: one tap sends the customer a payment link (card or wallet) in this chat.
+          (o.due > 0 && !['Cancelled', 'Returned'].includes(o.status) ? '<span class="wa-due">' + egp(o.due) + ' <span>due</span></span>' + (o.payable && c.windowOpen ? '<button class="btn sm" data-pay="' + o.id + '">💳 <span>Send payment link</span></button>' : '') : '') +
+          '</div>').join('') + '</div></div>' : '') + '</div>';
       const save = $('#waLeadSave');
       if (save) save.onclick = async () => {
         try {
@@ -1823,6 +1826,14 @@
         } catch (e) { toast(e.message, true); }
       };
       const pre = () => ({ name: l ? l.name : c.name, phone: c.phone, leadId: c.leadId, interest: c.ad ? c.ad.headline : '' });
+      $$('[data-pay]', $('#waSide')).forEach((b) => b.onclick = async () => {
+        b.disabled = true;
+        try {
+          const r = await api('wa_pay_link', { method: 'POST', body: { chat_id: c.id, order_id: +b.dataset.pay } });
+          st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); toast('Payment link sent');
+        } catch (e) { toast(e.message, true); }
+        b.disabled = false;
+      });
       $('#waQuote').onclick = () => newOrderDrawer(Object.assign(pre(), { mode: 'quote' }));
       $('#waOrder').onclick = () => newOrderDrawer(pre());
     };
@@ -1834,8 +1845,9 @@
         return;
       }
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
-      $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div>' +
+      $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div><div class="wa-quick wa-prods" id="waProdList" hidden></div>' +
         '<div class="wa-cbar"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
+        '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
         '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>' +
         '<textarea id="waText" rows="1" placeholder="Write a message" title="Enter sends · Shift+Enter adds a new line"></textarea>' +
         '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
@@ -1852,6 +1864,42 @@
       };
       $('#waSend').onclick = send;
       ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+      // Send a product: its photo with name, price and the link to order, in Arabic or English.
+      const pl = $('#waProdList');
+      const added = (m) => { st.msgs.push(m); st.lastId = Math.max(st.lastId, m.id); appendMessages([m]); loadList(); };
+      const drawProducts = () => {
+        const q = (st.prodQ || '').toLowerCase();
+        const list = (st.prods || []).filter((p) => !q || (p.name + ' ' + p.other + ' ' + p.cat).toLowerCase().includes(q));
+        $('#waProdItems').innerHTML = list.length ? list.map((p) => '<button data-p="' + esc(p.id) + '"><span class="wa-pimg">' + (p.image ? '<img src="' + esc(thumb(p.image, 120)) + '" alt="" loading="lazy">' : icon('box')) + '</span>' +
+          '<span class="wa-pt"><b dir="auto">' + esc(p.name) + '</b><span dir="auto">' + esc(p.price) + (p.inStock ? '' : ' · <em>Out of stock</em>') + '</span></span></button>').join('')
+          : '<div class="muted small" style="padding:10px">No products found.</div>';
+        $$('[data-p]', pl).forEach((b) => b.onclick = async () => {
+          if (b.disabled) return;
+          $$('[data-p]', pl).forEach((x) => { x.disabled = true; });
+          b.classList.add('sending');
+          try { const r = await api('wa_send_product', { method: 'POST', body: { chat_id: c.id, product_id: b.dataset.p, lang: st.prodLang } }); pl.hidden = true; added(r.message); toast('Product sent'); }
+          catch (err) { toast(err.message, true); }
+          $$('[data-p]', pl).forEach((x) => { x.disabled = false; }); b.classList.remove('sending');
+        });
+      };
+      const loadProducts = async () => {
+        $('#waProdItems').innerHTML = '<div class="muted small" style="padding:10px">Loading…</div>';
+        try { const r = await api('wa_products', { query: '&lang=' + st.prodLang }); st.prods = r.products; drawProducts(); }
+        catch (err) { $('#waProdItems').innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }
+      };
+      $('#waProdBtn').onclick = () => {
+        $('#waQuickList').hidden = true;
+        if (!pl.hidden) { pl.hidden = true; return; }
+        st.prodLang = st.prodLang || 'ar';
+        pl.innerHTML = '<div class="wa-ph"><input type="search" id="waProdQ" placeholder="Search products" value="' + esc(st.prodQ || '') + '">' +
+          '<div class="seg"><button data-pl="ar" class="' + (st.prodLang === 'ar' ? 'on' : '') + '">عربي</button><button data-pl="en" class="' + (st.prodLang === 'en' ? 'on' : '') + '">English</button></div></div>' +
+          '<div class="small muted wa-phint">Sends the photo with name, price and the link to order.</div><div id="waProdItems"></div>';
+        pl.hidden = false;
+        $('#waProdQ').oninput = (e) => { st.prodQ = e.target.value; drawProducts(); };
+        $$('[data-pl]', pl).forEach((b) => b.onclick = () => { st.prodLang = b.dataset.pl; $$('[data-pl]', pl).forEach((x) => x.classList.toggle('on', x === b)); loadProducts(); });
+        loadProducts();
+        $('#waProdQ').focus();
+      };
       $('#waFile').onchange = async (e) => {
         const file = e.target.files[0]; if (!file) return;
         const caption = file.type.startsWith('audio') ? '' : ta.value.trim();
@@ -1866,7 +1914,7 @@
         const quick = (st.data && st.data.quick) || [];
         ql.innerHTML = quick.map((q, i) => '<button data-q="' + i + '"><b>' + esc(q.title) + '</b><span>' + esc(q.body) + '</span></button>').join('') +
           (can('whatsapp_all') ? '<button class="wa-qm" id="waQuickManage">✎ Edit quick replies</button>' : '');
-        ql.hidden = !ql.hidden;
+        ql.hidden = !ql.hidden; $('#waProdList').hidden = true;
         $$('[data-q]', ql).forEach((b) => b.onclick = () => { ta.value = (ta.value ? ta.value + '\n' : '') + quick[+b.dataset.q].body; ql.hidden = true; grow(); ta.focus(); });
         const qm = $('#waQuickManage'); if (qm) qm.onclick = () => { ql.hidden = true; waQuickDrawer(); };
       };

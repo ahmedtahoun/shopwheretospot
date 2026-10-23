@@ -86,6 +86,27 @@ function paymob_checkout_url(int $orderId, string $method): string
     return $c['base_url'] . '/unifiedcheckout/?publicKey=' . rawurlencode($c['public_key']) . '&clientSecret=' . rawurlencode($res['client_secret']);
 }
 
+// A link the team sends a customer (e.g. in WhatsApp) to pay what's still due on an order online.
+// It never expires: each time it's opened, api/pay.php starts a fresh Paymob payment for the amount due then.
+function pay_link_key(int $orderId): string
+{
+    return substr(hash_hmac('sha256', 'pay-link:' . $orderId, setup_key()), 0, 20);
+}
+
+function pay_link_url(int $orderId): string
+{
+    return rtrim((string) cfg('site_url'), '/') . '/api/pay.php?o=' . $orderId . '&k=' . pay_link_key($orderId);
+}
+
+// Can this order be paid by link right now? '' = yes, otherwise the reason.
+function pay_link_problem(array $o): string
+{
+    if (!paymob_methods()) return 'Online payment isn’t set up (Settings → Online payments).';
+    if (in_array($o['status'], ['Cancelled', 'Returned', 'Delivered'], true)) return 'This order is ' . strtolower($o['status']) . '.';
+    if (round((float) $o['total'] - order_paid((int) $o['id']), 2) <= 0) return 'This order is already paid.';
+    return '';
+}
+
 function paymob_request(string $method, string $path, ?array $body = null): array
 {
     // (paymob_status shows the real Paymob reply to the owner when a test fails)

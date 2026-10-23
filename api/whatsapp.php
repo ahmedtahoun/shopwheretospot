@@ -338,13 +338,13 @@ function wa_record_out(array $chat, string $wamid, string $kind, string $body, a
     return $id;
 }
 
-function wa_send_text(array $chat, string $text, int $userId): int
+function wa_send_text(array $chat, string $text, int $userId, bool $preview = true): int
 {
     $text = trim($text);
     if ($text === '') throw new ShopError('Write a message first.');
     if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
     $r = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
-        'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => true]]);
+        'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => $preview]]);
     return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), 'text', $text, [], $userId);
 }
 
@@ -374,6 +374,47 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
         $r = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => $kind, $kind => $obj]);
     } catch (Throwable $e) { @unlink($path); throw $e; }
     return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), $kind, $caption, ['path' => $rel, 'mime' => $mime, 'name' => $name, 'size' => $size], $userId);
+}
+
+// A product from the shop: its photo, with name, short line, price and the link to order as the caption
+// (in Arabic or English). The photo is sent as a JPEG, which WhatsApp always accepts.
+function wa_send_product(array $chat, string $productId, bool $ar, int $userId): int
+{
+    if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
+    $p = null;
+    foreach (load_products(true) as $row) if ($row['id'] === $productId) { $p = $row; break; }
+    if (!$p) throw new ShopError('That product isn’t in the shop (it may be a draft or archived).');
+    [$cats, $brands] = seo_lookups($ar);
+    $item = seo_item($p, $ar, $cats, $brands);
+    $caption = '*' . $item['title'] . '*' . ($item['summary'] !== '' ? "\n" . $item['summary'] : '')
+        . "\n\n💰 " . seo_price_text($item, $ar)
+        . (!$item['inStock'] ? "\n" . ($ar ? '(غير متوفر حاليًا)' : '(out of stock right now)') : '')
+        . "\n🛒 " . ($ar ? 'اطلب من هنا: ' : 'Order here: ') . $item['url'];
+    $photo = $p['images'] ? wa_product_jpeg((string) $p['images'][0]) : null;
+    if (!$photo) return wa_send_text($chat, $caption, $userId);
+    try { return wa_send_file($chat, $photo, preg_replace('/[^a-z0-9-]+/i', '-', $p['id']) . '.jpg', $caption, $userId); }
+    finally { @unlink($photo); }
+}
+
+// A product photo as a JPEG in a temporary file (at most 1200 px wide, white behind transparent parts).
+function wa_product_jpeg(string $path): ?string
+{
+    $root = realpath(dirname(__DIR__));
+    $file = realpath($root . '/' . ltrim($path, '/'));
+    if (!$file || strpos($file, $root) !== 0 || !function_exists('imagecreatetruecolor')) return null;
+    $info = @getimagesize($file);
+    $load = ['image/jpeg' => 'imagecreatefromjpeg', 'image/png' => 'imagecreatefrompng', 'image/webp' => 'imagecreatefromwebp'][$info['mime'] ?? ''] ?? null;
+    if (!$load || !function_exists($load) || !($src = @$load($file))) return null;
+    [$w, $h] = [imagesx($src), imagesy($src)];
+    $nw = min(1200, $w);
+    $nh = (int) round($h * $nw / $w);
+    $out = imagecreatetruecolor($nw, $nh);
+    imagefill($out, 0, 0, imagecolorallocate($out, 255, 255, 255));
+    imagecopyresampled($out, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+    $tmp = tempnam(sys_get_temp_dir(), 'wtsp');
+    $ok = imagejpeg($out, $tmp, 85);
+    unset($src, $out);
+    return $ok ? $tmp : null;
 }
 
 // Blue ticks for the customer once the team opens the chat.
