@@ -1585,8 +1585,8 @@
   // Minutes until the 24-hour free-reply window closes (null = closed or unknown).
   const waLeft = (c) => c.windowOpen && c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 60000)) : null;
   const waSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
-  const waLink = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>');
-  const WA_TICK = { sent: '✓', delivered: '✓✓', read: '✓✓', failed: '⚠' };
+  const waLink = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/(^|[\s>])\*([^*\n<]+)\*(?=$|[\s<.,!?])/g, '$1<b>$2</b>').replace(/\n/g, '<br>');
+  const WA_TICK = { sending: '🕓', sent: '✓', delivered: '✓✓', read: '✓✓', failed: '⚠' };
 
   // Unread badge + a sound (and a notification, if allowed) when a new customer message arrives — on every page.
   function waWatch() {
@@ -1734,7 +1734,9 @@
       if (isNew) { renderChat(); return; }
       // Live update: add new messages and refresh ticks without redrawing (a playing video keeps playing).
       if (d.messages.length) appendMessages(d.messages);
-      d.ticks.forEach((t) => { const el = $('#waMsgs [data-m="' + t.id + '"] .wa-tick'); if (el && !el.classList.contains(t.status)) { el.className = 'wa-tick ' + t.status; el.textContent = WA_TICK[t.status] || ''; el.title = t.error || t.status; } });
+      d.ticks.forEach((t) => { const el = $('#waMsgs [data-m="' + t.id + '"] .wa-tick'); if (el && !el.classList.contains(t.status)) { el.className = 'wa-tick ' + t.status; el.textContent = WA_TICK[t.status] || ''; el.title = t.error || t.status;
+        // A message sent in the background that WhatsApp refused: show it in red with the reason.
+        if (t.status === 'failed') { const m = el.closest('.wa-msg'); if (m && !m.classList.contains('failed')) { m.classList.add('failed'); if (t.error) el.closest('.wa-meta').insertAdjacentHTML('beforebegin', '<div class="wa-err">' + esc(t.error) + '</div>'); } } } });
       const headKey = JSON.stringify([d.chat.assignedTo, d.chat.status, d.chat.name]);
       if (headKey !== st.headKey) renderHead();
       if (d.chat.windowOpen !== st.composeOpen) renderCompose();
@@ -1885,8 +1887,7 @@
         // Sends in the background: the list closes at once, the message appears when WhatsApp accepts it.
         $$('[data-p]', pl).forEach((b) => b.onclick = async () => {
           pl.hidden = true;
-          toast('Sending product…');
-          try { const r = await api('wa_send_product', { method: 'POST', body: { chat_id: c.id, product_id: b.dataset.p, lang: st.prodLang } }); if (st.chatId === c.id) added(r.message); toast('Product sent'); }
+          try { const r = await api('wa_send_product', { method: 'POST', body: { chat_id: c.id, product_id: b.dataset.p, lang: st.prodLang } }); if (st.chatId === c.id) added(r.message); }
           catch (err) { toast(err.message, true); }
         });
       };

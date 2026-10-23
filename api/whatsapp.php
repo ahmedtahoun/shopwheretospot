@@ -44,7 +44,9 @@ function wa_graph(string $method, string $path, ?array $body = null, bool $multi
     $ch = curl_init(wa_graph_base() . $path);
     $headers = ['Authorization: Bearer ' . wa_cfg('token'), 'Accept: application/json'];
     if ($body !== null && !$multipart) $headers[] = 'Content-Type: application/json';
-    curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_HTTPHEADER => $headers]);
+    // IPv4: some hosts try IPv6 first and wait seconds for it to fail before every call to Meta.
+    curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, CURLOPT_TCP_KEEPALIVE => 1]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $multipart ? $body : json_encode($body, JSON_UNESCAPED_UNICODE));
     $raw = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -325,10 +327,10 @@ function wa_window_open(array $chat): bool
     return $chat['last_in_at'] && strtotime($chat['last_in_at'] . ' UTC') > time() - 86400;
 }
 
-function wa_record_out(array $chat, string $wamid, string $kind, string $body, array $media, int $userId): int
+function wa_record_out(array $chat, string $wamid, string $kind, string $body, array $media, int $userId, string $status = 'sent'): int
 {
-    db()->prepare("INSERT INTO wa_messages (chat_id, wamid, dir, kind, body, media_path, media_mime, media_name, media_size, status, user_id, created_at) VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?, 'sent', ?, datetime('now'))")
-        ->execute([$chat['id'], $wamid, $kind, $body, $media['path'] ?? '', $media['mime'] ?? '', $media['name'] ?? '', $media['size'] ?? 0, $userId]);
+    db()->prepare("INSERT INTO wa_messages (chat_id, wamid, dir, kind, body, media_path, media_mime, media_name, media_size, status, user_id, created_at) VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+        ->execute([$chat['id'], $wamid, $kind, $body, $media['path'] ?? '', $media['mime'] ?? '', $media['name'] ?? '', $media['size'] ?? 0, $status, $userId]);
     $id = (int) db()->lastInsertId();
     $preview = $body !== '' ? $body : ['image' => '📷 Photo', 'video' => '🎥 Video', 'audio' => '🎤 Voice message', 'document' => '📄 ' . ($media['name'] ?? 'Document')][$kind] ?? '';
     // The customer got an answer: no longer waiting, and the first answer time is kept for the reports.
@@ -403,9 +405,22 @@ function wa_send_product(array $chat, string $productId, bool $ar, int $userId):
         return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
             'to' => $chat['wa_id'], 'type' => 'image', 'image' => ['id' => $mid['id'], 'caption' => mb_substr($caption, 0, 1024)]]);
     };
-    try { $r = $send(false); } catch (ShopError $e) { $r = $send(true); }
-    return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), 'image', $caption,
-        ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], $userId);
+    // The message shows in the chat straight away (🕓), and is sent to Meta after the reply has gone back
+    // to the dashboard: the tick turns to ✓ (or ⚠ with the reason) on the chat's next update.
+    $id = wa_record_out($chat, '', 'image', $caption,
+        ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], $userId, 'sending');
+    register_shutdown_function(function () use ($send, $id) {
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        ignore_user_abort(true);
+        try {
+            try { $r = $send(false); } catch (ShopError $e) { $r = $send(true); }
+            db()->prepare("UPDATE wa_messages SET wamid = ?, status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END WHERE id = ?")->execute([(string) ($r['messages'][0]['id'] ?? ''), $id]);
+        } catch (Throwable $e) {
+            db()->prepare("UPDATE wa_messages SET status = 'failed', error = ? WHERE id = ?")->execute([mb_substr($e->getMessage(), 0, 300), $id]);
+        }
+    });
+    return $id;
 }
 
 // What a product message needs (name, short line, price, in stock) without the full SEO texts.
