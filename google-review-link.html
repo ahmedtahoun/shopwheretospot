@@ -306,6 +306,7 @@
       state.choices = null;
       if (d.status === 'choose') return showChoices(d.places);
       if (d.status === 'need_link') return showFound(d.place);
+      if (!d.place || !d.place.link) return msg(t('bad'), true); // never an empty QR
       make(d.place.link, d.place.name, d.place, d.status === 'verified' ? 'exact' : 'not');
     }).catch(function () { $('use').disabled = false; msg(t('bad'), true); });
   };

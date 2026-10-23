@@ -130,6 +130,8 @@ function parse_maps_url(string $url): array
     if (preg_match('~/maps/place/([^/@?]+)~', $u, $m)) $out['name'] = trim($m[1]);
     elseif (!empty($q['q']) && !preg_match('/^-?\d+\.\d+,\s*-?\d+\.\d+$/', $q['q'])) $out['name'] = trim(preg_replace('/^place_id:\S+/', '', (string) $q['q']));
     elseif (!empty($q['query'])) $out['name'] = trim((string) $q['query']);
+    // Google adds invisible text-direction marks around names (e.g. Arabic ones): drop them.
+    if ($out['name'] !== null) $out['name'] = trim(preg_replace('/[\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $out['name']));
     return $out;
 }
 
