@@ -53,6 +53,9 @@ return [
     // Optional: business search in the free review-link tool (google-review-link.html). Google Cloud console →
     // enable "Places API (New)" → Credentials → API key, restricted to Places API (New). Without it, visitors paste a link.
     // 'google_places_key' => 'AIza…',
+    // Optional: Google's own place map (name, rating, pin) under the result. Same console → enable "Maps Embed API" →
+    // a second API key restricted to "Websites: shop.wheretospot.com/*" and to Maps Embed API (it's visible in the page).
+    // 'google_maps_embed_key' => 'AIza…',
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],
 ];

@@ -78,6 +78,11 @@
   .placeinfo code{font-size:12.5px;color:#6B6660;direction:ltr;overflow-wrap:anywhere}
   .vpill{display:inline-block;font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:#E4F2E8;color:#2F7A4A;width:max-content}
   .vpill.warn{background:#FCF0D7;color:#7A5200}
+  .mapbox{display:flex;flex-direction:column;gap:10px}
+  .mapbox[hidden]{display:none}
+  .mapbox iframe{width:100%;height:300px;border:0;border-radius:14px;background:#EFEAE3}
+  .maprow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .maprow .hint{flex:1;min-width:200px}
   html[lang=ar] .tool,html[lang=ar] .made{direction:rtl}
   #printArea{display:none}
   @media (max-width:640px){.made{grid-template-columns:1fr}.made canvas{max-width:280px;margin:0 auto}.tool{padding:18px}}
@@ -110,6 +115,8 @@
 
   <div class="out" id="out">
     <div class="placeinfo" id="placeInfo"></div>
+    <div class="mapbox" id="mapBox" hidden><iframe id="map" title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      <div class="maprow"><span class="hint" data-t="checkMap"></span><a class="btn sm ghost" id="openMaps" target="_blank" rel="noopener" data-t="openMaps"></a><button class="btn sm ghost" id="notThis" hidden data-t="notThis"></button></div></div>
     <div>
       <label data-t="yourLink"></label>
       <div class="linkbox"><code id="link"></code><button class="btn sm" id="copy" data-t="copy"></button><a class="btn sm ghost" id="test" target="_blank" rel="noopener" data-t="test"></a><a class="btn sm ghost" id="wa" target="_blank" rel="noopener" data-t="whatsapp"></a></div>
@@ -204,6 +211,8 @@
     vProfile: ['From your Business Profile', 'من حساب نشاطك على جوجل'],
     vNot: ['Made from the link, not checked with Google: tap “Test it” to make sure', 'معمول من الرابط ومش متأكدين منه من جوجل: اضغط “جرّبه” للتأكد'],
     placeId: ['Place ID', 'Place ID'],
+    checkMap: ['Make sure this is your business (and the right branch) before you print.', 'اتأكد إن ده نشاطك (والفرع الصح) قبل ما تطبع.'],
+    openMaps: ['Open in Google Maps', 'افتح في خرائط جوجل'], notThis: ['Not this one?', 'مش ده؟'],
     whereTitle: ['Where do I find my review link?', 'ألاقي رابط التقييم فين؟'],
     where: [['Open Google Maps (or search your business name on Google) signed in as the owner.', 'Open your Business Profile.', 'Tap “Ask for reviews” or “Get more reviews”.', 'Copy the link and paste it here.'],
       ['افتح خرائط جوجل (أو دوّر على اسم نشاطك في جوجل) وأنت داخل بحساب صاحب النشاط.', 'افتح صفحة نشاطك (Business Profile).', 'اضغط “اطلب تقييمات” أو “الحصول على المزيد من التقييمات”.', 'انسخ الرابط والصقه هنا.']],
@@ -235,7 +244,7 @@
 
   // Business search is there only when the server has a Google key.
   fetch('api/places.php').then(function (r) { return r.json(); }).then(function (d) {
-    state.searchOn = !!d.search;
+    state.searchOn = !!d.search; state.embedKey = d.embedKey || '';
     $('searchPart').hidden = !d.search; $('orLine').hidden = !d.search;
     if (!d.search) document.querySelector('label[for=paste]').textContent = t('pasteOnly');
   }).catch(function () {});
@@ -250,6 +259,7 @@
         return '<button class="place" data-i="' + i + '"><span><b>' + esc(p.name) + '</b><small>' + esc(p.address) + '</small></span>' +
           (p.rating ? '<span class="rt">★ ' + p.rating.toFixed(1) + ' · ' + p.reviews + ' ' + t('reviews') + '</span>' : '') + '</button>';
       }).join('');
+      state.choices = null;
       $('results').querySelectorAll('.place').forEach(function (b) { b.onclick = function () { var p = d.places[+b.dataset.i]; make('https://search.google.com/local/writereview?placeid=' + encodeURIComponent(p.id), p.name, p, 'google'); }; });
     }).catch(function () { $('results').innerHTML = ''; msg(t('none'), true); });
   };
@@ -259,6 +269,7 @@
   // Any Maps link (short or full), a review link, or a Place ID. Maps links and IDs go to api/places.php,
   // which finds the exact business and checks its Place ID with Google; a list comes back when unsure.
   var showChoices = function (places) {
+    state.choices = places;
     $('choices').innerHTML = '<div class="hint">' + t('pick') + '</div>' + places.map(function (p, i) {
       return '<button class="place" data-c="' + i + '"><span><b>' + esc(p.name) + '</b><small>' + esc(p.address) + '</small></span>' +
         (p.rating ? '<span class="rt">★ ' + p.rating.toFixed(1) + ' · ' + p.reviews + ' ' + t('reviews') + '</span>' : '') + '</button>';
@@ -271,6 +282,7 @@
       $('use').disabled = false;
       if (d.error) return msg(d.error, true);
       msg('');
+      state.choices = null;
       if (d.status === 'choose') return showChoices(d.places);
       make(d.place.link, d.place.name, d.place, d.status === 'verified' ? 'exact' : 'not');
     }).catch(function () { $('use').disabled = false; msg(t('bad'), true); });
@@ -286,6 +298,7 @@
     if (/(google\.[a-z.]+\/(maps|search)|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|share\.google|g\.co\/)/i.test(v)) return lookup('url=' + encodeURIComponent(v));
     msg(t('bad'), true);
   };
+  $('notThis').onclick = function () { $('out').classList.remove('on'); showChoices(state.choices); $('choices').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   $('use').onclick = usePaste;
   $('paste').onkeydown = function (e) { if (e.key === 'Enter') usePaste(); };
 
@@ -344,6 +357,13 @@
     state.link = link;
     if (name) $('biz').value = name;
     var pill = { exact: ['', t('vExact')], google: ['', t('vGoogle')], profile: ['', t('vProfile')], not: ['warn', t('vNot')] }[how || 'profile'];
+    // The map of the found business, so the owner can check it's the right place and branch.
+    var mapUrl = place && place.id && state.embedKey ? 'https://www.google.com/maps/embed/v1/place?key=' + encodeURIComponent(state.embedKey) + '&q=place_id:' + encodeURIComponent(place.id)
+      : place && place.lat != null ? 'https://maps.google.com/maps?q=' + place.lat + ',' + place.lng + '&z=17&output=embed' : '';
+    $('mapBox').hidden = !mapUrl;
+    if (mapUrl && $('map').src !== mapUrl) $('map').src = mapUrl;
+    $('openMaps').href = (place && place.maps) || (place && place.id ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(place.name || 'place') + '&query_place_id=' + encodeURIComponent(place.id) : '#');
+    $('notThis').hidden = !(state.choices && state.choices.length > 1);
     $('placeInfo').innerHTML = (place && place.name ? '<b>' + esc(place.name) + '</b>' : '') + (place && place.address ? '<span class="hint">' + esc(place.address) + '</span>' : '') +
       (place && place.id ? '<code>' + t('placeId') + ': ' + esc(place.id) + '</code>' : '') + '<span class="vpill ' + pill[0] + '">' + esc(pill[1]) + '</span>';
     $('link').textContent = link;

@@ -26,6 +26,7 @@ $config = [
     'smtp' => null,
     'bosta' => [],
     'google_places_key' => '', // optional: Google Places API (New) key for the business search in google-review-link.html
+    'google_maps_embed_key' => '', // optional: browser key for the Maps Embed API (the map of the found business); restrict it to this website
     'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php

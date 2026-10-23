@@ -38,7 +38,7 @@ function place_out(array $p): array
     parse_str((string) parse_url((string) ($p['googleMapsUri'] ?? ''), PHP_URL_QUERY), $q);
     return ['id' => (string) $p['id'], 'name' => (string) ($p['displayName']['text'] ?? ''), 'address' => (string) ($p['formattedAddress'] ?? ''),
         'rating' => isset($p['rating']) ? (float) $p['rating'] : null, 'reviews' => (int) ($p['userRatingCount'] ?? 0),
-        'lat' => $p['location']['latitude'] ?? null, 'lng' => $p['location']['longitude'] ?? null, 'cid' => (string) ($q['cid'] ?? ''),
+        'lat' => $p['location']['latitude'] ?? null, 'lng' => $p['location']['longitude'] ?? null, 'cid' => (string) ($q['cid'] ?? ''), 'maps' => (string) ($p['googleMapsUri'] ?? ''),
         'link' => 'https://search.google.com/local/writereview?placeid=' . rawurlencode((string) $p['id'])];
 }
 
@@ -133,8 +133,11 @@ function parse_maps_url(string $url): array
     return $out;
 }
 
-if ($key === '' && !isset($_GET['url'])) json_out(['ok' => false, 'search' => false]);
-if (!isset($_GET['q']) && !isset($_GET['url']) && !isset($_GET['id'])) json_out(['ok' => true, 'search' => true]);
+// The map that shows the found business: Google's official place map when a browser key for the Maps Embed
+// API is set ('google_maps_embed_key', restricted to this website), otherwise a plain map with a pin.
+$embed = trim((string) (cfg('google_maps_embed_key') ?? ''));
+if ($key === '' && !isset($_GET['url'])) json_out(['ok' => false, 'search' => false, 'embedKey' => $embed]);
+if (!isset($_GET['q']) && !isset($_GET['url']) && !isset($_GET['id'])) json_out(['ok' => true, 'search' => true, 'embedKey' => $embed]);
 // A few lookups per visitor (Google bills them beyond the free monthly allowance).
 if (too_many_attempts('places', 30, 3600)) fail('Too many lookups. Try again in a while, or paste the review link from your Business Profile.', 429);
 record_attempt('places');
