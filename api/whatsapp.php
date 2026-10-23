@@ -617,3 +617,163 @@ function wa_live_status(): array
     $out['lastWebhook'] = wa_setting('last_webhook', null);
     return $out;
 }
+
+// ---------- message templates ----------
+// After 24 hours without a message from the customer, WhatsApp only allows templates: messages Meta has
+// approved in advance, with blanks ({{1}}, {{2}}…) filled in when sent. Ours are defined here, in Arabic and
+// English; Settings → WhatsApp submits them to Meta and shows each one's status. Meta charges per template
+// message (utility ones less than marketing ones).
+//
+// vars: what fills each blank, in order: name (first name), order (order number), due (amount due),
+// and for the button: pay (payment link) or track (Bosta tracking number). 'needs' = what the chat must have.
+
+const WA_TEMPLATES = [
+    'wts_follow_up' => [
+        'category' => 'MARKETING', 'vars' => ['name'], 'needs' => '',
+        'title' => 'Follow-up',
+        'ar' => "أهلًا يا {{1}} 👋\nمعاك فريق Where To Spot. حبينا نطمن لو محتاج أي تفاصيل أو مساعدة في طلبك، إحنا موجودين هنا ونرد عليك بسرعة.",
+        'en' => "Hi {{1}} 👋\nThis is the Where To Spot team. Just checking in: if you need any details or help with your order, we're right here and happy to help.",
+    ],
+    'wts_payment_reminder' => [
+        'category' => 'UTILITY', 'vars' => ['name', 'order', 'due'], 'needs' => 'unpaid',
+        'title' => 'Payment reminder',
+        'ar' => "أهلًا يا {{1}}،\nطلبك رقم {{2}} بقيمة {{3}} ج.م لسه مستني الدفع. تقدر تدفع بالبطاقة أو المحفظة الإلكترونية من الزرار تحت، والدفع آمن عبر Paymob.",
+        'en' => "Hi {{1}},\nYour order {{2}} for EGP {{3}} is still waiting for payment. You can pay by card or mobile wallet with the button below. Payments are secure through Paymob.",
+        'button' => ['var' => 'pay', 'ar' => 'ادفع الآن', 'en' => 'Pay now', 'base' => '/api/pay.php?', 'example' => 'o=1001&k=0a1b2c3d4e5f6a7b8c9d'],
+    ],
+    'wts_order_shipped' => [
+        'category' => 'UTILITY', 'vars' => ['name', 'order'], 'needs' => 'shipped',
+        'title' => 'Order shipped',
+        'ar' => "أهلًا يا {{1}}،\nطلبك رقم {{2}} اتشحن مع بوسطة 🚚 وهيوصلك خلال أيام قليلة. تقدر تتابع الشحنة من الزرار تحت.",
+        'en' => "Hi {{1}},\nYour order {{2}} has shipped with Bosta 🚚 and will reach you in a few days. You can follow the shipment with the button below.",
+        'button' => ['var' => 'track', 'ar' => 'تتبع الشحنة', 'en' => 'Track shipment', 'base' => 'https://bosta.co/tracking-shipments?shipment-number=', 'example' => '7234519820'],
+    ],
+    'wts_order_delivered' => [
+        'category' => 'UTILITY', 'vars' => ['name', 'order'], 'needs' => 'delivered',
+        'title' => 'Order delivered',
+        'ar' => "أهلًا يا {{1}}،\nطلبك رقم {{2}} اتسلم ✅ نتمنى يعجبك! لو عندك أي سؤال أو ملاحظة، رد على الرسالة دي وهنساعدك على طول.",
+        'en' => "Hi {{1}},\nYour order {{2}} has been delivered ✅ We hope you love it! If you have any question or comment, just reply to this message and we'll help right away.",
+    ],
+];
+
+// The WhatsApp account (WABA) that holds our number: from config, else found once and remembered.
+function wa_waba_id(): string
+{
+    if (wa_cfg('waba_id')) return (string) wa_cfg('waba_id');
+    $saved = wa_setting('waba_owner');
+    if (is_array($saved) && ($saved['phone'] ?? '') === (string) wa_cfg('phone_number_id') && !empty($saved['id'])) return (string) $saved['id'];
+    $owner = wa_live_status()['owner'] ?? null;
+    if (!$owner) throw new ShopError('Couldn’t find the WhatsApp account of this number. Add \'waba_id\' to the whatsapp block in api/config.local.php.');
+    wa_set_setting('waba_owner', ['id' => $owner, 'phone' => (string) wa_cfg('phone_number_id')]);
+    return $owner;
+}
+
+function wa_template_button_url(array $b): string
+{
+    return strpos($b['base'], 'http') === 0 ? $b['base'] : rtrim((string) cfg('site_url'), '/') . $b['base'];
+}
+
+// Our templates with their status at Meta (one row per template and language).
+function wa_template_status(): array
+{
+    $meta = [];
+    $res = wa_graph('GET', '/' . rawurlencode(wa_waba_id()) . '/message_templates?fields=name,language,status,category,rejected_reason&limit=200');
+    foreach ((array) ($res['data'] ?? []) as $t) $meta[$t['name'] . '|' . $t['language']] = $t;
+    wa_set_setting('templates_seen', array_map(function ($t) { return ['status' => $t['status'] ?? '', 'category' => $t['category'] ?? '']; }, $meta));
+    wa_set_setting('templates_seen_at', time());
+    $rows = [];
+    foreach (WA_TEMPLATES as $name => $t) foreach (['ar', 'en'] as $lang) {
+        $m = $meta[$name . '|' . $lang] ?? null;
+        $rows[] = ['name' => $name, 'title' => $t['title'], 'lang' => $lang, 'category' => $m['category'] ?? $t['category'],
+            'status' => $m['status'] ?? 'NOT_SUBMITTED', 'reason' => ($m['rejected_reason'] ?? '') !== 'NONE' ? (string) ($m['rejected_reason'] ?? '') : '', 'text' => $t[$lang]];
+    }
+    return $rows;
+}
+
+// Submit the templates Meta doesn't have yet (both languages). Returns how many were sent and any errors.
+function wa_templates_submit(): array
+{
+    $have = [];
+    foreach (wa_template_status() as $r) if ($r['status'] !== 'NOT_SUBMITTED') $have[$r['name'] . '|' . $r['lang']] = true;
+    $sent = 0; $errors = [];
+    foreach (WA_TEMPLATES as $name => $t) foreach (['ar', 'en'] as $lang) {
+        if (isset($have[$name . '|' . $lang])) continue;
+        $examples = ['name' => $lang === 'ar' ? 'أحمد' : 'Ahmed', 'order' => 'WTS-1024', 'due' => '450'];
+        $components = [['type' => 'BODY', 'text' => $t[$lang], 'example' => ['body_text' => [array_map(function ($v) use ($examples) { return $examples[$v]; }, $t['vars'])]]]];
+        if (!empty($t['button'])) {
+            $b = $t['button'];
+            $components[] = ['type' => 'BUTTONS', 'buttons' => [['type' => 'URL', 'text' => $b[$lang], 'url' => wa_template_button_url($b) . '{{1}}', 'example' => [wa_template_button_url($b) . $b['example']]]]];
+        }
+        try {
+            wa_graph('POST', '/' . rawurlencode(wa_waba_id()) . '/message_templates', ['name' => $name, 'language' => $lang, 'category' => $t['category'], 'components' => $components]);
+            $sent++;
+        } catch (Throwable $e) { $errors[] = $t['title'] . ' (' . $lang . '): ' . $e->getMessage(); }
+    }
+    return ['sent' => $sent, 'errors' => $errors];
+}
+
+// What fills the blanks for this chat, per template: ready to send, or why not (e.g. no unpaid order).
+function wa_template_options(array $chat, string $lang): array
+{
+    // Meta's approval can arrive any time: check again when it's been 5 minutes and one isn't approved yet.
+    $seen = (array) wa_setting('templates_seen', []);
+    $pending = count(array_filter($seen, function ($t) { return ($t['status'] ?? '') === 'APPROVED'; })) < count(WA_TEMPLATES) * 2;
+    if ($pending && (int) wa_setting('templates_seen_at', 0) < time() - 300) {
+        try { wa_template_status(); $seen = (array) wa_setting('templates_seen', []); } catch (Throwable $e) { /* use what we know */ }
+    }
+    $lead = null;
+    if ($chat['lead_id']) { $st = db()->prepare('SELECT name FROM leads WHERE id = ?'); $st->execute([(int) $chat['lead_id']]); $lead = $st->fetchColumn(); }
+    $first = preg_split('/\s+/', trim((string) ($lead ?: $chat['name'])))[0] ?? '';
+    $name = mb_strlen($first) > 1 && !preg_match('/\d/', $first) ? $first : ($lang === 'ar' ? 'حضرتك' : 'there');
+    // This customer's orders (same phone number), newest first.
+    $orders = [];
+    if ($key = phone_key(wa_local_phone($chat['wa_id']))) {
+        $st = db()->prepare("SELECT * FROM orders WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ? ORDER BY id DESC LIMIT 20");
+        $st->execute(['%' . $key]);
+        $orders = $st->fetchAll();
+    }
+    $pick = function (string $needs) use ($orders) {
+        foreach ($orders as $o) {
+            // Online-payment orders not paid yet (a cash-on-delivery order isn't "waiting for payment").
+            if ($needs === 'unpaid' && ($o['status'] === 'Awaiting payment' || ($o['payment'] !== 'cod' && in_array($o['status'], ['Pending', 'Confirmed'], true))) && pay_link_problem($o) === '') return $o;
+            if ($needs === 'shipped' && $o['status'] === 'Shipped' && $o['tracking_number']) return $o;
+            if ($needs === 'delivered' && $o['status'] === 'Delivered') return $o;
+        }
+        return null;
+    };
+    $out = [];
+    foreach (WA_TEMPLATES as $tname => $t) {
+        $status = $seen[$tname . '|' . $lang]['status'] ?? 'NOT_SUBMITTED';
+        $o = $t['needs'] ? $pick($t['needs']) : null;
+        $why = $status !== 'APPROVED' ? ($status === 'NOT_SUBMITTED' ? 'Not submitted to Meta yet (Settings → WhatsApp).' : 'Meta status: ' . strtolower(str_replace('_', ' ', $status)) . '.')
+            : ($t['needs'] && !$o ? ['unpaid' => 'No unpaid online order for this customer.', 'shipped' => 'No shipped order with a tracking number.', 'delivered' => 'No delivered order.'][$t['needs']] : '');
+        $vals = [];
+        if ($o) $due = round((float) $o['total'] - order_paid((int) $o['id']), 2);
+        foreach ($t['vars'] as $v) $vals[] = $v === 'name' ? $name : ($v === 'order' ? ($o ? order_number((int) $o['id']) : '') : ($o ? number_format($due, $due == floor($due) ? 0 : 2) : ''));
+        $btn = null;
+        if (!empty($t['button']) && $o) $btn = $t['button']['var'] === 'pay' ? 'o=' . (int) $o['id'] . '&k=' . pay_link_key((int) $o['id']) : (string) $o['tracking_number'];
+        $text = $t[$lang];
+        foreach ($vals as $i => $v) $text = str_replace('{{' . ($i + 1) . '}}', $v !== '' ? $v : '…', $text);
+        $out[] = ['name' => $tname, 'title' => $t['title'], 'category' => $t['category'], 'ready' => $why === '', 'why' => $why, 'preview' => $text,
+            'button' => !empty($t['button']) ? $t['button'][$lang] : '', 'orderId' => $o ? (int) $o['id'] : null, 'vals' => $vals, 'btn' => $btn];
+    }
+    return $out;
+}
+
+// Send one template to a chat (any time, even after 24 hours). Saved in the history with its text filled in.
+function wa_send_template(array $chat, string $name, string $lang, int $userId): int
+{
+    if (!isset(WA_TEMPLATES[$name])) throw new ShopError('Unknown template.');
+    $opt = null;
+    foreach (wa_template_options($chat, $lang) as $o) if ($o['name'] === $name) $opt = $o;
+    if (!$opt || !$opt['ready']) throw new ShopError($opt['why'] ?? 'This template can’t be sent.');
+    $components = [['type' => 'body', 'parameters' => array_map(function ($v) { return ['type' => 'text', 'text' => (string) $v]; }, $opt['vals'])]];
+    if ($opt['btn'] !== null) $components[] = ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $opt['btn']]]];
+    $body = $opt['preview'] . ($opt['button'] ? "\n[" . $opt['button'] . ']' : '');
+    $id = wa_record_out($chat, '', 'template', $body, [], $userId, 'sending');
+    wa_send_later($id, (int) $chat['id'], function () use ($chat, $name, $lang, $components) {
+        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'],
+            'type' => 'template', 'template' => ['name' => $name, 'language' => ['code' => $lang], 'components' => $components]]);
+    });
+    return $id;
+}

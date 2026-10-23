@@ -1877,7 +1877,32 @@
       const c = st.chat;
       st.composeOpen = c.windowOpen;
       if (!c.windowOpen) {
-        $('#waCompose').innerHTML = '<div class="wa-closed">' + icon('clock') + '<span>More than 24 hours since the customer’s last message, so WhatsApp only allows an approved template here (coming soon). The chat opens again as soon as the customer writes.</span></div>';
+        // After 24 hours only an approved template can be sent (Settings → WhatsApp → Message templates).
+        $('#waCompose').innerHTML = '<div class="wa-quick wa-prods wa-tpls" id="waTplList" hidden></div><div class="wa-closed">' + icon('clock') + '<span>More than 24 hours since the customer’s last message, so WhatsApp only allows an approved template. The chat opens again as soon as the customer writes.</span>' +
+          '<span class="spacer"></span><button class="btn sm primary" id="waTplBtn">Send a template</button></div>';
+        const tl = $('#waTplList');
+        const drawTpls = async () => {
+          $('#waTplItems').innerHTML = '<div class="muted small" style="padding:10px">Loading…</div>';
+          let r;
+          try { r = await api('wa_templates', { query: '&chat_id=' + c.id + '&lang=' + st.tplLang }); } catch (e) { $('#waTplItems').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+          $('#waTplItems').innerHTML = r.templates.map((t) => '<div class="wa-tpl' + (t.ready ? '' : ' off') + '"><div class="row"><b>' + esc(t.title) + '</b><span class="pill">' + (t.category === 'MARKETING' ? 'Marketing' : 'Utility') + '</span><span class="spacer"></span>' +
+            (t.ready ? '<button class="btn sm primary" data-tpl="' + t.name + '">Send</button>' : '<span class="small muted">' + esc(t.why) + '</span>') + '</div>' +
+            '<div class="wa-tpl-text" dir="auto">' + waLink(t.preview) + '</div>' + (t.button ? '<div class="wa-tpl-btn">🔗 ' + esc(t.button) + '</div>' : '') + '</div>').join('');
+          $$('[data-tpl]', tl).forEach((b) => b.onclick = async () => {
+            tl.hidden = true;
+            try { const m = (await api('wa_send_template', { method: 'POST', body: { chat_id: c.id, name: b.dataset.tpl, lang: st.tplLang } })).message; st.msgs.push(m); st.lastId = Math.max(st.lastId, m.id); appendMessages([m]); loadList(); }
+            catch (e) { toast(e.message, true); }
+          });
+        };
+        $('#waTplBtn').onclick = () => {
+          if (!tl.hidden) { tl.hidden = true; return; }
+          st.tplLang = st.tplLang || 'ar';
+          tl.innerHTML = '<div class="wa-ph"><b>Message templates</b><span class="spacer"></span><div class="seg"><button data-tl="ar" class="' + (st.tplLang === 'ar' ? 'on' : '') + '">عربي</button><button data-tl="en" class="' + (st.tplLang === 'en' ? 'on' : '') + '">English</button></div></div>' +
+            '<div class="small muted wa-phint">Meta charges for each template message. The customer’s name and order are filled in.</div><div id="waTplItems"></div>';
+          tl.hidden = false;
+          $$('[data-tl]', tl).forEach((b) => b.onclick = () => { st.tplLang = b.dataset.tl; $$('[data-tl]', tl).forEach((x) => x.classList.toggle('on', x === b)); drawTpls(); });
+          drawTpls();
+        };
         return;
       }
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
@@ -2259,6 +2284,31 @@
   }
 
   // Settings → WhatsApp: connection, webhook address, who takes chats, how long videos are kept.
+  // Settings → WhatsApp → Message templates: our templates with their status at Meta, and submitting them.
+  async function waTemplatesCard(r) {
+    let box = $('#waTpl');
+    if (!box) { $('#waSettings').insertAdjacentHTML('afterend', '<div class="card stack" id="waTpl" style="gap:12px;margin-top:16px"></div>'); box = $('#waTpl'); }
+    if (!r) {
+      box.innerHTML = '<h2>Message templates</h2><div class="muted small">Asking Meta…</div>';
+      try { r = await api('wa_templates_status'); } catch (e) { box.innerHTML = '<h2>Message templates</h2><div class="err">' + esc(e.message) + '</div>'; return; }
+    }
+    const tone = { APPROVED: ['good', '✓ Approved'], PENDING: ['warn', 'Waiting for Meta'], IN_APPEAL: ['warn', 'In appeal'], REJECTED: ['bad', '✕ Rejected'], PAUSED: ['bad', 'Paused'], DISABLED: ['bad', 'Disabled'], NOT_SUBMITTED: ['', 'Not submitted'] };
+    const missing = r.templates.filter((t) => t.status === 'NOT_SUBMITTED').length;
+    box.innerHTML = '<h2>Message templates<span class="spacer"></span><button class="btn sm" id="waTplRefresh">Check again</button></h2>' +
+      '<div class="hint">After 24 hours without a message from the customer, WhatsApp only allows these pre-approved messages (inbox → Send a template). Meta reviews each one, usually within minutes to a day, and charges per template message (utility less than marketing).</div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Template</th><th>Language</th><th>Type</th><th>Status at Meta</th></tr></thead><tbody>' +
+      r.templates.map((t) => { const [cls, label] = tone[t.status] || ['', t.status]; return '<tr title="' + esc(t.text) + '"><td>' + esc(t.title) + '</td><td>' + (t.lang === 'ar' ? 'عربي' : 'English') + '</td><td class="small muted">' + (t.category === 'MARKETING' ? 'Marketing' : 'Utility') + '</td><td><span class="pill ' + cls + '">' + esc(label) + '</span>' + (t.reason ? '<div class="small muted">' + esc(t.reason) + '</div>' : '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      (r.errors && r.errors.length ? '<div class="err">' + r.errors.map(esc).join('<br>') + '</div>' : '') +
+      (missing ? '<div class="row"><button class="btn primary" id="waTplSubmit">Submit ' + missing + ' to Meta</button></div>' : '');
+    $('#waTplRefresh').onclick = () => waTemplatesCard();
+    const sb = $('#waTplSubmit'); if (sb) sb.onclick = async () => {
+      sb.disabled = true; sb.textContent = 'Submitting…';
+      try { const res = await api('wa_templates_submit', { method: 'POST' }); toast(res.sent ? 'Sent to Meta for review' : 'Nothing was sent'); waTemplatesCard(res); }
+      catch (e) { toast(e.message, true); sb.disabled = false; }
+    };
+  }
+
   async function waSettings(test) {
     const box = $('#waSettings'); if (!box) return;
     let d;
@@ -2312,6 +2362,7 @@
     $$('[data-sub]').forEach((b) => b.onclick = async () => {
       try { await api('wa_subscribe', { method: 'POST', body: { waba: b.dataset.sub } }); toast('Webhook connected'); waSettings(true); } catch (e) { toast(e.message, true); }
     });
+    waTemplatesCard();
     $('#waSave').onclick = async () => {
       const agents = d.users.map((u) => ({ id: u.id, agent: $('[data-agent="' + u.id + '"]').checked, away: $('[data-away="' + u.id + '"]').checked }));
       try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value, tg_remind_managers: $('#tgMgr') ? ($('#tgMgr').checked ? 1 : 0) : undefined, tg_daily: $('#tgDaily') ? ($('#tgDaily').checked ? 1 : 0) : undefined } }); toast('WhatsApp settings saved'); }

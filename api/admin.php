@@ -1303,6 +1303,32 @@ try {
         log_activity($u, 'Sent a payment link', $num . ' · EGP ' . $amt . ' · WhatsApp ' . wa_local_phone($chat['wa_id']));
         json_out(['message' => wa_message_out(wa_message_row($id))]);
 
+    // Templates for a chat whose 24 hours have passed: each with its filled-in preview, or why it can't be sent.
+    case 'wa_templates':
+        $u = require_perm('whatsapp');
+        $chat = wa_chat_for_user($u, (int) ($_GET['chat_id'] ?? 0));
+        json_out(['templates' => wa_template_options($chat, ($_GET['lang'] ?? 'ar') === 'en' ? 'en' : 'ar')]);
+
+    case 'wa_send_template':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $id = wa_send_template($chat, str_in($b['name'] ?? '', 60), ($b['lang'] ?? 'ar') === 'en' ? 'en' : 'ar', (int) $u['id']);
+        wa_claim($chat, $u);
+        log_activity($u, 'Sent a WhatsApp template', (WA_TEMPLATES[$b['name']]['title'] ?? '') . ' · ' . wa_local_phone($chat['wa_id']));
+        json_out(['message' => wa_message_out(wa_message_row($id))]);
+
+    // Settings → WhatsApp → Message templates: status at Meta, and submitting the ones Meta doesn't have.
+    case 'wa_templates_status':
+        require_perm('backups');
+        json_out(['templates' => wa_template_status()]);
+
+    case 'wa_templates_submit':
+        $u = require_perm('backups');
+        $r = wa_templates_submit();
+        log_activity($u, 'Submitted WhatsApp templates to Meta', $r['sent'] . ' sent' . ($r['errors'] ? ' · ' . count($r['errors']) . ' failed' : ''));
+        json_out($r + ['templates' => wa_template_status()]);
+
     case 'wa_window':
         $u = require_perm('whatsapp');
         $waId = wa_id_from_phone((string) ($_GET['phone'] ?? ''));
