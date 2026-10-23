@@ -78,6 +78,11 @@
   .placeinfo code{font-size:12.5px;color:#6B6660;direction:ltr;overflow-wrap:anywhere}
   .vpill{display:inline-block;font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:#E4F2E8;color:#2F7A4A;width:max-content}
   .vpill.warn{background:#FCF0D7;color:#7A5200}
+  .found{display:flex;flex-direction:column;gap:12px;background:#FBF9F6;border:1.5px solid #EFEAE3;border-radius:16px;padding:16px}
+  .found[hidden]{display:none}
+  .found iframe{width:100%;height:260px;border:0;border-radius:12px;background:#EFEAE3}
+  .found ol{margin:0;padding-inline-start:22px}
+  .found li{margin:4px 0}
   .mapbox{display:flex;flex-direction:column;gap:10px}
   .mapbox[hidden]{display:none}
   .mapbox iframe{width:100%;height:300px;border:0;border-radius:14px;background:#EFEAE3}
@@ -112,6 +117,7 @@
     <details style="margin-top:10px"><summary data-t="whereTitle"></summary><ol id="whereSteps"></ol></details>
   </div>
   <div class="msg" id="msg" hidden></div>
+  <div class="found" id="found" hidden></div>
 
   <div class="out" id="out">
     <div class="placeinfo" id="placeInfo"></div>
@@ -211,11 +217,16 @@
     vProfile: ['From your Business Profile', 'من حساب نشاطك على جوجل'],
     vNot: ['Made from the link, not checked with Google: tap “Test it” to make sure', 'معمول من الرابط ومش متأكدين منه من جوجل: اضغط “جرّبه” للتأكد'],
     placeId: ['Place ID', 'Place ID'],
+    foundTitle: ['We found this place. Is it your business?', 'لقينا المكان ده. هو ده نشاطك؟'],
+    nextTitle: ['Now get the review link (free, two ways):', 'دلوقتي هات رابط التقييم (مجانًا، بطريقتين):'],
+    way1: ['<b>If you own the business:</b> open your Google Business Profile → <b>Ask for reviews</b> → copy the link (g.page/r/…/review) and paste it above. This is the most exact.', '<b>لو أنت صاحب النشاط:</b> افتح حساب نشاطك على جوجل ← <b>اطلب تقييمات</b> ← انسخ الرابط (g.page/r/…/review) والصقه فوق. دي الطريقة الأدق.'],
+    way2: ['<b>Anyone:</b> open Google’s free <a href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id" target="_blank" rel="noopener">Place ID Finder</a>, search the business, copy the ID that starts with <b>ChIJ</b> and paste it above.', '<b>أي حد:</b> افتح أداة جوجل المجانية <a href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id" target="_blank" rel="noopener">Place ID Finder</a>، دوّر على النشاط، انسخ الـ ID اللي بيبدأ بـ <b>ChIJ</b> والصقه فوق.'],
+    checkId: ['Check it’s the right place with “Open in Google Maps” before you print.', 'اتأكد إنه المكان الصح من “افتح في خرائط جوجل” قبل ما تطبع.'],
     checkMap: ['Make sure this is your business (and the right branch) before you print.', 'اتأكد إن ده نشاطك (والفرع الصح) قبل ما تطبع.'],
     openMaps: ['Open in Google Maps', 'افتح في خرائط جوجل'], notThis: ['Not this one?', 'مش ده؟'],
     whereTitle: ['Where do I find my review link?', 'ألاقي رابط التقييم فين؟'],
-    where: [['Open Google Maps (or search your business name on Google) signed in as the owner.', 'Open your Business Profile.', 'Tap “Ask for reviews” or “Get more reviews”.', 'Copy the link and paste it here.'],
-      ['افتح خرائط جوجل (أو دوّر على اسم نشاطك في جوجل) وأنت داخل بحساب صاحب النشاط.', 'افتح صفحة نشاطك (Business Profile).', 'اضغط “اطلب تقييمات” أو “الحصول على المزيد من التقييمات”.', 'انسخ الرابط والصقه هنا.']],
+    where: [['Open Google Maps (or search your business name on Google) signed in as the owner.', 'Open your Business Profile.', 'Tap “Ask for reviews” or “Get more reviews”.', 'Copy the link and paste it here.', 'Not the owner? Find the Place ID (starts with ChIJ) in Google’s free <a href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id" target="_blank" rel="noopener">Place ID Finder</a> and paste it here.'],
+      ['افتح خرائط جوجل (أو دوّر على اسم نشاطك في جوجل) وأنت داخل بحساب صاحب النشاط.', 'افتح صفحة نشاطك (Business Profile).', 'اضغط “اطلب تقييمات” أو “الحصول على المزيد من التقييمات”.', 'انسخ الرابط والصقه هنا.', 'مش صاحب النشاط؟ هات الـ Place ID (بيبدأ بـ ChIJ) من أداة جوجل المجانية <a href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id" target="_blank" rel="noopener">Place ID Finder</a> والصقه هنا.']],
     yourLink: ['Your Google review link', 'رابط التقييم بتاعك'], copy: ['Copy', 'نسخ'], copied: ['Copied ✓', 'تم النسخ ✓'],
     test: ['Test it', 'جرّبه'], whatsapp: ['Send on WhatsApp', 'ابعته واتساب'],
     nameOnCard: ['Name on the card', 'الاسم على الكارت'], cardLang: ['Card language', 'لغة الكارت'], both: ['Both', 'الاتنين'],
@@ -276,6 +287,16 @@
     }).join('');
     document.querySelectorAll('[data-c]').forEach(function (b) { b.onclick = function () { $('choices').innerHTML = ''; var p = places[+b.dataset.c]; make(p.link, p.name, p, 'google'); }; });
   };
+  // Free mode: the place from the link on a map, then the two free ways to get its review link.
+  var showFound = function (p) {
+    var src = p.lat != null ? 'https://maps.google.com/maps?q=' + p.lat + ',' + p.lng + '&z=17&output=embed' : p.name ? 'https://maps.google.com/maps?q=' + encodeURIComponent(p.name) + '&z=16&output=embed' : '';
+    $('found').innerHTML = '<b>' + t('foundTitle') + '</b>' + (p.name ? '<div style="font-size:17px">' + esc(p.name) + '</div>' : '') +
+      (src ? '<iframe src="' + src + '" title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>' : '') +
+      (p.maps ? '<div><a class="btn sm ghost" href="' + esc(p.maps) + '" target="_blank" rel="noopener">' + t('openMaps') + '</a></div>' : '') +
+      '<b>' + t('nextTitle') + '</b><ol><li>' + t('way1') + '</li><li>' + t('way2') + '</li></ol>';
+    $('found').hidden = false; $('out').classList.remove('on');
+    $('found').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   var lookup = function (query) {
     msg(t('checking')); $('choices').innerHTML = ''; $('use').disabled = true;
     fetch('api/places.php?' + query).then(function (r) { return r.json(); }).then(function (d) {
@@ -284,11 +305,12 @@
       msg('');
       state.choices = null;
       if (d.status === 'choose') return showChoices(d.places);
+      if (d.status === 'need_link') return showFound(d.place);
       make(d.place.link, d.place.name, d.place, d.status === 'verified' ? 'exact' : 'not');
     }).catch(function () { $('use').disabled = false; msg(t('bad'), true); });
   };
   var usePaste = function () {
-    var v = $('paste').value.trim(); msg(''); $('choices').innerHTML = '';
+    var v = $('paste').value.trim(); msg(''); $('choices').innerHTML = ''; $('found').hidden = true;
     if (!v) return;
     var m = v.match(/g\.page\/r\/([A-Za-z0-9_-]+)/i);
     if (m) return make('https://g.page/r/' + m[1] + '/review', '', null, 'profile');
@@ -364,6 +386,9 @@
     if (mapUrl && $('map').src !== mapUrl) $('map').src = mapUrl;
     $('openMaps').href = (place && place.maps) || (place && place.id ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(place.name || 'place') + '&query_place_id=' + encodeURIComponent(place.id) : '#');
     $('notThis').hidden = !(state.choices && state.choices.length > 1);
+    // A Place ID we couldn't check with Google: no map, but its Google Maps page to confirm the place.
+    if (!mapUrl && place && place.id) { $('mapBox').hidden = false; $('map').style.display = 'none'; $('mapBox').querySelector('.hint').textContent = t('checkId'); }
+    else { $('map').style.display = ''; $('mapBox').querySelector('.hint').textContent = t('checkMap'); }
     $('placeInfo').innerHTML = (place && place.name ? '<b>' + esc(place.name) + '</b>' : '') + (place && place.address ? '<span class="hint">' + esc(place.address) + '</span>' : '') +
       (place && place.id ? '<code>' + t('placeId') + ': ' + esc(place.id) + '</code>' : '') + '<span class="vpill ' + pill[0] + '">' + esc(pill[1]) + '</span>';
     $('link').textContent = link;

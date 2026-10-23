@@ -162,7 +162,10 @@ if ($key === '') {
     // Without a key only a Place ID written in the link can be used, and it can't be checked.
     if ($info['placeId']) json_out(['ok' => true, 'status' => 'unverified', 'place' => ['id' => $info['placeId'], 'name' => $info['name'] ?? '', 'address' => '',
         'link' => 'https://search.google.com/local/writereview?placeid=' . rawurlencode($info['placeId'])]]);
-    fail('This link needs the business search, which isn’t set up yet. Paste the review link from your Business Profile instead (see “Where do I find my review link?”).', 422);
+    // Free mode: what the link tells us (name, location, the place's own Maps page) so the person can see the
+    // place on a map, then get the review link from their Business Profile or Google's free Place ID Finder.
+    json_out(['ok' => true, 'status' => 'need_link', 'place' => ['name' => (string) ($info['name'] ?? ''), 'lat' => $info['lat'], 'lng' => $info['lng'],
+        'maps' => $info['cid'] ? 'https://maps.google.com/?cid=' . $info['cid'] : ($info['name'] ? 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($info['name']) : '')]]);
 }
 
 // 1. A Place ID in the link: checked with Google.
