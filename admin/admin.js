@@ -1581,7 +1581,9 @@
   const waTime = (s) => { if (!s) return ''; const d = new Date(s.replace(' ', 'T') + 'Z'); const now = new Date();
     return d.toDateString() === now.toDateString() ? d.toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString(LOC, { day: 'numeric', month: 'short' }); };
   const waMins = (s) => s ? Math.max(0, Math.round((Date.now() - new Date(s.replace(' ', 'T') + 'Z').getTime()) / 60000)) : 0;
-  const waAgo = (m) => m < 60 ? m + ' min' : m < 1440 ? Math.floor(m / 60) + ' h' : Math.floor(m / 1440) + ' d';
+  const waAgo = (m) => m < 60 ? m + (AR ? ' دقيقة' : ' min') : m < 1440 ? Math.floor(m / 60) + (AR ? ' ساعة' : ' h') : Math.floor(m / 1440) + (AR ? ' يوم' : ' d');
+  // Minutes until the 24-hour free-reply window closes (null = closed or unknown).
+  const waLeft = (c) => c.windowOpen && c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 60000)) : null;
   const waSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
   const waLink = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>');
   const WA_TICK = { sent: '✓', delivered: '✓✓', read: '✓✓', failed: '⚠' };
@@ -1688,12 +1690,17 @@
     const renderList = () => {
       const list = st.data.chats;
       $('#waItems').innerHTML = list.length ? list.map((c) => {
-        const wait = c.waitingSince ? waMins(c.waitingSince) : 0;
+        // Waiting for a reply: grey at first, amber after 15 minutes, red after an hour.
+        const wait = c.waitingSince ? Math.max(1, waMins(c.waitingSince)) : 0;
+        const left = c.status === 'open' ? waLeft(c) : null;
         return '<button class="wa-item' + (c.id === st.chatId ? ' on' : '') + (c.unread ? ' unread' : '') + '" data-c="' + c.id + '">' +
           '<span class="wa-av">' + esc((c.name || '?').trim().charAt(0).toUpperCase()) + '</span>' +
           '<span class="wa-it"><span class="wa-row"><b>' + esc(c.name) + '</b><small>' + waTime(c.lastAt) + '</small></span>' +
           '<span class="wa-row"><span class="wa-last">' + (c.lastDir === 'out' ? '<span class="muted">You: </span>' : '') + esc(c.lastText || '') + '</span>' + (c.unread ? '<span class="wa-n">' + c.unread + '</span>' : '') + '</span>' +
-          '<span class="wa-tags">' + (wait ? '<span class="wa-wait' + (wait >= 10 ? ' late' : '') + '">⏱ ' + waAgo(wait) + '</span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') +
+          '<span class="wa-tags">' + (wait ? '<span class="wa-wait' + (wait >= 60 ? ' late' : wait >= 15 ? ' warn' : '') + '">⏱ <span>Waiting</span> ' + waAgo(wait) + '</span>' : '') +
+            // The free-reply window: warn in the list before it closes, so nobody misses it.
+            (left != null && left <= 360 ? '<span class="wa-win' + (left <= 120 ? ' late' : '') + '" title="Free replies end then">⌛ <span>Closes in</span> ' + waAgo(Math.max(1, left)) + '</span>'
+              : wait && c.status === 'open' && !c.windowOpen ? '<span class="wa-win late">⌛ <span>Reply window closed</span></span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') +
             (st.data.me.all ? '<span class="muted">' + esc(c.agent || 'Unassigned') + '</span>' : '') + (c.leadStatus ? pill(LEAD_TONE, c.leadStatus) : '') + '</span></span></button>';
       }).join('') : '<div class="muted small" style="padding:16px">' + (st.view === 'mine' ? 'No chats for you right now.' : 'No chats here.') + '</div>';
       $$('#waItems [data-c]').forEach((b) => b.onclick = () => openChat(+b.dataset.c));
@@ -1733,10 +1740,10 @@
       st.headKey = JSON.stringify([c.assignedTo, c.status, c.name]);
       const agents = (st.data && st.data.agents) || [];
       $('#waHead').innerHTML = '<button class="btn sm wa-back" id="waBack" aria-label="Back">' + icon('back') + '</button>' +
-        '<span class="wa-av">' + esc((c.name || '?').charAt(0).toUpperCase()) + '</span><div class="wa-who"><b>' + esc(c.name) + '</b><small dir="ltr">' + esc(c.phone) + (c.profileName && c.profileName !== c.name ? ' · ' + esc(c.profileName) : '') + '</small></div>' +
+        '<span class="wa-av">' + esc((c.name || '?').charAt(0).toUpperCase()) + '</span><div class="wa-who"><b>' + esc(c.name) + '</b><small><span dir="ltr">' + esc(c.phone) + '</span>' + (c.profileName && c.profileName !== c.name ? ' · <span>WhatsApp name:</span> ' + esc(c.profileName) : '') + '</small></div>' +
         '<span class="spacer"></span>' +
-        (all ? '<select id="waAssign" title="Who handles this chat"><option value="">Unassigned</option>' + agents.map((a) => '<option value="' + a.id + '"' + (a.id === c.assignedTo ? ' selected' : '') + '>' + esc(a.name) + (a.away ? ' (away)' : '') + '</option>').join('') +
-            (c.assignedTo && !agents.some((a) => a.id === c.assignedTo) ? '<option value="' + c.assignedTo + '" selected>' + esc(c.agent || '') + '</option>' : '') + '</select>'
+        (all ? '<label class="wa-handled"><span>Handled by</span><select id="waAssign" title="Who handles this chat"><option value="">Unassigned</option>' + agents.map((a) => '<option value="' + a.id + '"' + (a.id === c.assignedTo ? ' selected' : '') + '>' + esc(a.name) + (a.away ? ' (away)' : '') + '</option>').join('') +
+            (c.assignedTo && !agents.some((a) => a.id === c.assignedTo) ? '<option value="' + c.assignedTo + '" selected>' + esc(c.agent || '') + '</option>' : '') + '</select></label>'
           : !c.assignedTo ? '<button class="btn sm primary" id="waTake">Take this chat</button>' : '') +
         '<button class="btn sm" id="waClose">' + (c.status === 'closed' ? 'Reopen' : 'Close chat') + '</button>' +
         '<button class="btn sm wa-info-btn" id="waInfo">' + icon('person') + '</button>';
@@ -1746,7 +1753,9 @@
       $('#waClose').onclick = async () => { try { const r = await api('wa_close', { method: 'POST', body: { chat_id: c.id, open: c.status === 'closed' } }); st.chat = r.chat; renderHead(); loadList(); toast(r.chat.status === 'closed' ? 'Chat closed — it reopens if the customer writes again' : 'Chat reopened'); } catch (e) { toast(e.message, true); } };
       $('#waInfo').onclick = () => $('#wa').classList.toggle('side-open');
     };
-    const msgHtml = (m) => {
+    // cont: follows a message from the same side (and same team member) within 5 minutes, so it's drawn
+    // as one group, like WhatsApp: tighter spacing, and the time only under the group's last message.
+    const msgHtml = (m, cont) => {
       const media = m.media ? '../api/admin.php?action=wa_media&id=' + m.id : '';
       let inner = '';
       if (m.kind === 'image' && media) inner = '<a href="' + media + '" target="_blank" rel="noopener"><img class="wa-img" src="' + media + '" alt="Photo" loading="lazy"></a>';
@@ -1758,12 +1767,19 @@
       if (m.kind === 'reaction') return '<div class="wa-sys">Reacted ' + esc(m.body) + '</div>';
       const text = m.body ? '<div class="wa-text">' + waLink(m.body) + '</div>' : '';
       const ad = m.ad ? '<div class="wa-adref">📣 From ad: <b>' + esc(m.ad.headline || 'Facebook / Instagram ad') + '</b>' + (m.ad.url ? ' · <a href="' + esc(m.ad.url) + '" target="_blank" rel="noopener">view</a>' : '') + '</div>' : '';
-      const meta = '<span class="wa-meta">' + (m.dir === 'out' && m.by ? esc(m.by) + ' · ' : '') + new Date(m.at.replace(' ', 'T') + 'Z').toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }) +
+      const time = new Date(m.at.replace(' ', 'T') + 'Z').toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' });
+      const meta = '<span class="wa-meta">' + (m.dir === 'out' && m.by ? '<span class="wa-by">' + esc(m.by) + ' · </span>' : '') + time +
         (m.dir === 'out' ? ' <span class="wa-tick ' + esc(m.status) + '" title="' + esc(m.error || m.status) + '">' + (WA_TICK[m.status] || '') + '</span>' : '') + '</span>';
-      return '<div class="wa-msg ' + m.dir + (m.status === 'failed' ? ' failed' : '') + '" data-m="' + m.id + '">' + ad + inner + text + (m.status === 'failed' && m.error ? '<div class="wa-err">' + esc(m.error) + '</div>' : '') + meta + '</div>';
+      return '<div class="wa-msg ' + m.dir + (cont ? ' cont' : '') + (m.status === 'failed' ? ' failed' : '') + '" data-m="' + m.id + '" title="' + esc(time) + '">' + ad + inner + text + (m.status === 'failed' && m.error ? '<div class="wa-err">' + esc(m.error) + '</div>' : '') + meta + '</div>';
     };
     const dayOf = (m) => new Date(m.at.replace(' ', 'T') + 'Z').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' });
-    const withDays = (list) => list.map((m) => { const d = dayOf(m); const sep = d !== st.day ? '<div class="wa-day">' + esc(d) + '</div>' : ''; st.day = d; return sep + msgHtml(m); }).join('');
+    const withDays = (list) => list.map((m) => {
+      const d = dayOf(m), p = st.prev, sep = d !== st.day ? '<div class="wa-day">' + esc(d) + '</div>' : '';
+      const cont = !sep && p && m.kind !== 'reaction' && p.kind !== 'reaction' && !m.ad && p.dir === m.dir && (p.by || '') === (m.by || '') &&
+        new Date(m.at.replace(' ', 'T') + 'Z') - new Date(p.at.replace(' ', 'T') + 'Z') < 5 * 60000;
+      st.day = d; st.prev = m;
+      return sep + msgHtml(m, cont);
+    }).join('');
     // Keep the newest message in view while photos load, unless the person has scrolled up to read.
     const stickDown = (box) => {
       st.stick = true;
@@ -1773,7 +1789,7 @@
     };
     const renderMessages = () => {
       const box = $('#waMsgs'); if (!box) return;
-      st.day = '';
+      st.day = ''; st.prev = null;
       box.innerHTML = withDays(st.msgs) || '<div class="muted small wa-none" style="text-align:center;padding:20px">No messages yet.</div>';
       stickDown(box);
       box.scrollTop = box.scrollHeight;

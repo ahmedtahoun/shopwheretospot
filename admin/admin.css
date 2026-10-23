@@ -378,13 +378,16 @@ details.ship-more[open] > summary::before{content:'▾ '}
 /* ---------- WhatsApp inbox: chat list | conversation | customer card ---------- */
 .side a.nav .nav-badge{margin-inline-start:auto;background:#1F9D55;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px}
 body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
-.wa{display:grid;grid-template-columns:340px 1fr;height:100%;background:var(--surface)}
+.wa{display:grid;grid-template-columns:clamp(340px,27vw,400px) 1fr;height:100%;background:var(--surface)}
 .wa-list{display:flex;flex-direction:column;border-inline-end:1px solid var(--line);min-height:0;background:var(--surface)}
 .wa-lh{padding:16px 14px 10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line-2)}
 .wa-lh h1{font-size:20px;margin:0}
 .wa-lh input[type=search]{width:100%}
-.wa-tabs{display:flex;flex-wrap:wrap}
-.wa-away{gap:6px;font-weight:500}
+.wa-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.wa-tabs::-webkit-scrollbar{display:none}
+.wa-tabs button{flex:none;padding:6px 8px}
+#waMe{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.wa-away{display:inline-flex;flex-wrap:nowrap;gap:6px;font-weight:500;white-space:nowrap}
 .wa-items{overflow-y:auto;flex:1;min-height:0}
 .wa-item{display:flex;gap:10px;width:100%;padding:11px 14px;border:none;border-bottom:1px solid var(--line-2);background:none;text-align:start;cursor:pointer;color:var(--ink);font:inherit}
 .wa-item:hover{background:var(--surface-2)}
@@ -399,7 +402,9 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-n{flex:none;background:#1F9D55;color:#fff;border-radius:999px;font-size:11px;font-weight:700;min-width:20px;text-align:center;padding:1px 6px}
 .wa-tags{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px}
 .wa-tags .pill{font-size:10.5px;padding:1px 6px}
-.wa-wait{color:var(--warn);font-weight:600}.wa-wait.late{color:var(--bad)}
+.wa-wait{color:var(--ink-2);font-weight:600}.wa-wait.warn{color:var(--warn)}.wa-wait.late{color:var(--bad)}
+.wa-win{color:var(--warn);font-weight:600}.wa-win.late{color:var(--bad)}
+.wa-handled{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3);white-space:nowrap}
 .wa-ad{background:var(--info-soft);color:var(--info);border-radius:6px;padding:0 6px;font-weight:600}
 .wa-chat{display:flex;flex-direction:column;min-height:0;min-width:0;background:#EFEAE2}
 .wa-empty{margin:auto;color:var(--ink-3);display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -417,6 +422,11 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-day{align-self:center;background:rgba(255,255,255,.85);color:var(--ink-2);font-size:11.5px;border-radius:8px;padding:3px 10px;margin:8px 0}
 .wa-msg{max-width:min(520px,78%);padding:7px 10px 5px;border-radius:12px;background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.06);align-self:flex-start;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}
 .wa-msg.out{align-self:flex-end;background:#D9FDD3}
+/* A group of messages from the same side: close together, the time only under the last one. */
+.wa-msg.cont{margin-top:-4px}
+.wa-msg.in.cont{border-start-start-radius:4px}.wa-msg.out.cont{border-start-end-radius:4px}
+.wa-msg.in:has(+ .wa-msg.in.cont) .wa-meta{display:none}
+.wa-msg.out:has(+ .wa-msg.out.cont) .wa-by{display:none}
 .wa-msg.failed{background:#FBE5E5}
 .wa-text{font-size:14px;line-height:1.45}
 .wa-text a{color:var(--info)}
