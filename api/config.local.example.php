@@ -50,6 +50,9 @@ return [
     'telegram' => [
         'bot_token' => '123456789:AA…',
     ],
+    // Optional: business search in the free review-link tool (google-review-link.html). Google Cloud console →
+    // enable "Places API (New)" → Credentials → API key, restricted to Places API (New). Without it, visitors paste a link.
+    // 'google_places_key' => 'AIza…',
     // Extra addresses that always get new-order alerts (team members opt in from Dashboard → Team).
     'alert_emails' => ['info@wheretospot.com'],
 ];

@@ -34,7 +34,7 @@
   // Exact strings (whitespace is collapsed before lookup).
   var D = {
     // header, menu, footer
-    'Shop': 'تسوّق', 'Marketing plans': 'خطط التسويق', 'Services': 'الخدمات', 'About us': 'من نحن', 'Contact': 'تواصل معنا',
+    'Shop': 'تسوّق', 'Marketing plans': 'خطط التسويق', 'Services': 'الخدمات', 'About us': 'من نحن', 'Free Google review link & QR': 'رابط تقييم جوجل وكود QR مجانًا', 'Free review link': 'رابط تقييم مجاني', 'Contact': 'تواصل معنا',
     'Contact us': 'تواصل معنا', 'Wishlist': 'المفضلة', 'Cart': 'السلة', 'Home': 'الرئيسية', 'Categories': 'الفئات', 'Search': 'بحث',
     'Menu': 'القائمة', 'Close': 'إغلاق', '→': '←', '←': '→', ',': '،',
     'All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery': 'كل الأسعار بالجنيه المصري · توصيل لكل مصر · الدفع عند الاستلام',

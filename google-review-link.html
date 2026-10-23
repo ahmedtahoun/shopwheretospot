@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="i18n.js"></script>
+<title>Free Google Review Link & QR Code Generator — Where To Spot</title>
+<meta name="description" content="Free tool: get your business's direct Google review link and a printable QR code in seconds. Customers land straight on the review box. In Arabic and English.">
+<link rel="canonical" href="https://shop.wheretospot.com/google-review-link.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Where To Spot">
+<meta property="og:title" content="Free Google Review Link & QR Code Generator">
+<meta property="og:description" content="Get your direct Google review link and a printable QR code in seconds. Free, no sign-up.">
+<meta property="og:url" content="https://shop.wheretospot.com/google-review-link.html">
+<meta property="og:image" content="https://shop.wheretospot.com/images/share-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Google Review Link & QR Code Generator">
+<meta name="twitter:description" content="Get your direct Google review link and a printable QR code in seconds. Free, no sign-up.">
+<meta name="twitter:image" content="https://shop.wheretospot.com/images/share-card.jpg">
+<link rel="icon" href="/favicon.ico?v=2" sizes="48x48"><link rel="icon" type="image/png" sizes="96x96" href="/images/favicon-96.png?v=2"><link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&family=Cairo:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#22201D">
+<link rel="apple-touch-icon" href="images/app/apple-touch-icon.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Google Review Link & QR Code Generator", "url": "https://shop.wheretospot.com/google-review-link.html",
+  "applicationCategory": "BusinessApplication", "operatingSystem": "Any", "inLanguage": ["en", "ar"], "isAccessibleForFree": true,
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EGP"}, "provider": {"@type": "Organization", "name": "Where To Spot", "url": "https://shop.wheretospot.com/"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+  {"@type": "Question", "name": "What is a Google review link?", "acceptedAnswer": {"@type": "Answer", "text": "A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps."}},
+  {"@type": "Question", "name": "Is this tool free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The review link, the QR code and the printable card are free, with no sign-up."}},
+  {"@type": "Question", "name": "Where do I find my review link without the search?", "acceptedAnswer": {"@type": "Answer", "text": "Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose Ask for reviews (or Get more reviews), and copy the link. Paste it here to make the QR code."}},
+  {"@type": "Question", "name": "Does the QR code expire?", "acceptedAnswer": {"@type": "Answer", "text": "No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists."}},
+  {"@type": "Question", "name": "QR code or NFC: which gets more reviews?", "acceptedAnswer": {"@type": "Answer", "text": "Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a stand with both NFC and a QR code."}}]}</script>
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
+<style>
+  .tool{background:#fff;border:1px solid #DDD6CC;border-radius:20px;padding:24px;margin:26px 0;display:flex;flex-direction:column;gap:16px}
+  .tool label{font-weight:600;font-size:14.5px;display:block;margin-bottom:6px}
+  .tool input[type=text]{width:100%;font:inherit;font-size:16px;padding:13px 16px;border:1.5px solid #DDD6CC;border-radius:12px;background:#FBF9F6;color:#22201D}
+  .tool input[type=text]:focus{outline:none;border-color:#A8552F;background:#fff}
+  .row2{display:flex;gap:10px;flex-wrap:wrap}
+  .row2 > input{flex:1;min-width:200px}
+  .tool .btn{border:0;cursor:pointer;font-family:inherit}
+  .btn.ghost{background:#fff;color:#22201D;border:1.5px solid #DDD6CC}
+  .btn.sm{padding:9px 16px;font-size:13.5px}
+  .or{display:flex;align-items:center;gap:12px;color:#8A8478;font-size:13px}
+  .or[hidden],#searchPart[hidden]{display:none}
+  .or::before,.or::after{content:"";flex:1;height:1px;background:#EFEAE3}
+  .results{display:flex;flex-direction:column;gap:8px}
+  .place{display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:start;width:100%;background:#FBF9F6;border:1.5px solid #EFEAE3;border-radius:12px;padding:12px 14px;font:inherit;cursor:pointer;color:#22201D}
+  .place:hover{border-color:#A8552F}
+  .place small{display:block;color:#6B6660;font-size:13px}
+  .place .rt{white-space:nowrap;font-size:13px;color:#6B6660}
+  .msg{font-size:14px;border-radius:12px;padding:12px 14px;background:#FCF0D7;color:#6B4A00}
+  .msg.bad{background:#FBE5E5;color:#8E2B2B}
+  .out{display:none;flex-direction:column;gap:18px;border-top:1px solid #EFEAE3;padding-top:20px}
+  .out.on{display:flex}
+  .linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#F7F3ED;border-radius:12px;padding:10px 12px}
+  .linkbox code{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px;direction:ltr;text-align:left}
+  .made{display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:22px;align-items:start}
+  .made canvas{width:100%;height:auto;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.08);background:#fff}
+  .made .opts{display:flex;flex-direction:column;gap:12px}
+  .seg{display:inline-flex;background:#EFEAE3;border-radius:999px;padding:3px;gap:2px}
+  .seg button{border:0;background:none;padding:7px 14px;border-radius:999px;font:inherit;font-size:13.5px;cursor:pointer;color:#6B6660}
+  .seg button.on{background:#fff;color:#22201D;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .upsell{display:flex;gap:16px;align-items:center;background:#22201D;color:#F7F3ED;border-radius:16px;padding:18px 20px;flex-wrap:wrap}
+  .upsell p{color:#E9E3DA;margin:2px 0 0;font-size:14.5px}
+  .upsell b{font-size:16.5px}
+  .upsell .btn{margin-inline-start:auto}
+  .hint{font-size:13px;color:#6B6660}
+  html[lang=ar] .tool,html[lang=ar] .made{direction:rtl}
+  #printArea{display:none}
+  @media (max-width:640px){.made{grid-template-columns:1fr}.made canvas{max-width:280px;margin:0 auto}.tool{padding:18px}}
+  @media print{body > *:not(#printArea){display:none !important}#printArea{display:block}#printArea img{width:100%;max-width:105mm;display:block;margin:0 auto}}
+</style>
+</head>
+<body>
+<div class="bar">All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery</div>
+<nav><div class="in"><a class="brand" href="index.html"><img src="images/logo-mark.png" alt="Where To Spot logo" width="40" height="40">Where To Spot</a><div class="links"><a href="index.html">Shop</a><a href="plans.html">Marketing plans</a><a href="google-review-link.html" aria-current="page">Free review link</a><a href="about.html">About us</a><a href="contact.html">Contact us</a></div></div></nav>
+
+<main data-no-i18n>
+<div class="kicker"><span class="en-only">Free tool · No sign-up</span><span class="ar-only">أداة مجانية · بدون تسجيل</span></div>
+<h1><span class="en-only">Google review link & QR code generator</span><span class="ar-only">رابط تقييم جوجل وكود QR لنشاطك مجانًا</span></h1>
+<p class="muted"><span class="en-only">Get the direct link that opens your Google review box, plus a QR code and a ready-to-print card for your counter. Customers land straight on the stars.</span><span class="ar-only">احصل على الرابط اللي بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، ومعاه كود QR وكارت جاهز للطباعة تحطه على الكاونتر. العميل بيوصل للنجوم على طول.</span></p>
+
+<section class="tool" id="tool" aria-label="Review link generator">
+  <div id="searchPart" hidden>
+    <label for="q" data-t="searchLabel"></label>
+    <div class="row2"><input type="text" id="q" autocomplete="off"><button class="btn" id="go" data-t="search"></button></div>
+    <div class="results" id="results" style="margin-top:10px"></div>
+  </div>
+  <div class="or" id="orLine" hidden><span data-t="or"></span></div>
+  <div>
+    <label for="paste" data-t="pasteLabel"></label>
+    <div class="row2"><input type="text" id="paste" dir="ltr" placeholder="https://g.page/r/…/review"><button class="btn alt" id="use" data-t="use"></button></div>
+    <details style="margin-top:10px"><summary data-t="whereTitle"></summary><ol id="whereSteps"></ol></details>
+  </div>
+  <div class="msg" id="msg" hidden></div>
+
+  <div class="out" id="out">
+    <div>
+      <label data-t="yourLink"></label>
+      <div class="linkbox"><code id="link"></code><button class="btn sm" id="copy" data-t="copy"></button><a class="btn sm ghost" id="test" target="_blank" rel="noopener" data-t="test"></a><a class="btn sm ghost" id="wa" target="_blank" rel="noopener" data-t="whatsapp"></a></div>
+    </div>
+    <div class="made">
+      <canvas id="card" width="1200" height="1700" aria-label="Printable review card"></canvas>
+      <div class="opts">
+        <div><label for="biz" data-t="nameOnCard"></label><input type="text" id="biz" maxlength="40"></div>
+        <div><label data-t="cardLang"></label><div class="seg" id="cardLang"><button data-l="ar">عربي</button><button data-l="en">English</button><button data-l="both" data-t="both"></button></div></div>
+        <div class="row2"><button class="btn" id="dlCard" data-t="dlCard"></button><button class="btn ghost" id="dlQr" data-t="dlQr"></button><button class="btn ghost" id="print" data-t="print"></button></div>
+        <p class="hint" data-t="printHint"></p>
+      </div>
+    </div>
+    <div class="upsell">
+      <div><b data-t="upTitle"></b><p data-t="upText"></p></div>
+      <a class="btn" href="p/nfc4" data-t="upBtn"></a>
+    </div>
+  </div>
+</section>
+
+<div class="en-only">
+<h2>How it works</h2>
+<div class="steps">
+<div class="card"><b>1. Find your business</b>Search by name and area, or paste the review link from your Google Business Profile.</div>
+<div class="card"><b>2. Get your link and QR</b>The link opens your Google review box directly. The QR code holds the same link and never expires.</div>
+<div class="card"><b>3. Share it everywhere</b>Print the card for your counter, send the link on WhatsApp after each sale, and add it to receipts and your Instagram bio.</div>
+</div>
+<h2>Five ways to get more Google reviews</h2>
+<ul>
+<li><b>Ask at the right moment:</b> right after a good experience, when the customer is happy and still with you.</li>
+<li><b>Make it one step:</b> the direct link skips searching on Maps, which is where most customers give up.</li>
+<li><b>Put it where people wait:</b> the counter, tables, the reception desk and the bag.</li>
+<li><b>Follow up on WhatsApp:</b> a short thank-you message with the link the same day.</li>
+<li><b>Reply to every review:</b> customers are more likely to review a business that answers.</li>
+</ul>
+<h2>Questions</h2>
+<details><summary>What is a Google review link?</summary><p>A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps.</p></details>
+<details><summary>Is this tool free?</summary><p>Yes. The review link, the QR code and the printable card are free, with no sign-up.</p></details>
+<details><summary>Where do I find my review link without the search?</summary><p>Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose <b>Ask for reviews</b> (or <b>Get more reviews</b>), and copy the link. Paste it above to make the QR code.</p></details>
+<details><summary>Does the QR code expire?</summary><p>No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists.</p></details>
+<details><summary>QR code or NFC: which gets more reviews?</summary><p>Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a <a href="p/nfc4">stand with both NFC and a QR code</a>.</p></details>
+</div>
+
+<div class="ar-only" lang="ar" dir="rtl">
+<h2>إزاي تستخدم الأداة</h2>
+<div class="steps">
+<div class="card"><b>1. دوّر على نشاطك</b>اكتب اسم النشاط والمنطقة، أو الصق رابط التقييم من حساب نشاطك على جوجل (Google Business Profile).</div>
+<div class="card"><b>2. خد الرابط والكود</b>الرابط بيفتح خانة التقييم على جوجل مباشرة، والكود QR فيه نفس الرابط ومش بينتهي.</div>
+<div class="card"><b>3. انشره في كل مكان</b>اطبع الكارت للكاونتر، وابعت الرابط على واتساب بعد كل عملية بيع، وحطه على الفاتورة وفي البايو على إنستجرام.</div>
+</div>
+<h2>5 طرق تزود بيها تقييمات جوجل</h2>
+<ul>
+<li><b>اطلب في الوقت الصح:</b> بعد تجربة حلوة على طول، والعميل لسه مبسوط وموجود.</li>
+<li><b>خليها خطوة واحدة:</b> الرابط المباشر بيوفر البحث على الخرائط، وده المكان اللي أغلب العملاء بيزهقوا فيه.</li>
+<li><b>حطه في أماكن الانتظار:</b> الكاونتر، الترابيزات، الاستقبال، وجوه الشنطة.</li>
+<li><b>تابع على واتساب:</b> رسالة شكر قصيرة فيها الرابط في نفس اليوم.</li>
+<li><b>رد على كل تقييم:</b> العملاء بيقيّموا أكتر النشاط اللي بيرد.</li>
+</ul>
+<h2>أسئلة شائعة</h2>
+<details><summary>يعني إيه رابط تقييم جوجل؟</summary><p>رابط بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب تعليقه بلمسة واحدة بدل ما يدور عليك في الخرائط.</p></details>
+<details><summary>الأداة مجانية؟</summary><p>أيوه. الرابط والكود والكارت الجاهز للطباعة مجانًا، ومن غير تسجيل.</p></details>
+<details><summary>ألاقي رابط التقييم فين من غير البحث؟</summary><p>افتح خرائط جوجل أو بحث جوجل وأنت داخل بحساب صاحب النشاط، افتح صفحة نشاطك، واختار <b>اطلب تقييمات</b> (أو <b>الحصول على المزيد من التقييمات</b>)، وانسخ الرابط. الصقه فوق عشان نعمل الكود.</p></details>
+<details><summary>الكود QR بينتهي؟</summary><p>لأ. الكود فيه رابط التقييم نفسه، فهيفضل شغال طول ما صفحة نشاطك على جوجل موجودة.</p></details>
+<details><summary>QR ولا NFC: أنهي بيجيب تقييمات أكتر؟</summary><p>الاتنين شغالين، بس NFC أسرع: العميل بيلمس الكارت أو الستاند بموبايله من غير كاميرا ولا مسح. ناس كتير بتستخدم <a href="p/nfc4?lang=ar">ستاند فيه NFC وكود QR مع بعض</a>.</p></details>
+</div>
+</main>
+
+<div id="printArea"><img id="printImg" alt=""></div>
+
+<footer><div class="in">
+<span>© 2026 Where To Spot · MQR, El Wahat Road, 6th of October City, Giza, Egypt · <a href="mailto:info@wheretospot.com">info@wheretospot.com</a> · <a href="tel:+201277660666">+20 127 766 0666</a></span>
+<a href="about.html">About us</a><a href="contact.html">Contact us</a><a href="google-review-link.html">Free Google review link & QR</a><a href="privacy-policy.html">Privacy policy</a><a href="refund-policy.html">Refund & cancellation</a><a href="shipping-policy.html">Delivery & shipping</a><a href="terms.html">Terms & conditions</a>
+</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+// Free review-link tool: finds the business (search through api/places.php when a Google key is set up, or a
+// pasted link / Place ID), then makes the direct review link, a QR code and a printable card, all in the browser.
+(function () {
+  var AR = document.documentElement.lang === 'ar';
+  var T = {
+    searchLabel: ['Search your business (name and area)', 'دوّر على نشاطك (الاسم والمنطقة)'],
+    search: ['Search', 'بحث'], or: ['or', 'أو'], use: ['Make QR', 'اعمل الكود'],
+    pasteLabel: ['Paste your Google review link, Maps link or Place ID', 'الصق رابط تقييم جوجل أو رابط الخرائط أو Place ID'],
+    pasteOnly: ['Paste your Google review link or Place ID', 'الصق رابط تقييم جوجل أو Place ID'],
+    whereTitle: ['Where do I find my review link?', 'ألاقي رابط التقييم فين؟'],
+    where: [['Open Google Maps (or search your business name on Google) signed in as the owner.', 'Open your Business Profile.', 'Tap “Ask for reviews” or “Get more reviews”.', 'Copy the link and paste it here.'],
+      ['افتح خرائط جوجل (أو دوّر على اسم نشاطك في جوجل) وأنت داخل بحساب صاحب النشاط.', 'افتح صفحة نشاطك (Business Profile).', 'اضغط “اطلب تقييمات” أو “الحصول على المزيد من التقييمات”.', 'انسخ الرابط والصقه هنا.']],
+    yourLink: ['Your Google review link', 'رابط التقييم بتاعك'], copy: ['Copy', 'نسخ'], copied: ['Copied ✓', 'تم النسخ ✓'],
+    test: ['Test it', 'جرّبه'], whatsapp: ['Send on WhatsApp', 'ابعته واتساب'],
+    nameOnCard: ['Name on the card', 'الاسم على الكارت'], cardLang: ['Card language', 'لغة الكارت'], both: ['Both', 'الاتنين'],
+    dlCard: ['Download card', 'تحميل الكارت'], dlQr: ['Download QR only', 'تحميل الكود فقط'], print: ['Print', 'طباعة'],
+    printHint: ['The card is A6 size (10.5 × 15 cm). Print it on thick paper or put it in a clear stand.', 'مقاس الكارت A6 (10.5 × 15 سم). اطبعه على ورق سميك أو حطه في ستاند شفاف.'],
+    upTitle: ['Customers forget to scan. A tap is faster.', 'العملاء بينسوا يمسحوا الكود. اللمسة أسرع.'],
+    upText: ['Our NFC + QR review stand opens this same review box with one tap. Delivered across Egypt, cash on delivery.', 'ستاند التقييم NFC + QR بتاعنا بيفتح نفس خانة التقييم بلمسة واحدة. توصيل لكل مصر والدفع عند الاستلام.'],
+    upBtn: ['See the NFC stand', 'شوف ستاند NFC'],
+    searching: ['Searching…', 'جاري البحث…'], none: ['No match. Try the name as it shows on Google Maps, with the area.', 'مفيش نتيجة. جرّب الاسم زي ما هو مكتوب على خرائط جوجل، ومعاه المنطقة.'],
+    reviews: ['reviews', 'تقييم'],
+    mapsLink: ['That’s a link to your Maps page, not the review link. Search your business above, or follow “Where do I find my review link?”.', 'ده رابط صفحتك على الخرائط، مش رابط التقييم. دوّر على نشاطك فوق، أو اتبع خطوات “ألاقي رابط التقييم فين؟”.'],
+    mapsLinkNoSearch: ['That’s a link to your Maps page, not the review link. Follow “Where do I find my review link?” below to copy the review link.', 'ده رابط صفحتك على الخرائط، مش رابط التقييم. اتبع خطوات “ألاقي رابط التقييم فين؟” عشان تنسخ رابط التقييم.'],
+    bad: ['We couldn’t read that. Paste the review link (it looks like g.page/r/…/review) or the Place ID (starts with ChIJ).', 'مش قادرين نقرا ده. الصق رابط التقييم (شكله g.page/r/…/review) أو الـ Place ID (بيبدأ بـ ChIJ).'],
+    waText: ['We’d love your feedback! Leave us a quick Google review here: ', 'رأيك يهمنا! قيّمنا على جوجل في ثانية من هنا: '],
+    cardTitleAr: 'قيّمنا على جوجل', cardTitleEn: 'Review us on Google', cardSubAr: 'امسح الكود بكاميرا الموبايل', cardSubEn: 'Scan with your phone camera', cardThanksAr: 'رأيك بيفرق معانا', cardThanksEn: 'Your feedback means a lot'
+  };
+  var t = function (k) { var v = T[k]; return Array.isArray(v) ? v[AR ? 1 : 0] : v; };
+  var $ = function (id) { return document.getElementById(id); };
+  document.querySelectorAll('[data-t]').forEach(function (el) { el.textContent = t(el.dataset.t); });
+  $('q').placeholder = AR ? 'مثال: كافيه الروف، الشيخ زايد' : 'e.g. Roof Cafe, Sheikh Zayed';
+  $('whereSteps').innerHTML = t('where').map(function (s) { return '<li>' + s + '</li>'; }).join('');
+
+  var state = { link: '', name: '', lang: AR ? 'ar' : 'both', searchOn: false };
+  var msg = function (text, bad) { var m = $('msg'); m.hidden = !text; m.textContent = text || ''; m.className = 'msg' + (bad ? ' bad' : ''); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  // Business search is there only when the server has a Google key.
+  fetch('api/places.php').then(function (r) { return r.json(); }).then(function (d) {
+    state.searchOn = !!d.search;
+    $('searchPart').hidden = !d.search; $('orLine').hidden = !d.search;
+    if (!d.search) document.querySelector('label[for=paste]').textContent = t('pasteOnly');
+  }).catch(function () {});
+
+  var search = function () {
+    var q = $('q').value.trim(); if (q.length < 3) return;
+    $('results').innerHTML = '<div class="hint">' + t('searching') + '</div>'; msg('');
+    fetch('api/places.php?q=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.error) { $('results').innerHTML = ''; msg(d.error, true); return; }
+      if (!d.places || !d.places.length) { $('results').innerHTML = '<div class="hint">' + t('none') + '</div>'; return; }
+      $('results').innerHTML = d.places.map(function (p, i) {
+        return '<button class="place" data-i="' + i + '"><span><b>' + esc(p.name) + '</b><small>' + esc(p.address) + '</small></span>' +
+          (p.rating ? '<span class="rt">★ ' + p.rating.toFixed(1) + ' · ' + p.reviews + ' ' + t('reviews') + '</span>' : '') + '</button>';
+      }).join('');
+      document.querySelectorAll('.place').forEach(function (b) { b.onclick = function () { var p = d.places[+b.dataset.i]; make('https://search.google.com/local/writereview?placeid=' + encodeURIComponent(p.id), p.name); }; });
+    }).catch(function () { $('results').innerHTML = ''; msg(t('none'), true); });
+  };
+  $('go').onclick = search;
+  $('q').onkeydown = function (e) { if (e.key === 'Enter') search(); };
+
+  // A pasted review link, Place ID, or (with search) a Maps link whose business name we search for.
+  var usePaste = function () {
+    var v = $('paste').value.trim(); msg('');
+    if (!v) return;
+    var m = v.match(/placeid=([A-Za-z0-9_-]{10,})/i) || v.match(/place_id[:=]([A-Za-z0-9_-]{10,})/i);
+    if (m) return make('https://search.google.com/local/writereview?placeid=' + m[1], '');
+    if (/^(ChIJ|GhIJ|EiI|Eh)[A-Za-z0-9_-]{10,}$/.test(v)) return make('https://search.google.com/local/writereview?placeid=' + v, '');
+    m = v.match(/g\.page\/r\/([A-Za-z0-9_-]+)/i);
+    if (m) return make('https://g.page/r/' + m[1] + '/review', '');
+    if (/google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\./i.test(v)) {
+      var place = v.match(/\/maps\/place\/([^/@?]+)/);
+      if (state.searchOn && place) { $('q').value = decodeURIComponent(place[1].replace(/\+/g, ' ')); search(); $('q').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      return msg(state.searchOn ? t('mapsLink') : t('mapsLinkNoSearch'), true);
+    }
+    msg(t('bad'), true);
+  };
+  $('use').onclick = usePaste;
+  $('paste').onkeydown = function (e) { if (e.key === 'Enter') usePaste(); };
+
+  var qrMatrix = function (text) { var q = qrcode(0, 'M'); q.addData(text); q.make(); return q; };
+  var drawQr = function (ctx, q, x, y, size) {
+    var n = q.getModuleCount(), cell = size / n;
+    ctx.fillStyle = '#fff'; ctx.fillRect(x, y, size, size);
+    ctx.fillStyle = '#22201D';
+    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) ctx.fillRect(Math.floor(x + c * cell), Math.floor(y + r * cell), Math.ceil(cell), Math.ceil(cell));
+  };
+  var roundRect = function (ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+
+  // The printable card (A6 proportions): stars, title, the business name, the QR and a short line.
+  var drawCard = function () {
+    var cv = $('card'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height, L = state.lang;
+    ctx.fillStyle = '#F7F3ED'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; roundRect(ctx, 50, 50, W - 100, H - 100, 48); ctx.fill();
+    ctx.fillStyle = '#A8552F'; roundRect(ctx, 50, 50, W - 100, 22, 11); ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#F2B01E'; ctx.font = '84px sans-serif'; ctx.fillText('★★★★★', W / 2, 200);
+    var ar = '"Cairo", sans-serif', en = '"Work Sans", sans-serif';
+    ctx.fillStyle = '#22201D';
+    if (L === 'en') { ctx.font = '700 92px ' + en; ctx.fillText(T.cardTitleEn, W / 2, 330); }
+    else if (L === 'ar') { ctx.font = '800 104px ' + ar; ctx.fillText(T.cardTitleAr, W / 2, 330); }
+    else { ctx.font = '800 96px ' + ar; ctx.fillText(T.cardTitleAr, W / 2, 310); ctx.fillStyle = '#6B6660'; ctx.font = '600 56px ' + en; ctx.fillText(T.cardTitleEn, W / 2, 410); }
+    var name = ($('biz').value || '').trim();
+    if (name) {
+      ctx.fillStyle = '#A8552F'; var fs = 64; ctx.font = '700 ' + fs + 'px ' + (/[؀-ۿ]/.test(name) ? ar : en);
+      while (ctx.measureText(name).width > W - 220 && fs > 34) { fs -= 4; ctx.font = '700 ' + fs + 'px ' + (/[؀-ۿ]/.test(name) ? ar : en); }
+      ctx.fillText(name, W / 2, L === 'both' ? 510 : 460);
+    }
+    var qs = L === 'both' ? 680 : 720, qx = (W - qs) / 2, qy = L === 'both' ? 590 : 550;
+    ctx.fillStyle = '#F7F3ED'; roundRect(ctx, qx - 40, qy - 40, qs + 80, qs + 80, 36); ctx.fill();
+    drawQr(ctx, qrMatrix(state.link), qx, qy, qs);
+    var y = qy + qs + 120;
+    ctx.fillStyle = '#22201D';
+    if (L !== 'en') { ctx.font = '700 60px ' + ar; ctx.fillText(T.cardSubAr, W / 2, y); y += 78; }
+    if (L !== 'ar') { ctx.font = '600 50px ' + en; ctx.fillStyle = L === 'both' ? '#6B6660' : '#22201D'; ctx.fillText(T.cardSubEn, W / 2, y); y += 72; }
+    // One language: a short thank-you line under the scan line (no room for it with both).
+    if (L !== 'both') { ctx.fillStyle = '#8A8478'; ctx.font = (L === 'en' ? '500 42px ' + en : '600 44px ' + ar); ctx.fillText(L === 'en' ? T.cardThanksEn : T.cardThanksAr, W / 2, y + 20); }
+    ctx.font = '500 28px ' + en; ctx.fillStyle = '#B5AEA3'; ctx.fillText('Free card from shop.wheretospot.com', W / 2, H - 100);
+  };
+
+  var make = function (link, name) {
+    state.link = link;
+    if (name) $('biz').value = name;
+    $('link').textContent = link;
+    $('test').href = link;
+    $('wa').href = 'https://wa.me/?text=' + encodeURIComponent(t('waText') + link);
+    $('out').classList.add('on'); msg('');
+    var draw = function () { drawCard(); };
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(draw);
+    draw();
+    $('out').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  var segs = document.querySelectorAll('#cardLang button');
+  var setLang = function (l) { state.lang = l; segs.forEach(function (b) { b.classList.toggle('on', b.dataset.l === l); }); if (state.link) drawCard(); };
+  segs.forEach(function (b) { b.onclick = function () { setLang(b.dataset.l); }; });
+  setLang(state.lang);
+  $('biz').oninput = function () { if (state.link) drawCard(); };
+  $('copy').onclick = function () { navigator.clipboard.writeText(state.link).then(function () { $('copy').textContent = t('copied'); setTimeout(function () { $('copy').textContent = t('copy'); }, 1800); }); };
+  var save = function (canvas, file) { var a = document.createElement('a'); a.download = file; a.href = canvas.toDataURL('image/png'); a.click(); };
+  var slug = function () { return (($('biz').value || 'google-review').trim().replace(/[^\w؀-ۿ]+/g, '-').slice(0, 40) || 'google-review'); };
+  $('dlCard').onclick = function () { save($('card'), slug() + '-review-card.png'); };
+  $('dlQr').onclick = function () {
+    var q = qrMatrix(state.link), c = document.createElement('canvas'); c.width = c.height = 1000;
+    var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1000, 1000); drawQr(x, q, 60, 60, 880);
+    save(c, slug() + '-review-qr.png');
+  };
+  $('print').onclick = function () { $('printImg').src = $('card').toDataURL('image/png'); setTimeout(function () { window.print(); }, 150); };
+})();
+</script>
+<script src="chat.js" defer></script>
+</body>
+</html>

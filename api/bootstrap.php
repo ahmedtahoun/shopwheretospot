@@ -25,6 +25,7 @@ $config = [
     'alert_emails' => [],   // extra addresses that always get alerts
     'smtp' => null,
     'bosta' => [],
+    'google_places_key' => '', // optional: Google Places API (New) key for the business search in google-review-link.html
     'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php
