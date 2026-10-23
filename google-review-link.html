@@ -34,6 +34,7 @@
   {"@type": "Question", "name": "What is a Google review link?", "acceptedAnswer": {"@type": "Answer", "text": "A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps."}},
   {"@type": "Question", "name": "Is this tool free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The review link, the QR code and the printable card are free, with no sign-up."}},
   {"@type": "Question", "name": "Where do I find my review link without the search?", "acceptedAnswer": {"@type": "Answer", "text": "Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose Ask for reviews (or Get more reviews), and copy the link. Paste it here to make the QR code."}},
+  {"@type": "Question", "name": "Can I just paste my Google Maps link?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open your business on Google Maps, tap Share, copy the link and paste it into the tool. It finds the exact branch on Google and checks its Place ID before making the review link."}},
   {"@type": "Question", "name": "Does the QR code expire?", "acceptedAnswer": {"@type": "Answer", "text": "No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists."}},
   {"@type": "Question", "name": "QR code or NFC: which gets more reviews?", "acceptedAnswer": {"@type": "Answer", "text": "Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a stand with both NFC and a QR code."}}]}</script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
@@ -72,6 +73,11 @@
   .upsell b{font-size:16.5px}
   .upsell .btn{margin-inline-start:auto}
   .hint{font-size:13px;color:#6B6660}
+  .placeinfo{display:flex;flex-direction:column;gap:4px}
+  .placeinfo b{font-size:17px}
+  .placeinfo code{font-size:12.5px;color:#6B6660;direction:ltr;overflow-wrap:anywhere}
+  .vpill{display:inline-block;font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;background:#E4F2E8;color:#2F7A4A;width:max-content}
+  .vpill.warn{background:#FCF0D7;color:#7A5200}
   html[lang=ar] .tool,html[lang=ar] .made{direction:rtl}
   #printArea{display:none}
   @media (max-width:640px){.made{grid-template-columns:1fr}.made canvas{max-width:280px;margin:0 auto}.tool{padding:18px}}
@@ -96,12 +102,14 @@
   <div class="or" id="orLine" hidden><span data-t="or"></span></div>
   <div>
     <label for="paste" data-t="pasteLabel"></label>
-    <div class="row2"><input type="text" id="paste" dir="ltr" placeholder="https://g.page/r/…/review"><button class="btn alt" id="use" data-t="use"></button></div>
+    <div class="row2"><input type="text" id="paste" dir="ltr" placeholder="https://maps.app.goo.gl/…"><button class="btn alt" id="use" data-t="use"></button></div>
+    <div class="results" id="choices" style="margin-top:10px"></div>
     <details style="margin-top:10px"><summary data-t="whereTitle"></summary><ol id="whereSteps"></ol></details>
   </div>
   <div class="msg" id="msg" hidden></div>
 
   <div class="out" id="out">
+    <div class="placeinfo" id="placeInfo"></div>
     <div>
       <label data-t="yourLink"></label>
       <div class="linkbox"><code id="link"></code><button class="btn sm" id="copy" data-t="copy"></button><a class="btn sm ghost" id="test" target="_blank" rel="noopener" data-t="test"></a><a class="btn sm ghost" id="wa" target="_blank" rel="noopener" data-t="whatsapp"></a></div>
@@ -141,6 +149,7 @@
 <details><summary>What is a Google review link?</summary><p>A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps.</p></details>
 <details><summary>Is this tool free?</summary><p>Yes. The review link, the QR code and the printable card are free, with no sign-up.</p></details>
 <details><summary>Where do I find my review link without the search?</summary><p>Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose <b>Ask for reviews</b> (or <b>Get more reviews</b>), and copy the link. Paste it above to make the QR code.</p></details>
+<details><summary>Can I just paste my Google Maps link?</summary><p>Yes. Open your business on Google Maps, tap <b>Share</b>, copy the link (maps.app.goo.gl/…) and paste it above. We find the exact branch on Google and check its Place ID before making the review link. If several branches are close together, you pick yours.</p></details>
 <details><summary>Does the QR code expire?</summary><p>No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists.</p></details>
 <details><summary>QR code or NFC: which gets more reviews?</summary><p>Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a <a href="p/nfc4">stand with both NFC and a QR code</a>.</p></details>
 </div>
@@ -164,6 +173,7 @@
 <details><summary>يعني إيه رابط تقييم جوجل؟</summary><p>رابط بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب تعليقه بلمسة واحدة بدل ما يدور عليك في الخرائط.</p></details>
 <details><summary>الأداة مجانية؟</summary><p>أيوه. الرابط والكود والكارت الجاهز للطباعة مجانًا، ومن غير تسجيل.</p></details>
 <details><summary>ألاقي رابط التقييم فين من غير البحث؟</summary><p>افتح خرائط جوجل أو بحث جوجل وأنت داخل بحساب صاحب النشاط، افتح صفحة نشاطك، واختار <b>اطلب تقييمات</b> (أو <b>الحصول على المزيد من التقييمات</b>)، وانسخ الرابط. الصقه فوق عشان نعمل الكود.</p></details>
+<details><summary>ينفع ألصق رابط الخرائط بس؟</summary><p>أيوه. افتح نشاطك على خرائط جوجل، اضغط <b>مشاركة</b>، انسخ الرابط (maps.app.goo.gl/…) والصقه فوق. هنلاقي الفرع بالظبط على جوجل ونتأكد من الـ Place ID قبل ما نعمل رابط التقييم. ولو فيه أكتر من فرع قريب، هتختار فرعك.</p></details>
 <details><summary>الكود QR بينتهي؟</summary><p>لأ. الكود فيه رابط التقييم نفسه، فهيفضل شغال طول ما صفحة نشاطك على جوجل موجودة.</p></details>
 <details><summary>QR ولا NFC: أنهي بيجيب تقييمات أكتر؟</summary><p>الاتنين شغالين، بس NFC أسرع: العميل بيلمس الكارت أو الستاند بموبايله من غير كاميرا ولا مسح. ناس كتير بتستخدم <a href="p/nfc4?lang=ar">ستاند فيه NFC وكود QR مع بعض</a>.</p></details>
 </div>
@@ -185,8 +195,15 @@
   var T = {
     searchLabel: ['Search your business (name and area)', 'دوّر على نشاطك (الاسم والمنطقة)'],
     search: ['Search', 'بحث'], or: ['or', 'أو'], use: ['Make QR', 'اعمل الكود'],
-    pasteLabel: ['Paste your Google review link, Maps link or Place ID', 'الصق رابط تقييم جوجل أو رابط الخرائط أو Place ID'],
+    pasteLabel: ['Paste any Google Maps link to your business (or your review link / Place ID)', 'الصق أي رابط لنشاطك من خرائط جوجل (أو رابط التقييم / Place ID)'],
     pasteOnly: ['Paste your Google review link or Place ID', 'الصق رابط تقييم جوجل أو Place ID'],
+    checking: ['Finding your business on Google…', 'بندوّر على نشاطك في جوجل…'],
+    pick: ['Which one is your business? (several branches or similar names nearby)', 'أنهي واحد نشاطك؟ (فيه فروع أو أسماء شبه بعض قريبة)'],
+    vExact: ['✓ Verified with Google: this exact branch', '✓ متأكدين من جوجل: ده الفرع بالظبط'],
+    vGoogle: ['✓ From Google', '✓ من جوجل'],
+    vProfile: ['From your Business Profile', 'من حساب نشاطك على جوجل'],
+    vNot: ['Made from the link, not checked with Google: tap “Test it” to make sure', 'معمول من الرابط ومش متأكدين منه من جوجل: اضغط “جرّبه” للتأكد'],
+    placeId: ['Place ID', 'Place ID'],
     whereTitle: ['Where do I find my review link?', 'ألاقي رابط التقييم فين؟'],
     where: [['Open Google Maps (or search your business name on Google) signed in as the owner.', 'Open your Business Profile.', 'Tap “Ask for reviews” or “Get more reviews”.', 'Copy the link and paste it here.'],
       ['افتح خرائط جوجل (أو دوّر على اسم نشاطك في جوجل) وأنت داخل بحساب صاحب النشاط.', 'افتح صفحة نشاطك (Business Profile).', 'اضغط “اطلب تقييمات” أو “الحصول على المزيد من التقييمات”.', 'انسخ الرابط والصقه هنا.']],
@@ -202,7 +219,7 @@
     reviews: ['reviews', 'تقييم'],
     mapsLink: ['That’s a link to your Maps page, not the review link. Search your business above, or follow “Where do I find my review link?”.', 'ده رابط صفحتك على الخرائط، مش رابط التقييم. دوّر على نشاطك فوق، أو اتبع خطوات “ألاقي رابط التقييم فين؟”.'],
     mapsLinkNoSearch: ['That’s a link to your Maps page, not the review link. Follow “Where do I find my review link?” below to copy the review link.', 'ده رابط صفحتك على الخرائط، مش رابط التقييم. اتبع خطوات “ألاقي رابط التقييم فين؟” عشان تنسخ رابط التقييم.'],
-    bad: ['We couldn’t read that. Paste the review link (it looks like g.page/r/…/review) or the Place ID (starts with ChIJ).', 'مش قادرين نقرا ده. الصق رابط التقييم (شكله g.page/r/…/review) أو الـ Place ID (بيبدأ بـ ChIJ).'],
+    bad: ['We couldn’t read that. Paste a Google Maps link to your business, your review link (g.page/r/…/review) or the Place ID (starts with ChIJ).', 'مش قادرين نقرا ده. الصق رابط نشاطك من خرائط جوجل، أو رابط التقييم (g.page/r/…/review)، أو الـ Place ID (بيبدأ بـ ChIJ).'],
     waText: ['We’d love your feedback! Leave us a quick Google review here: ', 'رأيك يهمنا! قيّمنا على جوجل في ثانية من هنا: '],
     cardTitleAr: 'قيّمنا على جوجل', cardTitleEn: 'Review us on Google', cardSubAr: 'امسح الكود بكاميرا الموبايل', cardSubEn: 'Scan with your phone camera', cardThanksAr: 'رأيك بيفرق معانا', cardThanksEn: 'Your feedback means a lot'
   };
@@ -233,26 +250,40 @@
         return '<button class="place" data-i="' + i + '"><span><b>' + esc(p.name) + '</b><small>' + esc(p.address) + '</small></span>' +
           (p.rating ? '<span class="rt">★ ' + p.rating.toFixed(1) + ' · ' + p.reviews + ' ' + t('reviews') + '</span>' : '') + '</button>';
       }).join('');
-      document.querySelectorAll('.place').forEach(function (b) { b.onclick = function () { var p = d.places[+b.dataset.i]; make('https://search.google.com/local/writereview?placeid=' + encodeURIComponent(p.id), p.name); }; });
+      $('results').querySelectorAll('.place').forEach(function (b) { b.onclick = function () { var p = d.places[+b.dataset.i]; make('https://search.google.com/local/writereview?placeid=' + encodeURIComponent(p.id), p.name, p, 'google'); }; });
     }).catch(function () { $('results').innerHTML = ''; msg(t('none'), true); });
   };
   $('go').onclick = search;
   $('q').onkeydown = function (e) { if (e.key === 'Enter') search(); };
 
-  // A pasted review link, Place ID, or (with search) a Maps link whose business name we search for.
+  // Any Maps link (short or full), a review link, or a Place ID. Maps links and IDs go to api/places.php,
+  // which finds the exact business and checks its Place ID with Google; a list comes back when unsure.
+  var showChoices = function (places) {
+    $('choices').innerHTML = '<div class="hint">' + t('pick') + '</div>' + places.map(function (p, i) {
+      return '<button class="place" data-c="' + i + '"><span><b>' + esc(p.name) + '</b><small>' + esc(p.address) + '</small></span>' +
+        (p.rating ? '<span class="rt">★ ' + p.rating.toFixed(1) + ' · ' + p.reviews + ' ' + t('reviews') + '</span>' : '') + '</button>';
+    }).join('');
+    document.querySelectorAll('[data-c]').forEach(function (b) { b.onclick = function () { $('choices').innerHTML = ''; var p = places[+b.dataset.c]; make(p.link, p.name, p, 'google'); }; });
+  };
+  var lookup = function (query) {
+    msg(t('checking')); $('choices').innerHTML = ''; $('use').disabled = true;
+    fetch('api/places.php?' + query).then(function (r) { return r.json(); }).then(function (d) {
+      $('use').disabled = false;
+      if (d.error) return msg(d.error, true);
+      msg('');
+      if (d.status === 'choose') return showChoices(d.places);
+      make(d.place.link, d.place.name, d.place, d.status === 'verified' ? 'exact' : 'not');
+    }).catch(function () { $('use').disabled = false; msg(t('bad'), true); });
+  };
   var usePaste = function () {
-    var v = $('paste').value.trim(); msg('');
+    var v = $('paste').value.trim(); msg(''); $('choices').innerHTML = '';
     if (!v) return;
-    var m = v.match(/placeid=([A-Za-z0-9_-]{10,})/i) || v.match(/place_id[:=]([A-Za-z0-9_-]{10,})/i);
-    if (m) return make('https://search.google.com/local/writereview?placeid=' + m[1], '');
-    if (/^(ChIJ|GhIJ|EiI|Eh)[A-Za-z0-9_-]{10,}$/.test(v)) return make('https://search.google.com/local/writereview?placeid=' + v, '');
-    m = v.match(/g\.page\/r\/([A-Za-z0-9_-]+)/i);
-    if (m) return make('https://g.page/r/' + m[1] + '/review', '');
-    if (/google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\./i.test(v)) {
-      var place = v.match(/\/maps\/place\/([^/@?]+)/);
-      if (state.searchOn && place) { $('q').value = decodeURIComponent(place[1].replace(/\+/g, ' ')); search(); $('q').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-      return msg(state.searchOn ? t('mapsLink') : t('mapsLinkNoSearch'), true);
-    }
+    var m = v.match(/g\.page\/r\/([A-Za-z0-9_-]+)/i);
+    if (m) return make('https://g.page/r/' + m[1] + '/review', '', null, 'profile');
+    m = v.match(/writereview\?placeid=([A-Za-z0-9_-]{10,})/i);
+    var id = m ? m[1] : (/^(ChIJ|GhIJ|EiI|Eh)[A-Za-z0-9_-]{10,}$/.test(v) ? v : null);
+    if (id) return state.searchOn ? lookup('id=' + encodeURIComponent(id)) : make('https://search.google.com/local/writereview?placeid=' + id, '', { id: id }, 'not');
+    if (/(google\.[a-z.]+\/(maps|search)|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.|share\.google|g\.co\/)/i.test(v)) return lookup('url=' + encodeURIComponent(v));
     msg(t('bad'), true);
   };
   $('use').onclick = usePaste;
@@ -298,9 +329,12 @@
     ctx.font = '500 28px ' + en; ctx.fillStyle = '#B5AEA3'; ctx.fillText('Free card from shop.wheretospot.com', W / 2, H - 100);
   };
 
-  var make = function (link, name) {
+  var make = function (link, name, place, how) {
     state.link = link;
     if (name) $('biz').value = name;
+    var pill = { exact: ['', t('vExact')], google: ['', t('vGoogle')], profile: ['', t('vProfile')], not: ['warn', t('vNot')] }[how || 'profile'];
+    $('placeInfo').innerHTML = (place && place.name ? '<b>' + esc(place.name) + '</b>' : '') + (place && place.address ? '<span class="hint">' + esc(place.address) + '</span>' : '') +
+      (place && place.id ? '<code>' + t('placeId') + ': ' + esc(place.id) + '</code>' : '') + '<span class="vpill ' + pill[0] + '">' + esc(pill[1]) + '</span>';
     $('link').textContent = link;
     $('test').href = link;
     $('wa').href = 'https://wa.me/?text=' + encodeURIComponent(t('waText') + link);
