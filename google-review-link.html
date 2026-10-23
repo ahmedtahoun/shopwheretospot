@@ -34,7 +34,7 @@
   {"@type": "Question", "name": "What is a Google review link?", "acceptedAnswer": {"@type": "Answer", "text": "A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps."}},
   {"@type": "Question", "name": "Is this tool free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The review link, the QR code and the printable card are free, with no sign-up."}},
   {"@type": "Question", "name": "Where do I find my review link without the search?", "acceptedAnswer": {"@type": "Answer", "text": "Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose Ask for reviews (or Get more reviews), and copy the link. Paste it here to make the QR code."}},
-  {"@type": "Question", "name": "Can I just paste my Google Maps link?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open your business on Google Maps, tap Share, copy the link and paste it into the tool. It finds the exact branch on Google and checks its Place ID before making the review link."}},
+  {"@type": "Question", "name": "Can I just paste my Google Maps link?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open your business on Google Maps, tap Share, copy the link and paste it into the tool. It finds that exact place, makes its official review link and checks with Google that it opens that place’s review box."}},
   {"@type": "Question", "name": "Does the QR code expire?", "acceptedAnswer": {"@type": "Answer", "text": "No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists."}},
   {"@type": "Question", "name": "QR code or NFC: which gets more reviews?", "acceptedAnswer": {"@type": "Answer", "text": "Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a stand with both NFC and a QR code."}}]}</script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
@@ -61,7 +61,8 @@
   .out{display:none;flex-direction:column;gap:18px;border-top:1px solid #EFEAE3;padding-top:20px}
   .out.on{display:flex}
   .linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#F7F3ED;border-radius:12px;padding:10px 12px}
-  .linkbox code{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px;direction:ltr;text-align:left}
+  .linkbox code{flex:1 1 100%;min-width:0;overflow-wrap:anywhere;font-size:13.5px;direction:ltr;text-align:left;padding:2px 2px 4px}
+  .tool [hidden]{display:none !important}
   .made{display:grid;grid-template-columns:minmax(0,260px) 1fr;gap:22px;align-items:start}
   .made canvas{width:100%;height:auto;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.08);background:#fff}
   .made .opts{display:flex;flex-direction:column;gap:12px}
@@ -162,7 +163,7 @@
 <details><summary>What is a Google review link?</summary><p>A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps.</p></details>
 <details><summary>Is this tool free?</summary><p>Yes. The review link, the QR code and the printable card are free, with no sign-up.</p></details>
 <details><summary>Where do I find my review link without the search?</summary><p>Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose <b>Ask for reviews</b> (or <b>Get more reviews</b>), and copy the link. Paste it above to make the QR code.</p></details>
-<details><summary>Can I just paste my Google Maps link?</summary><p>Yes. Open your business on Google Maps, tap <b>Share</b>, copy the link (maps.app.goo.gl/…) and paste it above. We find the exact branch on Google and check its Place ID before making the review link. If several branches are close together, you pick yours.</p></details>
+<details><summary>Can I just paste my Google Maps link?</summary><p>Yes. Open your business on Google Maps, tap <b>Share</b>, copy the link (maps.app.goo.gl/…) and paste it above. We find that exact place, make its official review link, and check with Google that it opens that place’s review box. You get the QR code and card straight away.</p></details>
 <details><summary>Does the QR code expire?</summary><p>No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists.</p></details>
 <details><summary>QR code or NFC: which gets more reviews?</summary><p>Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a <a href="p/nfc4">stand with both NFC and a QR code</a>.</p></details>
 </div>
@@ -186,7 +187,7 @@
 <details><summary>يعني إيه رابط تقييم جوجل؟</summary><p>رابط بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب تعليقه بلمسة واحدة بدل ما يدور عليك في الخرائط.</p></details>
 <details><summary>الأداة مجانية؟</summary><p>أيوه. الرابط والكود والكارت الجاهز للطباعة مجانًا، ومن غير تسجيل.</p></details>
 <details><summary>ألاقي رابط التقييم فين من غير البحث؟</summary><p>افتح خرائط جوجل أو بحث جوجل وأنت داخل بحساب صاحب النشاط، افتح صفحة نشاطك، واختار <b>اطلب تقييمات</b> (أو <b>الحصول على المزيد من التقييمات</b>)، وانسخ الرابط. الصقه فوق عشان نعمل الكود.</p></details>
-<details><summary>ينفع ألصق رابط الخرائط بس؟</summary><p>أيوه. افتح نشاطك على خرائط جوجل، اضغط <b>مشاركة</b>، انسخ الرابط (maps.app.goo.gl/…) والصقه فوق. هنلاقي الفرع بالظبط على جوجل ونتأكد من الـ Place ID قبل ما نعمل رابط التقييم. ولو فيه أكتر من فرع قريب، هتختار فرعك.</p></details>
+<details><summary>ينفع ألصق رابط الخرائط بس؟</summary><p>أيوه. افتح نشاطك على خرائط جوجل، اضغط <b>مشاركة</b>، انسخ الرابط (maps.app.goo.gl/…) والصقه فوق. هنلاقي المكان ده بالظبط، ونعمل رابط التقييم الرسمي بتاعه، ونتأكد من جوجل إنه بيفتح خانة التقييم للمكان ده. وتاخد الكود والكارت على طول.</p></details>
 <details><summary>الكود QR بينتهي؟</summary><p>لأ. الكود فيه رابط التقييم نفسه، فهيفضل شغال طول ما صفحة نشاطك على جوجل موجودة.</p></details>
 <details><summary>QR ولا NFC: أنهي بيجيب تقييمات أكتر؟</summary><p>الاتنين شغالين، بس NFC أسرع: العميل بيلمس الكارت أو الستاند بموبايله من غير كاميرا ولا مسح. ناس كتير بتستخدم <a href="p/nfc4?lang=ar">ستاند فيه NFC وكود QR مع بعض</a>.</p></details>
 </div>
@@ -213,6 +214,7 @@
     checking: ['Finding your business on Google…', 'بندوّر على نشاطك في جوجل…'],
     pick: ['Which one is your business? (several branches or similar names nearby)', 'أنهي واحد نشاطك؟ (فيه فروع أو أسماء شبه بعض قريبة)'],
     vExact: ['✓ Verified with Google: this exact branch', '✓ متأكدين من جوجل: ده الفرع بالظبط'],
+    vReview: ['✓ Checked with Google: opens this place’s review box', '✓ اتأكدنا من جوجل: بيفتح خانة التقييم للمكان ده'],
     vGoogle: ['✓ From Google', '✓ من جوجل'],
     vProfile: ['From your Business Profile', 'من حساب نشاطك على جوجل'],
     vNot: ['Made from the link, not checked with Google: tap “Test it” to make sure', 'معمول من الرابط ومش متأكدين منه من جوجل: اضغط “جرّبه” للتأكد'],
@@ -257,7 +259,7 @@
   fetch('api/places.php').then(function (r) { return r.json(); }).then(function (d) {
     state.searchOn = !!d.search; state.embedKey = d.embedKey || '';
     $('searchPart').hidden = !d.search; $('orLine').hidden = !d.search;
-    if (!d.search) document.querySelector('label[for=paste]').textContent = t('pasteOnly');
+
   }).catch(function () {});
 
   var search = function () {
@@ -307,14 +309,14 @@
       if (d.status === 'choose') return showChoices(d.places);
       if (d.status === 'need_link') return showFound(d.place);
       if (!d.place || !d.place.link) return msg(t('bad'), true); // never an empty QR
-      make(d.place.link, d.place.name, d.place, d.status === 'verified' ? 'exact' : 'not');
+      make(d.place.link, d.place.name, d.place, d.status === 'verified' ? 'exact' : d.status === 'review_ok' ? 'review' : 'not');
     }).catch(function () { $('use').disabled = false; msg(t('bad'), true); });
   };
   var usePaste = function () {
     var v = $('paste').value.trim(); msg(''); $('choices').innerHTML = ''; $('found').hidden = true;
     if (!v) return;
     var m = v.match(/g\.page\/r\/([A-Za-z0-9_-]+)/i);
-    if (m) return make('https://g.page/r/' + m[1] + '/review', '', null, 'profile');
+    if (m) return lookup('url=' + encodeURIComponent('https://g.page/r/' + m[1] + '/review'));
     m = v.match(/writereview\?placeid=([A-Za-z0-9_-]{10,})/i);
     var id = m ? m[1] : (/^(ChIJ|GhIJ|EiI|Eh)[A-Za-z0-9_-]{10,}$/.test(v) ? v : null);
     if (id) return state.searchOn ? lookup('id=' + encodeURIComponent(id)) : make('https://search.google.com/local/writereview?placeid=' + id, '', { id: id }, 'not');
@@ -379,10 +381,11 @@
   var make = function (link, name, place, how) {
     state.link = link;
     if (name) $('biz').value = name;
-    var pill = { exact: ['', t('vExact')], google: ['', t('vGoogle')], profile: ['', t('vProfile')], not: ['warn', t('vNot')] }[how || 'profile'];
+    var pill = { exact: ['', t('vExact')], review: ['', t('vReview')], google: ['', t('vGoogle')], profile: ['', t('vProfile')], not: ['warn', t('vNot')] }[how || 'profile'];
     // The map of the found business, so the owner can check it's the right place and branch.
     var mapUrl = place && place.id && state.embedKey ? 'https://www.google.com/maps/embed/v1/place?key=' + encodeURIComponent(state.embedKey) + '&q=place_id:' + encodeURIComponent(place.id)
-      : place && place.lat != null ? 'https://maps.google.com/maps?q=' + place.lat + ',' + place.lng + '&z=17&output=embed' : '';
+      : place && place.lat != null ? 'https://maps.google.com/maps?q=' + place.lat + ',' + place.lng + '&z=17&output=embed'
+      : place && place.cid ? 'https://maps.google.com/maps?cid=' + place.cid + '&output=embed' : '';
     $('mapBox').hidden = !mapUrl;
     if (mapUrl && $('map').src !== mapUrl) $('map').src = mapUrl;
     $('openMaps').href = (place && place.maps) || (place && place.id ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(place.name || 'place') + '&query_place_id=' + encodeURIComponent(place.id) : '#');

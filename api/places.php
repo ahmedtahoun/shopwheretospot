@@ -70,6 +70,52 @@ function hex_to_dec(string $hex): string
     return $dec;
 }
 
+function dec_to_hex(string $dec): string
+{
+    $hex = '';
+    while ($dec !== '0' && $dec !== '') {
+        $rem = 0; $q = '';
+        foreach (str_split($dec) as $d) { $v = $rem * 10 + (int) $d; $q .= intdiv($v, 16); $rem = $v % 16; }
+        $hex = dechex($rem) . $hex;
+        $dec = ltrim($q, '0') ?: '0';
+    }
+    return $hex ?: '0';
+}
+
+// The official review link of a place, made from its place number (CID): the same g.page/r/…/review link
+// Google gives owners under "Ask for reviews" (the CID as 8 bytes, wrapped as Google does). Free, no key.
+function cid_review_link(string $cid): string
+{
+    $bytes = strrev(hex2bin(str_pad(dec_to_hex($cid), 16, '0', STR_PAD_LEFT)));
+    return 'https://g.page/r/' . rtrim(strtr(base64_encode("\x09" . $bytes . "\x10\x01"), '+/', '-_'), '=') . '/review';
+}
+
+// The CID inside a g.page/r/…/review link.
+function review_link_cid(string $link): ?string
+{
+    if (!preg_match('~g\.page/r/([A-Za-z0-9_-]{14,16})~', $link, $m)) return null;
+    $b = base64_decode(strtr($m[1], '-_', '+/') . str_repeat('=', (4 - strlen($m[1]) % 4) % 4));
+    return $b !== false && strlen($b) >= 9 && $b[0] === "\x09" ? hex_to_dec('0x' . bin2hex(strrev(substr($b, 1, 8)))) : null;
+}
+
+// Ask Google where a review link leads: it must open the review box of this very place (its number and !12e1).
+// A wrong number lands on google.com instead. Only Google addresses are followed.
+function review_link_ok(string $link, string $cid): bool
+{
+    $url = $link;
+    for ($i = 0; $i < 6; $i++) {
+        if (!preg_match('~^https://([a-z0-9.-]+\.)?(google\.[a-z.]{2,8}|g\.page)/~i', $url)) return false;
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 8, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, CURLOPT_RANGE => '0-1000',
+            CURLOPT_HTTPHEADER => ['User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36']]);
+        curl_exec($ch);
+        $next = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+        if ($next === '') break;
+        $url = $next;
+    }
+    return stripos($url, ':0x' . dec_to_hex($cid)) !== false && strpos($url, '!12e1') !== false;
+}
+
 function metres(float $a1, float $o1, float $a2, float $o2): float
 {
     $r = 6371000; $p = M_PI / 180;
@@ -158,12 +204,24 @@ if (isset($_GET['id'])) {
 // Any Google Maps link → the exact business.
 $url = trim(str_in($_GET['url'], 2000));
 if (!preg_match('~^https?://~i', $url)) $url = 'https://' . $url;
+// An owner's review link (g.page/r/…/review): check it with Google and find its place for the map.
+if ($cid = review_link_cid($url)) {
+    $link = cid_review_link($cid);
+    json_out(['ok' => true, 'status' => review_link_ok($link, $cid) ? 'review_ok' : 'unverified', 'place' => ['name' => '', 'lat' => null, 'lng' => null, 'cid' => $cid,
+        'maps' => 'https://maps.google.com/?cid=' . $cid, 'link' => $link]]);
+}
 $full = resolve_google_url($url);
 $info = parse_maps_url($full);
 if ($key === '') {
     // Without a key only a Place ID written in the link can be used, and it can't be checked.
     if ($info['placeId']) json_out(['ok' => true, 'status' => 'unverified', 'place' => ['id' => $info['placeId'], 'name' => $info['name'] ?? '', 'address' => '',
         'link' => 'https://search.google.com/local/writereview?placeid=' . rawurlencode($info['placeId'])]]);
+    // The place's number is in the link: its official review link, checked with Google (free, no key).
+    if ($info['cid']) {
+        $link = cid_review_link($info['cid']);
+        json_out(['ok' => true, 'status' => review_link_ok($link, $info['cid']) ? 'review_ok' : 'unverified', 'place' => ['name' => (string) ($info['name'] ?? ''),
+            'lat' => $info['lat'], 'lng' => $info['lng'], 'cid' => $info['cid'], 'maps' => 'https://maps.google.com/?cid=' . $info['cid'], 'link' => $link]]);
+    }
     // Free mode: what the link tells us (name, location, the place's own Maps page) so the person can see the
     // place on a map, then get the review link from their Business Profile or Google's free Place ID Finder.
     json_out(['ok' => true, 'status' => 'need_link', 'place' => ['name' => (string) ($info['name'] ?? ''), 'lat' => $info['lat'], 'lng' => $info['lng'],
@@ -185,5 +243,9 @@ $good = array_values(array_filter($found, function ($p) use ($info, $near) {
 if (count($good) === 1 && $near) json_out(['ok' => true, 'status' => 'verified', 'how' => 'location', 'place' => $good[0]]);
 // Not certain (no coordinates in the link, or several branches close by): let the person pick.
 $list = $good ?: array_slice($found, 0, 5);
+if ($info['cid'] && !$good) {
+    $link = cid_review_link($info['cid']);
+    if (review_link_ok($link, $info['cid'])) json_out(['ok' => true, 'status' => 'review_ok', 'place' => ['name' => (string) $info['name'], 'lat' => $info['lat'], 'lng' => $info['lng'], 'cid' => $info['cid'], 'maps' => 'https://maps.google.com/?cid=' . $info['cid'], 'link' => $link]]);
+}
 if (!$list) fail('Google didn’t find this business. Paste the review link from your Business Profile instead.', 404);
 json_out(['ok' => true, 'status' => 'choose', 'places' => $list]);
