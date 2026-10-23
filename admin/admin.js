@@ -1656,6 +1656,24 @@
     } catch (e) {}
   }
 
+  // WhatsApp doesn't share customers' profile photos, so each customer gets their own colour (always the
+  // same, from their number) and initials, with a small badge: 📣 came from an ad, ⭐ has bought before,
+  // 🆕 first message in the last 24 hours.
+  const WA_AV = [['#DCEFE3', '#1F7A4D'], ['#E3ECFB', '#2C5DA8'], ['#FCE8DC', '#A8512A'], ['#F3E3F7', '#7D3C93'], ['#FFF1C9', '#8A6400'], ['#DDF2F3', '#1E7178'], ['#FBE3E8', '#A33650'], ['#E8E6F9', '#4B44A0']];
+  const waAvatar = (c) => {
+    // From the last digits of the number (spread evenly across customers), else from the name.
+    const digits = String(c.waId || c.phone || '').replace(/\D/g, '');
+    let h = digits.length >= 4 ? parseInt(digits.slice(-6), 10) : 0;
+    if (!digits) for (const ch of String(c.name || '')) h = (h * 31 + ch.charCodeAt(0)) % 1000003;
+    const [bg, fg] = WA_AV[h % WA_AV.length];
+    const words = String(c.name || '').trim().split(/\s+/).filter((w) => w && !/^[+\d]/.test(w));
+    // Two letters for Latin names (AT); one for Arabic, where two letters would join into a word.
+    const ini = !words.length ? '' : /[\u0600-\u06FF]/.test(words[0][0]) ? words[0][0] : (words[0][0] + (words.length > 1 ? words[1][0] : '')).toUpperCase();
+    const isNew = c.createdAt && Date.now() - new Date(c.createdAt.replace(' ', 'T') + 'Z') < 86400000;
+    const badge = c.returning ? ['⭐', 'Has bought before'] : c.ad ? ['📣', 'Came from an ad'] : isNew ? ['🆕', 'New customer (first message in the last 24 hours)'] : null;
+    return '<span class="wa-av" style="background:' + bg + ';color:' + fg + '">' + (ini ? esc(ini) : icon('person')) +
+      (badge ? '<span class="wa-badge" title="' + badge[1] + '">' + badge[0] + '</span>' : '') + '</span>';
+  };
   // Quick replies: {name} becomes the customer's first name. Without a usable name (only a number or a
   // single letter), it's left out together with the "يا" before it: "أهلًا يا {name} 👋" → "أهلًا 👋".
   const waFillName = (text, name) => {
@@ -1709,7 +1727,7 @@
         const wait = c.waitingSince ? Math.max(1, waMins(c.waitingSince)) : 0;
         const left = c.status === 'open' ? waLeft(c) : null;
         return '<button class="wa-item' + (c.id === st.chatId ? ' on' : '') + (c.unread ? ' unread' : '') + '" data-c="' + c.id + '">' +
-          '<span class="wa-av">' + esc((c.name || '?').trim().charAt(0).toUpperCase()) + '</span>' +
+          waAvatar(c) +
           '<span class="wa-it"><span class="wa-row"><b>' + esc(c.name) + '</b><small>' + waTime(c.lastAt) + '</small></span>' +
           '<span class="wa-row"><span class="wa-last">' + (c.lastDir === 'out' ? '<span class="muted">You: </span>' : '') + esc(c.lastText || '') + '</span>' + (c.unread ? '<span class="wa-n">' + c.unread + '</span>' : '') + '</span>' +
           '<span class="wa-tags">' + (wait ? '<span class="wa-wait' + (wait >= 60 ? ' late' : wait >= 15 ? ' warn' : '') + '">⏱ <span>Waiting</span> ' + waAgo(wait) + '</span>' : '') +
@@ -1757,7 +1775,7 @@
       st.headKey = JSON.stringify([c.assignedTo, c.status, c.name]);
       const agents = (st.data && st.data.agents) || [];
       $('#waHead').innerHTML = '<button class="btn sm wa-back" id="waBack" aria-label="Back">' + icon('back') + '</button>' +
-        '<span class="wa-av">' + esc((c.name || '?').charAt(0).toUpperCase()) + '</span><div class="wa-who"><b>' + esc(c.name) + '</b><small><span dir="ltr">' + esc(c.phone) + '</span>' + (c.profileName && c.profileName !== c.name ? ' · <span>WhatsApp name:</span> ' + esc(c.profileName) : '') + '</small></div>' +
+        waAvatar(c) + '<div class="wa-who"><b>' + esc(c.name) + '</b><small><span dir="ltr">' + esc(c.phone) + '</span>' + (c.profileName && c.profileName !== c.name ? ' · <span>WhatsApp name:</span> ' + esc(c.profileName) : '') + '</small></div>' +
         '<span class="spacer"></span>' +
         (all ? '<label class="wa-handled"><span>Handled by</span><select id="waAssign" title="Who handles this chat"><option value="">Unassigned</option>' + agents.map((a) => '<option value="' + a.id + '"' + (a.id === c.assignedTo ? ' selected' : '') + '>' + esc(a.name) + (a.away ? ' (away)' : '') + '</option>').join('') +
             (c.assignedTo && !agents.some((a) => a.id === c.assignedTo) ? '<option value="' + c.assignedTo + '" selected>' + esc(c.agent || '') + '</option>' : '') + '</select></label>'

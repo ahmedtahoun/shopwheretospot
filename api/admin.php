@@ -2076,6 +2076,19 @@ function wa_message_row(int $id): array
     return $m;
 }
 
+// Phone numbers (last 9 digits) of customers with at least one real order: "returning customer" in the inbox.
+function wa_customer_keys(): array
+{
+    static $keys = null;
+    if ($keys === null) {
+        $keys = [];
+        foreach (db()->query("SELECT DISTINCT phone FROM orders WHERE status NOT IN ('Cancelled', 'Returned', 'Awaiting payment')")->fetchAll(PDO::FETCH_COLUMN) as $ph) {
+            if ($k = phone_key((string) $ph)) $keys[$k] = true;
+        }
+    }
+    return $keys;
+}
+
 function wa_chat_out(array $c): array
 {
     return ['id' => (int) $c['id'], 'waId' => $c['wa_id'], 'phone' => wa_local_phone($c['wa_id']), 'name' => $c['lead_name'] ?: $c['name'] ?: wa_local_phone($c['wa_id']),
@@ -2083,7 +2096,8 @@ function wa_chat_out(array $c): array
         'assignedTo' => $c['assigned_to'] === null ? null : (int) $c['assigned_to'], 'agent' => $c['agent_name'] ?? null, 'status' => $c['status'],
         'unread' => (int) $c['unread'], 'lastAt' => $c['last_at'], 'lastText' => $c['last_text'], 'lastDir' => $c['last_dir'], 'waitingSince' => $c['waiting_since'],
         'lastInAt' => $c['last_in_at'], 'windowOpen' => wa_window_open($c), 'windowEnds' => $c['last_in_at'] ? gmdate('Y-m-d H:i:s', strtotime($c['last_in_at'] . ' UTC') + 86400) : null,
-        'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at']];
+        'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at'],
+        'returning' => isset(wa_customer_keys()[phone_key(wa_local_phone($c['wa_id'])) ?? ''])];
 }
 
 function wa_message_out(array $m): array
