@@ -140,6 +140,7 @@ function tg_remind_due(): void
     $last = (int) wa_setting('tg_remind_run', 0);
     if ($last > time() - 50) return;
     wa_set_setting('tg_remind_run', time());
+    try { tg_daily_due(); } catch (Throwable $e) { error_log('[shop] daily summary: ' . $e->getMessage()); }
     $st = db()->prepare("SELECT * FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL AND waiting_since <= datetime('now', ?) AND waiting_since > datetime('now', '-1 day')
         AND (tg_reminded_for IS NULL OR tg_reminded_for != waiting_since) ORDER BY waiting_since LIMIT 50");
     $st->execute(['-' . TG_REMIND_MINUTES . ' minutes']);
@@ -260,4 +261,106 @@ function telegram_migrate(PDO $pdo): void
     $chatCols = $pdo->query('PRAGMA table_info(wa_chats)')->fetchAll(PDO::FETCH_COLUMN, 1);
     // tg_reminded_for: the waiting_since a 15-minute reminder was already sent for (one per wait).
     if (!in_array('tg_reminded_for', $chatCols, true)) $pdo->exec('ALTER TABLE wa_chats ADD COLUMN tg_reminded_for TEXT');
+}
+
+// ---------- daily summary ----------
+// Every evening at 9 pm (Cairo time), owners and managers who connected Telegram get the day in one
+// message: sales, payments, WhatsApp chats, reply times per person, who is still waiting, unpaid orders.
+// Sent by the same check as the reminders (the cron job), once a day. Settings → WhatsApp can turn it off.
+
+const TG_DAILY_HOUR = 21;
+
+function tg_daily_due(): void
+{
+    if (!wa_setting('tg_daily', true)) return;
+    $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+    if ((int) $now->format('G') < TG_DAILY_HOUR || wa_setting('tg_daily_sent') === $now->format('Y-m-d')) return;
+    wa_set_setting('tg_daily_sent', $now->format('Y-m-d'));
+    $text = tg_daily_summary();
+    foreach (tg_managers() as $u) tg_send_user($u, $text, ['Open dashboard · لوحة التحكم', rtrim((string) cfg('site_url'), '/') . '/admin/']);
+}
+
+// Today in Cairo, as UTC times (the database keeps UTC).
+function tg_day_range(): array
+{
+    $tz = new DateTimeZone('Africa/Cairo');
+    $start = new DateTime('today', $tz);
+    $end = (clone $start)->modify('+1 day');
+    $utc = new DateTimeZone('UTC');
+    return [$start->setTimezone($utc)->format('Y-m-d H:i:s'), $end->setTimezone($utc)->format('Y-m-d H:i:s'), (new DateTime('today', $tz))];
+}
+
+function tg_daily_summary(): string
+{
+    [$from, $to, $day] = tg_day_range();
+    $db = db();
+    $one = function (string $sql, array $args = []) use ($db) { $st = $db->prepare($sql); $st->execute($args); return $st->fetch(PDO::FETCH_NUM) ?: []; };
+    $all = function (string $sql, array $args = []) use ($db) { $st = $db->prepare($sql); $st->execute($args); return $st->fetchAll(); };
+    $egp = function ($n) { return 'EGP ' . number_format((float) $n); };
+    $mins = function ($m) { $m = (int) round($m); return $m < 60 ? $m . ' min' : ($m < 1440 ? intdiv($m, 60) . ' h ' . ($m % 60) . ' min' : intdiv($m, 1440) . ' d ' . intdiv($m % 1440, 60) . ' h'); };
+    $real = "status NOT IN ('Cancelled', 'Returned', 'Awaiting payment')";
+
+    [$orders, $sales] = $one("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE $real AND created_at >= ? AND created_at < ?", [$from, $to]);
+    [$paidIn, $online] = $one("SELECT COALESCE(SUM(amount), 0), COALESCE(SUM(CASE WHEN method = 'paymob' THEN amount ELSE 0 END), 0) FROM payments WHERE created_at >= ? AND created_at < ?", [$from, $to]);
+    [$delivered] = $one("SELECT COUNT(*) FROM orders WHERE status = 'Delivered' AND delivered_at >= ? AND delivered_at < ?", [$from, $to]);
+    [$cancelled] = $one("SELECT COUNT(*) FROM orders WHERE status = 'Cancelled' AND updated_at >= ? AND updated_at < ? AND created_at < ?", [$from, $to, $to]);
+    [$leads] = $one('SELECT COUNT(*) FROM leads WHERE created_at >= ? AND created_at < ?', [$from, $to]);
+
+    [$newChats, $fromAds] = $one("SELECT COUNT(*), SUM(CASE WHEN ad_id != '' OR ad_headline != '' THEN 1 ELSE 0 END) FROM wa_chats WHERE created_at >= ? AND created_at < ?", [$from, $to]);
+    [$talked] = $one("SELECT COUNT(DISTINCT chat_id) FROM wa_messages WHERE dir = 'in' AND kind != 'reaction' AND created_at >= ? AND created_at < ?", [$from, $to]);
+    [$sent] = $one("SELECT COUNT(*) FROM wa_messages WHERE dir = 'out' AND user_id IS NOT NULL AND created_at >= ? AND created_at < ?", [$from, $to]);
+    $waiting = $all("SELECT c.name, c.wa_id, c.waiting_since, u.name AS agent FROM wa_chats c LEFT JOIN users u ON u.id = c.assigned_to
+        WHERE c.status = 'open' AND c.waiting_since IS NOT NULL ORDER BY c.waiting_since LIMIT 50");
+
+    // Each person today: first replies to new customers (and how fast), messages sent, orders entered.
+    $people = [];
+    foreach ($all("SELECT first_reply_by AS id, COUNT(*) AS n, AVG((julianday(first_reply_at) - julianday(first_in_at)) * 1440) AS avg FROM wa_chats
+        WHERE first_reply_by IS NOT NULL AND first_reply_at >= ? AND first_reply_at < ? GROUP BY first_reply_by", [$from, $to]) as $r) $people[(int) $r['id']]['reply'] = $r;
+    foreach ($all("SELECT user_id AS id, COUNT(*) AS n FROM wa_messages WHERE dir = 'out' AND user_id IS NOT NULL AND created_at >= ? AND created_at < ? GROUP BY user_id", [$from, $to]) as $r) $people[(int) $r['id']]['msgs'] = (int) $r['n'];
+    foreach ($all("SELECT rep_id AS id, COUNT(*) AS n, SUM(total) AS t FROM orders WHERE $real AND rep_id IS NOT NULL AND created_at >= ? AND created_at < ? GROUP BY rep_id", [$from, $to]) as $r) $people[(int) $r['id']]['orders'] = $r;
+    $names = [];
+    if ($people) {
+        $ids = array_keys($people);
+        $st = $db->prepare('SELECT id, name FROM users WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+        $st->execute($ids);
+        foreach ($st->fetchAll() as $u) $names[(int) $u['id']] = $u['name'];
+    }
+
+    [$unpaidN, $unpaidSum] = $one("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE status = 'Awaiting payment'");
+
+    $L = [];
+    $L[] = '📊 <b>Daily summary · ملخص اليوم</b>';
+    $L[] = $day->format('l j F Y');
+    $L[] = '';
+    $L[] = '🛒 <b>Sales · المبيعات</b>';
+    $L[] = $orders ? $orders . ' new order' . ($orders == 1 ? '' : 's') . ' · <b>' . $egp($sales) . '</b>' : 'No new orders today';
+    $L[] = 'Money in · المحصّل: ' . $egp($paidIn) . ($online > 0 ? ' (online ' . $egp($online) . ')' : '');
+    if ($delivered || $cancelled) $L[] = ($delivered ? $delivered . ' delivered' : '') . ($delivered && $cancelled ? ' · ' : '') . ($cancelled ? $cancelled . ' cancelled' : '');
+    if ($leads) $L[] = $leads . ' new lead' . ($leads == 1 ? '' : 's');
+    $L[] = '';
+    $L[] = '💬 <b>WhatsApp · واتساب</b>';
+    $L[] = (int) $newChats . ' new chat' . ($newChats == 1 ? '' : 's') . ($fromAds ? ' (' . (int) $fromAds . ' from ads)' : '') . ' · ' . (int) $talked . ' customer' . ($talked == 1 ? '' : 's') . ' wrote · ' . (int) $sent . ' replies sent';
+    foreach ($people as $id => $p) {
+        $bits = [];
+        if (!empty($p['reply'])) $bits[] = $p['reply']['n'] . ' new · first reply ' . $mins($p['reply']['avg']);
+        if (!empty($p['msgs'])) $bits[] = $p['msgs'] . ' msgs';
+        if (!empty($p['orders'])) $bits[] = $p['orders']['n'] . ' order' . ($p['orders']['n'] == 1 ? '' : 's') . ' ' . $egp($p['orders']['t']);
+        if ($bits) $L[] = '👤 ' . tg_h($names[$id] ?? ('#' . $id)) . ': ' . implode(' · ', $bits);
+    }
+    if ($waiting) {
+        $L[] = '';
+        $L[] = '⏰ <b>Still waiting for a reply · مستنيين رد: ' . count($waiting) . '</b>';
+        foreach (array_slice($waiting, 0, 5) as $w) {
+            $m = (time() - strtotime($w['waiting_since'] . ' UTC')) / 60;
+            $L[] = '• ' . tg_h(trim((string) $w['name']) ?: wa_local_phone($w['wa_id'])) . ' · ' . $mins($m) . ' · ' . tg_h($w['agent'] ?: 'nobody');
+        }
+        if (count($waiting) > 5) $L[] = '… and ' . (count($waiting) - 5) . ' more';
+    } else {
+        $L[] = '✅ Nobody is waiting for a reply · مفيش حد مستني رد';
+    }
+    if ($unpaidN) {
+        $L[] = '';
+        $L[] = '💳 Unpaid online orders · طلبات لم تُدفع: ' . $unpaidN . ' · ' . $egp($unpaidSum);
+    }
+    return implode("\n", $L);
 }

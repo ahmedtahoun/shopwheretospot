@@ -2295,11 +2295,14 @@
       (d.tgCron ? '<div class="list"><div class="li"><span>15-minute reminders · cPanel → Cron Jobs, every minute (* * * * *)<div class="small muted">' +
         (d.tgLastCron ? '<span>Last run:</span> ' + dateTime(d.tgLastCron) : 'Not running yet. Until it is, reminders only go out while someone has the dashboard open or new WhatsApp messages arrive.') + '</div></span>' +
         '<span><code dir="ltr" class="small">curl -s "' + esc(d.tgCron) + '"</code> <button class="btn sm" id="tgCronCopy">Copy</button></span></div></div>' : '') +
-      (d.telegram ? '<label class="row small"><input type="checkbox" id="tgMgr"' + (d.tgRemindManagers ? ' checked' : '') + '> <span>Owners and managers also get the 15-minute reminders for everyone’s chats</span></label>' : '') +
+      (d.telegram ? '<label class="row small"><input type="checkbox" id="tgMgr"' + (d.tgRemindManagers ? ' checked' : '') + '> <span>Owners and managers also get the 15-minute reminders for everyone’s chats</span></label>' +
+        '<div class="row small"><label class="row"><input type="checkbox" id="tgDaily"' + (d.tgDaily ? ' checked' : '') + '> <span>Daily summary on Telegram at 9 pm to owners and managers (sales, payments, chats, reply times, who is waiting)</span></label>' +
+        '<button class="btn sm" id="tgDailyTest">Send it to me now</button></div>' : '') +
       '<div class="grid2"><label class="field">Keep videos for (days) <span class="hint">0 = keep forever. Photos, voice notes and documents are always kept.</span><input type="number" id="waDays" min="0" max="3650" value="' + d.videoDays + '"></label>' +
         '<div class="field"><span>Space used by chat files</span><b>' + mb(d.storage) + '</b><span class="hint">' + (d.diskFree ? mb(d.diskFree) + ' free on the server · ' : '') + d.chats + ' chats</span></div></div>' +
       '<div class="row"><button class="btn primary" id="waSave">Save WhatsApp settings</button></div>';
     $('#waCopy').onclick = () => { navigator.clipboard.writeText(d.webhook).then(() => toast('Copied')); };
+    const dt = $('#tgDailyTest'); if (dt) dt.onclick = async () => { dt.disabled = true; try { await api('tg_daily_test', { method: 'POST' }); toast('Sent — check Telegram'); } catch (e) { toast(e.message, true); } dt.disabled = false; };
     const cc = $('#tgCronCopy'); if (cc) cc.onclick = () => { navigator.clipboard.writeText('curl -s "' + d.tgCron + '" > /dev/null').then(() => toast('Copied')); };
     const tb = $('#waTest'); if (tb) tb.onclick = async () => { tb.disabled = true; tb.textContent = 'Checking…'; await waSettings(true); };
     $('#waRecheck').onclick = async () => { await waSettings(!!d.live); toast('Checked'); };
@@ -2311,7 +2314,7 @@
     });
     $('#waSave').onclick = async () => {
       const agents = d.users.map((u) => ({ id: u.id, agent: $('[data-agent="' + u.id + '"]').checked, away: $('[data-away="' + u.id + '"]').checked }));
-      try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value, tg_remind_managers: $('#tgMgr') ? ($('#tgMgr').checked ? 1 : 0) : undefined } }); toast('WhatsApp settings saved'); }
+      try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value, tg_remind_managers: $('#tgMgr') ? ($('#tgMgr').checked ? 1 : 0) : undefined, tg_daily: $('#tgDaily') ? ($('#tgDaily').checked ? 1 : 0) : undefined } }); toast('WhatsApp settings saved'); }
       catch (e) { toast(e.message, true); }
     };
   }

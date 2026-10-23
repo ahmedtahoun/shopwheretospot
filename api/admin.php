@@ -1181,6 +1181,13 @@ try {
         if (!tg_send_user($u, '🔔 <b>Test alert · تنبيه تجريبي</b>' . "\n" . 'Telegram alerts work. · تنبيهات تيليجرام شغالة.')) fail('Telegram didn’t deliver the test. Connect Telegram again.');
         json_out(['ok' => true]);
 
+    // Today's summary, now, to the person asking (Settings → WhatsApp → Send it to me now).
+    case 'tg_daily_test':
+        $u = require_perm('backups');
+        if (empty($u['tg_chat_id'])) fail('Connect Telegram first (✈️ in the WhatsApp inbox).');
+        if (!tg_send_user($u, tg_daily_summary())) fail('Telegram didn’t deliver it. Connect Telegram again.');
+        json_out(['ok' => true]);
+
     case 'tg_unlink':
         $u = require_perm('whatsapp');
         if (!empty($u['tg_chat_id']) && tg_ready()) { try { tg_send((string) $u['tg_chat_id'], 'Alerts are off. · تم إيقاف التنبيهات.'); } catch (Throwable $e) {} }
@@ -1382,7 +1389,7 @@ try {
         json_out(['token' => !empty($c['token']), 'phoneId' => !empty($c['phone_number_id']), 'appSecret' => !empty($c['app_secret']), 'verifyToken' => !empty($c['verify_token']),
             'ready' => wa_ready(), 'live' => $live, 'lastWebhook' => wa_setting('last_webhook', null), 'lastRejected' => wa_setting('last_rejected', null), 'lastNote' => wa_setting('last_note', null), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
             'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away'], 'telegram' => !empty($r['tg_chat_id'])]; }, $users),
-            'telegram' => tg_ready(), 'tgCron' => tg_ready() ? tg_cron_url() : null, 'tgLastCron' => wa_setting('tg_cron_at', null), 'tgRemindManagers' => (bool) wa_setting('tg_remind_managers', true), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
+            'telegram' => tg_ready(), 'tgCron' => tg_ready() ? tg_cron_url() : null, 'tgLastCron' => wa_setting('tg_cron_at', null), 'tgRemindManagers' => (bool) wa_setting('tg_remind_managers', true), 'tgDaily' => (bool) wa_setting('tg_daily', true), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
             'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
 
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
@@ -1407,6 +1414,7 @@ try {
         $b = body();
         if (isset($b['video_days'])) wa_set_setting('video_days', max(0, min(3650, (int) $b['video_days'])));
         if (isset($b['tg_remind_managers'])) wa_set_setting('tg_remind_managers', !empty($b['tg_remind_managers']));
+        if (isset($b['tg_daily'])) wa_set_setting('tg_daily', !empty($b['tg_daily']));
         foreach ((array) ($b['agents'] ?? []) as $a) {
             db()->prepare('UPDATE users SET wa_agent = ?, wa_away = ? WHERE id = ?')->execute([empty($a['agent']) ? 0 : 1, empty($a['away']) ? 0 : 1, (int) ($a['id'] ?? 0)]);
         }
