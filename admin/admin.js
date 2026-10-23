@@ -1656,6 +1656,14 @@
     } catch (e) {}
   }
 
+  // Products for "Send a product", per language (loaded once, then refreshed in the background).
+  const waProds = {};
+  const waProductList = async (lang, fresh) => {
+    if (!fresh && waProds[lang]) return waProds[lang];
+    if (!waProductList.busy) waProductList.busy = {};
+    if (!waProductList.busy[lang]) waProductList.busy[lang] = api('wa_products', { query: '&lang=' + lang }).then((r) => { waProds[lang] = r.products; return r.products; }).finally(() => { waProductList.busy[lang] = null; });
+    return waProductList.busy[lang];
+  };
   const waInbox = { view: null, q: '', chatId: null, data: null, chat: null, msgs: [], lastId: 0, timer: null };
 
   async function pageInbox() {
@@ -1866,26 +1874,28 @@
       ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
       // Send a product: its photo with name, price and the link to order, in Arabic or English.
       const pl = $('#waProdList');
+      waProductList(st.prodLang || 'ar').catch(() => {}); // ready before the button is tapped
       const added = (m) => { st.msgs.push(m); st.lastId = Math.max(st.lastId, m.id); appendMessages([m]); loadList(); };
       const drawProducts = () => {
         const q = (st.prodQ || '').toLowerCase();
-        const list = (st.prods || []).filter((p) => !q || (p.name + ' ' + p.other + ' ' + p.cat).toLowerCase().includes(q));
+        const list = (waProds[st.prodLang] || []).filter((p) => !q || (p.name + ' ' + p.other).toLowerCase().includes(q));
         $('#waProdItems').innerHTML = list.length ? list.map((p) => '<button data-p="' + esc(p.id) + '"><span class="wa-pimg">' + (p.image ? '<img src="' + esc(thumb(p.image, 120)) + '" alt="" loading="lazy">' : icon('box')) + '</span>' +
           '<span class="wa-pt"><b dir="auto">' + esc(p.name) + '</b><span dir="auto">' + esc(p.price) + (p.inStock ? '' : ' · <em>Out of stock</em>') + '</span></span></button>').join('')
           : '<div class="muted small" style="padding:10px">No products found.</div>';
+        // Sends in the background: the list closes at once, the message appears when WhatsApp accepts it.
         $$('[data-p]', pl).forEach((b) => b.onclick = async () => {
-          if (b.disabled) return;
-          $$('[data-p]', pl).forEach((x) => { x.disabled = true; });
-          b.classList.add('sending');
-          try { const r = await api('wa_send_product', { method: 'POST', body: { chat_id: c.id, product_id: b.dataset.p, lang: st.prodLang } }); pl.hidden = true; added(r.message); toast('Product sent'); }
+          pl.hidden = true;
+          toast('Sending product…');
+          try { const r = await api('wa_send_product', { method: 'POST', body: { chat_id: c.id, product_id: b.dataset.p, lang: st.prodLang } }); if (st.chatId === c.id) added(r.message); toast('Product sent'); }
           catch (err) { toast(err.message, true); }
-          $$('[data-p]', pl).forEach((x) => { x.disabled = false; }); b.classList.remove('sending');
         });
       };
+      // The list is kept for the session (one per language) and refreshed quietly each time it opens.
       const loadProducts = async () => {
-        $('#waProdItems').innerHTML = '<div class="muted small" style="padding:10px">Loading…</div>';
-        try { const r = await api('wa_products', { query: '&lang=' + st.prodLang }); st.prods = r.products; drawProducts(); }
-        catch (err) { $('#waProdItems').innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }
+        const lang = st.prodLang;
+        if (waProds[lang]) drawProducts(); else $('#waProdItems').innerHTML = '<div class="muted small" style="padding:10px">Loading…</div>';
+        try { waProds[lang] = (await waProductList(lang, true)); if (st.prodLang === lang && !pl.hidden) drawProducts(); }
+        catch (err) { if (!waProds[lang]) $('#waProdItems').innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }
       };
       $('#waProdBtn').onclick = () => {
         $('#waQuickList').hidden = true;

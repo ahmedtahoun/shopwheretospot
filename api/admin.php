@@ -1259,12 +1259,11 @@ try {
     case 'wa_products':
         require_perm('whatsapp');
         $ar = ($_GET['lang'] ?? 'ar') !== 'en';
-        [$cats, $brands] = seo_lookups($ar);
-        json_out(['products' => array_map(function ($p) use ($ar, $cats, $brands) {
-            $i = seo_item($p, $ar, $cats, $brands);
-            return ['id' => $p['id'], 'name' => $i['title'], 'other' => $ar ? $p['name'] : ($p['nameAr'] ?: ''), 'cat' => $i['catLabel'], 'price' => seo_price_text($i, $ar),
+        json_out(['products' => array_map(function ($p) use ($ar) {
+            $i = wa_product_brief($p, $ar);
+            return ['id' => $p['id'], 'name' => $i['title'], 'other' => $ar ? $p['name'] : ($p['nameAr'] ?: ''), 'price' => seo_price_text($i, $ar),
                 'image' => $p['images'] ? (string) $p['images'][0] : '', 'inStock' => $i['inStock']];
-        }, load_products(true)), 'testPay' => paymob_methods() && paymob_is_test()]);
+        }, load_products(true))]);
 
     case 'wa_send_product':
         $u = require_perm('whatsapp');

@@ -384,24 +384,57 @@ function wa_send_product(array $chat, string $productId, bool $ar, int $userId):
     $p = null;
     foreach (load_products(true) as $row) if ($row['id'] === $productId) { $p = $row; break; }
     if (!$p) throw new ShopError('That product isn’t in the shop (it may be a draft or archived).');
-    [$cats, $brands] = seo_lookups($ar);
-    $item = seo_item($p, $ar, $cats, $brands);
+    $item = wa_product_brief($p, $ar);
     $caption = '*' . $item['title'] . '*' . ($item['summary'] !== '' ? "\n" . $item['summary'] : '')
         . "\n\n💰 " . seo_price_text($item, $ar)
         . (!$item['inStock'] ? "\n" . ($ar ? '(غير متوفر حاليًا)' : '(out of stock right now)') : '')
-        . "\n🛒 " . ($ar ? 'اطلب من هنا: ' : 'Order here: ') . $item['url'];
-    $photo = $p['images'] ? wa_product_jpeg((string) $p['images'][0]) : null;
+        . "\n🛒 " . ($ar ? 'اطلب من هنا: ' : 'Order here: ') . seo_product_url($p['id'], $ar);
+    $photo = $p['images'] ? wa_product_photo((string) $p['images'][0]) : null;
     if (!$photo) return wa_send_text($chat, $caption, $userId);
-    try { return wa_send_file($chat, $photo, preg_replace('/[^a-z0-9-]+/i', '-', $p['id']) . '.jpg', $caption, $userId); }
-    finally { @unlink($photo); }
+    // The photo's id at Meta is kept for 20 days (Meta keeps uploads 30), so sending the same product
+    // again is a single quick call. If Meta no longer has it, upload again once.
+    $send = function (bool $fresh) use ($chat, $photo, $caption) {
+        $mid = $fresh ? null : wa_setting('pm.' . $photo['key']);
+        if (!is_array($mid) || ($mid['at'] ?? 0) < time() - 20 * 86400) {
+            $up = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/media', ['messaging_product' => 'whatsapp', 'type' => 'image/jpeg',
+                'file' => new CURLFile(wa_media_dir() . '/' . $photo['path'], 'image/jpeg', 'product.jpg')], true);
+            wa_set_setting('pm.' . $photo['key'], $mid = ['id' => (string) $up['id'], 'at' => time()]);
+        }
+        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
+            'to' => $chat['wa_id'], 'type' => 'image', 'image' => ['id' => $mid['id'], 'caption' => mb_substr($caption, 0, 1024)]]);
+    };
+    try { $r = $send(false); } catch (ShopError $e) { $r = $send(true); }
+    return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), 'image', $caption,
+        ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], $userId);
 }
 
-// A product photo as a JPEG in a temporary file (at most 1200 px wide, white behind transparent parts).
-function wa_product_jpeg(string $path): ?string
+// What a product message needs (name, short line, price, in stock) without the full SEO texts.
+function wa_product_brief(array $p, bool $ar): array
+{
+    $sizes = [];
+    foreach ($p['variants'] as $v) {
+        $price = (float) ($v['price'] ?: $p['price']);
+        if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100), 2);
+        $sizes[] = ['label' => $v['label'], 'price' => $price, 'stock' => (int) $v['stock']];
+    }
+    $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : (float) $p['price'];
+    return ['title' => $ar && $p['nameAr'] ? $p['nameAr'] : $p['name'], 'summary' => $ar && $p['subAr'] ? $p['subAr'] : (string) $p['sub'],
+        'cat' => $p['cat'], 'sizes' => $sizes, 'low' => $sizes ? min(array_column($sizes, 'price')) : $sale,
+        'inStock' => $p['cat'] === 'services' || ($sizes ? array_sum(array_column($sizes, 'stock')) > 0 : $p['stock'] > 0)];
+}
+
+// A product photo as a JPEG (at most 1200 px wide, white behind transparent parts), made once and kept in
+// wa-media/products/ (a new copy when the photo changes). It's also the picture shown in the chat history.
+function wa_product_photo(string $path): ?array
 {
     $root = realpath(dirname(__DIR__));
     $file = realpath($root . '/' . ltrim($path, '/'));
-    if (!$file || strpos($file, $root) !== 0 || !function_exists('imagecreatetruecolor')) return null;
+    if (!$file || strpos($file, $root) !== 0) return null;
+    $key = substr(sha1($file . '|' . filemtime($file)), 0, 20);
+    $rel = 'products/' . $key . '.jpg';
+    $dest = wa_media_dir() . '/' . $rel;
+    if (is_file($dest)) return ['path' => $rel, 'key' => $key];
+    if (!function_exists('imagecreatetruecolor')) return null;
     $info = @getimagesize($file);
     $load = ['image/jpeg' => 'imagecreatefromjpeg', 'image/png' => 'imagecreatefrompng', 'image/webp' => 'imagecreatefromwebp'][$info['mime'] ?? ''] ?? null;
     if (!$load || !function_exists($load) || !($src = @$load($file))) return null;
@@ -411,10 +444,10 @@ function wa_product_jpeg(string $path): ?string
     $out = imagecreatetruecolor($nw, $nh);
     imagefill($out, 0, 0, imagecolorallocate($out, 255, 255, 255));
     imagecopyresampled($out, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
-    $tmp = tempnam(sys_get_temp_dir(), 'wtsp');
-    $ok = imagejpeg($out, $tmp, 85);
+    if (!is_dir(dirname($dest))) mkdir(dirname($dest), 0750, true);
+    $ok = imagejpeg($out, $dest, 85);
     unset($src, $out);
-    return $ok ? $tmp : null;
+    return $ok ? ['path' => $rel, 'key' => $key] : null;
 }
 
 // Blue ticks for the customer once the team opens the chat.
