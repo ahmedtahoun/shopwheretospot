@@ -95,30 +95,50 @@ try {
         $u = require_perm('dashboard');
         $revenue = in_array('revenue', $u['perms'], true);
         $ordersOnly = in_array('orders_only', $u['perms'], true);
-        $days = max(7, min(365, (int) ($_GET['days'] ?? 30)));
+        // The period: this month or last month (Cairo calendar months), or the last 7/30/90 days.
+        $period = in_array($_GET['period'] ?? '', ['month', 'last'], true) ? $_GET['period'] : 'days';
+        if ($revenue) { try { report_close_months(); } catch (Throwable $e) { error_log('[shop] closing months: ' . $e->getMessage()); } }
+        $tzC = new DateTimeZone('Africa/Cairo');
+        if ($period === 'days') {
+            $days = max(7, min(365, (int) ($_GET['days'] ?? 30)));
+            $startDay = new DateTime('today', $tzC); $startDay->modify('-' . ($days - 1) . ' days');
+            $endDay = new DateTime('tomorrow', $tzC);
+        } else {
+            $startDay = new DateTime('first day of this month 00:00', $tzC);
+            if ($period === 'last') $startDay->modify('-1 month');
+            $endDay = (clone $startDay)->modify('+1 month');
+            $days = (int) $startDay->diff(min($endDay, new DateTime('tomorrow', $tzC)))->days;
+        }
+        $utcZ = new DateTimeZone('UTC');
+        $fromUtc = (clone $startDay)->setTimezone($utcZ)->format('Y-m-d H:i:s');
+        $toUtc = (clone $endDay)->setTimezone($utcZ)->format('Y-m-d H:i:s');
         $pdo = db();
         $own = in_array('own_orders', $u['perms'], true);
         // Money figures: the whole shop for owner and managers; sales people see the money of their own orders.
         $money = $revenue || $own;
         $scope = $own ? ' AND rep_id = ' . (int) $u['id'] : '';
-        $since = gmdate('Y-m-d', time() - ($days - 1) * 86400);
         $valid = "status NOT IN ('Cancelled','Returned','Awaiting payment')";
-        $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope");
-        $st->execute([$since]);
+        $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND created_at >= ? AND created_at < ?$scope");
+        $st->execute([$fromUtc, $toUtc]);
         $k = $st->fetch();
-        $st = $pdo->prepare("SELECT date(created_at) d, COUNT(*) n, SUM(total) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope GROUP BY d");
-        $st->execute([$since]);
+        // One bar per Cairo day of the period.
+        $st = $pdo->prepare("SELECT created_at, total FROM orders WHERE $valid AND created_at >= ? AND created_at < ?$scope");
+        $st->execute([$fromUtc, $toUtc]);
         $byDay = [];
-        foreach ($st as $r) $byDay[$r['d']] = $r;
+        foreach ($st as $r) {
+            $d = (new DateTime($r['created_at'], $utcZ))->setTimezone($tzC)->format('Y-m-d');
+            $byDay[$d]['n'] = ($byDay[$d]['n'] ?? 0) + 1;
+            $byDay[$d]['revenue'] = ($byDay[$d]['revenue'] ?? 0) + (float) $r['total'];
+        }
         $series = [];
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $d = gmdate('Y-m-d', time() - $i * 86400);
+        for ($day = clone $startDay; $day < $endDay && count($series) < $days; $day->modify('+1 day')) {
+            $d = $day->format('Y-m-d');
             $series[] = ['date' => $d, 'orders' => (int) ($byDay[$d]['n'] ?? 0), 'revenue' => (float) ($byDay[$d]['revenue'] ?? 0)];
         }
         $status = $pdo->query('SELECT status, COUNT(*) n FROM orders WHERE 1' . $scope . ' GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
         $top = [];
-        $st = $pdo->prepare("SELECT items FROM orders WHERE $valid AND date(created_at) >= ?$scope");
-        $st->execute([$since]);
+        $st = $pdo->prepare("SELECT items FROM orders WHERE $valid AND created_at >= ? AND created_at < ?$scope");
+        $st->execute([$fromUtc, $toUtc]);
         foreach ($st as $o) {
             foreach (json_decode($o['items'], true) ?: [] as $it) {
                 $key = $it['id'];
@@ -128,8 +148,8 @@ try {
             }
         }
         usort($top, function ($a, $b) { return $b['revenue'] <=> $a['revenue']; });
-        $st = $pdo->prepare("SELECT COALESCE(source, 'Website') AS source, COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND date(created_at) >= ?$scope GROUP BY 1 ORDER BY revenue DESC");
-        $st->execute([$since]);
+        $st = $pdo->prepare("SELECT COALESCE(source, 'Website') AS source, COUNT(*) n, COALESCE(SUM(total),0) revenue FROM orders WHERE $valid AND created_at >= ? AND created_at < ?$scope GROUP BY 1 ORDER BY revenue DESC");
+        $st->execute([$fromUtc, $toUtc]);
         $sources = $st->fetchAll();
         $lowStock = [];
         if (!$own && !$ordersOnly) {
@@ -171,8 +191,8 @@ try {
         if ($revenue) {
             $costs = [];
             foreach ($pdo->query('SELECT id, cost FROM products')->fetchAll() as $p) $costs[$p['id']] = (float) $p['cost'];
-            $st = $pdo->prepare("SELECT items, discount FROM orders WHERE $valid AND date(created_at) >= ?");
-            $st->execute([$since]);
+            $st = $pdo->prepare("SELECT items, discount FROM orders WHERE $valid AND created_at >= ? AND created_at < ?");
+            $st->execute([$fromUtc, $toUtc]);
             $rev = 0.0; $cost = 0.0; $covered = 0.0;
             foreach ($st->fetchAll() as $o) {
                 foreach (json_decode($o['items'], true) ?: [] as $it) {
@@ -189,8 +209,8 @@ try {
         $leadSources = [];
         if (in_array('leads', $u['perms'], true)) {
             $st = $pdo->prepare("SELECT CASE WHEN source LIKE 'Order %' THEN 'Orders (customers)' WHEN source LIKE 'Shop%' THEN 'Quote form' WHEN source = '' THEN 'Other' ELSE source END AS src,
-                COUNT(*) n, SUM(status = 'Won') won FROM leads WHERE date(created_at) >= ? GROUP BY src ORDER BY n DESC");
-            $st->execute([$since]);
+                COUNT(*) n, SUM(status = 'Won') won FROM leads WHERE created_at >= ? AND created_at < ? GROUP BY src ORDER BY n DESC");
+            $st->execute([$fromUtc, $toUtc]);
             $leadSources = array_map(function ($r) { return ['source' => $r['src'], 'n' => (int) $r['n'], 'won' => (int) $r['won']]; }, $st->fetchAll());
         }
         // Only the owner and managers see money totals; everyone else gets the counts.
@@ -216,7 +236,7 @@ try {
             $perf['members'] = array_map(function ($m) { unset($m['revenue'], $m['revenue_target']); return $m; }, $perf['members']);
         }
         // Money going out in the same period (owner and managers only).
-        $spent = $revenue ? expenses_since($since) : null;
+        $spent = $revenue ? expenses_since($startDay->format('Y-m-d'), (clone $endDay)->modify('-1 day')->format('Y-m-d')) : null;
         // Sign-ins from a device the person never used before, last 7 days (owner).
         $newDevices = [];
         if (in_array('team', $u['perms'], true)) {
@@ -224,7 +244,10 @@ try {
                 WHERE l.new_device = 1 AND l.at >= datetime('now', '-7 days') ORDER BY l.id DESC LIMIT 8")->fetchAll();
         }
         json_out([
-            'days' => $days, 'own' => $own, 'money' => $money, 'spent' => $spent, 'newDevices' => $newDevices, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
+            'days' => $days, 'period' => $period, 'from' => $startDay->format('Y-m-d'), 'to' => min((clone $endDay)->modify('-1 day'), new DateTime('today', $tzC))->format('Y-m-d'),
+            // In the first week of a month: last month's report is ready (owner and managers).
+            'reportReady' => $revenue && (int) (new DateTime('now', $tzC))->format('j') <= 7 ? (new DateTime('first day of last month', $tzC))->format('Y-m') : null,
+            'own' => $own, 'money' => $money, 'spent' => $spent, 'newDevices' => $newDevices, 'followUps' => $followUps, 'lastBackup' => $lastBackup,
             'toCollect' => $money ? ['amount' => round((float) $collect['due']), 'orders' => (int) $collect['n']] : null, 'profit' => $profit, 'leadSources' => $leadSources,
             'openQuotes' => $openQuotes, 'myCommission' => $myCommission,
             'kpi' => [
@@ -571,6 +594,28 @@ try {
         json_out(['id' => $id]);
 
     // Product reviews from verified buyers (api/reviews.php): list, hide/show, delete.
+    // Monthly reports (api/reports.php): all months with their key numbers, and one month in full.
+    case 'reports':
+        require_perm('revenue');
+        try { report_close_months(); } catch (Throwable $e) { error_log('[shop] closing months: ' . $e->getMessage()); }
+        $rows = [];
+        foreach (report_months() as $m) {
+            $r = month_report($m);
+            $rows[] = ['month' => $m, 'current' => $r['current'], 'daysSoFar' => $r['daysSoFar'], 'days' => $r['days'], 'orders' => $r['sales']['orders'], 'sales' => $r['sales']['value'],
+                'delivered' => $r['delivered']['value'], 'collected' => $r['collected']['value'], 'expenses' => $r['expenses']['value'], 'gross' => $r['profit']['gross'], 'net' => $r['profit']['net'],
+                'customers' => $r['customers']['total'], 'newCustomers' => $r['customers']['new']];
+        }
+        json_out(['months' => $rows]);
+
+    case 'report_month':
+        require_perm('revenue');
+        $m = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? (string) $_GET['month'] : report_cairo_now()->format('Y-m');
+        $now = month_report($m);
+        $prev = month_report((new DateTime($m . '-01'))->modify('-1 month')->format('Y-m'));
+        $snap = report_snapshot($m);
+        json_out(['report' => $now, 'previous' => ['sales' => $prev['sales'], 'collected' => $prev['collected'], 'expenses' => $prev['expenses'], 'profit' => $prev['profit'], 'delivered' => $prev['delivered']],
+            'saved' => $snap ? ['at' => $snap['savedAt'], 'changes' => report_changes($snap['data'], $now)] : null]);
+
     case 'reviews_list':
         require_perm('products');
         $rows = db()->query("SELECT r.*, c.email, p.name AS product_name FROM product_reviews r LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN products p ON p.id = r.product_id ORDER BY r.id DESC LIMIT 300")->fetchAll();

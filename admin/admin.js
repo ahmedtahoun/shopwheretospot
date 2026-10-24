@@ -4,7 +4,7 @@
 
   const API = '../api/admin.php';
   const app = document.getElementById('app');
-  const S = { user: null, csrf: null, meta: {}, team: [], cats: [], products: [], route: 'dashboard', range: 30 };
+  const S = { user: null, csrf: null, meta: {}, team: [], cats: [], products: [], route: 'dashboard', range: 'month' };
 
   // ---------- utils ----------
   // Photos at display size via api/img.php (resized + cached), instead of multi-MB originals.
@@ -162,8 +162,8 @@
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['inbox', 'WhatsApp', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
-      ['leads', 'Leads', 'inbox'], ['commissions', 'Salaries & commissions', 'coins'], ['expenses', 'Expenses & suppliers', 'receipt'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
+      ['leads', 'Leads', 'inbox'], ['reports', 'Monthly reports', 'chart'], ['commissions', 'Salaries & commissions', 'coins'], ['expenses', 'Expenses & suppliers', 'receipt'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
+    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' || k === 'reports' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -186,7 +186,7 @@
     $('#pwBtn').onclick = changePassword;
     const sb = $('#searchBtn'); if (sb) sb.onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, expenses: pageExpenses, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, reports: pageReports, expenses: pageExpenses, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     document.body.classList.toggle('in-inbox', S.route === 'inbox');
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
     waWatch();
@@ -271,6 +271,7 @@
     back: '<path d="M15 5l-7 7 7 7"/>',
     bolt: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
     receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3"/>',
   };
   const icon = (n) => '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
@@ -281,17 +282,23 @@
 
   // ---------- dashboard ----------
   async function pageDashboard() {
-    const d = await api('dashboard', { query: '&days=' + S.range });
+    // Calendar months (Cairo) by default; the rolling 7/30/90 days are still there.
+    const d = await api('dashboard', { query: typeof S.range === 'string' ? '&period=' + S.range : '&days=' + S.range });
+    const fmtDay = (x) => new Date(x + 'T12:00:00').toLocaleDateString(LOC, { day: 'numeric', month: 'short' });
+    const periodText = d.period === 'month' ? 'this month (' + fmtDay(d.from) + ' – ' + fmtDay(d.to) + ')' : d.period === 'last' ? new Date(d.from + 'T12:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' }) : 'the last ' + d.days + ' days';
+    const periodShort = d.period === 'days' ? 'last ' + d.days + ' days' : d.period === 'month' ? 'this month' : 'last month';
     const k = d.kpi;
     const statuses = S.meta.orderStatuses.map((s) => [s, d.statusCounts[s] || 0]);
     const maxStatus = Math.max(1, ...statuses.map((s) => s[1]));
-    const rangeSeg = '<div class="seg" id="range">' + [7, 30, 90].map((n) => '<button data-d="' + n + '" class="' + (S.range === n ? 'on' : '') + '">' + n + ' days</button>').join('') + '</div>';
+    const rangeSeg = '<div class="seg" id="range">' + [['month', 'This month'], ['last', 'Last month'], [7, '7 days'], [30, '30 days'], [90, '90 days']].map(([v, l]) => '<button data-d="' + v + '" class="' + (S.range === v ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
     const perf = d.performance || { members: [] };
     const monthName = new Date(perf.month + '-01T00:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
     const money = !!d.money;
     const mine = d.own ? perf.members[0] : !money ? perf.members.find((m) => m.id === S.user.id) : null;
     const actions = (can('sell') ? '<button class="btn primary" id="dashNew">+ New order</button>' : '') + rangeSeg;
-    $('#main').innerHTML = header('Dashboard', 'Hello ' + esc(S.user.name.split(' ')[0]) + ' — here’s ' + (d.own ? 'your work in' : '') + ' the last ' + d.days + ' days.', actions) +
+    $('#main').innerHTML = header('Dashboard', 'Hello ' + esc(S.user.name.split(' ')[0]) + ' — here’s ' + (d.own ? 'your work in ' : '') + periodText + '.', actions) +
+      // First week of a month: last month's report is ready.
+      (d.reportReady && can('revenue') ? '<a class="banner-link" href="#reports" data-rm="' + d.reportReady + '">📊 <b>' + esc(new Date(d.reportReady + '-01T12:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' })) + ' report is ready</b> <span>· orders, sales, expenses and profit →</span></a>' : '') +
       (mine ? '<div class="me">' + targetCard('My orders · ' + monthName, mine.orders, mine.orders_target, (n) => n) +
         (money ? targetCard('My sales · ' + monthName, mine.revenue, mine.revenue_target, egp)
           : '<div class="kpi"><div class="label">My delivered · ' + esc(monthName) + '</div><div class="value">' + mine.delivered + '</div><div class="note">' + mine.lost + ' cancelled or returned</div></div>') +
@@ -299,9 +306,9 @@
           d.myCommission.pct + '% of ' + egp(d.myCommission.base) + ' delivered' + (d.myCommission.pending > 0 ? ' · ' + egp(d.myCommission.pending) + ' more on the way' : '') + '</div></div>' : '') + '</div>' : '') +
       '<div class="kpis">' +
       (money ? kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') : kpi('Waiting to confirm', k.pending, '<a href="#orders" data-status="Pending">Call them now →</a>')) +
-      kpi('Orders', k.orders, money ? 'avg ' + egp(k.aov) : 'last ' + d.days + ' days, excl. cancelled') +
+      kpi('Orders', k.orders, money ? 'avg ' + egp(k.aov) : periodShort + ', excl. cancelled') +
       (money && !d.own ? '' : kpi('Shipped', k.shipped, 'on the way now') + kpi('Delivered', k.delivered, 'all time') + kpi('Cancelled / returned', k.lost, 'all time')) +
-      (d.spent ? kpi('Expenses', egp(d.spent.total), 'last ' + d.days + ' days · <a href="#expenses">Open →</a>') : '') +
+      (d.spent ? kpi('Expenses', egp(d.spent.total), periodShort + ' · <a href="#expenses">Open →</a>') : '') +
       (d.spent && d.spent.owed > 0 ? kpi('Owed to suppliers', egp(d.spent.owed), '<a href="#expenses" data-xsup>View suppliers →</a>') : '') +
       (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance' : 'everything is paid') : '') +
       (d.openQuotes ? kpi('Open quotes', d.openQuotes.n, d.openQuotes.n ? (money ? egp(d.openQuotes.value) + ' waiting · ' : '') + '<a href="#quotes">View →</a>' : '<a href="#quotes">Make a quote →</a>') : '') +
@@ -341,7 +348,8 @@
         '<div class="li"><span>' + esc(r.source) + (money ? ' <span class="muted small">' + r.n + ' orders</span>' : '') + '</span><b>' + (money ? egp(r.revenue) : r.n + ' orders') + '</b></div>').join('') + '</div></div>' : '') +
       '</div></div>' +
       (!d.own && !can('orders_only') ? teamPerformanceCard(perf, monthName, money) : '');
-    $$('#range button').forEach((b) => b.onclick = () => { S.range = +b.dataset.d; pageDashboard(); });
+    $$('#range button').forEach((b) => b.onclick = () => { S.range = /^\d+$/.test(b.dataset.d) ? +b.dataset.d : b.dataset.d; pageDashboard(); });
+    const rl = $('[data-rm]'); if (rl) rl.onclick = () => { S.reportMonth = rl.dataset.rm; };
     const dn = $('#dashNew'); if (dn) dn.onclick = () => newOrderDrawer();
     const xsu = $('[data-xsup]'); if (xsu) xsu.onclick = () => { S.expTab = 'suppliers'; };
     const tb = $('#setTargets'); if (tb) tb.onclick = () => targetsDrawer(perf.month);
@@ -2575,6 +2583,74 @@
 
   // ---------- commissions ----------
   // Earned on delivered orders, in the month they're delivered, on the products' value (order total without shipping).
+  // ---------- Monthly reports: each Cairo month's orders, money, expenses and profit (api/reports.php) ----------
+  async function pageReports() {
+    const list = (await api('reports')).months;
+    if (!S.reportMonth || !list.some((m) => m.month === S.reportMonth)) S.reportMonth = list[0] ? list[0].month : null;
+    const mName = (m) => new Date(m + '-01T12:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
+    const chg = (now, before) => { if (!before) return ''; const p = Math.round((now - before) / Math.abs(before) * 100); return p ? '<span class="' + (p > 0 ? 'up' : 'down') + '">' + (p > 0 ? '▲' : '▼') + Math.abs(p) + '%</span>' : '<span class="muted">=</span>'; };
+    $('#main').innerHTML = header('Monthly reports', 'Each month in Cairo time, from your orders, payments, expenses and the team’s pay. The month that just ended is saved on the 1st.', '') +
+      '<div class="card"><div class="table-wrap"><table class="rep-months"><thead><tr><th>Month</th><th class="num">Orders</th><th class="num">Sales</th><th class="num">Delivered</th><th class="num">Collected</th><th class="num">Expenses</th><th class="num">Net profit</th><th class="num">Sales vs month before</th></tr></thead><tbody>' +
+      list.map((m, i) => { const prev = list[i + 1];
+        return '<tr data-m="' + m.month + '" class="' + (m.month === S.reportMonth ? 'on' : '') + '"><td><b>' + esc(mName(m.month)) + '</b>' + (m.current ? '<div class="small muted">so far · day ' + m.daysSoFar + ' of ' + m.days + '</div>' : '') + '</td><td class="num">' + m.orders + '</td><td class="num">' + egp(m.sales) + '</td><td class="num">' + egp(m.delivered) + '</td><td class="num">' + egp(m.collected) + '</td><td class="num">' + egp(m.expenses) + '</td>' +
+          '<td class="num ' + (m.net < 0 ? 'neg' : '') + '">' + egp(m.net) + '</td><td class="num">' + (prev ? chg(m.sales, prev.sales) : '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div></div><div id="repMonth"></div>';
+    $$('.rep-months [data-m]').forEach((r) => r.onclick = () => { S.reportMonth = r.dataset.m; $$('.rep-months tr').forEach((x) => x.classList.toggle('on', x === r)); reportMonth(); });
+    reportMonth();
+  }
+
+  async function reportMonth() {
+    const box = $('#repMonth'); if (!box || !S.reportMonth) return;
+    box.innerHTML = '<div class="muted" style="padding:20px">Loading…</div>';
+    const d = await api('report_month', { query: '&month=' + S.reportMonth });
+    const r = d.report, p = d.previous;
+    const mName = new Date(r.month + '-01T12:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
+    const vs = (now, before) => { if (!before) return '<span class="muted">no data the month before</span>'; const pc = Math.round((now - before) / Math.abs(before) * 100); return (pc > 0 ? '<span class="up">▲' + pc + '%</span>' : pc < 0 ? '<span class="down">▼' + Math.abs(pc) + '%</span>' : '<span class="muted">same</span>') + ' <span class="muted">vs ' + egp(before) + '</span>'; };
+    const card = (label, value, note) => '<div class="kpi"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="note">' + note + '</div></div>';
+    const rows = (title, items, cols) => '<div class="card"><h3 style="margin:0 0 10px">' + title + '</h3>' + (items.length ? '<div class="table-wrap"><table><tbody>' + items.map(cols).join('') + '</tbody></table></div>' : '<div class="muted small">Nothing this month.</div>') + '</div>';
+    const saved = d.saved ? (d.saved.changes.length
+      ? '<div class="msg-warn">✎ <b>Changed since the month closed</b> (saved ' + dateTime(d.saved.at) + '): ' + d.saved.changes.map((c) => esc(c.label) + ' ' + (c.label === 'Orders' ? c.then + ' → ' + c.now : egp(c.then) + ' → ' + egp(c.now))).join(' · ') + '. Usually an order cancelled or returned later, or an expense added late. The numbers below are the current ones.</div>'
+      : '<div class="small muted">✓ Saved when the month closed (' + dateTime(d.saved.at) + ') · no changes since.</div>') : (r.current ? '<div class="small muted">This month so far: day ' + r.daysSoFar + ' of ' + r.days + '. It’s saved on the 1st.</div>' : '');
+    box.innerHTML = '<div class="row" style="margin:22px 0 8px"><h2 style="margin:0">' + esc(mName) + '</h2><span class="spacer"></span><button class="btn" id="repCsv">Export for the accountant (CSV)</button></div>' + saved +
+      '<div class="kpis" style="margin-top:12px">' +
+        card('Sales (orders placed)', egp(r.sales.value), r.sales.orders + ' orders · avg ' + egp(r.sales.avg) + '<br>' + vs(r.sales.value, p.sales.value)) +
+        card('Delivered', egp(r.delivered.value), r.delivered.orders + ' orders · what commissions are paid on<br>' + vs(r.delivered.value, p.delivered.value)) +
+        card('Money collected', egp(r.collected.value), 'payments received this month<br>' + vs(r.collected.value, p.collected.value)) +
+        card('Expenses', egp(r.expenses.value), (r.expenses.paidSuppliers ? egp(r.expenses.paidSuppliers) + ' paid to suppliers<br>' : '') + vs(r.expenses.value, p.expenses.value)) +
+        card('Gross profit', egp(r.profit.gross), 'sales − cost of sales' + (r.profit.costCoverage < 90 ? '<br><span class="down">cost known for ' + r.profit.costCoverage + '% of sales</span>' : '') + '<br>' + vs(r.profit.gross, p.profit.gross)) +
+        card('Net profit', '<span class="' + (r.profit.net < 0 ? 'neg' : 'pay-ok') + '">' + egp(r.profit.net) + '</span>', 'after expenses, salaries and commissions<br>' + vs(r.profit.net, p.profit.net)) +
+      '</div>' +
+      '<div class="grid2 rep-grid">' +
+        '<div class="card"><h3 style="margin:0 0 10px">How the profit adds up</h3><div class="table-wrap"><table><tbody>' +
+          '<tr><td>Sales (orders placed, without cancelled and returned)</td><td class="num">' + egp(r.sales.value) + '</td></tr>' +
+          '<tr><td>− Cost of products sold (cost prices)</td><td class="num">' + egp(r.profit.costOfSales - r.profit.customCost) + '</td></tr>' +
+          (r.profit.customCost ? '<tr><td>− Supplier bills for custom orders</td><td class="num">' + egp(r.profit.customCost) + '</td></tr>' : '') +
+          '<tr class="tot"><td>= Gross profit</td><td class="num">' + egp(r.profit.gross) + '</td></tr>' +
+          '<tr><td>− Expenses (ads, shipping, packaging, transport…)</td><td class="num">' + egp(r.expenses.operating) + '</td></tr>' +
+          '<tr><td>− Salaries</td><td class="num">' + egp(r.team.salaries) + '</td></tr><tr><td>− Commissions</td><td class="num">' + egp(r.team.commissions) + '</td></tr>' +
+          '<tr class="tot"><td>= Net profit</td><td class="num">' + egp(r.profit.net) + '</td></tr></tbody></table></div>' +
+          (r.expenses.supplierBills ? '<p class="hint">Supplier / production bills this month: ' + egp(r.expenses.supplierBills) + '. They’re not subtracted again here: bills for custom orders are in that order’s cost above, and buying stock is counted through the products’ cost prices when they sell.</p>' : '') + '</div>' +
+        rows('Sales by category', r.byCategory, (c) => '<tr><td>' + esc(c.label) + '</td><td class="num">' + c.qty + ' pcs</td><td class="num">' + egp(c.value) + '</td></tr>') +
+        rows('Top products', r.topProducts, (c) => '<tr><td>' + esc(c.name) + '</td><td class="num">' + c.qty + ' pcs</td><td class="num">' + egp(c.value) + '</td></tr>') +
+        rows('Where orders came from', r.bySource, (c) => '<tr><td>' + esc(c.source) + '</td><td class="num">' + c.orders + ' orders</td><td class="num">' + egp(c.value) + '</td></tr>') +
+        rows('By salesperson', r.byRep, (c) => '<tr><td>' + esc(c.name || 'No salesperson (website)') + '</td><td class="num">' + c.orders + ' orders</td><td class="num">' + egp(c.value) + '</td></tr>') +
+        rows('Money collected by method', r.collected.byMethod, (c) => '<tr><td>' + esc(c.method) + '</td><td class="num">' + c.payments + '</td><td class="num">' + egp(c.value) + '</td></tr>') +
+        rows('Expenses by category', r.expenses.byCategory, (c) => '<tr><td>' + esc(c.category) + '</td><td class="num">' + c.items + '</td><td class="num">' + egp(c.value) + '</td></tr>') +
+        '<div class="card"><h3 style="margin:0 0 10px">Customers & leads</h3><div class="table-wrap"><table><tbody>' +
+          '<tr><td>Customers who ordered</td><td class="num">' + r.customers.total + '</td></tr><tr><td>· new (first order ever)</td><td class="num">' + r.customers.new + '</td></tr><tr><td>· returning</td><td class="num">' + r.customers.returning + '</td></tr>' +
+          '<tr><td>Cancelled or returned (placed this month)</td><td class="num">' + r.lost.orders + ' · ' + egp(r.lost.value) + '</td></tr>' +
+          '<tr><td>New leads</td><td class="num">' + r.leads.new + ' · ' + r.leads.won + ' won</td></tr><tr><td>New WhatsApp chats</td><td class="num">' + r.chats.new + ' · ' + r.chats.fromAds + ' from ads</td></tr></tbody></table></div></div>' +
+      '</div>';
+    $('#repCsv').onclick = () => {
+      const L = [['Where To Spot', mName], [], ['Sales (orders placed)', r.sales.value], ['Orders', r.sales.orders], ['Average order', r.sales.avg], ['Delivered', r.delivered.value], ['Money collected', r.collected.value],
+        ['Cost of products sold', r.profit.costOfSales - r.profit.customCost], ['Supplier bills for custom orders', r.profit.customCost], ['Gross profit', r.profit.gross], ['Expenses (operating)', r.expenses.operating], ['Supplier / production bills', r.expenses.supplierBills],
+        ['Salaries', r.team.salaries], ['Commissions', r.team.commissions], ['Net profit', r.profit.net], [], ['Expenses by category']].concat(r.expenses.byCategory.map((c) => [c.category, c.value]))
+        .concat([[], ['Money collected by method']]).concat(r.collected.byMethod.map((c) => [c.method, c.value])).concat([[], ['Sales by category']]).concat(r.byCategory.map((c) => [c.label, c.value]));
+      const csv = '\ufeff' + L.map((row) => row.map((v) => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'where-to-spot-' + r.month + '.csv'; a.click();
+    };
+  }
+
   async function pageCommissions() {
     const d = await api('commissions', { query: '&month=' + (S.commMonth || '') });
     S.commMonth = d.month;

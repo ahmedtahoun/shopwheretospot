@@ -98,7 +98,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 44;
+const SCHEMA_VERSION = 45;
 
 function db(): PDO
 {
@@ -618,6 +618,8 @@ function migrate(PDO $pdo): void
     qr_migrate($pdo);
     // Product reviews from verified buyers (api/reviews.php).
     reviews_migrate($pdo);
+    // Monthly reports: the copy saved when each month closes (api/reports.php).
+    reports_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -791,6 +793,7 @@ require __DIR__ . '/whatsapp.php';
 require __DIR__ . '/telegram.php';
 require __DIR__ . '/qrtool.php';
 require __DIR__ . '/reviews.php';
+require __DIR__ . '/reports.php';
 require __DIR__ . '/expenses.php';
 require __DIR__ . '/devices.php';
 

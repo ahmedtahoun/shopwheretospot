@@ -149,10 +149,10 @@ function supplier_statement(int $id): array
 }
 
 // Expenses for the dashboard: total since a day, and what's owed to suppliers now.
-function expenses_since(string $sinceDay): array
+function expenses_since(string $sinceDay, string $untilDay = '9999-12-31'): array
 {
-    $st = db()->prepare('SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE spent_on >= ?');
-    $st->execute([$sinceDay]);
+    $st = db()->prepare('SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE spent_on >= ? AND spent_on <= ?');
+    $st->execute([$sinceDay, $untilDay]);
     $owed = 0.0;
     foreach (suppliers_list() as $s) $owed += max(0, $s['balance']);
     return ['total' => round((float) $st->fetchColumn(), 2), 'owed' => round($owed, 2)];

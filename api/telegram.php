@@ -141,6 +141,7 @@ function tg_remind_due(): void
     if ($last > time() - 50) return;
     wa_set_setting('tg_remind_run', time());
     try { tg_daily_due(); } catch (Throwable $e) { error_log('[shop] daily summary: ' . $e->getMessage()); }
+    try { tg_monthly_due(); } catch (Throwable $e) { error_log('[shop] monthly report: ' . $e->getMessage()); }
     $st = db()->prepare("SELECT * FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL AND waiting_since <= datetime('now', ?) AND waiting_since > datetime('now', '-1 day')
         AND (tg_reminded_for IS NULL OR tg_reminded_for != waiting_since) ORDER BY waiting_since LIMIT 50");
     $st->execute(['-' . TG_REMIND_MINUTES . ' minutes']);
@@ -363,4 +364,37 @@ function tg_daily_summary(): string
         $L[] = '💳 Unpaid online orders · طلبات لم تُدفع: ' . $unpaidN . ' · ' . $egp($unpaidSum);
     }
     return implode("\n", $L);
+}
+
+// ---------- monthly report ----------
+// On the 1st from 9 am (Cairo), owners and managers get last month in one message, with the change from the
+// month before, and a link to the full report (dashboard → Monthly reports). The month is saved then too.
+
+function tg_monthly_due(): void
+{
+    $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+    if ((int) $now->format('j') !== 1 || (int) $now->format('G') < 9) return;
+    $month = (clone $now)->modify('first day of last month')->format('Y-m');
+    if (wa_setting('tg_monthly_sent') === $month) return;
+    wa_set_setting('tg_monthly_sent', $month);
+    report_close_months();
+    $r = month_report($month);
+    $p = month_report((new DateTime($month . '-01'))->modify('-1 month')->format('Y-m'));
+    $egp = function ($n) { return 'EGP ' . number_format((float) $n); };
+    $vs = function ($a, $b) { if (!$b) return ''; $pc = (int) round(($a - $b) / abs($b) * 100); return $pc > 0 ? ' (▲' . $pc . '%)' : ($pc < 0 ? ' (▼' . abs($pc) . '%)' : ' (=)'); };
+    $name = (new DateTime($month . '-01'))->format('F Y');
+    $L = ['📅 <b>' . $name . ' report · تقرير الشهر</b>', '',
+        '🛒 Sales · المبيعات: <b>' . $egp($r['sales']['value']) . '</b>' . $vs($r['sales']['value'], $p['sales']['value']) . ' · ' . $r['sales']['orders'] . ' orders, avg ' . $egp($r['sales']['avg']),
+        '📦 Delivered · تم التوصيل: ' . $egp($r['delivered']['value']) . ' (' . $r['delivered']['orders'] . ')',
+        '💵 Collected · المحصّل: ' . $egp($r['collected']['value']) . $vs($r['collected']['value'], $p['collected']['value']),
+        '🧾 Expenses · المصروفات: ' . $egp($r['expenses']['value']) . $vs($r['expenses']['value'], $p['expenses']['value']),
+        '👥 Salaries + commissions: ' . $egp($r['team']['pay']),
+        '📈 Gross profit: ' . $egp($r['profit']['gross']) . ' · <b>Net profit · صافي الربح: ' . $egp($r['profit']['net']) . '</b>' . $vs($r['profit']['net'], $p['profit']['net']),
+        ''];
+    if ($r['byCategory']) $L[] = '🏷 Top category: ' . tg_h($r['byCategory'][0]['label']) . ' · ' . $egp($r['byCategory'][0]['value']);
+    if ($r['topProducts']) $L[] = '⭐ Top product: ' . tg_h($r['topProducts'][0]['name']) . ' · ' . $r['topProducts'][0]['qty'] . ' pcs';
+    $L[] = '🙋 Customers: ' . $r['customers']['total'] . ' (' . $r['customers']['new'] . ' new) · leads ' . $r['leads']['new'] . ' · WhatsApp chats ' . $r['chats']['new'];
+    if ($r['lost']['orders']) $L[] = '↩️ Cancelled / returned: ' . $r['lost']['orders'] . ' · ' . $egp($r['lost']['value']);
+    $text = implode("\n", $L);
+    foreach (tg_managers() as $u) tg_send_user($u, $text, ['Open the full report · التقرير كامل', rtrim((string) cfg('site_url'), '/') . '/admin/#reports']);
 }
