@@ -51,6 +51,11 @@ try {
     }
 
     // Signed-in customer: profile and orders (never cached).
+    // Product reviews: the list, and whether this visitor may write one (verified buyers only, api/reviews.php).
+    if ($action === 'reviews' && $method === 'GET') {
+        json_out(review_status(current_customer(), preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($_GET['product'] ?? ''))));
+    }
+
     if ($action === 'account' && $method === 'GET') {
         $c = current_customer();
         json_out($c ? ['customer' => customer_out($c), 'orders' => customer_orders($c)] : ['customer' => null]);
@@ -189,6 +194,15 @@ try {
         $c = current_customer();
         if (!$c) fail('Please sign in again.', 401);
         json_out(['customer' => customer_out(customer_save($c, $b))]);
+    }
+    if ($action === 'review_save') {
+        $c = current_customer();
+        if (!$c) fail('Please sign in with the email you ordered with.', 401);
+        if (too_many_attempts('review', 20, 3600)) fail('Too many tries. Please wait a while.', 429);
+        record_attempt('review');
+        $pid = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($b['product'] ?? ''));
+        try { review_save($c, $pid, $b); } catch (ShopError $e) { fail($e->getMessage(), $e->getCode() === 403 ? 403 : 400); }
+        json_out(review_status($c, $pid));
     }
     if ($action === 'account_logout') {
         customer_logout();

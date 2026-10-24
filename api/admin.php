@@ -570,6 +570,27 @@ try {
         seo_indexnow_product((string) $id); // tell Bing & co. straight away (api/seo-lib.php)
         json_out(['id' => $id]);
 
+    // Product reviews from verified buyers (api/reviews.php): list, hide/show, delete.
+    case 'reviews_list':
+        require_perm('products');
+        $rows = db()->query("SELECT r.*, c.email, p.name AS product_name FROM product_reviews r LEFT JOIN customers c ON c.id = r.customer_id LEFT JOIN products p ON p.id = r.product_id ORDER BY r.id DESC LIMIT 300")->fetchAll();
+        json_out(['reviews' => array_map(function ($r) {
+            return ['id' => (int) $r['id'], 'product' => $r['product_name'] ?: $r['product_id'], 'productId' => $r['product_id'], 'name' => $r['name'], 'email' => $r['email'], 'rating' => (int) $r['rating'],
+                'text' => $r['text'], 'status' => $r['status'], 'order' => $r['order_id'] ? order_number((int) $r['order_id']) : '', 'at' => $r['created_at']];
+        }, $rows)]);
+
+    case 'review_set':
+        $u = require_perm('products');
+        $b = body();
+        $st = db()->prepare('SELECT product_id FROM product_reviews WHERE id = ?');
+        $st->execute([(int) ($b['id'] ?? 0)]);
+        $pid = $st->fetchColumn();
+        if (!$pid) fail('Review not found.', 404);
+        if (!empty($b['delete'])) { db()->prepare('DELETE FROM product_reviews WHERE id = ?')->execute([(int) $b['id']]); log_activity($u, 'Deleted a product review', (string) $pid); }
+        else { db()->prepare("UPDATE product_reviews SET status = ? WHERE id = ?")->execute([!empty($b['hidden']) ? 'hidden' : 'published', (int) $b['id']]); log_activity($u, !empty($b['hidden']) ? 'Hid a product review' : 'Showed a product review', (string) $pid); }
+        seo_indexnow_product((string) $pid);
+        json_out(['ok' => true]);
+
     case 'product_delete':
         $u = require_perm('products');
         $id = str_in(body()['id'] ?? '', 40);

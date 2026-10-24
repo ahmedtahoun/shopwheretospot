@@ -1140,6 +1140,22 @@
   }
 
   // ---------- products ----------
+  // Product reviews from verified buyers (customers with a delivered order of that product): hide, show or delete.
+  async function reviewsDrawer() {
+    let d;
+    try { d = await api('reviews_list'); } catch (e) { return toast(e.message, true); }
+    const stars = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
+    const w = openDrawer('Product reviews', '<p class="hint">Only customers whose order with the product was delivered can review it. Hidden reviews don’t show on the site.</p>' +
+      (d.reviews.length ? '<div class="stack">' + d.reviews.map((r) => '<div class="card stack" style="gap:6px' + (r.status === 'hidden' ? ';opacity:.55' : '') + '">' +
+        '<div class="row"><b>' + esc(r.product) + '</b><span class="spacer"></span><span style="color:var(--accent)">' + stars(r.rating) + '</span></div>' +
+        '<div class="small muted">' + esc(r.name) + ' · ' + esc(r.email || '') + (r.order ? ' · ' + esc(r.order) : '') + ' · ' + dateTime(r.at) + (r.status === 'hidden' ? ' · <b>Hidden</b>' : '') + '</div>' +
+        '<div style="white-space:pre-line">' + esc(r.text) + '</div>' +
+        '<div class="row"><span class="spacer"></span><button class="btn sm" data-rh="' + r.id + '" data-h="' + (r.status === 'hidden' ? 0 : 1) + '">' + (r.status === 'hidden' ? 'Show on site' : 'Hide') + '</button>' +
+        '<button class="btn sm danger" data-rd="' + r.id + '">Delete</button></div></div>').join('') + '</div>' : '<div class="muted">No reviews yet.</div>'));
+    $$('[data-rh]', w).forEach((b) => b.onclick = async () => { try { await api('review_set', { method: 'POST', body: { id: +b.dataset.rh, hidden: +b.dataset.h } }); reviewsDrawer(); } catch (e) { toast(e.message, true); } });
+    $$('[data-rd]', w).forEach((b) => b.onclick = async () => { if (!confirm('Delete this review?')) return; try { await api('review_set', { method: 'POST', body: { id: +b.dataset.rd, delete: 1 } }); reviewsDrawer(); } catch (e) { toast(e.message, true); } });
+  }
+
   async function pageProducts() {
     const d = await api('products');
     S.products = d.products; S.cats = d.categories; S.brands = d.brands || [];
@@ -1160,7 +1176,7 @@
     const catName = (c) => (AR && c.label_ar) || c.label;
     const catLabel = (k) => { const c = d.categories.find((x) => x.key === k); return c ? catName(c) : k; };
     $('#main').innerHTML = header('Products', d.products.length + ' products · ' + d.categories.length + ' categories',
-      '<button class="btn" id="catsBtn">Categories</button><button class="btn primary" id="addBtn">+ Add product</button>') +
+      '<button class="btn" id="revBtn">Reviews</button><button class="btn" id="catsBtn">Categories</button><button class="btn primary" id="addBtn">+ Add product</button>') +
       '<div class="row prod-filters"><select id="cat"><option value="">All categories</option>' +
       d.categories.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === cat ? ' selected' : '') + '>' + esc(catName(c)) + ' (' + c.count + ')</option>').join('') + '</select>' +
       (S.brands.length ? '<select id="pBrand"><option value="">All brands</option><option value="own"' + (brand === 'own' ? ' selected' : '') + '>Our own products</option>' +
@@ -1189,6 +1205,7 @@
     $('#addBtn').onclick = () => productDrawer(null);
     const a2 = $('#addBtn2'); if (a2) a2.onclick = () => productDrawer(null);
     $('#catsBtn').onclick = categoriesDrawer;
+    $('#revBtn').onclick = reviewsDrawer;
     $$('tr[data-id]').forEach((tr) => tr.onclick = () => productDrawer(S.products.find((p) => p.id === tr.dataset.id)));
     if (S.openProduct) { const p = S.products.find((x) => x.id === S.openProduct); S.openProduct = null; if (p) productDrawer(p); }
     if (S.newBrand) { productDrawer(null); S.newBrand = null; } // "+ Add product" on a partner brand

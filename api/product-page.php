@@ -60,12 +60,23 @@ $breadcrumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList',
     ['@type' => 'ListItem', 'position' => 2, 'name' => $product['catLabel'], 'item' => seo_category_url($product['cat'], $ar)],
     ['@type' => 'ListItem', 'position' => 3, 'name' => $product['title'], 'item' => $product['url']],
 ]];
+// Reviews from verified buyers (api/reviews.php): the star rating in Google, and the reviews themselves.
+$reviewStats = review_stats($id);
+$reviewList = reviews_for($id, 10);
+$productLd = seo_product_jsonld($product);
+if ($reviewStats['count'] > 0) {
+    $productLd['aggregateRating'] = ['@type' => 'AggregateRating', 'ratingValue' => $reviewStats['avg'], 'reviewCount' => $reviewStats['count'], 'bestRating' => 5, 'worstRating' => 1];
+    $productLd['review'] = array_map(function ($r) {
+        return ['@type' => 'Review', 'author' => ['@type' => 'Person', 'name' => $r['name']], 'datePublished' => $r['date'], 'reviewBody' => $r['text'],
+            'reviewRating' => ['@type' => 'Rating', 'ratingValue' => $r['rating'], 'bestRating' => 5, 'worstRating' => 1]];
+    }, array_slice($reviewList, 0, 5));
+}
 $json = function ($d) { return '<script type="application/ld+json">' . json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>'; };
 $head = '<link rel="canonical" href="' . seo_esc($product['url']) . '">' . "\n" .
     '<link rel="alternate" hreflang="en" href="' . seo_esc(seo_product_url($id)) . '">' . "\n" .
     '<link rel="alternate" hreflang="ar" href="' . seo_esc(seo_product_url($id, true)) . '">' . "\n" .
     '<link rel="alternate" hreflang="x-default" href="' . seo_esc(seo_product_url($id)) . '">' . "\n" .
-    $json(seo_product_jsonld($product)) . "\n" . $json($breadcrumbs) . "\n" .
+    $json($productLd) . "\n" . $json($breadcrumbs) . "\n" .
     // The plain copy below is for crawlers; people with JavaScript get the interactive page instead.
     '<script>document.documentElement.className += " js";</script><style>.js #seo-product{display:none}</style>' . "\n";
 $html = replace_once($html, '</head>', $head . '</head>');
@@ -76,6 +87,8 @@ if (count($product['sizes']) > 1) {
         return '<li>' . seo_esc($s['label']) . ': ' . seo_esc($ar ? number_format($s['price']) . ' ج.م' : 'EGP ' . number_format($s['price'])) . ($s['stock'] > 0 ? '' : ($ar ? ' (نفد)' : ' (sold out)')) . '</li>';
     }, $product['sizes'])) . '</ul>';
 }
+$reviewsHtml = $reviewStats['count'] ? '<h2>' . ($ar ? 'التقييمات' : 'Reviews') . ' (' . $reviewStats['count'] . ', ' . $reviewStats['avg'] . '/5)</h2>' .
+    implode('', array_map(function ($r) use ($ar) { return '<p><strong>' . seo_esc($r['name']) . '</strong> · ' . str_repeat('★', $r['rating']) . ' · ' . ($ar ? 'مشتري مؤكد' : 'verified purchase') . '<br>' . seo_esc($r['text']) . '</p>'; }, $reviewList)) : '';
 // Common questions for this kind of product (the category page's answers, api/seo-lib.php).
 $catText = seo_category_text((string) $product['cat'], (string) $product['catLabel'], '', $ar);
 $faq = $catText['faq'] ? '<h2>' . ($ar ? 'أسئلة شائعة' : 'Questions') . '</h2>' . implode('', array_map(function ($q) { return '<h3>' . seo_esc($q[0]) . '</h3><p>' . seo_esc($q[1]) . '</p>'; }, $catText['faq'])) : '';
@@ -97,7 +110,7 @@ $static = '<article id="seo-product" style="max-width:760px;margin:24px auto;pad
     '<p><strong>' . seo_esc(seo_price_text($product, $ar)) . '</strong> · ' . ($product['inStock'] ? ($ar ? 'متوفر' : 'In stock') : ($ar ? 'غير متوفر حاليًا' : 'Out of stock')) . '</p>' . $sizes .
     ($product['summary'] ? '<p>' . seo_esc($product['summary']) . '</p>' : '') . ($product['text'] ? '<p>' . nl2br(seo_esc($product['text'])) . '</p>' : '') . $features .
     '<p>' . ($ar ? 'توصيل لكل مصر خلال 2–5 أيام · الدفع عند الاستلام أو بالبطاقة أو المحفظة · استرجاع خلال 14 يوم.' : 'Delivery across Egypt in 2–5 days · cash on delivery, card or mobile wallet · 14-day returns.') .
-    ' <a href="/shipping-policy.html">' . ($ar ? 'التوصيل' : 'Delivery') . '</a> · <a href="/refund-policy.html">' . ($ar ? 'الاسترجاع' : 'Returns') . '</a></p>' . $faq . $related . '</article>';
+    ' <a href="/shipping-policy.html">' . ($ar ? 'التوصيل' : 'Delivery') . '</a> · <a href="/refund-policy.html">' . ($ar ? 'الاسترجاع' : 'Returns') . '</a></p>' . $reviewsHtml . $faq . $related . '</article>';
 $html = replace_once($html, '<body>', "<body>\n" . $static);
 
 header('Content-Type: text/html; charset=utf-8');

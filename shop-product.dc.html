@@ -247,7 +247,7 @@
         <div style="display:flex;flex-direction:column;gap:16px">
           <sc-for list="{{ reviews }}" as="rv" hint-placeholder-count="2">
             <div style="border-bottom:1px solid #EFEAE3;padding-bottom:14px">
-              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600;font-size:14px">{{ rv.name }}</span><span style="font-size:11.5px;color:#6B6660">{{ rv.date }}</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span style="font-weight:600;font-size:14px">{{ rv.name }} <span style="font-size:11.5px;font-weight:600;color:#4C6B4F;margin-inline-start:6px">✓ Verified purchase</span></span><span style="font-size:11.5px;color:#6B6660">{{ rv.date }}</span></div>
               <div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-top:2px">{{ rv.starsFmt }}</div>
               <p style="margin:6px 0 0;font-size:13.5px;color:#6B6660;line-height:1.6">{{ rv.text }}</p>
             </div>
@@ -255,24 +255,48 @@
         </div>
       </sc-if>
       <sc-if value="{{ noReviews }}" hint-placeholder-val="{{ false }}">
-        <div style="color:#6B6660;font-size:14px">No reviews yet — be the first to share your experience.</div>
+        <div style="color:#6B6660;font-size:14px">No reviews yet. Reviews here come only from customers who received this product.</div>
       </sc-if>
     </div>
     <div style="background:#fff;border:1px solid #DDD6CC;border-radius:16px;padding:22px">
-      <div style="font-weight:600;font-size:15px;margin-bottom:14px">Write a review</div>
-      <form onSubmit="{{ submitReview }}" style="display:flex;flex-direction:column;gap:12px">
-        <input required="{{ true }}" value="{{ reviewForm.name }}" onChange="{{ setReviewName }}" placeholder="Your name" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit"/>
-        <div style="display:flex;gap:6px;align-items:center">
-          <sc-for list="{{ starOptions }}" as="so" hint-placeholder-count="5">
-            <button type="button" onClick="{{ so.onClick }}" style="border:none;background:none;font-size:22px;color:{{ so.color }};cursor:pointer;padding:0">★</button>
-          </sc-for>
+      <div style="font-weight:600;font-size:15px;margin-bottom:6px">Write a review</div>
+      <div style="font-size:12.5px;color:#6B6660;margin-bottom:14px">Only customers who received this product can review it, so every review here is from a real buyer.</div>
+      <sc-if value="{{ revSignedOut }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:13.5px">Sign in with the email you ordered with. We’ll email you a code, no password needed.</div>
+          <sc-if value="{{ revAskEmail }}" hint-placeholder-val="{{ true }}">
+            <input type="email" value="{{ revEmail }}" onChange="{{ setRevEmail }}" placeholder="Your email" autocomplete="email" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit"/>
+            <button type="button" onClick="{{ sendRevCode }}" style="background:#22201D;color:#fff;border:none;padding:12px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Send me a code</button>
+          </sc-if>
+          <sc-if value="{{ revAskCode }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12.5px;color:#6B6660">We emailed a 6-digit code to {{ revEmail }}. Check your inbox (and spam).</div>
+            <input inputmode="numeric" value="{{ revCode }}" onChange="{{ setRevCode }}" placeholder="6-digit code" autocomplete="one-time-code" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit"/>
+            <button type="button" onClick="{{ verifyRevCode }}" style="background:#22201D;color:#fff;border:none;padding:12px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Sign in</button>
+          </sc-if>
         </div>
-        <textarea required="{{ true }}" value="{{ reviewForm.text }}" onChange="{{ setReviewText }}" placeholder="Share what you liked or didn't" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit;min-height:80px"></textarea>
-        <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">Submit review</button>
-        <sc-if value="{{ reviewSent }}" hint-placeholder-val="{{ false }}">
-          <div style="font-size:12.5px;color:#4C6B4F;font-weight:600">Thanks for your review ✓</div>
-        </sc-if>
-      </form>
+      </sc-if>
+      <sc-if value="{{ revNotBuyer }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:13.5px;line-height:1.6"><div><span>Signed in as</span> <b>{{ revMeEmail }}</b></div><div>We couldn’t find a delivered order with this product for this email. Once your order arrives, you can review it here.</div></div>
+      </sc-if>
+      <sc-if value="{{ revCanWrite }}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ submitReview }}" style="display:flex;flex-direction:column;gap:12px">
+          <sc-if value="{{ revHasMine }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:#4C6B4F;font-weight:600">You’ve reviewed this product. You can update your review below.</div></sc-if>
+          <input required="{{ true }}" value="{{ reviewForm.name }}" onChange="{{ setReviewName }}" placeholder="Your name" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit"/>
+          <div style="display:flex;gap:6px;align-items:center">
+            <sc-for list="{{ starOptions }}" as="so" hint-placeholder-count="5">
+              <button type="button" onClick="{{ so.onClick }}" style="border:none;background:none;font-size:22px;color:{{ so.color }};cursor:pointer;padding:0">★</button>
+            </sc-for>
+          </div>
+          <textarea required="{{ true }}" value="{{ reviewForm.text }}" onChange="{{ setReviewText }}" placeholder="Share what you liked or didn't" style="padding:11px 13px;border:1px solid #DDD6CC;border-radius:10px;font-size:14px;font-family:inherit;min-height:80px"></textarea>
+          <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer">{{ reviewBtnLabel }}</button>
+          <sc-if value="{{ reviewSent }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12.5px;color:#4C6B4F;font-weight:600">Thanks for your review ✓</div>
+          </sc-if>
+        </form>
+      </sc-if>
+      <sc-if value="{{ revErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12.5px;color:#8E2B2B;margin-top:10px">{{ revErr }}</div>
+      </sc-if>
     </div>
   </section>
 
@@ -345,6 +369,7 @@ class Component extends DCLogic {
     wishlist: [], reviews: [], recent: [], toast: '',
     lightboxOpen: false, lightboxIndex: 0, showStickyBar: false, galIndex: 0,
     reviewForm: { name: '', text: '', rating: 5 }, reviewSent: false,
+    srv: null, revStep: 'email', revEmail: '', revCode: '', revErr: '',
     variantId: null, addonSel: {}
   };
 
@@ -379,7 +404,8 @@ class Component extends DCLogic {
     const first = !this.state.product;
     const keep = this.state.variantId && (product.variants || []).some(v => v.id === this.state.variantId);
     const variantId = keep ? this.state.variantId : product.variants && product.variants.length ? (product.variants.find(v => v.stock > 0) || product.variants[0]).id : null;
-    this.setState({ product, related, inventory: inv, variantId, ...(first ? { wishlist: mod.loadWishlist(), reviews: mod.loadReviews(), recent: mod.pushRecent(product.id) } : {}) });
+    this.setState({ product, related, inventory: inv, variantId, ...(first ? { wishlist: mod.loadWishlist(), recent: mod.pushRecent(product.id) } : {}) });
+    if (first) this.loadReviews(product.id);
     if (first || final) this.updateShareMeta(product, mod);
     return true;
   }
@@ -478,12 +504,30 @@ class Component extends DCLogic {
   };
   setReviewField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ reviewForm: { ...s.reviewForm, [field]: v } })); };
   setReviewRating = (n) => () => this.setState(s => ({ reviewForm: { ...s.reviewForm, rating: n } }));
+  // Reviews live on the server (api/reviews.php): only customers whose order with this product was delivered can write one.
+  revPost = (action, body) => fetch('api/public.php?action=' + action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || 'Something went wrong'); return d; }));
+  loadReviews = (id) => fetch('api/public.php?action=reviews&product=' + encodeURIComponent(id), { credentials: 'same-origin' }).then(r => r.json()).then(d => {
+    const mine = d.me && d.me.mine;
+    this.setState({ srv: d, reviewForm: mine ? { name: mine.name, text: mine.text, rating: mine.rating } : { name: (d.me && d.me.name) || '', text: '', rating: 5 } });
+  }).catch(() => {});
+  setRevEmail = (e) => this.setState({ revEmail: e.target.value, revErr: '' });
+  setRevCode = (e) => this.setState({ revCode: e.target.value, revErr: '' });
+  sendRevCode = () => {
+    const email = this.state.revEmail.trim(); if (!email) return;
+    this.revPost('account_code', { email, lang: window.WTS_LANG === 'ar' ? 'ar' : 'en' }).then(() => this.setState({ revStep: 'code', revErr: '' })).catch(err => this.setState({ revErr: err.message }));
+  };
+  verifyRevCode = () => {
+    this.revPost('account_verify', { email: this.state.revEmail.trim(), code: this.state.revCode }).then(() => { this.setState({ revStep: 'email', revCode: '', revErr: '' }); this.loadReviews(this.state.product.id); })
+      .catch(err => this.setState({ revErr: err.message }));
+  };
   submitReview = (e) => {
     e.preventDefault();
-    if (!this._sd || !this.state.product) return;
+    if (!this.state.product) return;
     const { name, text, rating } = this.state.reviewForm;
-    const reviews = this._sd.addReview(this.state.product.id, { name, text, rating });
-    this.setState({ reviews, reviewSent: true, reviewForm: { name: '', text: '', rating: 5 } });
+    this.revPost('review_save', { product: this.state.product.id, name, text, rating })
+      .then(d => { const mine = d.me && d.me.mine; this.setState({ srv: d, reviewSent: true, revErr: '', reviewForm: mine ? { name: mine.name, text: mine.text, rating: mine.rating } : this.state.reviewForm }); })
+      .catch(err => this.setState({ revErr: err.message }));
   };
 
   stars(rating) { const r = Math.round(rating); return '★★★★★☆☆☆☆☆'.slice(5 - r, 10 - r); }
@@ -508,7 +552,7 @@ class Component extends DCLogic {
     const firstMin = tiers.length ? Math.min(...tiers.map(t => t.min)) : 1;
     const photoId = (n) => 'prod-photo-' + p.id + '-' + n;
     const sel = (on) => ({ border: on ? accent : '#DDD6CC', bg: on ? accent : '#fff', fg: on ? '#fff' : '#22201D' });
-    const stats = this._sd ? this._sd.ratingStats(p.id, this.state.reviews) : { avg: 0, count: 0 };
+    const stats = (this.state.srv && this.state.srv.stats) || { avg: 0, count: 0 };
     const isWished = this.state.wishlist.includes(p.id);
     const recentOthers = this.state.recent.filter(id => id !== p.id).map(id => this.state.inventory.find(x => x.id === id)).filter(Boolean).slice(0, 4);
     return {
@@ -554,7 +598,12 @@ class Component extends DCLogic {
       toggleWish: this.toggleWish, wishBorder: isWished ? accent : '#DDD6CC', wishBg: isWished ? accent : '#fff', wishFg: isWished ? '#fff' : '#22201D',
       starsFmt: this.stars(stats.avg || 0), hasReviews: stats.count > 0, noReviews: stats.count === 0, ratingAvg: stats.avg, ratingCount: stats.count,
       reviewsHeaderCount: stats.count ? '(' + stats.count + ')' : '',
-      reviews: this._sd ? this._sd.reviewsFor(p.id, this.state.reviews).map(r => ({ ...r, starsFmt: this.stars(r.rating) })) : [],
+      reviews: ((this.state.srv && this.state.srv.reviews) || []).map(r => ({ ...r, date: new Date(r.date + 'T12:00:00').toLocaleDateString(window.WTS_LANG === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }), starsFmt: this.stars(r.rating) })),
+      revSignedOut: !!this.state.srv && !this.state.srv.me.signedIn, revAskEmail: this.state.revStep === 'email', revAskCode: this.state.revStep === 'code',
+      revEmail: this.state.revEmail, setRevEmail: this.setRevEmail, revCode: this.state.revCode, setRevCode: this.setRevCode, sendRevCode: this.sendRevCode, verifyRevCode: this.verifyRevCode,
+      revNotBuyer: !!this.state.srv && this.state.srv.me.signedIn && !this.state.srv.me.canReview, revMeEmail: this.state.srv && this.state.srv.me.email ? this.state.srv.me.email : '',
+      revCanWrite: !!this.state.srv && this.state.srv.me.canReview, revHasMine: !!(this.state.srv && this.state.srv.me.mine), revErr: this.state.revErr,
+      reviewBtnLabel: this.state.srv && this.state.srv.me.mine ? 'Update review' : 'Submit review',
       reviewForm: this.state.reviewForm, setReviewName: this.setReviewField('name'), setReviewText: this.setReviewField('text'),
       starOptions: [1, 2, 3, 4, 5].map(n => ({ n, onClick: this.setReviewRating(n), color: n <= this.state.reviewForm.rating ? accent : '#DDD6CC' })),
       submitReview: this.submitReview, reviewSent: this.state.reviewSent,
