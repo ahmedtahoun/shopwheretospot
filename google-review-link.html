@@ -4,20 +4,38 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="i18n.js"></script>
-<title>Free Google Review Link & QR Code Generator — Where To Spot</title>
-<meta name="description" content="Free tool: get your business's direct Google review link and a printable QR code in seconds. Customers land straight on the review box. In Arabic and English.">
-<link rel="canonical" href="https://shop.wheretospot.com/google-review-link.html">
+<title>Google Review Link & QR Code Generator (Free) — Where To Spot</title>
+<meta name="description" content="Get your Google review link free in seconds: paste any Google Maps link, get the official review link, a QR code with a printable card, a review button for your website and a page for your business. Arabic & English, made in Egypt.">
+<!-- One page, two languages: English by default, Arabic with ?lang=ar (i18n.js). Each version points to itself. -->
+<link rel="alternate" hreflang="en" href="https://shop.wheretospot.com/google-review-link.html">
+<link rel="alternate" hreflang="ar" href="https://shop.wheretospot.com/google-review-link.html?lang=ar">
+<link rel="alternate" hreflang="x-default" href="https://shop.wheretospot.com/google-review-link.html">
+<script>
+(function () {
+  var ar = document.documentElement.lang === 'ar', base = 'https://shop.wheretospot.com/google-review-link.html';
+  var l = document.createElement('link'); l.rel = 'canonical'; l.href = ar ? base + '?lang=ar' : base; document.head.appendChild(l);
+  if (ar) {
+    document.title = 'رابط تقييم جوجل وكود QR مجانًا لنشاطك — Where To Spot';
+    var d = document.createElement('meta'); d.name = 'description';
+    d.content = 'هات رابط تقييم جوجل لنشاطك مجانًا في ثواني: الصق أي رابط من خرائط جوجل وخد رابط التقييم الرسمي، وكود QR مع كارت جاهز للطباعة، وزرار تقييم لموقعك، وصفحة لنشاطك.';
+    document.head.appendChild(d);
+    var old = document.querySelector('meta[name=description]'); if (old && old !== d) old.remove();
+  }
+})();
+</script>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Where To Spot">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ar_EG">
 <meta property="og:title" content="Free Google Review Link & QR Code Generator">
-<meta property="og:description" content="Get your direct Google review link and a printable QR code in seconds. Free, no sign-up.">
+<meta property="og:description" content="Paste your Google Maps link, get your review link, a QR card and a review button for your website. Free, Arabic & English.">
 <meta property="og:url" content="https://shop.wheretospot.com/google-review-link.html">
 <meta property="og:image" content="https://shop.wheretospot.com/images/share-card.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Free Google Review Link & QR Code Generator">
-<meta name="twitter:description" content="Get your direct Google review link and a printable QR code in seconds. Free, no sign-up.">
+<meta name="twitter:description" content="Paste your Google Maps link, get your review link, a QR card and a review button for your website. Free, Arabic & English.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/share-card.jpg">
 <link rel="icon" href="/favicon.ico?v=2" sizes="48x48"><link rel="icon" type="image/png" sizes="96x96" href="/images/favicon-96.png?v=2"><link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,16 +45,41 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#22201D">
 <link rel="apple-touch-icon" href="images/app/apple-touch-icon.png">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Google Review Link & QR Code Generator", "url": "https://shop.wheretospot.com/google-review-link.html",
-  "applicationCategory": "BusinessApplication", "operatingSystem": "Any", "inLanguage": ["en", "ar"], "isAccessibleForFree": true,
-  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EGP"}, "provider": {"@type": "Organization", "name": "Where To Spot", "url": "https://shop.wheretospot.com/"}}</script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
-  {"@type": "Question", "name": "What is a Google review link?", "acceptedAnswer": {"@type": "Answer", "text": "A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps."}},
-  {"@type": "Question", "name": "Is this tool free?", "acceptedAnswer": {"@type": "Answer", "text": "The review link is free for everyone. With a free account your first 2 QR cards are free; after that, packs start at EGP 300 for 5 QR codes, each with its own business page."}},
-  {"@type": "Question", "name": "Where do I find my review link without the search?", "acceptedAnswer": {"@type": "Answer", "text": "Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose Ask for reviews (or Get more reviews), and copy the link. Paste it here to make the QR code."}},
-  {"@type": "Question", "name": "Can I just paste my Google Maps link?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open your business on Google Maps, tap Share, copy the link and paste it into the tool. It finds that exact place, makes its official review link and checks with Google that it opens that place’s review box."}},
-  {"@type": "Question", "name": "Does the QR code expire?", "acceptedAnswer": {"@type": "Answer", "text": "No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists."}},
-  {"@type": "Question", "name": "QR code or NFC: which gets more reviews?", "acceptedAnswer": {"@type": "Answer", "text": "Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a stand with both NFC and a QR code."}}]}</script>
+<!-- Structured data: kept in step with the visible text below (tool, prices, steps, questions). -->
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [
+  {"@type": "Organization", "@id": "https://shop.wheretospot.com/#org", "name": "Where To Spot", "url": "https://shop.wheretospot.com/", "logo": "https://shop.wheretospot.com/images/logo-round.png",
+    "email": "info@wheretospot.com", "telephone": "+201277660666", "sameAs": ["https://instagram.com/wheretospot", "https://www.wheretospot.com"],
+    "address": {"@type": "PostalAddress", "streetAddress": "MQR, El Wahat Road", "addressLocality": "6th of October City", "addressRegion": "Giza", "addressCountry": "EG"}},
+  {"@type": "WebPage", "@id": "https://shop.wheretospot.com/google-review-link.html#page", "url": "https://shop.wheretospot.com/google-review-link.html",
+    "name": "Google Review Link & QR Code Generator", "inLanguage": ["en", "ar"], "dateModified": "2026-10-24", "isPartOf": {"@type": "WebSite", "name": "Where To Spot", "url": "https://shop.wheretospot.com/"},
+    "publisher": {"@id": "https://shop.wheretospot.com/#org"}, "breadcrumb": {"@id": "https://shop.wheretospot.com/google-review-link.html#crumbs"}, "mainEntity": {"@id": "https://shop.wheretospot.com/google-review-link.html#app"}},
+  {"@type": "BreadcrumbList", "@id": "https://shop.wheretospot.com/google-review-link.html#crumbs", "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Where To Spot", "item": "https://shop.wheretospot.com/"},
+    {"@type": "ListItem", "position": 2, "name": "Google review link & QR code generator", "item": "https://shop.wheretospot.com/google-review-link.html"}]},
+  {"@type": "WebApplication", "@id": "https://shop.wheretospot.com/google-review-link.html#app", "name": "Google Review Link & QR Code Generator", "url": "https://shop.wheretospot.com/google-review-link.html",
+    "applicationCategory": "BusinessApplication", "operatingSystem": "Any (web browser)", "inLanguage": ["en", "ar"], "isAccessibleForFree": true, "provider": {"@id": "https://shop.wheretospot.com/#org"},
+    "featureList": ["Official Google review link from any Google Maps link", "Link checked with Google before use", "QR code with a printable A6 card (Arabic, English or both)", "Review button for websites", "Business page with WhatsApp, Instagram, Facebook, TikTok, menu and location links"],
+    "offers": {"@type": "AggregateOffer", "priceCurrency": "EGP", "lowPrice": "0", "highPrice": "1600", "offerCount": "4", "offers": [
+      {"@type": "Offer", "name": "Free: review link + 2 QR codes", "price": "0", "priceCurrency": "EGP"},
+      {"@type": "Offer", "name": "Starter: 5 QR codes", "price": "300", "priceCurrency": "EGP"},
+      {"@type": "Offer", "name": "Business: 15 QR codes", "price": "750", "priceCurrency": "EGP"},
+      {"@type": "Offer", "name": "Agency: 40 QR codes", "price": "1600", "priceCurrency": "EGP"}]}},
+  {"@type": "HowTo", "name": "How to get your Google review link", "totalTime": "PT1M", "step": [
+    {"@type": "HowToStep", "position": 1, "name": "Copy your Google Maps link", "text": "Open your business on Google Maps, tap Share and copy the link."},
+    {"@type": "HowToStep", "position": 2, "name": "Paste it into the tool", "text": "Paste the link into the Where To Spot review link tool. It finds the exact place and makes its official review link, checked with Google."},
+    {"@type": "HowToStep", "position": 3, "name": "Share the link and the QR code", "text": "Copy the link for WhatsApp and Instagram, print the QR card for your counter, and add the review button to your website."}]},
+  {"@type": "FAQPage", "mainEntity": [
+    {"@type": "Question", "name": "What is a Google review link?", "acceptedAnswer": {"@type": "Answer", "text": "A link that opens your business's review box on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps. It looks like g.page/r/…/review or search.google.com/local/writereview?placeid=…"}},
+    {"@type": "Question", "name": "How do I get my Google review link for free?", "acceptedAnswer": {"@type": "Answer", "text": "Paste any Google Maps link to your business into this tool and it gives you the official review link, checked with Google. Business owners can also copy it from their Google Business Profile: Ask for reviews."}},
+    {"@type": "Question", "name": "Is the tool free?", "acceptedAnswer": {"@type": "Answer", "text": "The review link and the website review button are free for everyone, with no sign-up. With a free account your first 2 QR cards are free; after that, packs start at EGP 300 for 5 QR codes, each with its own business page."}},
+    {"@type": "Question", "name": "Does the QR code expire?", "acceptedAnswer": {"@type": "Answer", "text": "No. The QR code holds your review link (or your page link), so it keeps working as long as your Google Business Profile exists."}},
+    {"@type": "Question", "name": "How do I add a Google review button to my website?", "acceptedAnswer": {"@type": "Answer", "text": "Make your review link with the tool, choose the button's colour and language, copy the code and paste it into a Custom HTML block on WordPress, Wix, Shopify or any website."}},
+    {"@type": "Question", "name": "What is the business page?", "acceptedAnswer": {"@type": "Answer", "text": "Every QR comes with a page at shop.wheretospot.com/r/your-business with a big Review us on Google button plus your WhatsApp, Instagram, Facebook, TikTok, menu, location and other links. The QR can open the review box directly or this page."}},
+    {"@type": "Question", "name": "QR code or NFC: which gets more reviews?", "acceptedAnswer": {"@type": "Answer", "text": "Both work. NFC is faster because customers just tap their phone on a card or stand, with no camera. Many businesses use a stand with both NFC and a QR code so every phone works."}},
+    {"@type": "Question", "name": "يعني إيه رابط تقييم جوجل؟", "acceptedAnswer": {"@type": "Answer", "text": "رابط بيفتح خانة تقييم نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب رأيه بلمسة واحدة بدل ما يدور عليك في الخرائط."}},
+    {"@type": "Question", "name": "إزاي أجيب رابط تقييم جوجل مجانًا؟", "acceptedAnswer": {"@type": "Answer", "text": "الصق أي رابط لنشاطك من خرائط جوجل في الأداة، وهتديك رابط التقييم الرسمي بعد ما نتأكد منه من جوجل. وصاحب النشاط يقدر كمان ينسخه من حساب نشاطك على جوجل: اطلب تقييمات."}},
+    {"@type": "Question", "name": "الأداة مجانية؟", "acceptedAnswer": {"@type": "Answer", "text": "رابط التقييم وزرار التقييم للموقع مجانًا للجميع ومن غير تسجيل. وبحساب مجاني أول 2 كارت QR مجانًا، وبعدها الباقات من 300 ج.م لـ 5 أكواد، وكل كود معاه صفحة لنشاطك."}}]}
+]}</script>
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
 <style>
   .tool{background:#fff;border:1px solid #DDD6CC;border-radius:20px;padding:24px;margin:26px 0;display:flex;flex-direction:column;gap:16px}
@@ -91,6 +134,23 @@
   .maprow .hint{flex:1;min-width:200px}
   html[lang=ar] .tool,html[lang=ar] .made{direction:rtl}
   #printArea{display:none}
+  .crumbs{font-size:13px;color:#8A8478;margin-bottom:14px}
+  .crumbs a{color:#6B6660;text-decoration:none}
+  .updated{font-size:13px;color:#8A8478;margin-top:4px}
+  .answer{background:#fff;border-inline-start:4px solid #A8552F;border-radius:12px;padding:14px 18px;font-size:15px;line-height:1.7;margin:18px 0 0}
+  .answer code,.guide code{font-size:12.5px;background:#F7F3ED;border-radius:6px;padding:1px 6px;direction:ltr;unicode-bidi:embed;overflow-wrap:anywhere}
+  .guide{margin-top:30px}
+  .steps-list li{margin:8px 0}
+  .tablewrap{overflow-x:auto}
+  .tablewrap table{min-width:560px}
+  .tablewrap th{white-space:nowrap}
+  .webbtn{display:flex;flex-direction:column;gap:12px;border:1.5px dashed #DDD6CC;border-radius:16px;padding:16px}
+  .webbtn h3{margin:0;font-size:16px}
+  .webbtn .wbrow{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .webbtn .wbprev{background:#F7F3ED;border-radius:12px;padding:18px;display:flex;justify-content:center}
+  .webbtn textarea{width:100%;min-height:96px;font:12px ui-monospace,Menlo,monospace;direction:ltr;border:1.5px solid #DDD6CC;border-radius:10px;padding:10px;background:#FBF9F6;resize:vertical}
+  .webbtn details{background:none;border:0;padding:0;margin:0}
+  .webbtn details ul{margin:6px 0 0;font-size:13.5px}
   .acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F7F3ED;border-radius:12px;padding:10px 14px;font-size:14px}
   .acct b{font-weight:600}
   .acct .sp{flex:1}
@@ -144,9 +204,18 @@
 <nav><div class="in"><a class="brand" href="index.html"><img src="images/logo-mark.png" alt="Where To Spot logo" width="40" height="40">Where To Spot</a><div class="links"><a href="index.html">Shop</a><a href="plans.html">Marketing plans</a><a href="google-review-link.html" aria-current="page">Free review link</a><a href="about.html">About us</a><a href="contact.html">Contact us</a></div></div></nav>
 
 <main data-no-i18n>
+<nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Where To Spot</a> › <span class="en-only">Free tools</span><span class="ar-only">أدوات مجانية</span> › <span aria-current="page"><span class="en-only">Google review link & QR</span><span class="ar-only">رابط تقييم جوجل وQR</span></span></nav>
+<header>
 <div class="kicker"><span class="en-only">Free review link · 2 free QR codes</span><span class="ar-only">رابط تقييم مجاني · أول 2 كود QR مجانًا</span></div>
 <h1><span class="en-only">Google review link & QR code generator</span><span class="ar-only">رابط تقييم جوجل وكود QR لنشاطك مجانًا</span></h1>
-<p class="muted"><span class="en-only">Get the direct link that opens your Google review box, plus a QR code and a ready-to-print card for your counter. Customers land straight on the stars.</span><span class="ar-only">احصل على الرابط اللي بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، ومعاه كود QR وكارت جاهز للطباعة تحطه على الكاونتر. العميل بيوصل للنجوم على طول.</span></p>
+<p class="muted"><span class="en-only">Paste any Google Maps link to your business. Get the official review link, checked with Google, plus a QR card for your counter, a review button for your website and a page with all your links.</span><span class="ar-only">الصق أي رابط لنشاطك من خرائط جوجل، وخد رابط التقييم الرسمي بعد ما نتأكد منه من جوجل، ومعاه كارت QR للكاونتر، وزرار تقييم لموقعك، وصفحة فيها كل روابطك.</span></p>
+<p class="updated"><span class="en-only">By Where To Spot, Giza, Egypt · Updated <time datetime="2026-10-24">24 October 2026</time></span><span class="ar-only">من Where To Spot، الجيزة، مصر · آخر تحديث <time datetime="2026-10-24">24 أكتوبر 2026</time></span></p>
+</header>
+
+<aside class="answer" aria-label="Quick answer">
+<div class="en-only"><b>In short:</b> a Google review link opens your business's review box on Google in one tap. It looks like <code>g.page/r/…/review</code> or <code>search.google.com/local/writereview?placeid=…</code>. Paste your Google Maps link below to get yours free, then share it on WhatsApp, print it as a QR code, or add it to your website as a button.</div>
+<div class="ar-only" lang="ar" dir="rtl"><b>باختصار:</b> رابط تقييم جوجل بيفتح خانة تقييم نشاطك على جوجل بلمسة واحدة، وشكله <code>g.page/r/…/review</code> أو <code>search.google.com/local/writereview?placeid=…</code>. الصق رابط نشاطك من خرائط جوجل تحت وخد رابطك مجانًا، وبعدها ابعته واتساب، أو اطبعه كود QR، أو حطه زرار على موقعك.</div>
+</aside>
 
 <section class="tool" id="tool" aria-label="Review link generator">
   <div class="acct" id="acct"></div>
@@ -173,6 +242,7 @@
       <label data-t="yourLink"></label>
       <div class="linkbox"><code id="link"></code><button class="btn sm" id="copy" data-t="copy"></button><a class="btn sm ghost" id="test" target="_blank" rel="noopener" data-t="test"></a><a class="btn sm ghost" id="wa" target="_blank" rel="noopener" data-t="whatsapp"></a></div>
     </div>
+    <div class="webbtn" id="webBtn"></div>
     <div class="made">
       <canvas id="card" width="1200" height="1700" aria-label="Printable review card"></canvas>
       <div class="opts">
@@ -192,18 +262,51 @@
 
 <section class="mine" id="mine" hidden></section>
 
-<section id="pricing" class="pricing"></section>
+<section id="pricing" class="pricing" aria-labelledby="pricingH">
+<div class="en-only"><h2 id="pricingH">QR code packs</h2><p class="muted">The review link and the website button are free. QR cards: 2 free with an account, then packs. One QR = one business, downloads again are free, and every QR comes with its own business page.</p>
+<table><tr><th>Pack</th><th>QR codes</th><th>Price</th><th>Per QR</th></tr><tr><td>Free</td><td>2</td><td>EGP 0</td><td>—</td></tr><tr><td>Starter</td><td>5</td><td>EGP 300</td><td>EGP 60</td></tr><tr><td>Business</td><td>15</td><td>EGP 750</td><td>EGP 50</td></tr><tr><td>Agency</td><td>40</td><td>EGP 1,600</td><td>EGP 40</td></tr></table></div>
+<div class="ar-only" lang="ar" dir="rtl"><h2>باقات أكواد QR</h2><p class="muted">رابط التقييم وزرار الموقع مجانًا. كروت QR: أول 2 مجانًا بحساب، وبعدها الباقات. كل كود = نشاط واحد، وتحميله تاني مجاني، وكل كود معاه صفحة لنشاطك.</p>
+<table><tr><th>الباقة</th><th>عدد الأكواد</th><th>السعر</th><th>سعر الكود</th></tr><tr><td>مجاني</td><td>2</td><td>0 ج.م</td><td>—</td></tr><tr><td>البداية</td><td>5</td><td>300 ج.م</td><td>60 ج.م</td></tr><tr><td>الأعمال</td><td>15</td><td>750 ج.م</td><td>50 ج.م</td></tr><tr><td>الوكالات</td><td>40</td><td>1,600 ج.م</td><td>40 ج.م</td></tr></table></div>
+</section>
 
 <div class="modal" id="modal" hidden><div class="sheet" role="dialog" aria-modal="true"><button class="x" id="modalX" aria-label="Close">✕</button><div id="sheet"></div></div></div>
 <div class="toast" id="toast" hidden></div>
 
-<div class="en-only">
-<h2>How it works</h2>
+<article class="en-only guide">
+<h2>What is a Google review link?</h2>
+<p>A Google review link is a web address that opens the review box of one specific business on Google. Customers tap it, choose their stars and write a comment, without searching for you on Google Maps first. That one saved step is where most people give up, so a direct link gets noticeably more reviews.</p>
+<p>There are two official formats, and both work the same way:</p>
+<ul>
+<li><code>https://g.page/r/…/review</code>: the short link Google gives business owners under <b>Ask for reviews</b>.</li>
+<li><code>https://search.google.com/local/writereview?placeid=…</code>: the long form, built from the business's Place ID.</li>
+</ul>
+
+<h2>How to get your Google review link (3 ways)</h2>
+<ol class="steps-list">
+<li><b>With this tool, in one step.</b> Open your business on Google Maps, tap <b>Share</b>, copy the link and paste it above. The tool finds that exact place, makes its official review link and checks with Google that it opens that place’s review box.</li>
+<li><b>From your Google Business Profile</b> (owners). Search your business name on Google or open it in Google Maps while signed in, choose <b>Ask for reviews</b> (or <b>Get more reviews</b>) and copy the link.</li>
+<li><b>From the Place ID.</b> Find the Place ID (it starts with <code>ChIJ</code>) in Google’s free <a href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id" target="_blank" rel="noopener">Place ID Finder</a> and paste it above.</li>
+</ol>
+
+<h2>Where to use your review link</h2>
 <div class="steps">
-<div class="card"><b>1. Find your business</b>Search by name and area, or paste the review link from your Google Business Profile.</div>
-<div class="card"><b>2. Get your link and QR</b>The link opens your Google review box directly. The QR code holds the same link and never expires.</div>
-<div class="card"><b>3. Share it everywhere</b>Print the card for your counter, send the link on WhatsApp after each sale, and add it to receipts and your Instagram bio.</div>
+<div class="card"><b>On the counter and tables</b>A printed QR card, or an NFC stand customers tap with their phone.</div>
+<div class="card"><b>On WhatsApp</b>Send a short thank-you message with the link the same day as the visit or delivery.</div>
+<div class="card"><b>On your website</b>Add the free “Review us on Google” button: it opens the review box in one click.</div>
+<div class="card"><b>On Instagram and Facebook</b>Put your business page (with the review button and all your links) in your bio.</div>
+<div class="card"><b>On receipts and bags</b>Print the QR on invoices, delivery bags and thank-you cards.</div>
+<div class="card"><b>In emails</b>Add the link to your email signature and order confirmations.</div>
 </div>
+
+<h2>Review link, QR code or NFC?</h2>
+<div class="tablewrap"><table>
+<tr><th></th><th>Review link</th><th>QR code</th><th>NFC card or stand</th></tr>
+<tr><th>How customers use it</th><td>Tap a link (WhatsApp, Instagram, website)</td><td>Scan with the phone camera</td><td>Tap the phone on the card</td></tr>
+<tr><th>Best for</th><td>Online orders and follow-ups</td><td>Counters, tables, receipts, bags</td><td>Counters and front desks</td></tr>
+<tr><th>Speed</th><td>Instant</td><td>2–3 seconds</td><td>Instant, no camera</td></tr>
+<tr><th>Cost</th><td>Free</td><td>2 free, then from EGP 40 per QR</td><td><a href="p/nfc1">NFC cards from EGP 200</a> · <a href="p/nfc4">NFC + QR stands from EGP 299</a></td></tr>
+</table></div>
+
 <h2>Five ways to get more Google reviews</h2>
 <ul>
 <li><b>Ask at the right moment:</b> right after a good experience, when the customer is happy and still with you.</li>
@@ -212,23 +315,52 @@
 <li><b>Follow up on WhatsApp:</b> a short thank-you message with the link the same day.</li>
 <li><b>Reply to every review:</b> customers are more likely to review a business that answers.</li>
 </ul>
+
 <h2>Questions</h2>
-<details><summary>What is a Google review link?</summary><p>A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps.</p></details>
-<details><summary>Is this tool free?</summary><p>The review link is free for everyone, with no sign-up. To download and print QR cards, create a free account: your first 2 QR codes are free. After that, packs start at EGP 300 for 5 QR codes. Each QR is for one business and comes with its own page; you can download it again as often as you like.</p></details>
+<details><summary>What is a Google review link?</summary><p>A link that opens your business's review box on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps. It looks like g.page/r/…/review or search.google.com/local/writereview?placeid=…</p></details>
+<details><summary>How do I get my Google review link for free?</summary><p>Paste any Google Maps link to your business into this tool and it gives you the official review link, checked with Google. Business owners can also copy it from their Google Business Profile: <b>Ask for reviews</b>.</p></details>
+<details><summary>Is the tool free?</summary><p>The review link and the website review button are free for everyone, with no sign-up. With a free account your first 2 QR cards are free; after that, packs start at EGP 300 for 5 QR codes, each with its own business page. You can download a QR again as often as you like.</p></details>
+<details><summary>Does the QR code expire?</summary><p>No. The QR code holds your review link (or your page link), so it keeps working as long as your Google Business Profile exists.</p></details>
+<details><summary>How do I add a Google review button to my website?</summary><p>Make your review link with the tool, choose the button’s colour and language under <b>Add a review button to your website</b>, copy the code and paste it into a Custom HTML block on WordPress, Wix, Shopify or any website.</p></details>
 <details><summary>What is the business page?</summary><p>Every QR comes with a page at shop.wheretospot.com/r/your-business: a big “Review us on Google” button plus your WhatsApp, Instagram, Facebook, TikTok, menu, location and any links you add, in your colour and with your logo. Choose whether your QR opens the review box directly or this page, and change it any time.</p></details>
-<details><summary>Where do I find my review link without the search?</summary><p>Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose <b>Ask for reviews</b> (or <b>Get more reviews</b>), and copy the link. Paste it above to make the QR code.</p></details>
-<details><summary>Can I just paste my Google Maps link?</summary><p>Yes. Open your business on Google Maps, tap <b>Share</b>, copy the link (maps.app.goo.gl/…) and paste it above. We find that exact place, make its official review link, and check with Google that it opens that place’s review box. You get the QR code and card straight away.</p></details>
-<details><summary>Does the QR code expire?</summary><p>No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists.</p></details>
-<details><summary>QR code or NFC: which gets more reviews?</summary><p>Both work. NFC is faster: customers just tap their phone on a card or stand, with no camera or scanning. Many businesses use a <a href="p/nfc4">stand with both NFC and a QR code</a>.</p></details>
+<details><summary>QR code or NFC: which gets more reviews?</summary><p>Both work. NFC is faster because customers just tap their phone on a card or stand, with no camera. Many businesses use a <a href="p/nfc4">stand with both NFC and a QR code</a> so every phone works.</p></details>
+</article>
+
+<article class="ar-only guide" lang="ar" dir="rtl">
+<h2>يعني إيه رابط تقييم جوجل؟</h2>
+<p>رابط تقييم جوجل هو لينك بيفتح خانة التقييم لنشاط معيّن على جوجل. العميل يضغط عليه، يختار النجوم ويكتب رأيه، من غير ما يدور عليك في خرائط جوجل الأول. والخطوة دي بالذات هي اللي أغلب الناس بيزهقوا عندها، عشان كده الرابط المباشر بيجيب تقييمات أكتر بشكل واضح.</p>
+<p>فيه شكلين رسميين، والاتنين شغالين بنفس الطريقة:</p>
+<ul>
+<li><code>https://g.page/r/…/review</code>: الرابط القصير اللي جوجل بتديه لصاحب النشاط من <b>اطلب تقييمات</b>.</li>
+<li><code>https://search.google.com/local/writereview?placeid=…</code>: الشكل الطويل، معمول من الـ Place ID بتاع النشاط.</li>
+</ul>
+
+<h2>إزاي تجيب رابط تقييم جوجل (3 طرق)</h2>
+<ol class="steps-list">
+<li><b>بالأداة دي في خطوة واحدة.</b> افتح نشاطك على خرائط جوجل، اضغط <b>مشاركة</b>، انسخ الرابط والصقه فوق. الأداة هتلاقي المكان ده بالظبط، وتعمل رابط التقييم الرسمي، وتتأكد من جوجل إنه بيفتح خانة التقييم بتاعته.</li>
+<li><b>من حساب نشاطك على جوجل</b> (لصاحب النشاط). دوّر على اسم نشاطك في جوجل أو افتحه في الخرائط وأنت داخل بحسابك، واختار <b>اطلب تقييمات</b> وانسخ الرابط.</li>
+<li><b>من الـ Place ID.</b> هات الـ Place ID (بيبدأ بـ <code>ChIJ</code>) من أداة جوجل المجانية <a href="https://developers.google.com/maps/documentation/places/web-service/place-id#find-id" target="_blank" rel="noopener">Place ID Finder</a> والصقه فوق.</li>
+</ol>
+
+<h2>تستخدم رابط التقييم فين؟</h2>
+<div class="steps">
+<div class="card"><b>على الكاونتر والترابيزات</b>كارت QR مطبوع، أو ستاند NFC العميل يلمسه بموبايله.</div>
+<div class="card"><b>على واتساب</b>رسالة شكر قصيرة فيها الرابط في نفس يوم الزيارة أو التوصيل.</div>
+<div class="card"><b>على موقعك</b>حط زرار “قيّمنا على جوجل” المجاني: بيفتح خانة التقييم بضغطة.</div>
+<div class="card"><b>على إنستجرام وفيسبوك</b>حط صفحة نشاطك (فيها زرار التقييم وكل روابطك) في البايو.</div>
+<div class="card"><b>على الفواتير والشنط</b>اطبع الكود على الفاتورة وشنط التوصيل وكروت الشكر.</div>
+<div class="card"><b>في الإيميلات</b>حط الرابط في توقيع الإيميل ورسائل تأكيد الطلب.</div>
 </div>
 
-<div class="ar-only" lang="ar" dir="rtl">
-<h2>إزاي تستخدم الأداة</h2>
-<div class="steps">
-<div class="card"><b>1. دوّر على نشاطك</b>اكتب اسم النشاط والمنطقة، أو الصق رابط التقييم من حساب نشاطك على جوجل (Google Business Profile).</div>
-<div class="card"><b>2. خد الرابط والكود</b>الرابط بيفتح خانة التقييم على جوجل مباشرة، والكود QR فيه نفس الرابط ومش بينتهي.</div>
-<div class="card"><b>3. انشره في كل مكان</b>اطبع الكارت للكاونتر، وابعت الرابط على واتساب بعد كل عملية بيع، وحطه على الفاتورة وفي البايو على إنستجرام.</div>
-</div>
+<h2>رابط، كود QR، ولا NFC؟</h2>
+<div class="tablewrap"><table>
+<tr><th></th><th>رابط التقييم</th><th>كود QR</th><th>كارت أو ستاند NFC</th></tr>
+<tr><th>العميل بيستخدمه إزاي</th><td>بيضغط على لينك (واتساب، إنستجرام، الموقع)</td><td>بيمسحه بكاميرا الموبايل</td><td>بيلمس الكارت بالموبايل</td></tr>
+<tr><th>مناسب لـ</th><td>الطلبات أونلاين والمتابعة</td><td>الكاونتر والترابيزات والفواتير والشنط</td><td>الكاونتر والاستقبال</td></tr>
+<tr><th>السرعة</th><td>فوري</td><td>2–3 ثواني</td><td>فوري ومن غير كاميرا</td></tr>
+<tr><th>التكلفة</th><td>مجاني</td><td>أول 2 مجانًا، وبعدها من 40 ج.م للكود</td><td><a href="p/nfc1?lang=ar">كروت NFC من 200 ج.م</a> · <a href="p/nfc4?lang=ar">ستاندات NFC + QR من 299 ج.م</a></td></tr>
+</table></div>
+
 <h2>5 طرق تزود بيها تقييمات جوجل</h2>
 <ul>
 <li><b>اطلب في الوقت الصح:</b> بعد تجربة حلوة على طول، والعميل لسه مبسوط وموجود.</li>
@@ -237,15 +369,16 @@
 <li><b>تابع على واتساب:</b> رسالة شكر قصيرة فيها الرابط في نفس اليوم.</li>
 <li><b>رد على كل تقييم:</b> العملاء بيقيّموا أكتر النشاط اللي بيرد.</li>
 </ul>
+
 <h2>أسئلة شائعة</h2>
-<details><summary>يعني إيه رابط تقييم جوجل؟</summary><p>رابط بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب تعليقه بلمسة واحدة بدل ما يدور عليك في الخرائط.</p></details>
-<details><summary>الأداة مجانية؟</summary><p>رابط التقييم مجاني للجميع ومن غير تسجيل. عشان تحمّل وتطبع كروت الـ QR، اعمل حساب مجاني: أول 2 كود مجانًا، وبعدها الباقات بتبدأ من 300 ج.م لـ 5 أكواد. كل كود لنشاط واحد ومعاه صفحة خاصة بيه، وتقدر تحمّله تاني براحتك.</p></details>
+<details><summary>يعني إيه رابط تقييم جوجل؟</summary><p>رابط بيفتح خانة تقييم نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب رأيه بلمسة واحدة بدل ما يدور عليك في الخرائط.</p></details>
+<details><summary>إزاي أجيب رابط تقييم جوجل مجانًا؟</summary><p>الصق أي رابط لنشاطك من خرائط جوجل في الأداة، وهتديك رابط التقييم الرسمي بعد ما نتأكد منه من جوجل. وصاحب النشاط يقدر كمان ينسخه من حساب نشاطك على جوجل: <b>اطلب تقييمات</b>.</p></details>
+<details><summary>الأداة مجانية؟</summary><p>رابط التقييم وزرار التقييم للموقع مجانًا للجميع ومن غير تسجيل. وبحساب مجاني أول 2 كارت QR مجانًا، وبعدها الباقات من 300 ج.م لـ 5 أكواد، وكل كود معاه صفحة لنشاطك، وتقدر تحمّله تاني براحتك.</p></details>
+<details><summary>الكود QR بينتهي؟</summary><p>لأ. الكود فيه رابط التقييم (أو رابط صفحتك)، فهيفضل شغال طول ما صفحة نشاطك على جوجل موجودة.</p></details>
+<details><summary>إزاي أحط زرار تقييم جوجل على موقعي؟</summary><p>اعمل رابط التقييم بالأداة، واختار لون الزرار ولغته من <b>حط زرار تقييم على موقعك</b>، وانسخ الكود والصقه في خانة HTML على ووردبريس أو Wix أو Shopify أو أي موقع.</p></details>
 <details><summary>يعني إيه صفحة النشاط؟</summary><p>كل كود معاه صفحة على shop.wheretospot.com/r/اسم-نشاطك: زرار كبير “قيّمنا على جوجل” ومعاه واتساب وإنستجرام وفيسبوك وتيك توك والمنيو والموقع وأي روابط تضيفها، بلونك واللوجو بتاعك. وتختار الكود يفتح خانة التقييم على طول أو الصفحة دي، وتغيّر ده في أي وقت.</p></details>
-<details><summary>ألاقي رابط التقييم فين من غير البحث؟</summary><p>افتح خرائط جوجل أو بحث جوجل وأنت داخل بحساب صاحب النشاط، افتح صفحة نشاطك، واختار <b>اطلب تقييمات</b> (أو <b>الحصول على المزيد من التقييمات</b>)، وانسخ الرابط. الصقه فوق عشان نعمل الكود.</p></details>
-<details><summary>ينفع ألصق رابط الخرائط بس؟</summary><p>أيوه. افتح نشاطك على خرائط جوجل، اضغط <b>مشاركة</b>، انسخ الرابط (maps.app.goo.gl/…) والصقه فوق. هنلاقي المكان ده بالظبط، ونعمل رابط التقييم الرسمي بتاعه، ونتأكد من جوجل إنه بيفتح خانة التقييم للمكان ده. وتاخد الكود والكارت على طول.</p></details>
-<details><summary>الكود QR بينتهي؟</summary><p>لأ. الكود فيه رابط التقييم نفسه، فهيفضل شغال طول ما صفحة نشاطك على جوجل موجودة.</p></details>
-<details><summary>QR ولا NFC: أنهي بيجيب تقييمات أكتر؟</summary><p>الاتنين شغالين، بس NFC أسرع: العميل بيلمس الكارت أو الستاند بموبايله من غير كاميرا ولا مسح. ناس كتير بتستخدم <a href="p/nfc4?lang=ar">ستاند فيه NFC وكود QR مع بعض</a>.</p></details>
-</div>
+<details><summary>QR ولا NFC: أنهي بيجيب تقييمات أكتر؟</summary><p>الاتنين شغالين، بس NFC أسرع: العميل بيلمس الكارت أو الستاند بموبايله من غير كاميرا. ناس كتير بتستخدم <a href="p/nfc4?lang=ar">ستاند فيه NFC وكود QR مع بعض</a> عشان كل الموبايلات تشتغل.</p></details>
+</article>
 </main>
 
 <div id="printArea"><img id="printImg" alt=""></div>
@@ -336,6 +469,14 @@
     ph_tiktok: ['@yourbusiness', '@yourbusiness'], ph_website: ['yourwebsite.com', 'yourwebsite.com'], ph_menu: ['Link to your menu', 'رابط المنيو'], ph_location: ['Google Maps link', 'رابط خرائط جوجل'], ph_email: ['name@email.com', 'name@email.com'],
     lt_whatsapp: ['WhatsApp', 'واتساب'], lt_phone: ['Phone', 'تليفون'], lt_instagram: ['Instagram', 'إنستجرام'], lt_facebook: ['Facebook', 'فيسبوك'], lt_tiktok: ['TikTok', 'تيك توك'],
     lt_website: ['Website', 'الموقع'], lt_menu: ['Menu', 'المنيو'], lt_location: ['Location', 'الموقع على الخريطة'], lt_email: ['Email', 'الإيميل'],
+    wbTitle: ['Add a review button to your website (free)', 'حط زرار تقييم على موقعك (مجانًا)'],
+    wbSub: ['Visitors click it and land on your Google review box. Copy the code and paste it into your site.', 'الزوار يضغطوا عليه ويوصلوا لخانة تقييم جوجل على طول. انسخ الكود والصقه في موقعك.'],
+    wbLang: ['Button text', 'نص الزرار'], wbColor: ['Colour', 'اللون'], wbCopy: ['Copy code', 'انسخ الكود'], wbCopied: ['Code copied ✓', 'تم نسخ الكود ✓'],
+    wbHow: ['How to add it to WordPress, Wix, Shopify…', 'إزاي تحطه على ووردبريس، Wix، Shopify…'],
+    wbSteps: [['<b>WordPress:</b> edit the page → add a “Custom HTML” block → paste.', '<b>Wix:</b> Add → Embed code → Embed HTML → paste.', '<b>Shopify:</b> Online Store → Themes → Customize → add a “Custom Liquid” section → paste.', '<b>Any site:</b> paste the code where the button should appear (e.g. the footer or contact page).'],
+      ['<b>ووردبريس:</b> عدّل الصفحة ← ضيف بلوك “Custom HTML” ← الصق.', '<b>Wix:</b> Add ← Embed code ← Embed HTML ← الصق.', '<b>Shopify:</b> Online Store ← Themes ← Customize ← ضيف سكشن “Custom Liquid” ← الصق.', '<b>أي موقع:</b> الصق الكود في المكان اللي عايز الزرار يظهر فيه (مثلًا الفوتر أو صفحة التواصل).']],
+    wbCredit: ['The small “Where To Spot” line under the button keeps this tool free. You can remove it.', 'السطر الصغير “Where To Spot” تحت الزرار هو اللي بيخلي الأداة مجانية. تقدر تشيله.'],
+    websiteButton: ['Website button', 'زرار للموقع'],
     cardTitleAr: 'قيّمنا على جوجل', cardTitleEn: 'Review us on Google', cardSubAr: 'امسح الكود بكاميرا الموبايل', cardSubEn: 'Scan with your phone camera', cardThanksAr: 'رأيك بيفرق معانا', cardThanksEn: 'Your feedback means a lot'
   };
   var t = function (k) { var v = T[k]; return Array.isArray(v) ? v[AR ? 1 : 0] : v; };
@@ -429,6 +570,34 @@
     go();
   };
 
+  // ---------- the website button: plain HTML (works on any site builder, no script), with a small branded credit link ----------
+  var WB_COLORS = ['#1A73E8', '#22201D', '#A8552F', '#1F7A4D', '#7D3C93'];
+  var wbState = { lang: AR ? 'ar' : 'en', color: WB_COLORS[0] };
+  var wbCode = function (link, lang, color) {
+    var ar = lang === 'ar';
+    return '<!-- Google review button (free from Where To Spot) -->\n' +
+      '<div style="display:inline-flex;flex-direction:column;align-items:center;gap:6px;font-family:Arial,Helvetica,sans-serif"' + (ar ? ' dir="rtl"' : '') + '>\n' +
+      '  <a href="' + link + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;background:' + color + ';color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:700;font-size:16px;line-height:1.2;box-shadow:0 2px 6px rgba(0,0,0,.15)">' +
+      '<span style="color:#FFD24A;letter-spacing:2px">★★★★★</span><span>' + (ar ? 'قيّمنا على جوجل' : 'Review us on Google') + '</span></a>\n' +
+      '  <a href="https://shop.wheretospot.com/google-review-link.html" target="_blank" style="font-size:11px;color:#8A8478;text-decoration:none">' + (ar ? 'زرار تقييم مجاني من Where To Spot' : 'Free review button by Where To Spot') + '</a>\n' +
+      '</div>';
+  };
+  var renderWebBtn = function (box, link) {
+    var code = wbCode(link, wbState.lang, wbState.color);
+    box.innerHTML = '<h3>' + t('wbTitle') + '</h3><p class="hint" style="margin:0">' + t('wbSub') + '</p>' +
+      '<div class="wbrow"><div><div class="hint">' + t('wbLang') + '</div><div class="seg"><button data-wl="ar">قيّمنا على جوجل</button><button data-wl="en">Review us on Google</button></div></div>' +
+      '<div><div class="hint">' + t('wbColor') + '</div><div class="swatches">' + WB_COLORS.map(function (c) { return '<button data-wc="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join('') + '</div></div></div>' +
+      '<div class="wbprev">' + code + '</div>' +
+      '<textarea readonly aria-label="Button code">' + esc(code) + '</textarea>' +
+      '<div class="row2"><button class="btn sm" data-wcopy>' + t('wbCopy') + '</button></div>' +
+      '<p class="hint" style="margin:0">' + t('wbCredit') + '</p>' +
+      '<details><summary class="hint">' + t('wbHow') + '</summary><ul>' + t('wbSteps').map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></details>';
+    box.querySelectorAll('[data-wl]').forEach(function (x) { x.classList.toggle('on', x.dataset.wl === wbState.lang); x.onclick = function () { wbState.lang = x.dataset.wl; renderWebBtn(box, link); }; });
+    box.querySelectorAll('[data-wc]').forEach(function (x) { x.classList.toggle('on', x.dataset.wc === wbState.color); x.onclick = function () { wbState.color = x.dataset.wc; renderWebBtn(box, link); }; });
+    box.querySelector('[data-wcopy]').onclick = function (e) { navigator.clipboard.writeText(code).then(function () { e.target.textContent = t('wbCopied'); setTimeout(function () { e.target.textContent = t('wbCopy'); }, 1800); }); };
+    box.querySelector('textarea').onfocus = function (e) { e.target.select(); };
+  };
+
   // My QR codes: open one again in the tool, or its page.
   var renderMine = function () {
     var list = (state.me && state.me.businesses) || [];
@@ -436,10 +605,11 @@
     if (!list.length) return;
     $('mine').innerHTML = '<h2>' + t('mine') + '</h2><div class="bizlist">' + list.map(function (b, i) {
       return '<div class="bizcard"><b>' + esc(b.name || '—') + '</b><span class="hint">' + t('qrGoes') + ' ' + t(b.target === 'page' ? 'goPage' : 'goReview') + ' · ' + b.views + ' ' + t('views') + '</span>' +
-        '<div class="row2"><button class="btn sm" data-o="' + i + '">' + t('open') + '</button><button class="btn sm ghost" data-e="' + i + '">' + t('editPage') + '</button><a class="btn sm ghost" href="' + esc(b.pageUrl) + '" target="_blank" rel="noopener">' + t('viewPage') + '</a></div></div>';
+        '<div class="row2"><button class="btn sm" data-o="' + i + '">' + t('open') + '</button><button class="btn sm ghost" data-e="' + i + '">' + t('editPage') + '</button><a class="btn sm ghost" href="' + esc(b.pageUrl) + '" target="_blank" rel="noopener">' + t('viewPage') + '</a><button class="btn sm ghost" data-w="' + i + '">' + t('websiteButton') + '</button></div></div>';
     }).join('') + '</div>';
     $('mine').querySelectorAll('[data-o]').forEach(function (x) { x.onclick = function () { var b = list[+x.dataset.o]; setLang(b.cardLang); make(b.link, b.name, { cid: b.cid, id: b.placeId, maps: b.maps, lat: b.lat, lng: b.lng, name: b.name }, 'review'); }; });
     $('mine').querySelectorAll('[data-e]').forEach(function (x) { x.onclick = function () { editPage(list[+x.dataset.e]); }; });
+    $('mine').querySelectorAll('[data-w]').forEach(function (x) { x.onclick = function () { modal('<div class="webbtn" id="wbModal" style="border:0;padding:0"></div>'); renderWebBtn($('wbModal'), list[+x.dataset.w].link); }; });
   };
 
   // The page editor: language, colour, short line, logo, and links (WhatsApp, Instagram, … and your own).
@@ -671,6 +841,7 @@
     $('placeInfo').innerHTML = (place && place.name ? '<b>' + esc(place.name) + '</b>' : '') + (place && place.address ? '<span class="hint">' + esc(place.address) + '</span>' : '') +
       (place && place.id ? '<code>' + t('placeId') + ': ' + esc(place.id) + '</code>' : '') + '<span class="vpill ' + pill[0] + '">' + esc(pill[1]) + '</span>';
     $('link').textContent = link;
+    renderWebBtn($('webBtn'), link);
     $('test').href = link;
     $('wa').href = 'https://wa.me/?text=' + encodeURIComponent(t('waText') + link);
     $('out').classList.add('on'); msg('');

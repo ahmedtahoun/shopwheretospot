@@ -202,7 +202,9 @@ function seo_sitemap(): string
         foreach (array_slice($images, 0, 5) as $img) $s .= '<image:image><image:loc>' . seo_esc($img) . '</image:loc></image:image>';
         return $s . "</url>\n";
     };
-    foreach (['', 'plans.html', 'google-review-link.html', 'about.html', 'contact.html', 'shipping-policy.html', 'refund-policy.html', 'privacy-policy.html', 'terms.html'] as $f) $x .= $page(seo_base() . '/' . $f);
+    foreach (['', 'plans.html', 'about.html', 'contact.html', 'shipping-policy.html', 'refund-policy.html', 'privacy-policy.html', 'terms.html'] as $f) $x .= $page(seo_base() . '/' . $f);
+    // The review-link tool: one page in English and Arabic (?lang=ar).
+    $x .= $page(seo_base() . '/google-review-link.html', '2026-10-24', [], seo_base() . '/google-review-link.html?lang=ar');
     foreach (seo_products() as $p) $x .= $page($p['url'], (string) $p['updatedAt'], $p['imageUrls'], seo_product_url($p['id'], true));
     foreach (load_brands(true) as $b) $x .= $page(seo_base() . '/?brand=' . rawurlencode($b['slug']));
     return $x . '</urlset>' . "\n";
@@ -240,7 +242,7 @@ function seo_llms(): string
         "All prices are in Egyptian Pounds (EGP). Delivery across Egypt in 2–5 days; cash on delivery, cards and mobile wallets accepted; 14-day returns.\n\n" .
         "- Shop: " . seo_base() . "/\n- Arabic shop: " . seo_base() . "/?lang=ar\n- Contact: info@wheretospot.com · +20 127 766 0666 · WhatsApp +20 127 766 0666\n" .
         "- Delivery: EGP " . number_format($ship) . " across Egypt, free on orders over EGP " . number_format($free) . " (" . seo_base() . "/shipping-policy.html)\n" .
-        "- Returns: 14 days (" . seo_base() . "/refund-policy.html)\n- Free tool: Google review link and QR code generator (" . seo_base() . "/google-review-link.html)\n- Product feed: " . seo_base() . "/api/seo.php?f=feed\n\n";
+        "- Returns: 14 days (" . seo_base() . "/refund-policy.html)\n- Free tool: Google review link and QR code generator (" . seo_base() . "/google-review-link.html, Arabic: ?lang=ar). Paste any Google Maps link to get the business's official review link (g.page/r/…/review), checked with Google. Free: the review link and a review button for websites. QR cards: 2 free with an account, then 5 for EGP 300, 15 for EGP 750, 40 for EGP 1,600; each QR includes a business page (shop.wheretospot.com/r/…) with WhatsApp, Instagram, Facebook, TikTok, menu and location links.\n- Product feed: " . seo_base() . "/api/seo.php?f=feed\n\n";
     $byCat = [];
     foreach (seo_products() as $p) $byCat[$p['catLabel']][] = $p;
     foreach ($byCat as $cat => $list) {
