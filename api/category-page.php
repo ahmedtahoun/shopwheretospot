@@ -24,7 +24,7 @@ if ($catKey !== '') {
         $name = $ar && $b['nameAr'] ? $b['nameAr'] : $b['name'];
         $products = array_values(array_filter(seo_products($ar), function ($p) use ($b) { return $p['brandId'] === (int) $b['id']; }));
         $about = trim((string) ($ar && !empty($b['aboutAr']) ? $b['aboutAr'] : ($b['about'] ?? '')));
-        $page = ['kind' => 'brand', 'name' => $name, 'title' => $name . ' — ' . $L('official partner of Where To Spot', 'شريك رسمي لـ Where To Spot'),
+        $page = ['kind' => 'brand', 'name' => $name, 'title' => $name . ' — ' . $L('official partner', 'شريك رسمي'),
             'intro' => $about !== '' ? $about : (string) ($b['tagline'] ?? ''), 'faq' => [], 'products' => $products, 'logo' => $b['logo'] ?? '',
             'url' => seo_brand_url($b['slug'], $ar), 'en' => seo_brand_url($b['slug']), 'ar' => seo_brand_url($b['slug'], true)];
     }
@@ -82,7 +82,7 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
   .pc:hover{border-color:#A8552F}
   .pc .im{aspect-ratio:1;background:#F6F2EC;display:grid;place-items:center}.pc img{width:100%;height:100%;object-fit:contain}
   .pc .tx{padding:14px;display:flex;flex-direction:column;gap:4px}
-  .pc b{font-size:15.5px;line-height:1.35}.pc .pr{color:#A8552F;font-weight:700}.pc small{color:#6B6660;font-size:13px}
+  .pc h3{font-size:15.5px;line-height:1.35;margin:0;font-family:'Work Sans',sans-serif;font-weight:600}.pc .pr{color:#A8552F;font-weight:700}.pc small{color:#6B6660;font-size:13px}
   .facts{display:flex;gap:10px 22px;flex-wrap:wrap;font-size:14px;color:#3E3A35;margin:12px 0 0;padding:0;list-style:none}
   html[lang=ar] body{line-height:1.85}
 </style>
@@ -99,10 +99,11 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
 <?php if ($page['products']): ?><li>✓ <?= count($page['products']) ?> <?= $L('products', 'منتج') ?> · <?= $L('from', 'من') ?> <?= $ar ? number_format($lowest) . ' ج.م' : 'EGP ' . number_format($lowest) ?></li><?php endif; ?>
 <li>✓ <?= $L('Delivery across Egypt in 2–5 days', 'توصيل لكل مصر خلال 2–5 أيام') ?></li><li>✓ <?= $L('Cash on delivery, card or wallet', 'الدفع عند الاستلام أو بالبطاقة أو المحفظة') ?></li><li>✓ <?= $L('14-day returns', 'استرجاع خلال 14 يوم') ?></li>
 </ul>
+<h2><?= $L('Products', 'المنتجات') ?></h2>
 <div class="grid">
 <?php foreach ($page['products'] as $p): ?>
 <a class="pc" href="<?= $e($p['url']) ?>"><span class="im"><?php if ($img($p)): ?><img src="<?= $e($img($p)) ?>" alt="<?= $e($p['title']) ?>" loading="lazy" width="300" height="300"><?php endif; ?></span>
-<span class="tx"><b><?= $e($p['title']) ?></b><span class="pr"><?= $e($price($p)) ?></span><?php if ($p['summary']): ?><small><?= $e($p['summary']) ?></small><?php endif; ?><?php if (!$p['inStock']): ?><small><?= $L('Out of stock', 'غير متوفر حاليًا') ?></small><?php endif; ?></span></a>
+<span class="tx"><h3><?= $e($p['title']) ?></h3><span class="pr"><?= $e($price($p)) ?></span><?php if ($p['summary']): ?><small><?= $e($p['summary']) ?></small><?php endif; ?><?php if (!$p['inStock']): ?><small><?= $L('Out of stock', 'غير متوفر حاليًا') ?></small><?php endif; ?></span></a>
 <?php endforeach; ?>
 </div>
 <?php if ($page['faq']): ?>

@@ -220,7 +220,7 @@
     'incl. delivery': 'شامل التوصيل', 'Order': 'طلب', 'reviews)': 'تقييم)', 'review)': 'تقييم)', 'Reviews': 'التقييمات',
 
     // page titles
-    'Where To Spot — Shop & Marketing Services (EGP)': 'Where To Spot — متجر وخدمات تسويق (ج.م)', 'Where To Spot — Shop': 'Where To Spot — المتجر',
+    'Where To Spot — Shop & Marketing Services (EGP)': 'Where To Spot — متجر وخدمات تسويق (ج.م)', 'Google Review NFC Cards, Stands & More in Egypt | Where To Spot': 'كروت وستاندات NFC لتقييمات جوجل والمزيد في مصر | Where To Spot', 'Where To Spot — Shop': 'Where To Spot — المتجر',
     'Privacy': 'الخصوصية', 'Refund & cancellation policy': 'سياسة الاسترجاع والإلغاء', 'Delivery & shipping policy': 'سياسة التوصيل والشحن',
     'Privacy policy — Where To Spot': 'سياسة الخصوصية — Where To Spot',
   };
