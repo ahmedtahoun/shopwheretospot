@@ -463,10 +463,10 @@ function wa_product_brief(array $p, bool $ar): array
     $sizes = [];
     foreach ($p['variants'] as $v) {
         $price = (float) ($v['price'] ?: $p['price']);
-        if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100), 2);
+        if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100)); // whole pounds, like checkout (api/pricing.php)
         $sizes[] = ['label' => $v['label'], 'price' => $price, 'stock' => (int) $v['stock']];
     }
-    $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : (float) $p['price'];
+    $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100)) : (float) $p['price'];
     return ['title' => $ar && $p['nameAr'] ? $p['nameAr'] : $p['name'], 'summary' => $ar && $p['subAr'] ? $p['subAr'] : (string) $p['sub'],
         'cat' => $p['cat'], 'sizes' => $sizes, 'low' => $sizes ? min(array_column($sizes, 'price')) : $sale,
         'inStock' => $p['cat'] === 'services' || ($sizes ? array_sum(array_column($sizes, 'stock')) > 0 : $p['stock'] > 0)];

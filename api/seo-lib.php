@@ -35,10 +35,10 @@ function seo_item(array $p, bool $ar, array $cats, array $brands): array
     $sizes = [];
     foreach ($p['variants'] as $v) {
         $price = (float) ($v['price'] ?: $p['price']);
-        if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100), 2);
+        if ($p['discountPct']) $price = round($price * (1 - $p['discountPct'] / 100)); // whole pounds, like checkout (api/pricing.php)
         $sizes[] = ['label' => $v['label'], 'price' => $price, 'stock' => (int) $v['stock'], 'sku' => $v['sku'] ?? ''];
     }
-    $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : (float) $p['price'];
+    $sale = $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100)) : (float) $p['price'];
     $item = $p + [
         'title' => $ar && $p['nameAr'] ? $p['nameAr'] : $p['name'],
         'summary' => $ar && $p['subAr'] ? $p['subAr'] : (string) $p['sub'],
@@ -228,7 +228,8 @@ function seo_feed(): string
                 '<g:availability>' . (($p['cat'] === 'services' || (count($p['sizes']) > 1 ? $s['stock'] : $p['stock']) > 0) ? 'in_stock' : 'out_of_stock') . '</g:availability>' .
                 '<g:price>' . number_format($s['price'], 2, '.', '') . ' EGP</g:price><g:condition>new</g:condition><g:brand>' . seo_esc($p['brand']) . '</g:brand>' .
                 '<g:identifier_exists>no</g:identifier_exists><g:product_type>' . seo_esc($p['catLabel']) . '</g:product_type>' .
-                '<g:shipping><g:country>EG</g:country><g:price>' . number_format((float) cfg('shipping_fee'), 2, '.', '') . ' EGP</g:price></g:shipping></item>' . "\n";
+                // Same as checkout: free delivery from the free-shipping amount, otherwise the delivery fee.
+                '<g:shipping><g:country>EG</g:country><g:price>' . number_format($s['price'] >= (float) cfg('free_shipping_threshold') ? 0 : (float) cfg('shipping_fee'), 2, '.', '') . ' EGP</g:price></g:shipping></item>' . "\n";
         }
     }
     return $x . '</channel></rss>' . "\n";
