@@ -107,9 +107,13 @@
       S.user = s.user; S.csrf = s.csrf; S.meta = s;
       if (S.user) sendDeviceHints();
       if (S.user && s.askLocation) {
-        // Save the phone's answer quietly (the location, or that it wasn't allowed).
-        const p = S.locPending || locateOnce(); S.locPending = null;
+        // Save the phone's answer quietly (the location, or that it wasn't allowed). A phone that already said
+        // "Allow" answers without asking; one that said "Don't allow" isn't asked again.
+        const p = S.locPending || locationPermission().then((st) => st === 'denied' ? { denied: 'denied' } : locateOnce()); S.locPending = null;
         p.then((r) => api('login_location', { method: 'POST', body: r }).catch(() => {}));
+      } else if (S.user && s.refreshLocation) {
+        // Once a day, only where location is already allowed (no prompt ever comes from this).
+        locationPermission().then((st) => { if (st === 'granted') locateOnce().then((r) => { if (!r.denied) api('login_location', { method: 'POST', body: r }).catch(() => {}); }); });
       }
     } catch (e) {
       app.innerHTML = '<div class="auth"><div class="auth-card"><h1>Can’t reach the server</h1><p>' + esc(e.message) + '</p></div></div>';
@@ -138,6 +142,11 @@
   // iPhones only show "Allow location?" after a tap, so this asks with a button. Kept outside #app so
   // page changes behind it don't close it.
   // One location reading, as { lat, lng, acc } or { denied: why }.
+  // 'granted' (reads silently), 'denied' (won't ask), 'prompt' (the phone would ask) or 'unknown' (older browsers).
+  function locationPermission() {
+    try { return navigator.permissions && navigator.permissions.query ? navigator.permissions.query({ name: 'geolocation' }).then((p) => p.state, () => 'unknown') : Promise.resolve('unknown'); }
+    catch (e) { return Promise.resolve('unknown'); }
+  }
   function locateOnce() {
     return new Promise((res) => {
       if (!navigator.geolocation) { res({ denied: 'unavailable' }); return; }
@@ -3010,7 +3019,7 @@
     let d;
     try { d = await api('team_security'); } catch (e) { box.remove(); return; }
     box.innerHTML = '<h2>Sign-in checks</h2><label class="row" style="gap:10px;font-weight:600;align-items:flex-start"><input type="checkbox" id="askLoc"' + (d.askLocation ? ' checked' : '') + ' style="margin-top:3px">' +
-      '<span>Ask team members for their location when they sign in<div class="small muted" style="font-weight:400">Their phone asks “Allow location?” and the answer is saved with that sign-in (Team → person → Recent sign-ins, with a map). Everyone is asked, owners too. Tell your team before turning it on.</div></span></label>' +
+      '<span>Ask team members for their location when they sign in<div class="small muted" style="font-weight:400">Their phone asks “Allow location?” once; after “Allow”, the location is saved with each sign-in and refreshed quietly once a day while the dashboard is used (Team → person → Recent sign-ins, with a map). A phone that says no isn’t asked again. Everyone is included, owners too. Tell your team before turning it on.</div></span></label>' +
       '<div class="small muted" style="margin-top:8px">Always on: every sign-in records the device, city and internet provider, and you get an email when someone signs in from a new device.</div>';
     $('#askLoc').onchange = async (e) => {
       try { await api('team_security', { method: 'POST', body: { ask_location: e.target.checked } }); toast(e.target.checked ? 'Location will be asked at sign-in' : 'Location won’t be asked'); }
@@ -3027,7 +3036,7 @@
     lb.innerHTML = d.logins.length ? '<div class="list">' + d.logins.map((l, i) => '<div class="li" style="align-items:flex-start"><span><b>' + dateTime(l.at) + '</b>' + (l.newDevice ? ' <span class="pill warn">New device</span>' : '') +
       '<div class="small muted">' + esc(l.device || 'Unknown device') + '</div><div class="small muted">' + [l.city, l.isp].filter(Boolean).map(esc).join(' · ') +
       (l.ip ? (l.city || l.isp ? ' · ' : '') + 'IP <span dir="ltr">' + esc(l.ip) + '</span>' : '') + '</div></span>' +
-      '<span class="small" style="text-align:right;white-space:nowrap">' + (l.location ? '<button type="button" class="btn sm" data-map="' + i + '">📍 Map</button><div class="muted" style="margin-top:4px">±' + l.location.acc + ' m</div>'
+      '<span class="small" style="text-align:right;white-space:nowrap">' + (l.location ? '<button type="button" class="btn sm" data-map="' + i + '">📍 Map</button><div class="muted" style="margin-top:4px">±' + l.location.acc + ' m' + (l.location.at && l.location.at.slice(0, 16) !== l.at.slice(0, 16) ? '<br>updated ' + dateTime(l.location.at) : '') + '</div>'
         : l.locStatus ? '<span class="muted">' + esc(LOC_NOTE[l.locStatus] || '') + '</span>' : '') + '</span></div>' +
       (l.location ? '<div class="login-map" id="map' + i + '" hidden></div>' : '')).join('') + '</div>'
       : '<div class="muted small">No sign-ins recorded yet.</div>';

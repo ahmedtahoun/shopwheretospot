@@ -21,7 +21,7 @@ function devices_migrate(PDO $pdo): void
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_logins_user ON user_logins(user_id, at)');
     // The phone's GPS location at sign-in, when the owner turned it on and the person allowed it.
     $cols = $pdo->query('PRAGMA table_info(user_logins)')->fetchAll(PDO::FETCH_COLUMN, 1);
-    foreach (['lat' => 'REAL', 'lng' => 'REAL', 'acc' => 'REAL', 'loc_status' => 'TEXT'] as $c => $t) {
+    foreach (['lat' => 'REAL', 'lng' => 'REAL', 'acc' => 'REAL', 'loc_status' => 'TEXT', 'loc_at' => 'TEXT'] as $c => $t) {
         if (!in_array($c, $cols, true)) $pdo->exec("ALTER TABLE user_logins ADD COLUMN $c $t");
     }
     // City and provider per IP address, kept for 30 days (one lookup per address).
@@ -275,6 +275,16 @@ function login_location_needed(array $u): bool
     return $st->fetchColumn() === null;
 }
 
+// A sign-in lasts 30 days, so a phone that allowed location also refreshes it quietly once a day.
+function login_location_refresh_due(array $u): bool
+{
+    if (!team_setting('ask_location', false)) return false;
+    $st = db()->prepare("SELECT loc_status, loc_at FROM user_logins WHERE id = ? AND user_id = ?");
+    $st->execute([(int) ($_SESSION['login_id'] ?? 0), (int) $u['id']]);
+    $r = $st->fetch();
+    return $r && $r['loc_status'] !== null && (!$r['loc_at'] || strtotime($r['loc_at'] . ' UTC') < time() - 86400);
+}
+
 // Save the answer for this sign-in: the position, or why there isn't one (not allowed, unavailable).
 function login_location(int $uid, array $b): void
 {
@@ -287,7 +297,7 @@ function login_location(int $uid, array $b): void
     }
     $lat = max(-90, min(90, (float) $b['lat']));
     $lng = max(-180, min(180, (float) $b['lng']));
-    db()->prepare("UPDATE user_logins SET lat = ?, lng = ?, acc = ?, loc_status = 'ok' WHERE id = ? AND user_id = ?")
+    db()->prepare("UPDATE user_logins SET lat = ?, lng = ?, acc = ?, loc_status = 'ok', loc_at = datetime('now') WHERE id = ? AND user_id = ?")
         ->execute([round($lat, 6), round($lng, 6), round(max(0, (float) ($b['acc'] ?? 0))), $id, $uid]);
 }
 
@@ -315,7 +325,7 @@ function login_list(int $uid, int $limit = 20): array
     $st->execute([$uid]);
     return array_map(function ($l) {
         return ['at' => $l['at'], 'device' => $l['label'], 'ip' => $l['ip'], 'city' => $l['city'], 'isp' => $l['isp'], 'newDevice' => (bool) $l['new_device'],
-            'location' => ($l['loc_status'] ?? '') === 'ok' ? ['lat' => (float) $l['lat'], 'lng' => (float) $l['lng'], 'acc' => (int) $l['acc']] : null, 'locStatus' => $l['loc_status'] ?? null];
+            'location' => ($l['loc_status'] ?? '') === 'ok' ? ['lat' => (float) $l['lat'], 'lng' => (float) $l['lng'], 'acc' => (int) $l['acc'], 'at' => $l['loc_at'] ?? null] : null, 'locStatus' => $l['loc_status'] ?? null];
     }, $st->fetchAll());
 }
 

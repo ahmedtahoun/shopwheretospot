@@ -847,13 +847,32 @@ function client_ip(): string
 
 // ---------- sessions & auth ----------
 
+// Team sign-ins last 30 days, renewed while the dashboard is used (current_user). They're kept in our own
+// folder: in the host's shared folder its clean-up ended them after about 24 idle minutes, so people signed
+// in again (and were asked for their location again) every time. Lax, so links from Telegram or WhatsApp
+// into the dashboard keep the sign-in (changes still need the CSRF token). Devices can be signed out remotely.
+const TEAM_SESSION_DAYS = 30;
+
 function start_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) return;
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $dir = cfg('data_dir') . '/sessions';
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    if (is_dir($dir) && is_writable($dir)) session_save_path($dir);
+    ini_set('session.gc_maxlifetime', (string) (TEAM_SESSION_DAYS * 86400));
     session_name('wts_admin');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Strict']);
+    session_set_cookie_params(['lifetime' => TEAM_SESSION_DAYS * 86400, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
     session_start();
+}
+
+// Push the sign-in's expiry 30 days ahead again, at most once a day.
+function renew_session_cookie(): void
+{
+    if (time() - (int) ($_SESSION['renewed'] ?? 0) < 86400) return;
+    $_SESSION['renewed'] = time();
+    $p = session_get_cookie_params();
+    setcookie(session_name(), session_id(), ['expires' => time() + TEAM_SESSION_DAYS * 86400, 'path' => $p['path'], 'secure' => $p['secure'], 'httponly' => true, 'samesite' => 'Lax']);
 }
 
 function current_user(): ?array
@@ -869,6 +888,7 @@ function current_user(): ?array
     // The owner signed this device out (Team → person → Devices): end the session here.
     if (!device_check((int) $u['id'])) { $_SESSION = []; session_destroy(); return null; }
     device_ping((int) $u['id']); // working hours (Team → Working hours)
+    renew_session_cookie();
     $u['perms'] = ROLES[$u['role']] ?? [];
     return $cache[$u['id']] = $u;
 }

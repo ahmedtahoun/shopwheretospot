@@ -31,7 +31,7 @@ try {
         $u = current_user();
         if ($u && empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
         $keyPath = basename(dirname(cfg('data_dir'))) . '/' . basename(cfg('data_dir')) . '/SETUP_KEY.txt';
-        json_out(['user' => $u, 'csrf' => $u ? $_SESSION['csrf'] : null, 'needsSetup' => $needsSetup, 'askLocation' => $u ? login_location_needed($u) : false, 'locationAtSignIn' => (bool) team_setting('ask_location', false), 'setupKeyPath' => $needsSetup ? $keyPath : null,
+        json_out(['user' => $u, 'csrf' => $u ? $_SESSION['csrf'] : null, 'needsSetup' => $needsSetup, 'askLocation' => $u ? login_location_needed($u) : false, 'refreshLocation' => $u ? login_location_refresh_due($u) : false, 'locationAtSignIn' => (bool) team_setting('ask_location', false), 'setupKeyPath' => $needsSetup ? $keyPath : null,
             'roles' => array_keys(ROLES), 'orderStatuses' => ORDER_STATUSES, 'leadStatuses' => LEAD_STATUSES]);
 
     case 'setup':
