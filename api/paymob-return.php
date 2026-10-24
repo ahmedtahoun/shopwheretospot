@@ -21,6 +21,15 @@ if ($valid && $success && $orderId) {
 }
 
 $number = $orderId ? order_number($orderId) : '';
+// A QR pack bought on the review-link tool: back to the tool, which shows the new balance.
+if ($orderId) {
+    $src = db()->prepare('SELECT source FROM orders WHERE id = ?');
+    $src->execute([$orderId]);
+    if ($src->fetchColumn() === 'QR tool') {
+        header('Location: ' . $site . '/google-review-link.html?paid=' . (!$valid ? 'check' : ($success ? 'ok' : 'failed')) . '#pricing', true, 302);
+        exit;
+    }
+}
 if (!$valid) $target = $site . '/index.html?pay=check' . ($number ? '&order=' . rawurlencode($number) : '');
 elseif ($success) $target = $site . '/index.html?pay=ok&order=' . rawurlencode($number);
 else $target = $site . '/index.html?pay=failed&order=' . rawurlencode($number) . '&reason=' . rawurlencode(mb_substr((string) ($q['data_message'] ?? ($q['data.message'] ?? '')), 0, 80));

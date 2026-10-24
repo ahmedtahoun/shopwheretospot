@@ -1,0 +1,5 @@
+# Business pages made with the review-link tool: /r/<slug> → api/qr-page.php
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^([a-z0-9-]+)/?$ /api/qr-page.php?slug=$1 [L,QSA]
+</IfModule>

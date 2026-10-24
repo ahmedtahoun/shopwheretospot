@@ -193,6 +193,10 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
     $st = $pdo->prepare('SELECT total FROM orders WHERE id = ?');
     $st->execute([$orderId]);
     $full = order_paid($orderId) >= (float) $st->fetchColumn() - 0.5;
-    if ($full) confirm_online_order($orderId, 'New order · paid online', 'Confirmed');
+    if ($full) {
+        confirm_online_order($orderId, 'New order · paid online', 'Confirmed');
+        // A QR pack from the review-link tool: add the codes to the customer's account (api/qrtool.php).
+        try { qr_order_paid($orderId); } catch (Throwable $e) { error_log('[shop] QR pack credit failed: ' . $e->getMessage()); }
+    }
     return $full;
 }

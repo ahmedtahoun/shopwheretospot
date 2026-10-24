@@ -2,7 +2,7 @@
 // Order creation shared by the shop checkout (public.php) and team-entered orders (admin.php).
 // Prices and stock always come from the database, never from the browser.
 
-const ORDER_SOURCES = ['Website', 'Phone', 'WhatsApp', 'Instagram', 'Facebook', 'TikTok', 'Walk-in', 'Referral', 'Other'];
+const ORDER_SOURCES = ['Website', 'Phone', 'WhatsApp', 'Instagram', 'Facebook', 'TikTok', 'Walk-in', 'Referral', 'QR tool', 'Other'];
 const PAYMENT_METHODS = ['cod' => 'Cash on delivery', 'bank' => 'Paid — bank transfer', 'wallet' => 'Paid — InstaPay / wallet', 'cash' => 'Paid — cash in hand',
     'paymob_card' => 'Online — card (Paymob)', 'paymob_wallet' => 'Online — mobile wallet (Paymob)'];
 

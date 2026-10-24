@@ -32,7 +32,7 @@
   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EGP"}, "provider": {"@type": "Organization", "name": "Where To Spot", "url": "https://shop.wheretospot.com/"}}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
   {"@type": "Question", "name": "What is a Google review link?", "acceptedAnswer": {"@type": "Answer", "text": "A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps."}},
-  {"@type": "Question", "name": "Is this tool free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The review link, the QR code and the printable card are free, with no sign-up."}},
+  {"@type": "Question", "name": "Is this tool free?", "acceptedAnswer": {"@type": "Answer", "text": "The review link is free for everyone. With a free account your first 2 QR cards are free; after that, packs start at EGP 300 for 5 QR codes, each with its own business page."}},
   {"@type": "Question", "name": "Where do I find my review link without the search?", "acceptedAnswer": {"@type": "Answer", "text": "Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose Ask for reviews (or Get more reviews), and copy the link. Paste it here to make the QR code."}},
   {"@type": "Question", "name": "Can I just paste my Google Maps link?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open your business on Google Maps, tap Share, copy the link and paste it into the tool. It finds that exact place, makes its official review link and checks with Google that it opens that place’s review box."}},
   {"@type": "Question", "name": "Does the QR code expire?", "acceptedAnswer": {"@type": "Answer", "text": "No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists."}},
@@ -91,6 +91,50 @@
   .maprow .hint{flex:1;min-width:200px}
   html[lang=ar] .tool,html[lang=ar] .made{direction:rtl}
   #printArea{display:none}
+  .acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F7F3ED;border-radius:12px;padding:10px 14px;font-size:14px}
+  .acct b{font-weight:600}
+  .acct .sp{flex:1}
+  .credit{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #E7E1D8;border-radius:999px;padding:4px 12px;font-weight:600;font-size:13.5px}
+  .own{display:flex;flex-direction:column;gap:10px;background:#F7F3ED;border-radius:14px;padding:14px}
+  .own:empty{display:none}
+  .own .lock{font-weight:600}
+  .own .pagelink{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
+  .own .pagelink code{direction:ltr;overflow-wrap:anywhere}
+  #dlRow.locked .btn{opacity:.45}
+  .mine,.pricing{margin:30px 0}
+  .mine h2,.pricing h2{margin-top:0}
+  .bizlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .bizcard{background:#fff;border:1px solid #DDD6CC;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .bizcard b{font-size:16px}
+  .bizcard .row2{gap:6px}
+  .plans4{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:14px}
+  .pk{background:#fff;border:1.5px solid #DDD6CC;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:8px;position:relative}
+  .pk.pop{border:2px solid #A8552F}
+  .pk .badge{position:absolute;top:-11px;inset-inline-start:18px;background:#A8552F;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .pk h3{margin:0;font-size:17px}
+  .pk .price{font-family:'Instrument Serif',serif;font-size:38px;line-height:1}
+  .pk .price small{font-family:'Work Sans',sans-serif;font-size:13px;color:#6B6660}
+  .pk ul{margin:0;padding:0;list-style:none;font-size:14px;color:#3E3A35;display:flex;flex-direction:column;gap:4px}
+  .pk .btn{margin-top:auto;text-align:center}
+  .modal{position:fixed;inset:0;background:rgba(20,18,16,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal[hidden]{display:none}
+  .sheet{background:#fff;border-radius:20px;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:24px;position:relative}
+  .sheet h3{margin:0 0 10px;font-size:19px}
+  .sheet .x{position:absolute;top:12px;inset-inline-end:12px;border:0;background:#F7F3ED;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:15px}
+  .sheet label{font-weight:600;font-size:14px;display:block;margin:12px 0 6px}
+  .sheet input[type=text],.sheet input[type=email]{width:100%;font:inherit;font-size:16px;padding:11px 14px;border:1.5px solid #DDD6CC;border-radius:12px;background:#FBF9F6}
+  .sheet .stack{display:flex;flex-direction:column;gap:12px}
+  .swatches{display:flex;gap:8px}
+  .swatches button{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px #DDD6CC;cursor:pointer}
+  .swatches button.on{box-shadow:0 0 0 2.5px #22201D}
+  .lrow{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
+  .lrow span{font-size:13.5px;font-weight:600}
+  .crow{display:grid;grid-template-columns:1fr 1.6fr;gap:8px}
+  .logoprev{display:flex;align-items:center;gap:12px}
+  .logoprev img{width:56px;height:56px;border-radius:50%;object-fit:contain;background:#F7F3ED}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#22201D;color:#fff;padding:12px 18px;border-radius:12px;z-index:60;font-size:14.5px;max-width:90vw}
+  .toast.bad{background:#8E2B2B}
+  html[lang=ar] .mine,html[lang=ar] .pricing,html[lang=ar] .sheet{direction:rtl}
   @media (max-width:640px){.made{grid-template-columns:1fr}.made canvas{max-width:280px;margin:0 auto}.tool{padding:18px}}
   @media print{body > *:not(#printArea){display:none !important}#printArea{display:block}#printArea img{width:100%;max-width:105mm;display:block;margin:0 auto}}
 </style>
@@ -100,11 +144,12 @@
 <nav><div class="in"><a class="brand" href="index.html"><img src="images/logo-mark.png" alt="Where To Spot logo" width="40" height="40">Where To Spot</a><div class="links"><a href="index.html">Shop</a><a href="plans.html">Marketing plans</a><a href="google-review-link.html" aria-current="page">Free review link</a><a href="about.html">About us</a><a href="contact.html">Contact us</a></div></div></nav>
 
 <main data-no-i18n>
-<div class="kicker"><span class="en-only">Free tool · No sign-up</span><span class="ar-only">أداة مجانية · بدون تسجيل</span></div>
+<div class="kicker"><span class="en-only">Free review link · 2 free QR codes</span><span class="ar-only">رابط تقييم مجاني · أول 2 كود QR مجانًا</span></div>
 <h1><span class="en-only">Google review link & QR code generator</span><span class="ar-only">رابط تقييم جوجل وكود QR لنشاطك مجانًا</span></h1>
 <p class="muted"><span class="en-only">Get the direct link that opens your Google review box, plus a QR code and a ready-to-print card for your counter. Customers land straight on the stars.</span><span class="ar-only">احصل على الرابط اللي بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، ومعاه كود QR وكارت جاهز للطباعة تحطه على الكاونتر. العميل بيوصل للنجوم على طول.</span></p>
 
 <section class="tool" id="tool" aria-label="Review link generator">
+  <div class="acct" id="acct"></div>
   <div id="searchPart" hidden>
     <label for="q" data-t="searchLabel"></label>
     <div class="row2"><input type="text" id="q" autocomplete="off"><button class="btn" id="go" data-t="search"></button></div>
@@ -133,7 +178,8 @@
       <div class="opts">
         <div><label for="biz" data-t="nameOnCard"></label><input type="text" id="biz" maxlength="40"></div>
         <div><label data-t="cardLang"></label><div class="seg" id="cardLang"><button data-l="ar">عربي</button><button data-l="en">English</button><button data-l="both" data-t="both"></button></div></div>
-        <div class="row2"><button class="btn" id="dlCard" data-t="dlCard"></button><button class="btn ghost" id="dlQr" data-t="dlQr"></button><button class="btn ghost" id="print" data-t="print"></button></div>
+        <div class="own" id="own"></div>
+        <div class="row2" id="dlRow"><button class="btn" id="dlCard" data-t="dlCard"></button><button class="btn ghost" id="dlQr" data-t="dlQr"></button><button class="btn ghost" id="print" data-t="print"></button></div>
         <p class="hint" data-t="printHint"></p>
       </div>
     </div>
@@ -143,6 +189,13 @@
     </div>
   </div>
 </section>
+
+<section class="mine" id="mine" hidden></section>
+
+<section id="pricing" class="pricing"></section>
+
+<div class="modal" id="modal" hidden><div class="sheet" role="dialog" aria-modal="true"><button class="x" id="modalX" aria-label="Close">✕</button><div id="sheet"></div></div></div>
+<div class="toast" id="toast" hidden></div>
 
 <div class="en-only">
 <h2>How it works</h2>
@@ -161,7 +214,8 @@
 </ul>
 <h2>Questions</h2>
 <details><summary>What is a Google review link?</summary><p>A link that opens the review box of your business on Google directly, so customers can leave stars and a comment in one tap instead of searching for you on Maps.</p></details>
-<details><summary>Is this tool free?</summary><p>Yes. The review link, the QR code and the printable card are free, with no sign-up.</p></details>
+<details><summary>Is this tool free?</summary><p>The review link is free for everyone, with no sign-up. To download and print QR cards, create a free account: your first 2 QR codes are free. After that, packs start at EGP 300 for 5 QR codes. Each QR is for one business and comes with its own page; you can download it again as often as you like.</p></details>
+<details><summary>What is the business page?</summary><p>Every QR comes with a page at shop.wheretospot.com/r/your-business: a big “Review us on Google” button plus your WhatsApp, Instagram, Facebook, TikTok, menu, location and any links you add, in your colour and with your logo. Choose whether your QR opens the review box directly or this page, and change it any time.</p></details>
 <details><summary>Where do I find my review link without the search?</summary><p>Open Google Maps or Google Search signed in as the business owner, open your Business Profile, choose <b>Ask for reviews</b> (or <b>Get more reviews</b>), and copy the link. Paste it above to make the QR code.</p></details>
 <details><summary>Can I just paste my Google Maps link?</summary><p>Yes. Open your business on Google Maps, tap <b>Share</b>, copy the link (maps.app.goo.gl/…) and paste it above. We find that exact place, make its official review link, and check with Google that it opens that place’s review box. You get the QR code and card straight away.</p></details>
 <details><summary>Does the QR code expire?</summary><p>No. The QR code holds your review link itself, so it keeps working as long as your Google Business Profile exists.</p></details>
@@ -185,7 +239,8 @@
 </ul>
 <h2>أسئلة شائعة</h2>
 <details><summary>يعني إيه رابط تقييم جوجل؟</summary><p>رابط بيفتح خانة التقييم بتاعة نشاطك على جوجل مباشرة، فالعميل يدي النجوم ويكتب تعليقه بلمسة واحدة بدل ما يدور عليك في الخرائط.</p></details>
-<details><summary>الأداة مجانية؟</summary><p>أيوه. الرابط والكود والكارت الجاهز للطباعة مجانًا، ومن غير تسجيل.</p></details>
+<details><summary>الأداة مجانية؟</summary><p>رابط التقييم مجاني للجميع ومن غير تسجيل. عشان تحمّل وتطبع كروت الـ QR، اعمل حساب مجاني: أول 2 كود مجانًا، وبعدها الباقات بتبدأ من 300 ج.م لـ 5 أكواد. كل كود لنشاط واحد ومعاه صفحة خاصة بيه، وتقدر تحمّله تاني براحتك.</p></details>
+<details><summary>يعني إيه صفحة النشاط؟</summary><p>كل كود معاه صفحة على shop.wheretospot.com/r/اسم-نشاطك: زرار كبير “قيّمنا على جوجل” ومعاه واتساب وإنستجرام وفيسبوك وتيك توك والمنيو والموقع وأي روابط تضيفها، بلونك واللوجو بتاعك. وتختار الكود يفتح خانة التقييم على طول أو الصفحة دي، وتغيّر ده في أي وقت.</p></details>
 <details><summary>ألاقي رابط التقييم فين من غير البحث؟</summary><p>افتح خرائط جوجل أو بحث جوجل وأنت داخل بحساب صاحب النشاط، افتح صفحة نشاطك، واختار <b>اطلب تقييمات</b> (أو <b>الحصول على المزيد من التقييمات</b>)، وانسخ الرابط. الصقه فوق عشان نعمل الكود.</p></details>
 <details><summary>ينفع ألصق رابط الخرائط بس؟</summary><p>أيوه. افتح نشاطك على خرائط جوجل، اضغط <b>مشاركة</b>، انسخ الرابط (maps.app.goo.gl/…) والصقه فوق. هنلاقي المكان ده بالظبط، ونعمل رابط التقييم الرسمي بتاعه، ونتأكد من جوجل إنه بيفتح خانة التقييم للمكان ده. وتاخد الكود والكارت على طول.</p></details>
 <details><summary>الكود QR بينتهي؟</summary><p>لأ. الكود فيه رابط التقييم نفسه، فهيفضل شغال طول ما صفحة نشاطك على جوجل موجودة.</p></details>
@@ -243,6 +298,44 @@
     mapsLinkNoSearch: ['That’s a link to your Maps page, not the review link. Follow “Where do I find my review link?” below to copy the review link.', 'ده رابط صفحتك على الخرائط، مش رابط التقييم. اتبع خطوات “ألاقي رابط التقييم فين؟” عشان تنسخ رابط التقييم.'],
     bad: ['We couldn’t read that. Paste a Google Maps link to your business, your review link (g.page/r/…/review) or the Place ID (starts with ChIJ).', 'مش قادرين نقرا ده. الصق رابط نشاطك من خرائط جوجل، أو رابط التقييم (g.page/r/…/review)، أو الـ Place ID (بيبدأ بـ ChIJ).'],
     waText: ['We’d love your feedback! Leave us a quick Google review here: ', 'رأيك يهمنا! قيّمنا على جوجل في ثانية من هنا: '],
+    signIn: ['Sign in', 'تسجيل الدخول'], signOut: ['Sign out', 'خروج'], buyMore: ['Buy QR codes', 'اشتري أكواد'],
+    acctOut: ['Sign in to download your QR card. Your first 2 QR codes are free.', 'سجّل دخول عشان تحمّل الكارت. أول 2 كود QR مجانًا.'],
+    left: ['QR left', 'كود متبقي'],
+    lockOut: ['🔒 Sign in to download and print this QR. Your first 2 are free.', '🔒 سجّل دخول عشان تحمّل وتطبع الكود. أول 2 مجانًا.'],
+    lockUse: ['🔒 Unlock this QR to download and print it. It uses 1 of your {n} QR codes; downloading it again later is free.', '🔒 افتح الكود ده عشان تحمّله وتطبعه. هيستخدم 1 من الـ {n} كود بتوعك، وتحميله تاني بعد كده مجاني.'],
+    unlock: ['Unlock this QR', 'افتح الكود'],
+    lockNone: ['You’ve used all your QR codes. Get a pack to make more.', 'خلّصت الأكواد بتاعتك. اشتري باقة عشان تعمل أكتر.'],
+    seePacks: ['See packs', 'شوف الباقات'],
+    yours: ['✓ This QR is yours: download and print it any time.', '✓ الكود ده بتاعك: حمّله واطبعه في أي وقت.'],
+    qrGoes: ['When scanned, the QR opens:', 'لما حد يمسح الكود، بيفتح:'],
+    goReview: ['Google review box', 'خانة تقييم جوجل'], goPage: ['Your page', 'صفحتك'],
+    goReviewHint: ['Fastest way to get reviews.', 'أسرع طريقة للتقييمات.'],
+    goPageHint: ['Review button plus your WhatsApp, Instagram, Facebook and more.', 'زرار التقييم ومعاه واتساب وإنستجرام وفيسبوك وأكتر.'],
+    yourPage: ['Your page:', 'صفحتك:'], editPage: ['Edit your page', 'عدّل صفحتك'], open: ['Open', 'افتح'],
+    preview: ['PREVIEW · معاينة', 'PREVIEW · معاينة'],
+    emailLabel: ['Your email', 'بريدك الإلكتروني'], sendCode: ['Send me a code', 'ابعتلي كود'],
+    codeSent: ['We emailed a 6-digit code to {e}. Check your inbox (and spam).', 'بعتنا كود من 6 أرقام على {e}. شوف البريد (والسبام).'],
+    codeLabel: ['Code', 'الكود'], verify: ['Sign in', 'دخول'], signTitle: ['Sign in', 'تسجيل الدخول'],
+    signWhy: ['No password. We email you a code. Your QR codes and pages stay in your account.', 'من غير باسورد: هنبعتلك كود على الإيميل. أكوادك وصفحاتك بتتحفظ في حسابك.'],
+    mine: ['My QR codes', 'أكوادي'], views: ['page views', 'زيارة للصفحة'],
+    pricingTitle: ['QR code packs', 'باقات أكواد QR'],
+    pricingSub: ['One QR = one business. Download and print it as often as you like. Every QR comes with its own page.', 'كل كود = نشاط واحد. حمّله واطبعه براحتك. وكل كود معاه صفحة خاصة بيه.'],
+    freeName: ['Free', 'مجاني'], freePrice: ['EGP 0', '0 ج.م'], freeWith: ['with a free account', 'بحساب مجاني'],
+    qrCodes: ['QR codes', 'كود QR'], perQr: ['EGP {p} per QR', '{p} ج.م للكود'],
+    f1: ['Printable card & QR download', 'كارت جاهز للطباعة وتحميل الكود'], f2: ['Your own page with links', 'صفحة خاصة بيك فيها روابطك'], f3: ['Our face in your QR', 'وشّنا جوه الكود'],
+    buy: ['Buy', 'اشتري'], popular: ['Most popular', 'الأكثر طلبًا'], getFree: ['Get 2 free', 'خد 2 مجانًا'], youHave: ['You have {n}', 'معاك {n}'],
+    payHow: ['How would you like to pay?', 'تحب تدفع إزاي؟'], payCard: ['💳 Card (Visa, Mastercard, Meeza)', '💳 بطاقة (فيزا، ماستركارد، ميزة)'], payWallet: ['📱 Mobile wallet', '📱 محفظة إلكترونية'],
+    payNone: ['Online payment isn’t available right now. Message us on WhatsApp +20 127 766 0666 and we’ll add the codes for you.', 'الدفع أونلاين مش متاح دلوقتي. كلمنا واتساب على 01277660666 وهنضيفلك الأكواد.'],
+    paidOk: ['Payment received ✓ Your QR codes were added to your account.', 'تم الدفع ✓ الأكواد اتضافت لحسابك.'],
+    paidBad: ['The payment didn’t go through. You weren’t charged. Try again or use another card.', 'الدفع ما تمّش ومتخصمش منك حاجة. جرّب تاني أو استخدم بطاقة تانية.'],
+    pageTitle: ['Your page', 'صفحتك'], pageLang: ['Page language', 'لغة الصفحة'], pageColor: ['Colour', 'اللون'], tagline: ['Short line (optional)', 'سطر قصير (اختياري)'],
+    taglinePh: ['e.g. Specialty coffee in Sheikh Zayed', 'مثال: قهوة مختصة في الشيخ زايد'], logo: ['Logo', 'اللوجو'], uploadLogo: ['Upload logo', 'ارفع اللوجو'],
+    links: ['Links', 'الروابط'], moreLinks: ['More links', 'روابط إضافية'], linkLabel: ['Button text', 'نص الزرار'], linkUrl: ['https://…', 'https://…'],
+    savePage: ['Save page', 'احفظ الصفحة'], saved: ['Saved ✓', 'تم الحفظ ✓'], viewPage: ['View page', 'شوف الصفحة'],
+    ph_whatsapp: ['01xxxxxxxxx', '01xxxxxxxxx'], ph_phone: ['01xxxxxxxxx', '01xxxxxxxxx'], ph_instagram: ['@yourbusiness', '@yourbusiness'], ph_facebook: ['facebook.com/yourpage', 'facebook.com/yourpage'],
+    ph_tiktok: ['@yourbusiness', '@yourbusiness'], ph_website: ['yourwebsite.com', 'yourwebsite.com'], ph_menu: ['Link to your menu', 'رابط المنيو'], ph_location: ['Google Maps link', 'رابط خرائط جوجل'], ph_email: ['name@email.com', 'name@email.com'],
+    lt_whatsapp: ['WhatsApp', 'واتساب'], lt_phone: ['Phone', 'تليفون'], lt_instagram: ['Instagram', 'إنستجرام'], lt_facebook: ['Facebook', 'فيسبوك'], lt_tiktok: ['TikTok', 'تيك توك'],
+    lt_website: ['Website', 'الموقع'], lt_menu: ['Menu', 'المنيو'], lt_location: ['Location', 'الموقع على الخريطة'], lt_email: ['Email', 'الإيميل'],
     cardTitleAr: 'قيّمنا على جوجل', cardTitleEn: 'Review us on Google', cardSubAr: 'امسح الكود بكاميرا الموبايل', cardSubEn: 'Scan with your phone camera', cardThanksAr: 'رأيك بيفرق معانا', cardThanksEn: 'Your feedback means a lot'
   };
   var t = function (k) { var v = T[k]; return Array.isArray(v) ? v[AR ? 1 : 0] : v; };
@@ -254,6 +347,181 @@
   var state = { link: '', name: '', lang: AR ? 'ar' : 'both', searchOn: false };
   var msg = function (text, bad) { var m = $('msg'); m.hidden = !text; m.textContent = text || ''; m.className = 'msg' + (bad ? ' bad' : ''); };
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  // ---------- account (shop customer account, email code), QR balance, packs ----------
+  var fmt = function (k, v) { return t(k).replace(/\{(\w)\}/g, function (m, x) { return v[x] != null ? v[x] : m; }); };
+  var toast = function (text, bad) { var el = $('toast'); el.textContent = text; el.className = 'toast' + (bad ? ' bad' : ''); el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 4200); };
+  var qapi = function (action, body, form) {
+    var opts = form ? { method: 'POST', body: form, credentials: 'same-origin' } : body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' } : { credentials: 'same-origin' };
+    return fetch('api/qr.php?action=' + action, opts).then(function (r) { return r.json().then(function (d) { if (!r.ok) { var e = new Error(d.error || 'Error'); e.status = r.status; throw e; } return d; }); });
+  };
+  var setMe = function (d) { state.me = d; state.biz = state.link ? own(state.link) : null; renderAcct(); renderMine(); renderPricing(); if (state.link) { renderOwn(); drawCard(); } };
+  var own = function (link) { return ((state.me && state.me.businesses) || []).filter(function (b) { return b.link === link; })[0] || null; };
+  var renderAcct = function () {
+    var me = state.me;
+    $('acct').innerHTML = me && me.email
+      ? '<span>👤 <b>' + esc(me.email) + '</b></span><span class="sp"></span><span class="credit">' + me.balance + ' ' + t('left') + '</span><a class="btn sm ghost" href="#pricing">' + t('buyMore') + '</a><button class="btn sm ghost" id="acOut">' + t('signOut') + '</button>'
+      : '<span>' + t('acctOut') + '</span><span class="sp"></span><button class="btn sm" id="acIn">' + t('signIn') + '</button>';
+    var bi = $('acIn'); if (bi) bi.onclick = function () { signIn(); };
+    var bo = $('acOut'); if (bo) bo.onclick = function () { qapi('logout', {}).then(setMe); };
+  };
+  var modal = function (html) { $('sheet').innerHTML = html; $('modal').hidden = false; var f = $('sheet').querySelector('input'); if (f) f.focus(); };
+  var closeModal = function () { $('modal').hidden = true; };
+  $('modalX').onclick = closeModal;
+  $('modal').onclick = function (e) { if (e.target === $('modal')) closeModal(); };
+  // Sign in with an emailed code, then carry on with what the person was doing (then()).
+  var signIn = function (then) {
+    modal('<h3>' + t('signTitle') + '</h3><p class="hint">' + t('signWhy') + '</p><div class="stack"><div><label for="siE">' + t('emailLabel') + '</label><input type="email" id="siE" dir="ltr" autocomplete="email"></div>' +
+      '<button class="btn" id="siGo">' + t('sendCode') + '</button><div class="msg bad" id="siErr" hidden></div></div>');
+    var err = function (m) { var el = $('siErr'); el.hidden = !m; el.textContent = m || ''; };
+    var send = function () {
+      var email = $('siE').value.trim(); if (!email) return;
+      $('siGo').disabled = true;
+      qapi('code', { email: email, lang: AR ? 'ar' : 'en' }).then(function () {
+        modal('<h3>' + t('signTitle') + '</h3><p class="hint">' + esc(fmt('codeSent', { e: email })) + '</p><div class="stack"><div><label for="siC">' + t('codeLabel') + '</label><input type="text" id="siC" inputmode="numeric" autocomplete="one-time-code" dir="ltr" maxlength="8"></div>' +
+          '<button class="btn" id="siV">' + t('verify') + '</button><div class="msg bad" id="siErr" hidden></div></div>');
+        var verify = function () {
+          $('siV').disabled = true;
+          qapi('verify', { email: email, code: $('siC').value }).then(function (d) { closeModal(); setMe(d); if (then) then(); })
+            .catch(function (e) { $('siV').disabled = false; var el = $('siErr'); el.hidden = false; el.textContent = e.message; });
+        };
+        $('siV').onclick = verify; $('siC').onkeydown = function (e) { if (e.key === 'Enter') verify(); };
+      }).catch(function (e) { $('siGo').disabled = false; err(e.message); });
+    };
+    $('siGo').onclick = send; $('siE').onkeydown = function (e) { if (e.key === 'Enter') send(); };
+  };
+
+  // Under the card: locked (sign in / unlock / buy) or yours (where the QR leads, your page).
+  var renderOwn = function () {
+    var me = state.me, b = state.biz, box = $('own');
+    $('dlRow').classList.toggle('locked', !b);
+    if (b) {
+      box.innerHTML = '<div class="lock">' + t('yours') + '</div><div><div class="hint">' + t('qrGoes') + '</div><div class="seg" id="goSeg"><button data-g="review">' + t('goReview') + '</button><button data-g="page">' + t('goPage') + '</button></div>' +
+        '<div class="hint" style="margin-top:4px">' + t(b.target === 'page' ? 'goPageHint' : 'goReviewHint') + '</div></div>' +
+        '<div class="pagelink"><span>' + t('yourPage') + '</span><code>' + esc(b.pageUrl) + '</code><a class="btn sm ghost" href="' + esc(b.pageUrl) + '" target="_blank" rel="noopener">' + t('open') + '</a><button class="btn sm" id="edPage">' + t('editPage') + '</button></div>';
+      box.querySelectorAll('[data-g]').forEach(function (x) {
+        x.classList.toggle('on', x.dataset.g === b.target);
+        x.onclick = function () { if (x.dataset.g !== b.target) qapi('update', { id: b.id, target: x.dataset.g }).then(function (d) { setMe(d); }).catch(function (e) { toast(e.message, true); }); };
+      });
+      $('edPage').onclick = function () { editPage(b); };
+    } else if (!me || !me.email) {
+      box.innerHTML = '<div class="lock">' + t('lockOut') + '</div><div><button class="btn" id="ownIn">' + t('signIn') + '</button></div>';
+      $('ownIn').onclick = function () { signIn(); };
+    } else if (me.balance > 0) {
+      box.innerHTML = '<div class="lock">' + esc(fmt('lockUse', { n: me.balance })) + '</div><div><button class="btn" id="unlock">' + t('unlock') + '</button></div>';
+      $('unlock').onclick = unlock;
+    } else {
+      box.innerHTML = '<div class="lock">' + t('lockNone') + '</div><div><a class="btn" href="#pricing">' + t('seePacks') + '</a></div>';
+    }
+  };
+  var unlock = function () {
+    var p = state.place || {};
+    $('unlock').disabled = true;
+    qapi('create', { link: state.link, name: $('biz').value.trim(), cid: p.cid || '', place_id: p.id || '', maps: p.maps || '', lat: p.lat, lng: p.lng, card_lang: state.lang })
+      .then(function (d) { setMe(d); })
+      .catch(function (e) { toast(e.message, true); if (e.status === 401) signIn(unlock); else renderOwn(); });
+  };
+  // Downloading needs the QR to be yours; the name and card language you chose are kept with it.
+  var guard = function (go) {
+    if (!state.biz) { renderOwn(); $('own').scrollIntoView({ behavior: 'smooth', block: 'center' }); if (!state.me || !state.me.email) signIn(); return; }
+    var name = $('biz').value.trim();
+    if (name !== state.biz.name || state.lang !== state.biz.cardLang) qapi('update', { id: state.biz.id, name: name, card_lang: state.lang }).then(function (d) { state.me = d; state.biz = d.business; renderMine(); }).catch(function () {});
+    go();
+  };
+
+  // My QR codes: open one again in the tool, or its page.
+  var renderMine = function () {
+    var list = (state.me && state.me.businesses) || [];
+    $('mine').hidden = !list.length;
+    if (!list.length) return;
+    $('mine').innerHTML = '<h2>' + t('mine') + '</h2><div class="bizlist">' + list.map(function (b, i) {
+      return '<div class="bizcard"><b>' + esc(b.name || '—') + '</b><span class="hint">' + t('qrGoes') + ' ' + t(b.target === 'page' ? 'goPage' : 'goReview') + ' · ' + b.views + ' ' + t('views') + '</span>' +
+        '<div class="row2"><button class="btn sm" data-o="' + i + '">' + t('open') + '</button><button class="btn sm ghost" data-e="' + i + '">' + t('editPage') + '</button><a class="btn sm ghost" href="' + esc(b.pageUrl) + '" target="_blank" rel="noopener">' + t('viewPage') + '</a></div></div>';
+    }).join('') + '</div>';
+    $('mine').querySelectorAll('[data-o]').forEach(function (x) { x.onclick = function () { var b = list[+x.dataset.o]; setLang(b.cardLang); make(b.link, b.name, { cid: b.cid, id: b.placeId, maps: b.maps, lat: b.lat, lng: b.lng, name: b.name }, 'review'); }; });
+    $('mine').querySelectorAll('[data-e]').forEach(function (x) { x.onclick = function () { editPage(list[+x.dataset.e]); }; });
+  };
+
+  // The page editor: language, colour, short line, logo, and links (WhatsApp, Instagram, … and your own).
+  var LTYPES = ['whatsapp', 'phone', 'instagram', 'facebook', 'tiktok', 'website', 'menu', 'location', 'email'];
+  var editPage = function (b) {
+    var pg = JSON.parse(JSON.stringify(b.page));
+    var val = function (type) { var l = pg.links.filter(function (x) { return x.type === type; })[0]; return l ? l.value : ''; };
+    var custom = pg.links.filter(function (x) { return x.type === 'custom'; });
+    while (custom.length < 3) custom.push({ type: 'custom', value: '', label: '' });
+    modal('<h3>' + t('pageTitle') + ': ' + esc(b.name || '') + '</h3><div class="stack">' +
+      '<div><label>' + t('pageLang') + '</label><div class="seg" id="pgLang"><button data-pl="ar">عربي</button><button data-pl="en">English</button></div></div>' +
+      '<div><label>' + t('pageColor') + '</label><div class="swatches" id="pgCol">' + state.me.colors.map(function (c) { return '<button data-c="' + c + '" style="background:' + c + '" aria-label="' + c + '"></button>'; }).join('') + '</div></div>' +
+      '<div><label for="pgTag">' + t('tagline') + '</label><input type="text" id="pgTag" maxlength="140" placeholder="' + esc(t('taglinePh')) + '" value="' + esc(pg.tagline) + '"></div>' +
+      '<div><label>' + t('logo') + '</label><div class="logoprev">' + (pg.logo ? '<img src="' + esc(pg.logo) + '" alt="">' : '') + '<label class="btn sm ghost" style="margin:0">' + t('uploadLogo') + '<input type="file" id="pgLogo" accept="image/jpeg,image/png,image/webp" hidden></label></div></div>' +
+      '<div><label>' + t('links') + '</label><div class="stack">' + LTYPES.map(function (ty) { return '<div class="lrow"><span>' + t('lt_' + ty) + '</span><input type="text" data-l="' + ty + '" dir="ltr" placeholder="' + esc(t('ph_' + ty)) + '" value="' + esc(val(ty)) + '"></div>'; }).join('') + '</div></div>' +
+      '<div><label>' + t('moreLinks') + '</label><div class="stack">' + custom.map(function (c, i) { return '<div class="crow"><input type="text" data-cl="' + i + '" placeholder="' + esc(t('linkLabel')) + '" value="' + esc(c.label) + '"><input type="text" data-cu="' + i + '" dir="ltr" placeholder="https://…" value="' + esc(c.value) + '"></div>'; }).join('') + '</div></div>' +
+      '<div class="row2"><button class="btn" id="pgSave">' + t('savePage') + '</button><a class="btn ghost" href="' + esc(b.pageUrl) + '" target="_blank" rel="noopener">' + t('viewPage') + '</a></div><div class="msg bad" id="pgErr" hidden></div></div>');
+    var sh = $('sheet');
+    var paint = function () {
+      sh.querySelectorAll('[data-pl]').forEach(function (x) { x.classList.toggle('on', x.dataset.pl === pg.lang); });
+      sh.querySelectorAll('[data-c]').forEach(function (x) { x.classList.toggle('on', x.dataset.c === pg.color); });
+    };
+    sh.querySelectorAll('[data-pl]').forEach(function (x) { x.onclick = function () { pg.lang = x.dataset.pl; paint(); }; });
+    sh.querySelectorAll('[data-c]').forEach(function (x) { x.onclick = function () { pg.color = x.dataset.c; paint(); }; });
+    paint();
+    $('pgLogo').onchange = function (e) {
+      var f = e.target.files[0]; if (!f) return;
+      var fd = new FormData(); fd.append('id', b.id); fd.append('file', f);
+      qapi('logo', null, fd).then(function (d) {
+        state.me = d; pg.logo = d.business.page.logo;
+        var prev = sh.querySelector('.logoprev img');
+        if (prev) prev.src = pg.logo; else sh.querySelector('.logoprev').insertAdjacentHTML('afterbegin', '<img src="' + esc(pg.logo) + '" alt="">');
+      }).catch(function (er) { toast(er.message, true); });
+    };
+    $('pgSave').onclick = function () {
+      var links = [];
+      sh.querySelectorAll('[data-l]').forEach(function (x) { if (x.value.trim()) links.push({ type: x.dataset.l, value: x.value.trim() }); });
+      sh.querySelectorAll('[data-cu]').forEach(function (x) { var lab = sh.querySelector('[data-cl="' + x.dataset.cu + '"]').value.trim(); if (x.value.trim()) links.push({ type: 'custom', value: x.value.trim(), label: lab }); });
+      $('pgSave').disabled = true;
+      qapi('update', { id: b.id, page: { lang: pg.lang, color: pg.color, tagline: $('pgTag').value, logo: pg.logo, links: links } })
+        .then(function (d) { setMe(d); closeModal(); toast(t('saved')); })
+        .catch(function (e) { $('pgSave').disabled = false; var el = $('pgErr'); el.hidden = false; el.textContent = e.message; });
+    };
+  };
+
+  // The pricing table: 2 free with an account, then packs paid with Paymob.
+  var renderPricing = function () {
+    var me = state.me; if (!me) return;
+    var signed = !!me.email;
+    var card = function (name, price, credits, per, btn, pop) {
+      return '<div class="pk' + (pop ? ' pop' : '') + '">' + (pop ? '<span class="badge">' + t('popular') + '</span>' : '') + '<h3>' + esc(name) + '</h3>' +
+        '<div class="price">' + price + '</div><b>' + credits + ' ' + t('qrCodes') + '</b>' + (per ? '<span class="hint">' + per + '</span>' : '') +
+        '<ul><li>✓ ' + t('f1') + '</li><li>✓ ' + t('f2') + '</li><li>✓ ' + t('f3') + '</li></ul>' + btn + '</div>';
+    };
+    var html = card(t('freeName'), t('freePrice') + ' <small>' + t('freeWith') + '</small>', me.free, '',
+      signed ? '<span class="btn ghost">' + esc(fmt('youHave', { n: me.balance })) + '</span>' : '<button class="btn ghost" id="prFree">' + t('getFree') + '</button>', false);
+    me.packs.forEach(function (pk) {
+      html += card(AR ? pk.ar : pk.en, (AR ? pk.price.toLocaleString('en') + ' ج.م' : 'EGP ' + pk.price.toLocaleString('en')), pk.credits,
+        fmt('perQr', { p: Math.round(pk.price / pk.credits) }), '<button class="btn' + (pk.id === 'business' ? '' : ' alt') + '" data-buy="' + pk.id + '">' + t('buy') + '</button>', pk.id === 'business');
+    });
+    $('pricing').innerHTML = '<h2>' + t('pricingTitle') + '</h2><p class="muted">' + t('pricingSub') + '</p><div class="msg" id="payMsg" hidden></div><div class="plans4">' + html + '</div>';
+    var pf = $('prFree'); if (pf) pf.onclick = function () { signIn(); };
+    $('pricing').querySelectorAll('[data-buy]').forEach(function (x) { x.onclick = function () { buy(x.dataset.buy); }; });
+    if (state.payNote) { var pm = $('payMsg'); pm.hidden = false; pm.textContent = state.payNote[0]; pm.className = 'msg' + (state.payNote[1] ? ' bad' : ''); }
+  };
+  var buy = function (pack) {
+    if (!state.me.email) return signIn(function () { buy(pack); });
+    var methods = state.me.payMethods || [];
+    if (!methods.length) return modal('<h3>' + t('buyMore') + '</h3><p>' + t('payNone') + '</p>');
+    var go = function (m) {
+      qapi('buy', { pack: pack, method: m }).then(function (d) { location.href = d.payUrl; }).catch(function (e) { toast(e.message, true); });
+    };
+    if (methods.length === 1) return go(methods[0]);
+    modal('<h3>' + t('payHow') + '</h3><div class="stack"><button class="btn" data-m="paymob_card">' + t('payCard') + '</button><button class="btn alt" data-m="paymob_wallet">' + t('payWallet') + '</button></div>');
+    $('sheet').querySelectorAll('[data-m]').forEach(function (x) { x.onclick = function () { x.disabled = true; go(x.dataset.m); }; });
+  };
+
+  // Back from Paymob: say how it went; the codes may take a moment to arrive, so check again shortly.
+  var paid = new URLSearchParams(location.search).get('paid');
+  if (paid) state.payNote = paid === 'ok' ? [t('paidOk'), false] : paid === 'failed' ? [t('paidBad'), true] : null;
+  var loadMe = function () { return qapi('me').then(setMe).catch(function () {}); };
+  loadMe().then(function () { if (paid === 'ok') { setTimeout(loadMe, 2500); $('pricing').scrollIntoView({ block: 'start' }); } });
 
   // Business search is there only when the server has a Google key.
   fetch('api/places.php').then(function (r) { return r.json(); }).then(function (d) {
@@ -368,7 +636,7 @@
     }
     var qs = L === 'both' ? 680 : 720, qx = (W - qs) / 2, qy = L === 'both' ? 590 : 550;
     ctx.fillStyle = '#F7F3ED'; roundRect(ctx, qx - 40, qy - 40, qs + 80, qs + 80, 36); ctx.fill();
-    drawQr(ctx, qrMatrix(state.link), qx, qy, qs);
+    drawQr(ctx, qrMatrix(qrText()), qx, qy, qs);
     var y = qy + qs + 120;
     ctx.fillStyle = '#22201D';
     if (L !== 'en') { ctx.font = '700 60px ' + ar; ctx.fillText(T.cardSubAr, W / 2, y); y += 78; }
@@ -376,10 +644,17 @@
     // One language: a short thank-you line under the scan line (no room for it with both).
     if (L !== 'both') { ctx.fillStyle = '#8A8478'; ctx.font = (L === 'en' ? '500 42px ' + en : '600 44px ' + ar); ctx.fillText(L === 'en' ? T.cardThanksEn : T.cardThanksAr, W / 2, y + 20); }
     ctx.font = '500 28px ' + en; ctx.fillStyle = '#B5AEA3'; ctx.fillText('Free card from shop.wheretospot.com', W / 2, H - 100);
+    // Not yours yet: a big PREVIEW across the card (the real one comes with the download).
+    if (!state.biz) {
+      ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-Math.PI / 5); ctx.globalAlpha = 0.18; ctx.fillStyle = '#A8552F';
+      ctx.font = '800 150px ' + en; ctx.fillText('PREVIEW', 0, -60); ctx.font = '800 130px ' + ar; ctx.fillText('معاينة', 0, 110); ctx.restore();
+    }
   };
+  var qrText = function () { return state.biz ? state.biz.qr : state.link; };
 
   var make = function (link, name, place, how) {
-    state.link = link;
+    state.link = link; state.place = place || null; state.biz = own(link);
+    renderOwn();
     if (name) $('biz').value = name;
     var pill = { exact: ['', t('vExact')], review: ['', t('vReview')], google: ['', t('vGoogle')], profile: ['', t('vProfile')], not: ['warn', t('vNot')] }[how || 'profile'];
     // The map of the found business, so the owner can check it's the right place and branch.
@@ -413,13 +688,15 @@
   $('copy').onclick = function () { navigator.clipboard.writeText(state.link).then(function () { $('copy').textContent = t('copied'); setTimeout(function () { $('copy').textContent = t('copy'); }, 1800); }); };
   var save = function (canvas, file) { var a = document.createElement('a'); a.download = file; a.href = canvas.toDataURL('image/png'); a.click(); };
   var slug = function () { return (($('biz').value || 'google-review').trim().replace(/[^\w؀-ۿ]+/g, '-').slice(0, 40) || 'google-review'); };
-  $('dlCard').onclick = function () { save($('card'), slug() + '-review-card.png'); };
+  $('dlCard').onclick = function () { guard(function () { save($('card'), slug() + '-review-card.png'); }); };
   $('dlQr').onclick = function () {
-    var q = qrMatrix(state.link), c = document.createElement('canvas'); c.width = c.height = 1000;
-    var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1000, 1000); drawQr(x, q, 60, 60, 880);
-    save(c, slug() + '-review-qr.png');
+    guard(function () {
+      var q = qrMatrix(qrText()), c = document.createElement('canvas'); c.width = c.height = 1000;
+      var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1000, 1000); drawQr(x, q, 60, 60, 880);
+      save(c, slug() + '-review-qr.png');
+    });
   };
-  $('print').onclick = function () { $('printImg').src = $('card').toDataURL('image/png'); setTimeout(function () { window.print(); }, 150); };
+  $('print').onclick = function () { guard(function () { $('printImg').src = $('card').toDataURL('image/png'); setTimeout(function () { window.print(); }, 150); }); };
 })();
 </script>
 <script src="chat.js" defer></script>
