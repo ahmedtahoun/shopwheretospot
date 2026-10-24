@@ -167,9 +167,9 @@
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
-      '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">' + icon('menu') + '</button><span class="brand-mark"><img src="../images/logo.png" alt="">Where To Spot</span>' + langBtn() + '</div>' +
+      '<div class="mobilebar"><button id="menuBtn" aria-label="Menu">' + icon('menu') + '</button><span class="brand-mark"><img src="../images/logo.png?v=3" alt="">Where To Spot</span>' + langBtn() + '</div>' +
       '<div class="shell"><nav class="side" id="side">' +
-      '<div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>Where To Spot</b><small>Team workspace</small></span></div>' +
+      '<div class="brand"><span class="logo"><img src="../images/logo.png?v=3" alt=""></span><span><b>Where To Spot</b><small>Team workspace</small></span></div>' +
       (can('orders_only') ? '' : '<button class="searchbtn" id="searchBtn">' + icon('search') + '<span>Search</span><kbd>/</kbd></button>') +
       '<div class="nav-label">Workspace</div>' +
       nav.map(([k, label, ic]) => '<a class="nav' + (S.route === k ? ' on' : '') + '" href="#' + k + '">' + icon(ic) + '<span>' + label + '</span>' + (k === 'inbox' ? '<span class="nav-badge" id="waBadge"' + (S.waUnread ? '' : ' hidden') + '>' + (S.waUnread || '') + '</span>' : '') + '</a>').join('') +
@@ -192,7 +192,7 @@
     waWatch();
   }
 
-  const authAside = () => '<aside class="auth-side"><span class="logo"><img src="../images/logo.png" alt=""></span>' +
+  const authAside = () => '<aside class="auth-side"><span class="logo"><img src="../images/logo.png?v=3" alt=""></span>' +
     '<div><h2>Orders, leads and production, <em>in one place.</em></h2><p>The Where To Spot team workspace.</p></div>' +
     '<small>© ' + new Date().getFullYear() + ' Where To Spot</small></aside>';
 
@@ -1602,7 +1602,7 @@
         document.title = (d.unread ? '(' + d.unread + ') ' : '') + document.title.replace(/^\(\d+\) /, '');
         if (waWatch.last != null && d.lastIn > waWatch.last) {
           waBeep();
-          if (S.route !== 'inbox' && window.Notification && Notification.permission === 'granted') new Notification('New WhatsApp message', { body: 'Open the WhatsApp inbox', icon: '../images/logo.png' });
+          if (S.route !== 'inbox' && window.Notification && Notification.permission === 'granted') new Notification('New WhatsApp message', { body: 'Open the WhatsApp inbox', icon: '../images/logo.png?v=3' });
           if (S.route === 'inbox' && waInbox.refresh) waInbox.refresh();
         }
         waWatch.last = d.lastIn;

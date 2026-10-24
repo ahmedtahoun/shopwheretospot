@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Where To Spot — Document</title>
-<link rel="icon" type="image/png" href="../images/logo.png">
+<link rel="icon" type="image/png" href="../images/logo.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400..700&display=swap" rel="stylesheet">
@@ -24,8 +24,8 @@
   .page{width:210mm;min-height:297mm;margin:24px auto;background:#fff;padding:18mm 16mm;box-shadow:0 20px 60px -20px rgba(0,0,0,.25);display:flex;flex-direction:column}
   .top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:20px;border-bottom:2px solid #1C1B19}
   .brand{display:flex;gap:14px;align-items:center}
-  .brand .logo{background:#1C1B19;border-radius:12px;padding:8px 10px;display:grid;place-items:center}
-  .brand .logo img{height:30px;display:block}
+  .brand .logo{display:grid;place-items:center}
+  .brand .logo img{height:44px;width:44px;display:block}
   .brand b{display:block;font-family:'Instrument Serif',serif;font-weight:400;font-style:italic;font-size:28px;line-height:1}
   .brand small{display:block;color:#6B6660;margin-top:4px;font-size:12px}
   .doc{text-align:right}
@@ -120,7 +120,7 @@
       '<div class="bar"><a class="btn" href="./#brands">← Dashboard</a><span class="hint">Click the notes to edit them before printing.</span><span class="sp"></span>' +
       '<button class="btn primary" id="print">Print / Save as PDF</button></div>' +
       '<div class="page">' +
-        '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>' + SHOP.name + '</b><small>Partner sales statement</small></span></div>' +
+        '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png?v=3" alt=""></span><span><b>' + SHOP.name + '</b><small>Partner sales statement</small></span></div>' +
           '<div class="doc"><h1>STATEMENT</h1><div class="num">' + esc(monthName) + '</div></div></div>' +
         '<div class="meta">' +
           '<div><h4>Partner</h4>' + (b.logo ? '<p><img src="../' + esc(b.logo) + '" alt="" style="height:38px;max-width:160px;object-fit:contain"></p>' : '') + '<p><b>' + esc(b.name) + '</b></p>' + (b.link ? '<p>' + esc(b.link.replace(/^https?:\/\/(www\.)?/, '')) + '</p>' : '') + '</div>' +
@@ -177,7 +177,7 @@
       (wa ? '<a class="btn wa" id="wa" href="' + esc(wa) + '" target="_blank" rel="noopener">Send on WhatsApp</a>' : '') +
       '<button class="btn" id="print">Print</button><button class="btn primary" id="pdf">Download PDF</button></div>' +
       '<div class="page">' +
-        '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png" alt=""></span><span><b>' + SHOP.name + '</b><small>Marketing, products &amp; production</small></span></div>' +
+        '<div class="top"><div class="brand"><span class="logo"><img src="../images/logo.png?v=3" alt=""></span><span><b>' + SHOP.name + '</b><small>Marketing, products &amp; production</small></span></div>' +
           '<div class="doc"><h1>' + (isQ ? 'QUOTE' : 'INVOICE') + '</h1><div class="num">' + no + '</div></div></div>' +
         '<div class="meta">' +
           '<div><h4>' + (isQ ? 'Prepared for' : 'Billed to') + '</h4><p><b>' + esc(o.businessName || o.customer) + '</b></p>' + (o.businessName ? '<p>' + esc(o.customer) + '</p>' : '') +

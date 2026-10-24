@@ -1,8 +1,8 @@
 // Team app service worker: only makes the dashboard installable and opens it quickly.
 // Orders, leads and payments are never cached — every screen loads live data.
-const CACHE = 'wts-team-v2';
+const CACHE = 'wts-team-v3'; // v3: face icons
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/admin/', '/admin/admin.css', '/admin/admin.js', '/admin/i18n.js', '/images/logo.png'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/admin/', '/admin/admin.css', '/admin/admin.js', '/admin/i18n.js', '/images/logo.png?v=3'])).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('wts-team-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

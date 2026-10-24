@@ -1,8 +1,8 @@
 // Shop service worker: makes the site installable and keeps the last-seen pages and images
 // available offline. Pages and data always come fresh from the network first; nothing from
 // the API or checkout is ever cached.
-const CACHE = 'wts-shop-v1';
-const OFFLINE = ['/index.html', '/site.css', '/images/logo.png', '/images/app/icon-192.png'];
+const CACHE = 'wts-shop-v2'; // v2: face icons
+const OFFLINE = ['/index.html', '/site.css', '/images/logo.png?v=3', '/images/app/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(OFFLINE)).then(() => self.skipWaiting()));

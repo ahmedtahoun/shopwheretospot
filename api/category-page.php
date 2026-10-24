@@ -68,7 +68,7 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
 <meta property="og:type" content="website"><meta property="og:site_name" content="Where To Spot">
 <meta property="og:title" content="<?= $e($page['title']) ?>"><meta property="og:description" content="<?= $e($desc) ?>"><meta property="og:url" content="<?= $e($page['url']) ?>">
 <meta property="og:image" content="<?= $e($page['products'][0]['imageUrls'][0] ?? seo_base() . '/images/share-card.jpg') ?>"><meta property="og:locale" content="<?= $ar ? 'ar_EG' : 'en_US' ?>">
-<link rel="icon" href="/favicon.ico?v=2" sizes="48x48"><link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png?v=2">
+<link rel="icon" href="/favicon.ico?v=3" sizes="48x48"><link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css">
@@ -89,7 +89,7 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
 </head>
 <body>
 <div class="bar"><?= $L('All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery', 'كل الأسعار بالجنيه المصري · توصيل لكل مصر · الدفع عند الاستلام') ?></div>
-<nav><div class="in"><a class="brand" href="/<?= $ar ? '?lang=ar' : '' ?>"><img src="/images/logo-mark.png" alt="Where To Spot logo" width="40" height="40">Where To Spot</a><div class="links"><a href="/<?= $ar ? '?lang=ar' : '' ?>"><?= $L('Shop', 'المتجر') ?></a><a href="/plans.html"><?= $L('Marketing plans', 'خطط التسويق') ?></a><a href="/google-review-link.html<?= $ar ? '?lang=ar' : '' ?>"><?= $L('Free review link', 'رابط تقييم مجاني') ?></a><a href="/about.html"><?= $L('About us', 'من نحن') ?></a><a href="/contact.html"><?= $L('Contact us', 'تواصل معنا') ?></a><a href="<?= $e($ar ? $page['en'] : $page['ar']) ?>" hreflang="<?= $ar ? 'en' : 'ar' ?>"><?= $ar ? 'English' : 'العربية' ?></a></div></div></nav>
+<nav><div class="in"><a class="brand" href="/<?= $ar ? '?lang=ar' : '' ?>"><img src="/images/logo-mark.png?v=3" alt="Where To Spot logo" width="40" height="40">Where To Spot</a><div class="links"><a href="/<?= $ar ? '?lang=ar' : '' ?>"><?= $L('Shop', 'المتجر') ?></a><a href="/plans.html"><?= $L('Marketing plans', 'خطط التسويق') ?></a><a href="/google-review-link.html<?= $ar ? '?lang=ar' : '' ?>"><?= $L('Free review link', 'رابط تقييم مجاني') ?></a><a href="/about.html"><?= $L('About us', 'من نحن') ?></a><a href="/contact.html"><?= $L('Contact us', 'تواصل معنا') ?></a><a href="<?= $e($ar ? $page['en'] : $page['ar']) ?>" hreflang="<?= $ar ? 'en' : 'ar' ?>"><?= $ar ? 'English' : 'العربية' ?></a></div></div></nav>
 <main class="wide">
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/<?= $ar ? '?lang=ar' : '' ?>">Where To Spot</a> › <span aria-current="page"><?= $e($page['name']) ?></span></nav>
 <?php if (!empty($page['logo'])): ?><img src="/<?= $e($page['logo']) ?>" alt="<?= $e($page['name']) ?>" width="72" height="72" style="border-radius:50%;margin-top:18px;object-fit:contain;background:#fff"><?php endif; ?>

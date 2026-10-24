@@ -20,13 +20,13 @@ function pay_page(string $titleAr, string $titleEn, string $body): void
     header('Cache-Control: no-store');
     header('X-Robots-Tag: noindex');
     echo '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<meta name="robots" content="noindex"><title>' . htmlspecialchars($titleAr . ' · ' . $titleEn) . '</title><link rel="icon" href="/favicon.ico?v=2">'
+        . '<meta name="robots" content="noindex"><title>' . htmlspecialchars($titleAr . ' · ' . $titleEn) . '</title><link rel="icon" href="/favicon.ico?v=3">'
         . '<style>body{margin:0;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#F6F3EE;color:#1C1B19;display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}'
         . '.c{background:#fff;border-radius:18px;padding:28px 22px;max-width:380px;width:100%;box-sizing:border-box;box-shadow:0 6px 24px rgba(0,0,0,.08);text-align:center}'
-        . 'img{width:56px;height:56px;border-radius:14px;background:#111;padding:4px;box-sizing:border-box;object-fit:contain}h1{font-size:20px;margin:12px 0 2px}h2{font-size:15px;font-weight:500;color:#6B675F;margin:0 0 16px}'
+        . 'img{width:64px;height:64px}h1{font-size:20px;margin:12px 0 2px}h2{font-size:15px;font-weight:500;color:#6B675F;margin:0 0 16px}'
         . '.amt{font-size:28px;font-weight:700;margin:6px 0 2px}.muted{color:#6B675F;font-size:14px}'
         . 'a.b{display:block;margin-top:12px;padding:14px;border-radius:12px;background:#B5562F;color:#fff;text-decoration:none;font-weight:600}a.b.alt{background:#fff;color:#B5562F;border:1.5px solid #B5562F}'
-        . 'small{display:block;font-weight:400;opacity:.85}</style></head><body><div class="c"><img src="/images/logo.png" alt="Where To Spot">'
+        . 'small{display:block;font-weight:400;opacity:.85}</style></head><body><div class="c"><img src="/images/logo.png?v=3" alt="Where To Spot">'
         . '<h1>' . htmlspecialchars($titleAr) . '</h1><h2 dir="ltr">' . htmlspecialchars($titleEn) . '</h2>' . $body . '</div></body></html>';
     exit;
 }

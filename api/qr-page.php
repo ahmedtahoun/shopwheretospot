@@ -59,7 +59,7 @@ $initial = mb_strtoupper(mb_substr(trim($name), 0, 1));
 <meta property="og:description" content="<?= $e($p['tagline'] ?: $L('Review us on Google', 'قيّمنا على جوجل')) ?>">
 <?php if ($p['logo']): ?><meta property="og:image" content="<?= $e(rtrim((string) cfg('site_url'), '/') . '/' . $p['logo']) ?>"><?php endif; ?>
 <meta name="theme-color" content="<?= $e($color) ?>">
-<link rel="icon" href="/favicon.ico?v=2">
+<link rel="icon" href="/favicon.ico?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&family=Cairo:wght@600;700&display=swap" rel="stylesheet">
 <style>
