@@ -1,0 +1,9 @@
+# Arabic versions (?lang=ar) of the homepage, the review-link tool and the information pages are built by the
+# server (api/page.php) so they reach search engines as real Arabic pages. Everything else is served as before.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{QUERY_STRING} (^|&)lang=ar(&|$)
+  RewriteRule ^(index\.html)?$ /api/page.php?f=index [L,QSA]
+  RewriteCond %{QUERY_STRING} (^|&)lang=ar(&|$)
+  RewriteRule ^(about|contact|plans|privacy-policy|refund-policy|shipping-policy|terms|google-review-link)\.html$ /api/page.php?f=$1 [L,QSA]
+</IfModule>

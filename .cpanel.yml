@@ -8,6 +8,7 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH/data $DEPLOYPATH/uploads/products $DEPLOYPATH/uploads/orders
     - /bin/cp data/.htaccess $DEPLOYPATH/data/.htaccess
     - /bin/cp uploads/.htaccess $DEPLOYPATH/uploads/.htaccess
+    - /bin/cp .htaccess $DEPLOYPATH/.htaccess
     - /bin/cp api/.htaccess $DEPLOYPATH/api/.htaccess
     - /bin/cp admin/.htaccess $DEPLOYPATH/admin/.htaccess
     - /bin/mkdir -p $DEPLOYPATH/img

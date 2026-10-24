@@ -6,23 +6,11 @@
 <script src="i18n.js"></script>
 <title>Google Review Link & QR Code Generator (Free) — Where To Spot</title>
 <meta name="description" content="Get your Google review link free: paste your Google Maps link and get the official review link, a QR card to print and a review button for your website.">
-<!-- One page, two languages: English by default, Arabic with ?lang=ar (i18n.js). Each version points to itself. -->
+<!-- English: this file. Arabic (?lang=ar): built by the server (api/page.php). Each version points to itself. -->
 <link rel="alternate" hreflang="en" href="https://shop.wheretospot.com/google-review-link.html">
 <link rel="alternate" hreflang="ar" href="https://shop.wheretospot.com/google-review-link.html?lang=ar">
 <link rel="alternate" hreflang="x-default" href="https://shop.wheretospot.com/google-review-link.html">
-<script>
-(function () {
-  var ar = document.documentElement.lang === 'ar', base = 'https://shop.wheretospot.com/google-review-link.html';
-  var l = document.createElement('link'); l.rel = 'canonical'; l.href = ar ? base + '?lang=ar' : base; document.head.appendChild(l);
-  if (ar) {
-    document.title = 'رابط تقييم جوجل وكود QR مجانًا لنشاطك — Where To Spot';
-    var d = document.createElement('meta'); d.name = 'description';
-    d.content = 'هات رابط تقييم جوجل لنشاطك مجانًا: الصق رابط خرائط جوجل وخد رابط التقييم الرسمي، وكارت QR للطباعة، وزرار تقييم لموقعك.';
-    document.head.appendChild(d);
-    var old = document.querySelector('meta[name=description]'); if (old && old !== d) old.remove();
-  }
-})();
-</script>
+<link rel="canonical" href="https://shop.wheretospot.com/google-review-link.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Where To Spot">
 <meta property="og:locale" content="en_US">
