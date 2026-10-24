@@ -567,6 +567,7 @@ try {
             if (!$st->rowCount()) fail('Product not found.', 404);
         }
         log_activity($u, $isNew ? 'Added product' : 'Updated product', $name);
+        seo_indexnow_product((string) $id); // tell Bing & co. straight away (api/seo-lib.php)
         json_out(['id' => $id]);
 
     case 'product_delete':

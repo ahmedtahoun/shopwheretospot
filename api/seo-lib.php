@@ -202,11 +202,13 @@ function seo_sitemap(): string
         foreach (array_slice($images, 0, 5) as $img) $s .= '<image:image><image:loc>' . seo_esc($img) . '</image:loc></image:image>';
         return $s . "</url>\n";
     };
-    foreach (['', 'plans.html', 'about.html', 'contact.html', 'shipping-policy.html', 'refund-policy.html', 'privacy-policy.html', 'terms.html'] as $f) $x .= $page(seo_base() . '/' . $f);
+    // Every page has an Arabic version at ?lang=ar.
+    foreach (['', 'plans.html', 'about.html', 'contact.html', 'shipping-policy.html', 'refund-policy.html', 'privacy-policy.html', 'terms.html'] as $f) $x .= $page(seo_base() . '/' . $f, '', [], seo_base() . '/' . $f . '?lang=ar');
     // The review-link tool: one page in English and Arabic (?lang=ar).
     $x .= $page(seo_base() . '/google-review-link.html', '2026-10-24', [], seo_base() . '/google-review-link.html?lang=ar');
     foreach (seo_products() as $p) $x .= $page($p['url'], (string) $p['updatedAt'], $p['imageUrls'], seo_product_url($p['id'], true));
-    foreach (load_brands(true) as $b) $x .= $page(seo_base() . '/?brand=' . rawurlencode($b['slug']));
+    foreach (seo_catalog(false) as $c) $x .= $page(seo_category_url($c['key']), '', [], seo_category_url($c['key'], true));
+    foreach (load_brands(true) as $b) $x .= $page(seo_brand_url($b['slug']), '', [], seo_brand_url($b['slug'], true));
     return $x . '</urlset>' . "\n";
 }
 
@@ -270,7 +272,155 @@ function seo_publish(): void
     try {
         @file_put_contents($root . '/sitemap.xml', seo_sitemap(), LOCK_EX);
         @file_put_contents($root . '/llms.txt', seo_llms(), LOCK_EX);
+        seo_publish_home();
     } catch (Throwable $e) {
         error_log('[shop] seo publish failed: ' . $e->getMessage());
     }
+}
+
+// ---------- category & brand pages, the homepage catalogue for crawlers, IndexNow ----------
+
+function seo_category_url(string $key, bool $ar = false): string { return seo_base() . '/c/' . rawurlencode($key) . ($ar ? '?lang=ar' : ''); }
+function seo_brand_url(string $slug, bool $ar = false): string { return seo_base() . '/b/' . rawurlencode($slug) . ($ar ? '?lang=ar' : ''); }
+
+// What each category page says above its products, and the questions under them (Arabic and English).
+// Facts here must stay true: prices come from the products themselves, these are only the general answers.
+const SEO_CATEGORY_TEXT = [
+    'nfc' => [
+        'en' => ['title' => 'NFC Google review cards & stands in Egypt', 'intro' => 'Tap-to-review NFC cards, keychains and counter stands that open your Google review box in one tap. Each comes programmed with your business’s review link and works with every recent iPhone and Android phone; stands also carry a QR code for phones without NFC.',
+            'faq' => [['How does an NFC review card work?', 'The customer holds their phone near the card and their phone opens your Google review box straight away. No app, no camera and no searching for your business.'],
+                ['Does it work with iPhone?', 'Yes. iPhone XS and newer read NFC automatically, as do most Android phones with NFC turned on. Our stands also have a QR code, so every phone works.'],
+                ['Do you program the card with my review link?', 'Yes. Send us your Google Maps link or business name when you order and we program it for you. You can also make your review link free with our review link tool.'],
+                ['How long does delivery take?', 'Delivery across Egypt takes 2–5 working days, with cash on delivery, card or mobile wallet.']]],
+        'ar' => ['title' => 'كروت وستاندات NFC لتقييمات جوجل في مصر', 'intro' => 'كروت وميداليات وستاندات NFC بتفتح خانة تقييم نشاطك على جوجل بلمسة واحدة. كل منتج بيتبرمج برابط تقييم نشاطك، وبيشتغل مع كل موبايلات الآيفون والأندرويد الحديثة، والستاندات عليها كمان كود QR للموبايلات اللي مفيهاش NFC.',
+            'faq' => [['كارت NFC للتقييم بيشتغل إزاي؟', 'العميل يقرّب موبايله من الكارت، فيفتح خانة تقييم نشاطك على جوجل على طول، من غير تطبيق ولا كاميرا ولا بحث.'],
+                ['بيشتغل مع الآيفون؟', 'أيوه. آيفون XS وأحدث بيقرأ NFC تلقائي، ومعظم موبايلات الأندرويد اللي فيها NFC. والستاندات عليها كمان كود QR عشان كل الموبايلات تشتغل.'],
+                ['بتبرمجوا الكارت برابط التقييم بتاعي؟', 'أيوه. ابعتلنا رابط نشاطك على خرائط جوجل أو اسمه مع الطلب وإحنا بنبرمجه. وتقدر كمان تعمل رابط التقييم مجانًا من أداة رابط التقييم بتاعتنا.'],
+                ['التوصيل بياخد قد إيه؟', 'التوصيل لكل مصر خلال 2–5 أيام عمل، والدفع عند الاستلام أو بالبطاقة أو المحفظة.']]],
+    ],
+    'stands' => [
+        'en' => ['title' => 'Acrylic stands for menus, prices & QR codes', 'intro' => 'Clear and printed acrylic stands for restaurant menus, price lists, QR codes and table numbers, in several sizes from A4 to small table signs. Printed with your design or left clear for your own inserts.',
+            'faq' => [['Which size should I choose?', 'A4 suits full menus and price lists, A5 suits short menus and promotions, and the smaller sizes suit QR codes and table numbers.'],
+                ['Can you print my design?', 'Yes. Order a printed stand and send your design or logo; we can also design it for you.'],
+                ['How long does delivery take?', 'Delivery across Egypt takes 2–5 working days, with cash on delivery, card or mobile wallet.']]],
+        'ar' => ['title' => 'ستاندات أكريليك للمنيو والأسعار وأكواد QR', 'intro' => 'ستاندات أكريليك شفافة ومطبوعة للمنيو وقوايم الأسعار وأكواد QR وأرقام الترابيزات، بمقاسات مختلفة من A4 لحد اللافتات الصغيرة. بنطبعها بتصميمك أو بتيجي شفافة تحط فيها ورقك.',
+            'faq' => [['أختار أنهي مقاس؟', 'A4 مناسب للمنيو الكامل وقوايم الأسعار، وA5 للمنيو القصير والعروض، والمقاسات الصغيرة لأكواد QR وأرقام الترابيزات.'],
+                ['بتطبعوا التصميم بتاعي؟', 'أيوه. اطلب ستاند مطبوع وابعت التصميم أو اللوجو، وممكن كمان نصممهولك.'],
+                ['التوصيل بياخد قد إيه؟', 'التوصيل لكل مصر خلال 2–5 أيام عمل، والدفع عند الاستلام أو بالبطاقة أو المحفظة.']]],
+    ],
+    'coffee' => [
+        'en' => ['title' => 'Specialty coffee delivered in Egypt', 'intro' => 'Specialty coffee blends and single origins from our partner roaster, Bonds Coffee Roasters, delivered across Egypt. Cafés and offices can also ask for wholesale prices, tailored roasting or coffee under their own brand.',
+            'faq' => [['Who roasts the coffee?', 'Bonds Coffee Roasters, our official partner. The coffee comes directly from the roaster.'],
+                ['Do you supply cafés and offices?', 'Yes. Ask for wholesale prices, tailored roasting or private-label coffee from the shop or on WhatsApp.'],
+                ['How long does delivery take?', 'Delivery across Egypt takes 2–5 working days, with cash on delivery, card or mobile wallet.']]],
+        'ar' => ['title' => 'قهوة مختصة بتوصيل لكل مصر', 'intro' => 'بلندات قهوة مختصة وقهوة أحادية المصدر من شريكنا بوندز لتحميص القهوة، بتوصيل لكل مصر. والكافيهات والشركات تقدر تطلب أسعار جملة أو تحميص حسب الطلب أو قهوة باسم علامتها.',
+            'faq' => [['مين اللي بيحمّص القهوة؟', 'بوندز لتحميص القهوة، شريكنا الرسمي، والقهوة بتيجي من المحمصة مباشرة.'],
+                ['بتوردوا للكافيهات والشركات؟', 'أيوه. اطلب أسعار الجملة أو التحميص حسب الطلب أو القهوة باسم علامتك من المتجر أو على واتساب.'],
+                ['التوصيل بياخد قد إيه؟', 'التوصيل لكل مصر خلال 2–5 أيام عمل، والدفع عند الاستلام أو بالبطاقة أو المحفظة.']]],
+    ],
+    'cosmetics' => [
+        'en' => ['title' => 'Korean skincare in Egypt: The Face Shop & Round Lab', 'intro' => 'Authentic Korean skincare from The Face Shop and Round Lab: serums, cleansers and creams for everyday routines, delivered across Egypt with cash on delivery.',
+            'faq' => [['Are the products original?', 'Yes. We sell authentic products from The Face Shop and Round Lab.'],
+                ['Can I return a product?', 'Unused products can be returned within 14 days; see our refund policy.'],
+                ['How long does delivery take?', 'Delivery across Egypt takes 2–5 working days, with cash on delivery, card or mobile wallet.']]],
+        'ar' => ['title' => 'منتجات عناية كورية في مصر: The Face Shop وRound Lab', 'intro' => 'منتجات عناية بالبشرة كورية أصلية من The Face Shop وRound Lab: سيرومات وغسولات وكريمات للروتين اليومي، بتوصيل لكل مصر والدفع عند الاستلام.',
+            'faq' => [['المنتجات أصلية؟', 'أيوه. بنبيع منتجات أصلية من The Face Shop وRound Lab.'],
+                ['أقدر أرجّع منتج؟', 'المنتجات اللي ما اتستخدمتش تترجّع خلال 14 يوم، شوف سياسة الاسترجاع.'],
+                ['التوصيل بياخد قد إيه؟', 'التوصيل لكل مصر خلال 2–5 أيام عمل، والدفع عند الاستلام أو بالبطاقة أو المحفظة.']]],
+    ],
+    'services' => [
+        'en' => ['title' => 'Monthly marketing plans for Egyptian businesses', 'intro' => 'Monthly lead-generation plans from EGP 299 to EGP 1,499: ad campaigns, landing pages, funnels, CRM and automation, with no long-term contract.',
+            'faq' => [['Is there a contract?', 'No long-term contract: you can cancel any time before your next billing date.'],
+                ['Is there a guarantee?', 'Yes, a 14-day money-back guarantee on your first month of any plan.']]],
+        'ar' => ['title' => 'خطط تسويق شهرية للشركات في مصر', 'intro' => 'خطط جلب عملاء شهرية من 299 ج.م لحد 1,499 ج.م: حملات إعلانية، صفحات هبوط، مسارات تحويل، CRM وأتمتة، ومن غير عقود طويلة.',
+            'faq' => [['فيه عقد؟', 'مفيش عقود طويلة: تقدر تلغي في أي وقت قبل موعد الفاتورة الجاية.'],
+                ['فيه ضمان؟', 'أيوه، ضمان استرداد المبلغ خلال 14 يوم في أول شهر من أي خطة.']]],
+    ],
+];
+
+function seo_category_text(string $key, string $label, string $descr, bool $ar): array
+{
+    $t = SEO_CATEGORY_TEXT[$key][$ar ? 'ar' : 'en'] ?? null;
+    return $t ?: ['title' => $label, 'intro' => $descr, 'faq' => []];
+}
+
+// The shop's categories that have products, with their products (for the homepage block, category pages, sitemap).
+function seo_catalog(bool $ar): array
+{
+    $cats = [];
+    foreach (db()->query('SELECT key, label, label_ar, descr, descr_ar FROM categories ORDER BY sort, label') as $c) {
+        $cats[$c['key']] = ['key' => $c['key'], 'label' => $ar && $c['label_ar'] ? $c['label_ar'] : $c['label'], 'descr' => $ar && $c['descr_ar'] ? $c['descr_ar'] : (string) $c['descr'], 'products' => []];
+    }
+    foreach (seo_products($ar) as $p) if (isset($cats[$p['cat']])) $cats[$p['cat']]['products'][] = $p;
+    return array_values(array_filter($cats, function ($c) { return $c['products']; }));
+}
+
+// A plain-HTML copy of the catalogue for the homepage (index.html, between the seo:home markers), for
+// crawlers and AI tools that don't run JavaScript. People with JavaScript never see it.
+function seo_home_block(): string
+{
+    $out = '';
+    foreach ([false, true] as $ar) {
+        $out .= '<section lang="' . ($ar ? 'ar' : 'en') . '"' . ($ar ? ' dir="rtl"' : '') . '>';
+        $out .= '<h2>' . ($ar ? 'منتجات Where To Spot' : 'Where To Spot products') . '</h2><p>' . ($ar
+            ? 'متجر وستوديو تسويق في مدينة 6 أكتوبر، الجيزة: كروت وستاندات NFC لتقييمات جوجل، ستاندات أكريليك، قهوة مختصة، منتجات عناية كورية، وخطط تسويق شهرية. كل الأسعار بالجنيه المصري، توصيل لكل مصر خلال 2–5 أيام، الدفع عند الاستلام أو بالبطاقة أو المحفظة، واسترجاع خلال 14 يوم.'
+            : 'Online shop and marketing studio in 6th of October City, Giza: NFC Google review cards and stands, acrylic stands, specialty coffee, Korean skincare and monthly marketing plans. All prices in EGP, delivery across Egypt in 2–5 days, cash on delivery, card or mobile wallet, 14-day returns.') . '</p>';
+        foreach (seo_catalog($ar) as $c) {
+            $out .= '<h3><a href="' . seo_esc(seo_category_url($c['key'], $ar)) . '">' . seo_esc($c['label']) . '</a></h3><ul>';
+            foreach ($c['products'] as $p) $out .= '<li><a href="' . seo_esc($p['url']) . '">' . seo_esc($p['title']) . '</a>: ' . seo_esc(seo_price_text($p, $ar)) . ($p['summary'] ? ' · ' . seo_esc($p['summary']) : '') . '</li>';
+            $out .= '</ul>';
+        }
+        foreach (load_brands(true) as $b) $out .= '<p><a href="' . seo_esc(seo_brand_url($b['slug'], $ar)) . '">' . seo_esc($ar && $b['nameAr'] ? $b['nameAr'] : $b['name']) . '</a> · ' . ($ar ? 'شريك رسمي' : 'official partner') . '</p>';
+        $out .= '<p><a href="' . seo_base() . '/google-review-link.html' . ($ar ? '?lang=ar' : '') . '">' . ($ar ? 'أداة مجانية: رابط تقييم جوجل وكود QR' : 'Free tool: Google review link & QR code generator') . '</a> · <a href="' . seo_base() . '/plans.html">' . ($ar ? 'خطط التسويق' : 'Marketing plans') . '</a> · <a href="' . seo_base() . '/contact.html">' . ($ar ? 'تواصل معنا' : 'Contact us') . '</a></p></section>';
+    }
+    return $out;
+}
+
+// Write the homepage block into index.html (only when it changed). The copy in git carries a "stale" mark,
+// so after each deploy the first catalogue request fills it in (api/public.php).
+function seo_publish_home(): void
+{
+    $file = dirname(__DIR__) . '/index.html';
+    $html = @file_get_contents($file);
+    if ($html === false || !is_writable($file)) return;
+    $a = strpos($html, '<!--seo:home-->'); $b = strpos($html, '<!--/seo:home-->');
+    if ($a === false || $b === false || $b < $a) return;
+    $new = substr($html, 0, $a) . '<!--seo:home--><div id="seo-home">' . seo_home_block() . '</div>' . substr($html, $b);
+    if ($new === $html) return;
+    @file_put_contents($file, $new, LOCK_EX);
+    // The catalogue changed (or a deploy just happened): send every page in the sitemap to IndexNow.
+    preg_match_all('~<loc>([^<]+)</loc>~', seo_sitemap(), $m);
+    try { seo_indexnow(array_map('html_entity_decode', $m[1])); } catch (Throwable $e) {}
+}
+
+function seo_home_stale(): bool
+{
+    $html = @file_get_contents(dirname(__DIR__) . '/index.html');
+    return $html !== false && strpos($html, '<!--seo:home:stale-->') !== false;
+}
+
+// IndexNow: tell Bing (which also feeds ChatGPT search), Yandex and others that pages changed, straight away.
+// The key is a public file at the site root (indexnow-key.txt).
+const INDEXNOW_KEY = '7f3c9a2e5b8d41f6a0c4e9b2d7f1a3c5';
+
+function seo_indexnow(array $urls): void
+{
+    $urls = array_values(array_unique(array_filter($urls)));
+    if (!$urls || stripos((string) cfg('site_url'), 'localhost') !== false) return;
+    $host = (string) parse_url(seo_base(), PHP_URL_HOST);
+    $ch = curl_init('https://api.indexnow.org/indexnow');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json; charset=utf-8'],
+        CURLOPT_POSTFIELDS => json_encode(['host' => $host, 'key' => INDEXNOW_KEY, 'keyLocation' => seo_base() . '/indexnow-key.txt', 'urlList' => array_slice($urls, 0, 1000)], JSON_UNESCAPED_SLASHES)]);
+    @curl_exec($ch);
+}
+
+// After a product changes: its pages (both languages), its category page and the homepage.
+function seo_indexnow_product(string $id): void
+{
+    $urls = [seo_product_url($id), seo_product_url($id, true), seo_base() . '/'];
+    $st = db()->prepare('SELECT cat FROM products WHERE id = ?');
+    $st->execute([$id]);
+    if ($cat = $st->fetchColumn()) { $urls[] = seo_category_url((string) $cat); $urls[] = seo_category_url((string) $cat, true); }
+    register_shutdown_function(function () use ($urls) { try { seo_indexnow($urls); } catch (Throwable $e) {} });
 }

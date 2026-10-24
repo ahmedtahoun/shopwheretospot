@@ -16,3 +16,6 @@ deployment:
     - /bin/cp p/.htaccess $DEPLOYPATH/p/.htaccess
     - /bin/mkdir -p $DEPLOYPATH/r
     - /bin/cp r/.htaccess $DEPLOYPATH/r/.htaccess
+    - /bin/mkdir -p $DEPLOYPATH/c $DEPLOYPATH/b
+    - /bin/cp c/.htaccess $DEPLOYPATH/c/.htaccess
+    - /bin/cp b/.htaccess $DEPLOYPATH/b/.htaccess

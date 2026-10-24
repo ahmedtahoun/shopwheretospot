@@ -14,6 +14,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 try {
     if ($action === 'catalog' && $method === 'GET') {
+        // After a deploy the homepage's crawler copy is the fallback: fill it in from the live catalogue (api/seo-lib.php).
+        if (seo_home_stale()) register_shutdown_function(function () { try { seo_publish(); } catch (Throwable $e) {} });
         $cats = db()->query('SELECT key, label, descr AS "desc", label_ar AS "labelAr", descr_ar AS "descAr", sort FROM categories ORDER BY sort, label')->fetchAll();
         // Search title + description per language, so the product page script shows the same ones as the server.
         $en = seo_lookups(false); $arL = seo_lookups(true);

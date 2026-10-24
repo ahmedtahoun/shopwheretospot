@@ -57,7 +57,7 @@ $html = preg_replace('/<meta property="og:image:(width|height)" content="[^"]*">
 
 $breadcrumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => [
     ['@type' => 'ListItem', 'position' => 1, 'name' => SEO_SITE, 'item' => seo_base() . '/'],
-    ['@type' => 'ListItem', 'position' => 2, 'name' => $product['catLabel'], 'item' => seo_base() . '/#products'],
+    ['@type' => 'ListItem', 'position' => 2, 'name' => $product['catLabel'], 'item' => seo_category_url($product['cat'], $ar)],
     ['@type' => 'ListItem', 'position' => 3, 'name' => $product['title'], 'item' => $product['url']],
 ]];
 $json = function ($d) { return '<script type="application/ld+json">' . json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>'; };
@@ -76,17 +76,28 @@ if (count($product['sizes']) > 1) {
         return '<li>' . seo_esc($s['label']) . ': ' . seo_esc($ar ? number_format($s['price']) . ' ج.م' : 'EGP ' . number_format($s['price'])) . ($s['stock'] > 0 ? '' : ($ar ? ' (نفد)' : ' (sold out)')) . '</li>';
     }, $product['sizes'])) . '</ul>';
 }
+// Common questions for this kind of product (the category page's answers, api/seo-lib.php).
+$catText = seo_category_text((string) $product['cat'], (string) $product['catLabel'], '', $ar);
+$faq = $catText['faq'] ? '<h2>' . ($ar ? 'أسئلة شائعة' : 'Questions') . '</h2>' . implode('', array_map(function ($q) { return '<h3>' . seo_esc($q[0]) . '</h3><p>' . seo_esc($q[1]) . '</p>'; }, $catText['faq'])) : '';
+// Other products in the same category, as plain links.
+$others = array_slice(array_values(array_filter(seo_products($ar), function ($p) use ($product) { return $p['cat'] === $product['cat'] && $p['id'] !== $product['id']; })), 0, 6);
+$related = $others ? '<h2>' . ($ar ? 'منتجات مشابهة' : 'Related products') . '</h2><ul>' . implode('', array_map(function ($p) use ($ar) { return '<li><a href="' . seo_esc($p['url']) . '">' . seo_esc($p['title']) . '</a>: ' . seo_esc(seo_price_text($p, $ar)) . '</li>'; }, $others)) .
+    '</ul><p><a href="' . seo_esc(seo_category_url($product['cat'], $ar)) . '">' . ($ar ? 'كل منتجات ' : 'All ') . seo_esc($product['catLabel']) . '</a></p>' : '';
 // Features are written in English; the Arabic description carries the same facts.
 $features = $product['features'] && !$ar ? '<ul>' . implode('', array_map(function ($f) { return '<li>' . seo_esc($f) . '</li>'; }, $product['features'])) . '</ul>' : '';
 $static = '<article id="seo-product" style="max-width:760px;margin:24px auto;padding:0 20px;font-family:system-ui,sans-serif;line-height:1.6">' .
-    '<p><a href="/">' . SEO_SITE . '</a> › <a href="/#products">' . seo_esc($product['catLabel']) . '</a></p>' .
+    '<p><a href="/">' . SEO_SITE . '</a> › <a href="' . seo_esc(seo_category_url($product['cat'], $ar)) . '">' . seo_esc($product['catLabel']) . '</a></p>' .
     '<h1>' . seo_esc($product['title']) . '</h1>' .
+    // One plain sentence with the key facts first: what AI answers and search snippets quote.
+    '<p><strong>' . ($ar ? 'باختصار: ' : 'In short: ') . '</strong>' . seo_esc($product['title']) . ($product['brand'] !== SEO_SITE ? ($ar ? ' من ' : ' by ') . seo_esc($product['brand']) : '') . ($ar ? '، ' : ', ') .
+        seo_esc(seo_price_text($product, $ar)) . ($ar ? '، ' : ', ') . ($product['inStock'] ? ($ar ? 'متوفر' : 'in stock') : ($ar ? 'غير متوفر حاليًا' : 'out of stock')) .
+        ($ar ? '، توصيل لكل مصر خلال 2–5 أيام والدفع عند الاستلام.' : ', delivered across Egypt in 2–5 days with cash on delivery.') . '</p>' .
     ($product['partner'] ? '<p>' . ($ar ? 'من ' : 'By ') . seo_esc($product['brand']) . ($ar ? ' — شريك رسمي، منتجات أصلية من العلامة مباشرة.' : ' — official partner; original products supplied directly by the brand.') . '</p>' : '') .
     ($product['imageUrls'] ? '<img src="' . seo_esc($product['imageUrls'][0]) . '" alt="' . seo_esc($product['title'] . ($product['brand'] !== SEO_SITE ? ' – ' . $product['brand'] : '')) . '" width="480" style="max-width:100%;height:auto">' : '') .
     '<p><strong>' . seo_esc(seo_price_text($product, $ar)) . '</strong> · ' . ($product['inStock'] ? ($ar ? 'متوفر' : 'In stock') : ($ar ? 'غير متوفر حاليًا' : 'Out of stock')) . '</p>' . $sizes .
     ($product['summary'] ? '<p>' . seo_esc($product['summary']) . '</p>' : '') . ($product['text'] ? '<p>' . nl2br(seo_esc($product['text'])) . '</p>' : '') . $features .
     '<p>' . ($ar ? 'توصيل لكل مصر خلال 2–5 أيام · الدفع عند الاستلام أو بالبطاقة أو المحفظة · استرجاع خلال 14 يوم.' : 'Delivery across Egypt in 2–5 days · cash on delivery, card or mobile wallet · 14-day returns.') .
-    ' <a href="/shipping-policy.html">' . ($ar ? 'التوصيل' : 'Delivery') . '</a> · <a href="/refund-policy.html">' . ($ar ? 'الاسترجاع' : 'Returns') . '</a></p></article>';
+    ' <a href="/shipping-policy.html">' . ($ar ? 'التوصيل' : 'Delivery') . '</a> · <a href="/refund-policy.html">' . ($ar ? 'الاسترجاع' : 'Returns') . '</a></p>' . $faq . $related . '</article>';
 $html = replace_once($html, '<body>', "<body>\n" . $static);
 
 header('Content-Type: text/html; charset=utf-8');

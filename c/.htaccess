@@ -1,0 +1,5 @@
+# Category pages: /c/<key> → api/category-page.php
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^([a-z0-9_-]+)/?$ /api/category-page.php?c=$1 [L,QSA]
+</IfModule>
