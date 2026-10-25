@@ -247,7 +247,7 @@
     [/^Promo (\S+) applied \((.+)\)$/, function (m, c, l) { return 'تم تطبيق كود ' + c + ' (' + tr(l) + ')'; }],
     [/^Add (.+) more to use (\S+)\.$/, 'أضف $1 أخرى لاستخدام كود $2.'],
     [/^This code needs an order of EGP ([\d,]+) or more\.$/, 'هذا الكود يتطلب طلبًا بقيمة $1 ج.م أو أكثر.'],
-    [/^incl\. delivery (.+)$/, function (m, a) { return 'شامل التوصيل ' + tr(a); }],
+    [/^incl\. delivery (.+)$/, function (m, a) { return 'شامل التوصيل ' + (tr(a) || a); }],
     [/^Not sure \/ anywhere in (.+)$/, 'غير متأكد / أي مكان في $1'],
     [/^(.+) · any neighbourhood$/, '$1 · أي حي'],
     [/^Pay (.+)$/, function (m, a) { return /^(EGP|[\d])/.test(a) || /ج\.م/.test(a) ? 'ادفع ' + a : null; }],
@@ -277,6 +277,8 @@
     [/^1 pcs$/, 'قطعة واحدة'], [/^(\d+(?:–\d+)?) pcs$/, '$1 قطعة'], [/^(\d+)\+ pcs$/, '$1+ قطعة'],
     [/^Total for (\d+) pieces?: (.+)$/, 'الإجمالي لـ $1 قطعة: $2'],
     [/^(.+) — Where To Spot$/, function (m, a) { var x = D[a]; return x ? x + ' — Where To Spot' : null; }],
+    // A cart line "name — size": the size ends in Arabic too ("10 × 15 cm" → "10 × 15 سم").
+    [/^(.+) — ([^—]+)$/, function (m, a, b) { var y = D[b.trim()]; return y ? a + ' — ' + y : null; }],
   ];
 
   // Arabic counts: 1 منتج واحد, 2 منتجان, 3–10 منتجات, 11+ منتجًا.
@@ -391,13 +393,16 @@
   }
   function walk(root) {
     if (root.nodeType === 3) return doText(root);
-    if (root.nodeType !== 1 || SKIP[root.nodeName]) return;
+    if (root.nodeType !== 1) return;
+    // A text box's own text stays as typed, but its placeholder is translated.
+    if (root.nodeName === 'TEXTAREA') return doAttrs(root);
+    if (SKIP[root.nodeName]) return;
     doAttrs(root);
     var w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
     var n;
     while ((n = w.nextNode())) {
       if (n.nodeType === 3) doText(n);
-      else if (!SKIP[n.nodeName]) doAttrs(n);
+      else if (!SKIP[n.nodeName] || n.nodeName === 'TEXTAREA') doAttrs(n);
     }
   }
   var title = document.title;

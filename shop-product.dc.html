@@ -211,7 +211,7 @@
           <button onClick="{{ incQty }}" disabled="{{ atStockLimit }}" style="width:40px;height:40px;border:none;background:none;font-size:17px;cursor:pointer;opacity:{{ incQtyOpacity }};border-radius:0 999px 999px 0;transition:background 0.15s ease" style-hover="{{ qtyBtnHover }}">+</button>
         </div>
         <button onClick="{{ addToCart }}" disabled="{{ outOfStock }}" style="flex:1;background:#fff;color:{{ accent }};border:2px solid {{ addBtnBg }};padding:13px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">{{ addBtnLabel }}</button>
-        <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ addBtnBg }};color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">Buy now</button>
+        <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ buyBtnBg }};color:#fff;border:none;padding:15px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addBtnOpacity }}">Buy now</button>
       </div>
       <sc-if value="{{ stockNote }}" hint-placeholder-val="{{ '' }}">
         <div style="font-size:12.5px;color:#A8552F;margin-top:8px">{{ stockNote }}</div>
@@ -339,13 +339,13 @@
         <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ product.name }}</div>
         <div style="font-weight:700;font-size:14px">{{ priceFmt }}</div>
       </div>
-      <button onClick="{{ buyNow }}" style="background:{{ addBtnBg }};color:#fff;border:none;padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Buy now</button>
+      <button onClick="{{ buyNow }}" style="background:{{ buyBtnBg }};color:#fff;border:none;padding:13px 22px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Buy now</button>
     </div>
   </sc-if>
   <div class="sbar" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #DDD6CC;box-shadow:0 -10px 30px rgba(0,0,0,0.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:81;align-items:center;gap:10px">
     <div style="min-width:0;flex:none;max-width:34%"><div class="sb-name">{{ product.name }}</div><div style="font-weight:700;font-size:15px;white-space:nowrap">{{ sbarPrice }}</div></div>
     <button onClick="{{ addToCart }}" disabled="{{ outOfStock }}" style="flex:1;background:#fff;color:{{ accent }};border:2px solid {{ addBtnBg }};padding:13px 6px;border-radius:999px;font-size:14.5px;font-weight:700;cursor:pointer;opacity:{{ addBtnOpacity }};white-space:nowrap">{{ addBtnLabel }}</button>
-    <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ addBtnBg }};color:#fff;border:none;padding:15px 6px;border-radius:999px;font-size:14.5px;font-weight:700;cursor:pointer;opacity:{{ addBtnOpacity }};white-space:nowrap">Buy now</button>
+    <button onClick="{{ buyNow }}" disabled="{{ outOfStock }}" style="flex:1;background:{{ buyBtnBg }};color:#fff;border:none;padding:15px 6px;border-radius:999px;font-size:14.5px;font-weight:700;cursor:pointer;opacity:{{ addBtnOpacity }};white-space:nowrap">Buy now</button>
   </div>
 
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ '' }}">
@@ -597,6 +597,7 @@ class Component extends DCLogic {
       added: this.state.added,
       addBtnLabel: this.state.added ? 'Added ✓' : stock <= 0 ? 'Out of stock' : 'Add to cart',
       addBtnBg: this.state.added ? '#6B8F71' : accent,
+      buyBtnBg: accent,
       atStockLimit: qty >= stock, incQtyOpacity: qty >= stock ? 0.4 : 1,
       outOfStock: stock <= 0, addBtnOpacity: stock <= 0 ? 0.5 : 1,
       stockNote: stock > 0 && stock <= 5 ? 'Only ' + stock + ' left' : '',

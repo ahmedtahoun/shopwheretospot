@@ -209,6 +209,10 @@
   @media (max-width:760px){.fhero{padding:18px 16px;border-radius:20px;margin-bottom:18px}.fh-title{font-size:30px}.fh-lead{font-size:14.5px;line-height:1.6}.fh-acts .btn{width:100%;justify-content:center}}
   /* Phones zoom into fields smaller than 16px and stay zoomed in: keep every field at 16px there. */
   @media (max-width:760px){input,select,textarea{font-size:16px!important}}
+  /* Cart on phones: quantity and remove buttons big enough for a thumb. */
+  @media (max-width:760px){.qbtn{width:36px !important;height:36px !important;border-radius:10px !important;font-size:17px}.qrm{padding:8px 4px !important;font-size:13px !important}}
+  input[type=file]{font:inherit;font-size:13px;color:#6B6660;max-width:100%}
+  input[type=file]::file-selector-button{font:inherit;font-size:13px;font-weight:600;color:#22201D;background:#fff;border:1px solid #DDD6CC;border-radius:999px;padding:8px 14px;margin-inline-end:10px;cursor:pointer}
   .fh-title{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,44px);line-height:1.1;margin:0 0 10px}
   .fh-lead{font-size:15px;line-height:1.65;color:#6B6660;max-width:62ch;margin:0}
   .fh-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
@@ -1011,7 +1015,7 @@
                   <button onClick="{{ i.onDec }}" class="qbtn" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">–</button>
                   <span style="font-size:13px;min-width:16px;text-align:center">{{ i.qty }}</span>
                   <button onClick="{{ i.onInc }}" class="qbtn" style="width:24px;height:24px;border:1px solid #DDD6CC;background:#fff;border-radius:6px;cursor:pointer">+</button>
-                  <button onClick="{{ i.onRemove }}" style="margin-left:auto;font-size:12px;color:#6B6660;background:none;border:none;cursor:pointer;text-decoration:underline">remove</button>
+                  <button onClick="{{ i.onRemove }}" class="qrm" style="margin-left:auto;font-size:12px;color:#6B6660;background:none;border:none;cursor:pointer;text-decoration:underline">remove</button>
                 </div>
               </div>
               <div style="font-weight:700;font-size:14px">{{ i.lineTotalFmt }}</div>

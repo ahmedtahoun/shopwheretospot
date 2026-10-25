@@ -61,3 +61,5 @@ html:not([lang=ar]) .ar-only{display:none}
 html[lang=ar] body{line-height:1.85}
 html[lang=ar] h1,html[lang=ar] h2{font-weight:700}
 html[lang=ar] .kicker{letter-spacing:0}
+input[type=file]{font:inherit;font-size:13px;color:#6B6660;max-width:100%}
+input[type=file]::file-selector-button{font:inherit;font-size:13px;font-weight:600;color:#22201D;background:#fff;border:1px solid #DDD6CC;border-radius:999px;padding:8px 14px;margin-inline-end:10px;cursor:pointer}
