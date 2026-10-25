@@ -80,6 +80,9 @@
   @media (max-width: 760px){.toast{left:16px !important;right:16px !important;bottom:calc(84px + env(safe-area-inset-bottom)) !important;text-align:center;border-radius:14px !important}}
   /* Phones zoom into fields smaller than 16px and stay zoomed in: keep every field at 16px there. */
   @media (max-width:760px){input,select,textarea{font-size:16px!important}}
+  /* Phones: related products two by two (not one huge card per row); the back link stays on one line. */
+  @media (max-width:760px){.relsec{padding:12px 16px 56px !important}.relgrid{grid-template-columns:1fr 1fr !important;gap:12px !important}.relgrid > a > div{padding:10px 12px !important}.relgrid > a > div > div:first-child{font-size:13.5px !important;line-height:1.4}}
+  @media (max-width:420px){.pback{display:none}}
 </style>
 <script src="image-slot.js"></script>
 </helmet>
@@ -89,7 +92,7 @@
       <a href="index.html" class="brandlink" style="display:flex;align-items:center;gap:10px;font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;white-space:nowrap"><img src="images/logo-mark.png?v=3" alt="" width="36" height="36" style="width:36px;height:36px;border-radius:50%;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.18)">Where To Spot</a>
       <div style="display:flex;align-items:center;gap:10px">
         <button data-lang-toggle translate="no" class="langbtn" title="{{ langTitle }}">{{ langLabel }}</button>
-        <a href="index.html" class="link" style="font-size:13.5px;font-weight:600;color:#6B6660">← Shop</a>
+        <a href="index.html" class="link pback" style="font-size:13.5px;font-weight:600;color:#6B6660;white-space:nowrap">← Shop</a>
         <a href="index.html?cart=1" style="border:1px solid #DDD6CC;background:#fff;padding:9px 14px;border-radius:999px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px">Cart<sc-if value="{{ cartCount }}" hint-placeholder-val="{{ 0 }}"><span style="background:var(--accent);color:#fff;border-radius:999px;font-size:11.5px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px">{{ cartCount }}</span></sc-if></a>
       </div>
     </div>
@@ -227,9 +230,9 @@
     </div>
   </div>
 
-  <section style="max-width:1200px;margin:0 auto;padding:20px 28px 90px">
+  <section class="relsec" style="max-width:1200px;margin:0 auto;padding:20px 28px 90px">
     <h2 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:26px;margin:0 0 20px">You may also like</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px">
+    <div class="relgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px">
       <sc-for list="{{ related }}" as="r" hint-placeholder-count="3">
         <a href="{{ r.href }}" style="border:1px solid #DDD6CC;border-radius:16px;overflow:hidden;background:#fff;display:block;transition:transform 0.18s ease,box-shadow 0.18s ease" style-hover="{{ cardHover }}">
           <image-slot id="{{ r.imgId }}" src="{{ r.img }}" fit="contain" shape="rect" placeholder="{{ r.placeholder }}" style="width:100%;aspect-ratio:1/1"></image-slot>
@@ -403,7 +406,7 @@ class Component extends DCLogic {
       }
       return false;
     }
-    const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 3);
+    const related = inv.filter(p => p.cat === product.cat && p.id !== product.id && p.status === 'Active').slice(0, 4);
     const first = !this.state.product;
     const keep = this.state.variantId && (product.variants || []).some(v => v.id === this.state.variantId);
     const variantId = keep ? this.state.variantId : product.variants && product.variants.length ? (product.variants.find(v => v.stock > 0) || product.variants[0]).id : null;

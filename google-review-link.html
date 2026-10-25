@@ -122,7 +122,7 @@
   .maprow .hint{flex:1;min-width:200px}
   html[lang=ar] .tool,html[lang=ar] .made{direction:rtl}
   #printArea{display:none}
-  .crumbs{font-size:13px;color:#8A8478;margin-bottom:14px}
+  .crumbs{position:static;z-index:auto;background:none;backdrop-filter:none;border:0;font-size:13px;color:#8A8478;margin-bottom:14px}
   .crumbs a{color:#6B6660;text-decoration:none}
   .updated{font-size:13px;color:#8A8478;margin-top:4px}
   .answer{background:#fff;border-inline-start:4px solid #A8552F;border-radius:12px;padding:14px 18px;font-size:15px;line-height:1.7;margin:18px 0 0}
@@ -790,6 +790,8 @@
     if (name) {
       ctx.fillStyle = '#A8552F'; var fs = 64; ctx.font = '700 ' + fs + 'px ' + (/[؀-ۿ]/.test(name) ? ar : en);
       while (ctx.measureText(name).width > W - 220 && fs > 34) { fs -= 4; ctx.font = '700 ' + fs + 'px ' + (/[؀-ۿ]/.test(name) ? ar : en); }
+      // Still too wide at the smallest size: cut it with … so it never runs off the card.
+      if (ctx.measureText(name).width > W - 220) { while (name.length > 1 && ctx.measureText(name + '…').width > W - 220) name = name.slice(0, -1).trim(); name += '…'; }
       ctx.fillText(name, W / 2, L === 'both' ? 510 : 460);
     }
     var qs = L === 'both' ? 680 : 720, qx = (W - qs) / 2, qy = L === 'both' ? 590 : 550;
@@ -801,7 +803,9 @@
     if (L !== 'ar') { ctx.font = '600 50px ' + en; ctx.fillStyle = L === 'both' ? '#6B6660' : '#22201D'; ctx.fillText(T.cardSubEn, W / 2, y); y += 72; }
     // One language: a short thank-you line under the scan line (no room for it with both).
     if (L !== 'both') { ctx.fillStyle = '#8A8478'; ctx.font = (L === 'en' ? '500 42px ' + en : '600 44px ' + ar); ctx.fillText(L === 'en' ? T.cardThanksEn : T.cardThanksAr, W / 2, y + 20); }
-    ctx.font = '500 28px ' + en; ctx.fillStyle = '#B5AEA3'; ctx.fillText('Free card from shop.wheretospot.com', W / 2, H - 100);
+    ctx.fillStyle = '#B5AEA3';
+    if (L === 'ar') { ctx.font = '600 30px ' + ar; ctx.direction = 'rtl'; ctx.fillText('كارت مجاني من shop.wheretospot.com', W / 2, H - 100); ctx.direction = 'ltr'; }
+    else { ctx.font = '500 28px ' + en; ctx.fillText('Free card from shop.wheretospot.com', W / 2, H - 100); }
     // Not yours yet: a big PREVIEW across the card (the real one comes with the download).
     if (!state.biz) {
       ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-Math.PI / 5); ctx.globalAlpha = 0.18; ctx.fillStyle = '#A8552F';
@@ -810,10 +814,19 @@
   };
   var qrText = function () { return state.biz ? state.biz.qr : state.link; };
 
+  // Google sometimes gives a place's full address as its name ("Plant, Tulip Village, Suez Sokhna Road, …"):
+  // keep the first parts that fit the card's 40 characters, so the owner starts from a short name.
+  var cardName = function (name) {
+    name = String(name).trim();
+    if (name.length <= 40) return name;
+    var out = '';
+    name.split(/\s*[,،]\s*/).some(function (part) { var next = out ? out + ', ' + part : part; if (next.length > 40) return true; out = next; return false; });
+    return out || name.slice(0, 39).trim() + '…';
+  };
   var make = function (link, name, place, how) {
     state.link = link; state.place = place || null; state.biz = own(link);
     renderOwn();
-    if (name) $('biz').value = name;
+    if (name) $('biz').value = cardName(name);
     var pill = { exact: ['', t('vExact')], review: ['', t('vReview')], google: ['', t('vGoogle')], profile: ['', t('vProfile')], not: ['warn', t('vNot')] }[how || 'profile'];
     // The map of the found business, so the owner can check it's the right place and branch.
     var mapUrl = place && place.id && state.embedKey ? 'https://www.google.com/maps/embed/v1/place?key=' + encodeURIComponent(state.embedKey) + '&q=place_id:' + encodeURIComponent(place.id)
