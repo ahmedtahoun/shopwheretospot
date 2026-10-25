@@ -19,6 +19,16 @@
     lang = String(langs[0] || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en';
   }
   var AR = lang === 'ar';
+  // Phones that block saving the choice (private tabs, strict settings): carry it in the links we follow instead.
+  var canStore = false;
+  try { localStorage.setItem(KEY + '_t', '1'); localStorage.removeItem(KEY + '_t'); canStore = true; } catch (e) {}
+  if (!canStore) document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.target === '_blank') return;
+    var u; try { u = new URL(a.href); } catch (err) { return; }
+    if (u.origin !== location.origin || u.searchParams.has('lang') || /^(mailto|tel):/.test(a.href)) return;
+    u.searchParams.set('lang', lang); a.href = u.href;
+  }, true);
   var html = document.documentElement;
   html.lang = lang;
   html.dir = AR ? 'rtl' : 'ltr';
@@ -26,8 +36,9 @@
 
   function setLang(next) {
     try { localStorage.setItem(KEY, next); } catch (e) {}
+    // The choice goes in the link too, so it works even when the phone doesn't let us remember it.
     var u = new URL(location.href);
-    u.searchParams.delete('lang');
+    u.searchParams.set('lang', next);
     location.replace(u.pathname + u.search + u.hash);
   }
 

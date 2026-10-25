@@ -552,14 +552,14 @@
     </div>
     <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="{{ false }}">
       <div class="mmenu" style="border-top:1px solid #DDD6CC;padding:14px 24px 20px;display:flex;flex-direction:column;gap:12px;font-size:14.5px;font-weight:500">
-        <a href="#products" class="link" onClick="{{ toggleMobileMenu }}">Shop</a>
+        <a href="#products" class="link" onClick="{{ shopFromMenu }}">Shop</a>
         <a href="plans.html" class="link">Marketing plans</a>
         <a href="#services" class="link" onClick="{{ toggleMobileMenu }}">Services</a>
         <a href="about.html" class="link">About us</a>
         <a href="google-review-link.html" class="link">Free Google review link & QR</a>
         <a href="contact.html" class="link">Contact</a>
-        <button onClick="{{ openWishFromMobile }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">Wishlist{{ wishBadge }}</button>
-        <button onClick="{{ openAccount }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:left">{{ accountNavLabel }}</button>
+        <button onClick="{{ openWishFromMobile }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:start">Wishlist{{ wishBadge }}</button>
+        <button onClick="{{ openAccount }}" style="border:none;background:none;color:#22201D;font-size:14.5px;font-weight:500;cursor:pointer;font-family:inherit;padding:0;text-align:start">{{ accountNavLabel }}</button>
         <div style="display:flex;align-items:center;gap:16px;padding-top:6px">
           <a href="https://instagram.com/wheretospot" target="_blank" rel="noopener" aria-label="Instagram" class="link" style="display:flex">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
@@ -1641,6 +1641,8 @@ class Component extends DCLogic {
   toggleMobileMenu = () => this.setState(s => ({ mobileMenuOpen: !s.mobileMenuOpen }));
   toggleWishPanel = () => this.setState(s => ({ wishPanelOpen: !s.wishPanelOpen }));
   openWishFromMobile = () => this.setState({ wishPanelOpen: true, mobileMenuOpen: false });
+  // "Shop" in the phone menu: the whole shop (not the last entrance the visitor opened), at the products.
+  shopFromMenu = (e) => { this.setState({ mobileMenuOpen: false }); this.setFor('')(e); };
   closeWishPanel = () => this.setState({ wishPanelOpen: false });
   toggleWish = (id) => (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -2108,7 +2110,7 @@ class Component extends DCLogic {
       doors: this._sd && this._sd.FOR_PAGES ? Object.entries(this._sd.FOR_PAGES).map(([k, d]) => ({ title: d.door, line: d.doorLine, img: this._sd.img(d.img, 600), onClick: this.setFor(k), href: '?for=' + k + '#products' })) : [],
       forHero: forPage ? { eyebrow: forPage.eyebrow, title: forPage.title, lead: forPage.lead, plans: !!forPage.plans, wholesale: !!forPage.wholesale } : null,
       forWholesaleOpen: !!forPage && !!forPage.wholesale && s.brandQuoteOpen, forWholesaleSent: !!forPage && s.brandQuoteSent, submitWholesale: this.submitWholesale,
-      clearFor: this.setFor(''),
+      clearFor: this.setFor(''), shopFromMenu: this.shopFromMenu,
       brandStrip: brands.map(b => ({ name: b.name, logo: b.logo ? this._sd.img(b.logo, 160) : '', onClick: this.setBrand(b.slug) })),
       showMeta: !s.isLoading, resultsLabel: nLabel(filtered.length), showNLabel: 'Show ' + nLabel(filtered.length),
       wishCount: s.wishlist.length || null,
