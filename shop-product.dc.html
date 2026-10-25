@@ -78,6 +78,8 @@
   .langbtn{border:1px solid #DDD6CC;background:#fff;height:38px;min-width:38px;padding:0 10px;border-radius:999px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;font-family:'Work Sans',system-ui,sans-serif}
   .sbar{display:none}
   @media (max-width: 760px){.toast{left:16px !important;right:16px !important;bottom:calc(84px + env(safe-area-inset-bottom)) !important;text-align:center;border-radius:14px !important}}
+  /* Phones zoom into fields smaller than 16px and stay zoomed in: keep every field at 16px there. */
+  @media (max-width:760px){input,select,textarea{font-size:16px!important}}
 </style>
 <script src="image-slot.js"></script>
 </helmet>

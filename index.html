@@ -204,8 +204,11 @@
   .door-go{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;font-weight:700}
   [dir=rtl] .door-go{right:auto;left:12px}
   .fhero{background:#fff;border:1px solid #E4DED5;border-radius:24px;padding:clamp(18px,3vw,30px);margin:0 0 24px}
-  .fh-back{border:none;background:none;color:#6B6660;font:inherit;font-size:13.5px;cursor:pointer;padding:0;margin:0 0 12px}
-  .fh-back:hover{color:#22201D}
+  .fh-back{display:inline-flex;align-items:center;gap:6px;border:1px solid #E4DED5;background:#F7F3ED;color:#4A4640;font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:7px 13px;border-radius:999px;margin:0 0 14px}
+  .fh-back:hover{color:#22201D;border-color:#CFC7BB}
+  @media (max-width:760px){.fhero{padding:18px 16px;border-radius:20px;margin-bottom:18px}.fh-title{font-size:30px}.fh-lead{font-size:14.5px;line-height:1.6}.fh-acts .btn{width:100%;justify-content:center}}
+  /* Phones zoom into fields smaller than 16px and stay zoomed in: keep every field at 16px there. */
+  @media (max-width:760px){input,select,textarea{font-size:16px!important}}
   .fh-title{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(28px,4vw,44px);line-height:1.1;margin:0 0 10px}
   .fh-lead{font-size:15px;line-height:1.65;color:#6B6660;max-width:62ch;margin:0}
   .fh-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}

@@ -77,7 +77,7 @@
   .chip.wa:hover{background:#17603C}
   .chip.ghost{background:none}
   form{display:flex;gap:8px;padding:12px;border-top:1px solid #E4DDD2;background:#fff}
-  input{flex:1;min-width:0;border:1px solid #DDD6CC;background:#F7F3ED;border-radius:999px;padding:12px 16px;font-size:15px;color:#22201D;outline:none}
+  input{flex:1;min-width:0;border:1px solid #DDD6CC;background:#F7F3ED;border-radius:999px;padding:12px 16px;font-size:16px;color:#22201D;outline:none}
   input:focus{border-color:${ACCENT};background:#fff}
   .send{border:none;background:${ACCENT};color:#fff;width:46px;height:46px;border-radius:50%;cursor:pointer;display:grid;place-items:center;flex:none}
   .send:disabled{opacity:.4;cursor:default}
