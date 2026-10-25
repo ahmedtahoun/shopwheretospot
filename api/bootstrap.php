@@ -98,7 +98,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 46;
+const SCHEMA_VERSION = 47;
 
 function db(): PDO
 {
@@ -620,6 +620,8 @@ function migrate(PDO $pdo): void
     reviews_migrate($pdo);
     // Monthly reports: the copy saved when each month closes (api/reports.php).
     reports_migrate($pdo);
+    // "Sell with us" requests from brands and makers (api/sellers.php).
+    sellers_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -796,6 +798,8 @@ require __DIR__ . '/reviews.php';
 require __DIR__ . '/reports.php';
 require __DIR__ . '/expenses.php';
 require __DIR__ . '/devices.php';
+require __DIR__ . '/images.php';
+require __DIR__ . '/sellers.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

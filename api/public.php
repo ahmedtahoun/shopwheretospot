@@ -159,6 +159,15 @@ try {
         }
     }
 
+    // "Sell with us" (sell.html): a brand or maker sends their products and photos for the team to review.
+    if ($action === 'seller_apply') {
+        if (too_many_attempts('seller', 5, 3600)) fail('Too many requests. Please message us on WhatsApp instead.', 429);
+        if (trim((string) ($b['website'] ?? '')) !== '') json_out(['ok' => true]); // hidden field: only bots fill it in
+        seller_apply($b, $_FILES);
+        record_attempt('seller');
+        json_out(['ok' => true]);
+    }
+
     if ($action === 'lead') {
         if (too_many_attempts('lead', 10, 3600)) fail('Too many requests. Please call us.', 429);
         $name = str_in($b['name'] ?? '', 120);

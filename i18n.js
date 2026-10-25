@@ -35,6 +35,10 @@
   var D = {
     // header, menu, footer
     'Shop': 'تسوّق', 'Marketing plans': 'خطط التسويق', 'Services': 'الخدمات', 'About us': 'من نحن', 'Free Google review link & QR': 'رابط تقييم جوجل وكود QR مجانًا', 'Free review link': 'رابط تقييم مجاني', 'Contact': 'تواصل معنا',
+    'Sell with us': 'بيع معانا', 'Please enter your name and your brand or shop name.': 'من فضلك اكتب اسمك واسم البراند أو المحل.',
+    'Please enter a WhatsApp number we can reach you on.': 'من فضلك اكتب رقم واتساب نقدر نكلمك عليه.', 'Please check the email address.': 'من فضلك راجع الإيميل.',
+    'Please add at least one product with its name.': 'من فضلك ضيف منتج واحد على الأقل باسمه.', 'Too many requests. Please message us on WhatsApp instead.': 'طلبات كتير. من فضلك كلمنا على واتساب.',
+    'Only JPG, PNG or WebP photos are allowed.': 'مسموح بصور JPG أو PNG أو WebP بس.', 'Photo is too large (max 5 MB).': 'الصورة كبيرة (الحد الأقصى 5 ميجا).',
     'Contact us': 'تواصل معنا', 'Wishlist': 'المفضلة', 'Cart': 'السلة', 'Home': 'الرئيسية', 'Categories': 'الفئات', 'Search': 'بحث',
     'Menu': 'القائمة', 'Close': 'إغلاق', '→': '←', '←': '→', ',': '،',
     'All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery': 'كل الأسعار بالجنيه المصري · توصيل لكل مصر · الدفع عند الاستلام',

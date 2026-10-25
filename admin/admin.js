@@ -2735,14 +2735,21 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
+  // Brands | Seller requests ("Sell with us" page), with the number of new requests.
+  const brandTabs = (on, nNew) => '<div class="seg" id="bTabs" style="margin-bottom:16px"><button data-t="brands" class="' + (on === 'brands' ? 'on' : '') + '">Brands</button>' +
+    '<button data-t="requests" class="' + (on === 'requests' ? 'on' : '') + '"><span>Seller requests</span>' + (nNew ? ' <span class="seg-n">' + nNew + '</span>' : '') + '</button></div>';
+  const wireBrandTabs = () => $$('#bTabs button').forEach((b) => b.onclick = () => { S.brandTab = b.dataset.t; pageBrands(); });
+
   async function pageBrands() {
+    if (S.brandTab === 'requests') return pageSellerRequests();
     const month = S.brandMonth || new Date().toISOString().slice(0, 7);
-    const d = await api('brands', { query: '&month=' + month });
+    const [d, sr] = await Promise.all([api('brands', { query: '&month=' + month }), api('seller_requests').catch(() => ({ requests: [] }))]);
+    const nNewSellers = sr.requests.filter((r) => r.status === 'New').length;
     S.brands = d.brands;
     const money = d.brands.some((b) => b.month);
     $('#main').innerHTML = header('Partner brands', 'Brands whose products you sell under their logo. Each sale earns your commission; the rest is theirs.',
       (money ? '<select id="bMonth" style="width:auto">' + lastMonths(12).map((m) => '<option value="' + m + '"' + (m === d.month ? ' selected' : '') + '>' + esc(monthLabel(m)) + '</option>').join('') + '</select>' : '') +
-      '<button class="btn primary" id="newBrand">+ Add brand</button>') +
+      '<button class="btn primary" id="newBrand">+ Add brand</button>') + brandTabs('brands', nNewSellers) +
       (d.brands.length ? '<div class="brand-grid">' + d.brands.map((b) => '<div class="card brand-card' + (b.active ? '' : ' off') + '" data-b="' + b.id + '">' +
         '<div class="row"><span class="brand-logo">' + (b.logo ? '<img src="../' + esc(b.logo) + '" alt="">' : esc(b.name[0] || '?')) + '</span><span style="flex:1;min-width:0"><b>' + esc(b.name) + '</b>' +
           '<div class="small muted">' + b.live + ' live of ' + b.products + ' products · ' + (b.commission ? b.commission + '% commission' : '<span class="pay-part">commission not set</span>') + (b.margin ? ' · ' + b.margin + '% margin' : '') + '</div></span>' +
@@ -2762,11 +2769,62 @@
       '<p class="small muted" style="margin-top:14px">How it works: give each product its brand in Products → edit → Partner brand. The shop shows the brand’s logo with an “Official partner” badge. ' +
       'Commission is a share of the item price; delivery fees and promo-code discounts are yours. A sale counts toward what you owe the brand once the order is Delivered.</p>';
     const ms = $('#bMonth'); if (ms) ms.onchange = () => { S.brandMonth = ms.value; pageBrands(); };
+    wireBrandTabs();
     $('#newBrand').onclick = () => brandDrawer(null);
     $$('[data-edit]').forEach((b) => b.onclick = () => brandDrawer(d.brands.find((x) => x.id === +b.dataset.edit)));
     $$('[data-st]').forEach((b) => b.onclick = () => brandStatement(+b.dataset.st, d.month));
     $$('[data-add]').forEach((b) => b.onclick = () => { S.newBrand = +b.dataset.add; location.hash = '#products'; });
     $$('[data-bp]').forEach((b) => b.onclick = () => { S.prodBrand = b.dataset.bp; S.prodShow = b.dataset.show || ''; S.prodCat = ''; S.prodQ = ''; location.hash = '#products'; });
+  }
+
+  // Brands and makers who asked to sell with us (sell.html). Approve makes a hidden partner brand with draft products.
+  async function pageSellerRequests() {
+    const d = await api('seller_requests');
+    S.sellerReqs = d;
+    const nNew = d.requests.filter((r) => r.status === 'New').length;
+    const tone = { New: ['warn', '●'], Contacted: ['info', '✆'], Approved: ['good', '✓'], Rejected: ['bad', '✕'] };
+    const card = (r) => {
+      const wa = 'https://wa.me/' + waNumber(r.phone.replace(/\D/g, '')) + '?text=' + encodeURIComponent(AR ? 'أهلًا ' + r.name.split(/\s+/)[0] + '، معك ' + S.user.name.split(' ')[0] + ' من Where To Spot بخصوص منتجات ' + r.brand + '. '
+        : 'Hello ' + r.name.split(/\s+/)[0] + ', this is ' + S.user.name.split(' ')[0] + ' from Where To Spot about selling ' + r.brand + ' with us. ');
+      return '<div class="card seller-card" data-r="' + r.id + '"><div class="row" style="align-items:flex-start"><span style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r.brand) + '</b> ' + pill(tone, r.status) +
+        '<div class="small muted">' + [esc(r.name), '<span dir="ltr">' + esc(r.phone) + '</span>', esc(r.city), esc(r.category), esc(r.stock), dateTime(r.createdAt)].filter(Boolean).join(' · ') + '</div>' +
+        (r.link || r.email ? '<div class="small">' + (r.link ? '<a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.link.replace(/^https?:\/\//, '')) + '</a>' : '') + (r.link && r.email ? ' · ' : '') + (r.email ? '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a>' : '') + '</div>' : '') + '</span>' +
+        '<a class="btn sm wa" href="' + esc(wa) + '" target="_blank" rel="noopener">' + icon('chat') + 'WhatsApp</a></div>' +
+        '<div class="seller-prods">' + r.products.map((p) => '<div class="seller-prod">' + (p.photo ? '<a href="../' + esc(p.photo) + '" target="_blank" rel="noopener"><img src="' + esc(thumb(p.photo, 300)) + '" alt="" loading="lazy"></a>' : '<span class="sp-ph"></span>') +
+          '<div><b>' + esc(p.name) + '</b>' + (p.price ? '<div class="small">' + egp(p.price) + '</div>' : '') + (p.desc ? '<div class="small muted">' + esc(p.desc) + '</div>' : '') + '</div></div>').join('') + '</div>' +
+        (r.notes ? '<div class="small seller-notes">' + esc(r.notes) + '</div>' : '') +
+        '<label class="field small">Team note<textarea data-note="' + r.id + '" rows="2" placeholder="e.g. Agreed 15% on WhatsApp, sending samples Sunday">' + esc(r.teamNote || '') + '</textarea></label>' +
+        '<div class="row">' + (r.status === 'Approved'
+          ? '<span class="small muted">Approved' + (r.commission != null ? ' · ' + r.commission + '% commission' : '') + '</span><span class="spacer"></span><button class="btn sm" data-gobrand>Open Brands</button>'
+          : '<select data-st="' + r.id + '" style="width:auto">' + ['New', 'Contacted', 'Rejected'].map((s) => '<option value="' + s + '"' + (s === r.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' +
+            '<span class="spacer"></span><button class="btn sm primary" data-approve="' + r.id + '">Approve…</button>') + '</div></div>';
+    };
+    $('#main').innerHTML = header('Partner brands', 'Brands and makers who asked to sell with you from the “Sell with us” page.',
+      '<a class="btn" href="../sell.html" target="_blank" rel="noopener">' + icon('external') + 'Open the page</a><button class="btn" id="copySell">Copy share link</button>') + brandTabs('requests', nNew) +
+      (d.requests.length ? '<div class="stack">' + d.requests.map(card).join('') + '</div>'
+        : '<div class="card empty">No requests yet. Share shop.wheretospot.com/sell with brands and makers you’d like to sell for.</div>');
+    wireBrandTabs();
+    $('#copySell').onclick = () => navigator.clipboard.writeText('https://shop.wheretospot.com/sell').then(() => toast('Link copied'));
+    const save = async (id, status, note) => { try { await api('seller_status', { method: 'POST', body: { id, status, note } }); toast('Saved'); } catch (e) { toast(e.message, true); } };
+    $$('[data-st]').forEach((s) => s.onchange = async () => { const id = +s.dataset.st; await save(id, s.value, $('[data-note="' + id + '"]').value); pageSellerRequests(); });
+    $$('[data-note]').forEach((t) => t.onchange = () => { const r = d.requests.find((x) => x.id === +t.dataset.note); save(r.id, r.status, t.value); });
+    $$('[data-gobrand]').forEach((b) => b.onclick = () => { S.brandTab = 'brands'; pageBrands(); });
+    $$('[data-approve]').forEach((b) => b.onclick = () => sellerApproveDrawer(d.requests.find((r) => r.id === +b.dataset.approve), d.categories));
+  }
+
+  function sellerApproveDrawer(r, cats) {
+    openDrawer('Approve ' + r.brand,
+      '<form id="saf" class="stack"><div class="card small">This creates the partner brand <b>' + esc(r.brand) + '</b> (hidden in the shop until you turn it on) and ' + r.products.length + (r.products.length === 1 ? ' draft product' : ' draft products') + ' with their photos and prices. You can edit everything before publishing.</div>' +
+      '<div class="grid2"><label class="field">Commission (%) <span class="hint">Your share of each sale, as agreed with them</span><input name="commission" type="number" min="0" max="100" step="0.5" required placeholder="e.g. 15"></label>' +
+      '<label class="field">Shop category<select name="cat">' + cats.map((c) => '<option value="' + esc(c.key) + '"' + (c.key === r.shopCat ? ' selected' : '') + '>' + esc(c.label) + '</option>').join('') + '</select></label></div></form>',
+      '<span class="spacer"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="saOk">Approve</button>');
+    $('#saOk').onclick = async () => {
+      const f = $('#saf'); if (!f.reportValidity()) return;
+      try {
+        const res = await api('seller_approve', { method: 'POST', body: { id: r.id, commission: f.commission.value, cat: f.cat.value, brand: r.brand } });
+        closeDrawer(); toast('Approved · ' + res.products.length + ' draft products'); S.brandTab = 'brands'; pageBrands();
+      } catch (e) { toast(e.message, true); }
+    };
   }
 
   function brandDrawer(b) {

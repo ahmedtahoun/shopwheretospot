@@ -203,7 +203,7 @@ function seo_sitemap(): string
         return $s . "</url>\n";
     };
     // Every page has an Arabic version at ?lang=ar.
-    foreach (['', 'plans.html', 'about.html', 'contact.html', 'shipping-policy.html', 'refund-policy.html', 'privacy-policy.html', 'terms.html'] as $f) $x .= $page(seo_base() . '/' . $f, '', [], seo_base() . '/' . $f . '?lang=ar');
+    foreach (['', 'plans.html', 'about.html', 'contact.html', 'sell.html', 'shipping-policy.html', 'refund-policy.html', 'privacy-policy.html', 'terms.html'] as $f) $x .= $page(seo_base() . '/' . $f, '', [], seo_base() . '/' . $f . '?lang=ar');
     // The review-link tool: one page in English and Arabic (?lang=ar).
     $x .= $page(seo_base() . '/google-review-link.html', '2026-10-24', [], seo_base() . '/google-review-link.html?lang=ar');
     foreach (seo_products() as $p) $x .= $page($p['url'], (string) $p['updatedAt'], $p['imageUrls'], seo_product_url($p['id'], true));
