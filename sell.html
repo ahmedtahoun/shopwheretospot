@@ -38,65 +38,314 @@
 <link rel="apple-touch-icon" href="images/app/apple-touch-icon.png?v=3">
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
 <style>
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:22px 0 8px}
-.steps .card{padding:14px 16px;display:flex;align-items:center;gap:12px;margin:0;line-height:1.5}.steps .card br{display:none}
-.steps .card b{flex:none;display:grid;place-items:center;width:30px;height:30px;margin:0;border-radius:50%;background:#F4E6DD;color:#A8552F;font-size:14px}
-.sell{background:#fff;border:1px solid #DDD6CC;border-radius:20px;padding:24px;margin-top:28px;display:grid;gap:14px}
-.sell h2{margin:6px 0 0}
-.sell label{display:grid;gap:6px;font-size:14px;font-weight:600;color:#22201D}
-.sell .hint{font-weight:400;color:#6B6660;font-size:12.5px}
-.sell input,.sell select,.sell textarea{font:inherit;font-size:15px;padding:11px 13px;border:1px solid #DDD6CC;border-radius:12px;background:#FDFBF8;color:#22201D;width:100%}
-.sell input:focus,.sell select:focus,.sell textarea:focus{outline:2px solid #E7C8B5;border-color:#A8552F}
-.sell textarea{min-height:84px;resize:vertical}
-.sell .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.prod{border:1px dashed #DDD6CC;border-radius:16px;padding:14px;display:grid;gap:10px}
-.prod[hidden]{display:none}
-.prod .two{grid-template-columns:2fr 1fr}
-.prod-h{font-weight:700;font-size:13.5px;color:#6B6660}
-.addp{justify-self:start;background:none;border:1px solid #DDD6CC;border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;color:#22201D}
-.sell .check{display:flex;gap:10px;align-items:flex-start;font-weight:400}
-.sell .check input{width:auto;margin-top:5px}
-.sell button[type=submit]{border:none;cursor:pointer;justify-self:start}
-.sell .err{color:#A13F3F;font-size:14px;min-height:1em}
+main.sellpage{max-width:1160px;padding-top:0}
+.sellpage [hidden]{display:none !important}
+.sellpage{--ink:#22201D;--mut:#6B6660;--acc:#A8552F;--acc-s:#F4E6DD;--line:#E6DFD5;--soft:#FBF8F4}
+.sellpage h1,.sellpage h2{font-family:'Instrument Serif',serif;font-weight:400;letter-spacing:-.01em}
+.sellpage p{color:#4A4640}
+.s-kicker{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);background:var(--acc-s);padding:6px 12px;border-radius:999px}
+html[lang=ar] .s-kicker{letter-spacing:0;font-size:13px}
+/* hero */
+.s-hero{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center;padding:64px 0 72px}
+.s-hero h1{font-size:clamp(44px,5.6vw,72px);line-height:1.02;margin:18px 0 20px}
+.s-hero h1 em{color:var(--acc)}
+html[lang=ar] .s-hero h1 em{font-style:normal}
+.s-lead{font-size:18px;line-height:1.8;max-width:34em;margin:0 0 30px}
+.s-ctas{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.s-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--acc);color:#fff;text-decoration:none;border:none;cursor:pointer;font:inherit;font-size:16px;font-weight:600;padding:16px 28px;border-radius:999px;box-shadow:0 10px 24px -12px rgba(168,85,47,.7);transition:transform .15s ease,box-shadow .15s ease,background .15s ease}
+.s-btn:hover{transform:translateY(-1px);box-shadow:0 14px 28px -12px rgba(168,85,47,.75)}
+.s-btn-dark{background:var(--ink);box-shadow:none}
+.s-note{font-size:14px;color:var(--mut)}
+.s-trust{list-style:none;margin:30px 0 0;padding:0;display:grid;gap:12px}
+.s-trust li{display:flex;align-items:center;gap:12px;font-size:15.5px;color:var(--ink)}
+.s-trust .ic,.s-need .ic{flex:none;width:22px;height:22px;padding:4px;border-radius:50%;background:#E3EFE5;color:#2F7A45;stroke-width:2.6}
+/* hero visual */
+.s-visual{position:relative;height:540px}
+.s-blob{position:absolute;inset:6% 4% 4% 8%;border-radius:44% 56% 52% 48%/48% 42% 58% 52%;background:radial-gradient(120% 90% at 30% 20%,#F4E2D6 0%,#EED6C6 45%,#E9DFF4 100%)}
+.s-card{position:absolute;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 30px 60px -28px rgba(34,32,29,.45),0 0 0 1px rgba(34,32,29,.04)}
+.s-card img{display:block;width:100%;height:100%;object-fit:cover}
+.s-card-back{width:46%;aspect-ratio:4/5;top:12%;inset-inline-end:4%;transform:rotate(7deg);opacity:.92}
+.s-card-front{width:54%;top:9%;inset-inline-start:16%;transform:rotate(-3deg)}
+.s-ph{aspect-ratio:1/1;background:#F3EEE7}
+.s-cb{padding:16px 18px 18px;display:grid;gap:6px}
+.s-chip{justify-self:start;font-size:11.5px;font-weight:700;color:var(--acc);background:var(--acc-s);padding:3px 10px;border-radius:999px}
+.s-cb b{font-size:16px;color:var(--ink)}
+.s-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+.s-row span{font-weight:700;font-size:15px}
+.s-row i{font-style:normal;font-size:12.5px;font-weight:600;color:#fff;background:var(--ink);padding:7px 12px;border-radius:999px}
+.s-badge{position:absolute;display:flex;align-items:center;gap:10px;background:#fff;border-radius:16px;padding:11px 15px;font-size:13.5px;font-weight:600;color:var(--ink);box-shadow:0 18px 36px -18px rgba(34,32,29,.45);white-space:nowrap}
+.s-badge .ic{width:30px;height:30px;padding:6px;border-radius:10px;background:var(--acc-s);color:var(--acc);flex:none}
+.s-b1{top:3%;inset-inline-end:2%}
+.s-b2{top:52%;inset-inline-start:0}
+.s-b3{bottom:4%;inset-inline-end:6%}
+.s-b3 .ic{background:#E3EFE5;color:#2F7A45;stroke-width:2.4}
+/* how it works */
+.s-how{padding:24px 0 72px;text-align:center}
+.s-how h2,.s-why h2,.s-faq h2{font-size:clamp(32px,4vw,44px);line-height:1.1;margin:14px 0 36px}
+.s-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:start;counter-reset:s}
+.s-steps li{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;padding:26px 24px 24px}
+.s-sic{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:var(--acc-s);color:var(--acc);margin-bottom:18px}
+.s-sic .ic{width:26px;height:26px}
+.s-steps small{display:block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#9A9288;margin-bottom:6px}
+html[lang=ar] .s-steps small{letter-spacing:0;font-size:13px}
+.s-steps b{display:block;font-size:18px;line-height:1.35;color:var(--ink);margin-bottom:8px}
+.s-steps p{margin:0;font-size:15px;line-height:1.7;color:var(--mut)}
+/* why */
+.s-why{background:var(--ink);color:#F7F3ED;border-radius:32px;padding:56px clamp(24px,5vw,64px);margin:0 0 88px}
+.s-why h2{color:#fff;margin-top:0}
+.s-why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:36px}
+.s-wic{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,.08);color:#F2C7AE;margin-bottom:16px}
+.s-wic .ic{width:24px;height:24px}
+.s-why b{display:block;font-size:18px;margin-bottom:8px;color:#fff}
+.s-why p{margin:0;color:#C9C2B8;font-size:15px;line-height:1.75}
+/* form */
+.s-form-wrap{display:grid;grid-template-columns:.8fr 1.2fr;gap:56px;align-items:start;padding-bottom:88px;scroll-margin-top:90px}
+.s-aside{position:sticky;top:100px}
+.s-aside h2{font-size:clamp(32px,4vw,44px);line-height:1.1;margin:0 0 14px}
+.s-aside > p{font-size:16.5px;line-height:1.8;margin:0 0 26px}
+.s-need{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px 22px}
+.s-need b{display:block;font-size:14px;margin-bottom:12px}
+.s-need ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.s-need li{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--ink)}
+.s-alt{font-size:15px;margin:22px 0 0}
+.s-alt a{color:var(--acc);font-weight:600}
+.s-form{background:#fff;border:1px solid var(--line);border-radius:28px;padding:clamp(22px,3.4vw,40px);box-shadow:0 30px 70px -50px rgba(34,32,29,.35)}
+.s-form fieldset{border:0;margin:0 0 34px;padding:0;min-width:0}
+.s-form legend{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;color:var(--ink);padding:0;margin-bottom:20px}
+.s-form legend > span:first-child{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-size:14px}
+.s-form legend .s-opt{margin-inline-start:2px}
+.s-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 18px}
+.s-form label{display:grid;gap:8px;font-size:14px;font-weight:600;color:var(--ink);align-content:start}
+.s-opt{font-size:12.5px;font-weight:500;color:#9A9288;margin-inline-start:6px}
+.s-lt{display:block}
+.s-form input:not([type=checkbox]):not([type=radio]):not([type=file]),.s-form select,.s-form textarea{font:inherit;font-size:15.5px;font-weight:400;color:var(--ink);background:var(--soft);border:1px solid #DDD6CC;border-radius:14px;padding:14px 16px;width:100%;transition:border-color .15s,background .15s,box-shadow .15s}
+.s-form textarea{resize:vertical;line-height:1.6}
+.s-form input:focus,.s-form select:focus,.s-form textarea:focus{outline:none;border-color:var(--acc);background:#fff;box-shadow:0 0 0 4px rgba(168,85,47,.12)}
+.s-form ::placeholder{color:#A9A196}
+.s-seg-l{font-size:14px;font-weight:600;margin:20px 0 8px}
+.s-seg{display:inline-flex;background:var(--soft);border:1px solid #DDD6CC;border-radius:999px;padding:4px;gap:4px;flex-wrap:wrap}
+.s-seg label{display:block;cursor:pointer}
+.s-seg input{position:absolute;opacity:0;pointer-events:none}
+.s-seg span{display:block;padding:9px 18px;border-radius:999px;font-size:14px;font-weight:600;color:var(--mut);transition:background .15s,color .15s}
+.s-seg input:checked + span{background:#fff;color:var(--ink);box-shadow:0 2px 8px -3px rgba(34,32,29,.3)}
+.s-seg input:focus-visible + span{outline:2px solid var(--acc)}
+.s-prod{border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:14px;background:#fff}
+.s-prod[hidden]{display:none}
+.s-prod-h{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9A9288;margin-bottom:12px}
+html[lang=ar] .s-prod-h{letter-spacing:0;font-size:13.5px}
+.s-prod-in{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:start}
+.s-prod-f{display:grid;grid-template-columns:1fr 150px;gap:14px}
+.s-ph-tile{position:relative;width:120px;height:120px;border:1.5px dashed #CFC6BA;border-radius:16px;background:var(--soft);overflow:hidden;cursor:pointer;display:grid !important;place-items:center;transition:border-color .15s,background .15s}
+.s-ph-tile:hover{border-color:var(--acc);background:#fff}
+.s-ph-tile input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.s-ph-empty{display:grid;justify-items:center;gap:6px;color:var(--mut);pointer-events:none;text-align:center}
+.s-ph-empty .ic{width:28px;height:28px;color:var(--acc)}
+.s-ph-empty b{font-size:12.5px;font-weight:600}
+.s-ph-prev{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.s-ph-change{position:absolute;bottom:8px;inset-inline:8px;text-align:center;background:rgba(34,32,29,.75);color:#fff;font-size:11.5px;font-weight:600;border-radius:999px;padding:4px 6px;pointer-events:none}
+.s-ph-tile:has(input:focus-visible){border-color:var(--acc);box-shadow:0 0 0 4px rgba(168,85,47,.12)}
+.s-desc{margin-top:14px}
+.s-ph-note{font-size:13px;color:#9A9288;margin:2px 0 14px}
+.s-addp{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:none;border:1.5px dashed #CFC6BA;border-radius:16px;padding:14px;font:inherit;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .15s,color .15s}
+.s-addp:hover{border-color:var(--acc);color:var(--acc)}
+.s-addp .ic{width:18px;height:18px}
+.s-addp span{font-weight:500;color:#9A9288}
+.s-addp[hidden]{display:none}
+.s-check{display:flex !important;grid-template-columns:none;align-items:flex-start;gap:12px !important;font-weight:400 !important;font-size:14px !important;line-height:1.6;color:var(--mut) !important;margin:4px 0 20px}
+.s-check input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--acc);flex:none}
+.s-err{color:#A13F3F;font-size:14px;min-height:1em;margin-bottom:8px}
+.s-submit{width:100%;font-size:17px;padding:18px}
+.s-submit:disabled{opacity:.7;cursor:wait}
+.s-sub-note{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;color:var(--mut);margin:14px 0 0}
+.s-sub-note .ic{width:16px;height:16px;color:#2F7A45}
+.s-done{background:#fff;border:1px solid var(--line);border-radius:28px;padding:48px 32px;text-align:center}
+.s-done-ic{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#E3EFE5;color:#2F7A45;margin-bottom:8px}
+.s-done-ic .ic{width:30px;height:30px;stroke-width:2.4}
+.s-done h2{font-size:34px;margin:10px 0}
+.s-done p{font-size:16px;line-height:1.8;max-width:30em;margin:0 auto 24px}
 .trap{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.done{background:#EAF5EE;border:1px solid #BFE0CB;border-radius:20px;padding:24px;margin-top:28px}
-@media (max-width:600px){.sell .two,.prod .two{grid-template-columns:1fr}.sell{padding:18px 16px}.steps{gap:8px}.sell button[type=submit]{justify-self:stretch;width:100%}}
+/* faq */
+.s-faq{max-width:760px;margin:0 auto;padding-bottom:40px}
+.s-faq h2{text-align:center;margin-top:0}
+.s-faq details{border-radius:18px;padding:20px 24px;margin:0 0 12px;border-color:var(--line)}
+.s-faq summary{font-size:16.5px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+.s-faq summary::-webkit-details-marker{display:none}
+.s-faq summary::after{content:'+';font-size:22px;line-height:1;color:var(--acc);font-weight:400}
+.s-faq details[open] summary::after{content:'−'}
+.s-faq details p{font-size:15.5px;line-height:1.8;color:var(--mut)}
+/* tablet */
+@media (max-width:980px){
+  .s-hero{grid-template-columns:1fr;gap:28px;padding:40px 0 56px}
+  .s-visual{height:460px;max-width:560px;width:100%;margin:0 auto}
+  .s-steps{grid-template-columns:1fr 1fr}
+  .s-why-grid{grid-template-columns:1fr;gap:28px}
+  .s-form-wrap{grid-template-columns:1fr;gap:28px}
+  .s-aside{position:static}
+}
+/* phone */
+@media (max-width:600px){
+  main.sellpage{padding-top:0}
+  .s-hero{padding:28px 0 44px}
+  .s-hero h1{font-size:44px;margin:16px 0 16px}
+  .s-lead{font-size:16.5px;line-height:1.75;margin-bottom:24px}
+  .s-ctas .s-btn{width:100%}
+  .s-ctas{gap:10px;justify-content:center}
+  .s-trust li{font-size:15px}
+  .s-visual{height:380px}
+  .s-card-front{width:60%;inset-inline-start:12%}
+  .s-card-back{width:48%}
+  .s-badge{font-size:12px;padding:8px 11px;gap:8px;border-radius:13px}
+  .s-badge .ic{width:24px;height:24px;padding:5px;border-radius:8px}
+  .s-b2{top:50%}
+  .s-b3{bottom:-30px;inset-inline-end:4%}
+  .s-visual{margin-bottom:44px}
+  .s-how{padding:8px 0 48px}
+  .s-how h2,.s-why h2,.s-faq h2,.s-aside h2{font-size:34px;margin-bottom:24px}
+  .s-steps{grid-template-columns:1fr;gap:12px}
+  .s-steps li{display:grid;grid-template-columns:48px 1fr;column-gap:16px;padding:18px}
+  .s-sic{grid-row:span 3;width:48px;height:48px;margin:0;border-radius:14px}
+  .s-steps small{margin-bottom:2px}
+  .s-steps b{font-size:17px;margin-bottom:4px}
+  .s-why{border-radius:24px;padding:36px 22px;margin-bottom:56px}
+  .s-form-wrap{padding-bottom:56px}
+  .s-form{border-radius:22px;padding:22px 16px}
+  .s-grid{grid-template-columns:1fr;gap:16px}
+  .s-prod{padding:14px}
+  .s-prod-in{grid-template-columns:96px 1fr;gap:12px}
+  .s-ph-tile{width:96px;height:96px}
+  .s-prod-f{grid-template-columns:1fr;gap:12px}
+  .s-seg{display:flex}
+  .s-seg label{flex:1;text-align:center}
+}
 </style>
 </head>
 <body>
 <div class="bar">All prices in Egyptian Pounds (EGP) · Delivery across Egypt · Cash on delivery</div>
 <nav><div class="in"><a class="brand" href="index.html"><img src="images/logo-mark.png?v=3" alt="Where To Spot logo" width="40" height="40">Where To Spot</a><div class="links"><a href="index.html">Shop</a><a href="plans.html">Marketing plans</a><a href="about.html">About us</a><a href="contact.html">Contact us</a><a href="sell.html" aria-current="page">Sell with us</a></div></div></nav>
-<main class="en-only" data-no-i18n>
-
-<div class="kicker">Sell with us</div>
-<h1>Your products, our marketing</h1>
-<p class="muted">Do you make or sell great products? We list them in our shop, promote them in our ads and social media, and our sales team talks to the customers. You focus on the product; we take a commission only on what we sell.</p>
-<div class="steps"><div class="card"><b>1</b><br>Send your products and photos below</div><div class="card"><b>2</b><br>We review them and agree the commission with you on WhatsApp</div><div class="card"><b>3</b><br>We list and market your products</div><div class="card"><b>4</b><br>You get paid for delivered orders, with a clear statement</div></div>
-<form class="sell sell-form" novalidate><h2>Tell us about your products</h2><div class="two"><label>Your name<input name="name" required maxlength="120" autocomplete="name"></label><label>WhatsApp number<input name="phone" required type="tel" inputmode="tel" maxlength="40" autocomplete="tel" placeholder="01x xxxx xxxx" dir="ltr"></label></div><div class="two"><label>Brand or shop name<input name="brand" required maxlength="120"></label><label>City<input name="city" maxlength="80"></label></div><div class="two"><label>Instagram, Facebook or website <span class="hint">Optional</span><input name="link" maxlength="300" dir="ltr" placeholder="instagram.com/yourbrand"></label><label>Email <span class="hint">Optional</span><input name="email" type="email" maxlength="160" dir="ltr" autocomplete="email"></label></div><div class="two"><label>What do you sell?<select name="category"><option value="Coffee & drinks">Coffee & drinks</option><option value="Skincare & beauty">Skincare & beauty</option><option value="Food & sweets">Food & sweets</option><option value="Handmade & gifts">Handmade & gifts</option><option value="Fashion & accessories">Fashion & accessories</option><option value="Home & decor">Home & decor</option><option value="Pets">Pets</option><option value="Business products">Business products</option><option value="Other">Other</option></select></label><label>Stock<select name="stock_mode"><option value="Ready stock">Ready stock</option><option value="Made to order">Made to order</option></select></label></div><div class="prod" data-p="0"><div class="prod-h">Product 1</div><div class="two"><label>Product name<input name="product_name_0" required maxlength="120"></label><label>Price (EGP)<input name="product_price_0" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Short description <span class="hint">Size, what it’s made of, what makes it special</span><textarea name="product_desc_0" maxlength="400"></textarea></label><label>Photo <span class="hint">JPG, PNG or WebP, up to 5 MB</span><input name="photo_0" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="1"><div class="prod-h">Product 2</div><div class="two"><label>Product name<input name="product_name_1" maxlength="120"></label><label>Price (EGP)<input name="product_price_1" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Short description <span class="hint">Size, what it’s made of, what makes it special</span><textarea name="product_desc_1" maxlength="400"></textarea></label><label>Photo <span class="hint">JPG, PNG or WebP, up to 5 MB</span><input name="photo_1" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="2"><div class="prod-h">Product 3</div><div class="two"><label>Product name<input name="product_name_2" maxlength="120"></label><label>Price (EGP)<input name="product_price_2" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Short description <span class="hint">Size, what it’s made of, what makes it special</span><textarea name="product_desc_2" maxlength="400"></textarea></label><label>Photo <span class="hint">JPG, PNG or WebP, up to 5 MB</span><input name="photo_2" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="3"><div class="prod-h">Product 4</div><div class="two"><label>Product name<input name="product_name_3" maxlength="120"></label><label>Price (EGP)<input name="product_price_3" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Short description <span class="hint">Size, what it’s made of, what makes it special</span><textarea name="product_desc_3" maxlength="400"></textarea></label><label>Photo <span class="hint">JPG, PNG or WebP, up to 5 MB</span><input name="photo_3" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="4"><div class="prod-h">Product 5</div><div class="two"><label>Product name<input name="product_name_4" maxlength="120"></label><label>Price (EGP)<input name="product_price_4" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Short description <span class="hint">Size, what it’s made of, what makes it special</span><textarea name="product_desc_4" maxlength="400"></textarea></label><label>Photo <span class="hint">JPG, PNG or WebP, up to 5 MB</span><input name="photo_4" type="file" accept="image/jpeg,image/png,image/webp"></label></div><button type="button" class="addp">+ Add another product</button><label>Anything else we should know? <span class="hint">Minimum quantities, delivery, how many pieces a month…</span><textarea name="notes" maxlength="1000"></textarea></label><label class="trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label><label class="check"><input type="checkbox" name="agree" required> <span>I own these products or have the right to sell them, and I agree to be contacted on WhatsApp about selling with Where To Spot.</span></label><div class="err" role="alert"></div><button type="submit" class="btn">Send my products</button></form><div class="done" hidden><h2 style="margin-top:0">Thank you! We got your products.</h2><p>Our team will review them and message you on WhatsApp within 2 business days to agree on the commission and next steps.</p><p><a class="btn alt" href="index.html">Back to the shop</a></p></div>
-
+<main class="sellpage en-only" data-no-i18n>
+<section class="s-hero">
+<div class="s-copy">
+<span class="s-kicker">Sell with us</span>
+<h1>Your products, <em>our marketing</em></h1>
+<p class="s-lead">Do you make or sell great products? We list them in our shop, promote them in our ads and on social media, and our sales team talks to the customers. You focus on the product — we take a commission only on what we sell.</p>
+<div class="s-ctas"><a class="s-btn" href="#sell-form-en">Send your products <span aria-hidden="true">→</span></a><span class="s-note">Takes about 3 minutes</span></div>
+<ul class="s-trust"><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>No fees to join</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Commission only on delivered orders</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>We reply on WhatsApp within 2 business days</li></ul>
+</div>
+<div class="s-visual" aria-hidden="true"><div class="s-blob"></div><div class="s-card s-card-back"><img src="/img/480/images/doors/beauty.jpg" alt="" width="480" height="300" loading="lazy"></div><div class="s-card s-card-front"><div class="s-ph"><img src="/img/640/images/brands/bonds-sienna.jpg" alt="" width="640" height="800"></div><div class="s-cb"><span class="s-chip">Your brand</span><b>Your product</b><div class="s-row"><span>EGP 450</span><i>Add to cart</i></div></div></div><div class="s-badge s-b1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.6 4h12.8L20 9.5M4 9.5V20h16V9.5M4 9.5h16M9.5 20v-5.5h5V20"/></svg>Listed in our shop</div><div class="s-badge s-b2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>Promoted on Instagram &amp; Facebook</div><div class="s-badge s-b3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Order delivered · you get paid</div></div>
+</section>
+<section class="s-how"><span class="s-kicker">How it works</span><h2>Four simple steps</h2><ol class="s-steps">
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></span><small>Step 1</small><b>Send your products</b><p>Fill in the form below with photos and prices. It only takes a few minutes.</p></li>
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><small>Step 2</small><b>We agree on WhatsApp</b><p>We review your products and agree the commission with you.</p></li>
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></span><small>Step 3</small><b>We list &amp; market</b><p>Your products go live in our shop and our ads, and our team talks to the customers.</p></li>
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18M15.5 15h2.5"/></svg></span><small>Step 4</small><b>You get paid</b><p>For every delivered order, with a clear statement.</p></li>
+</ol></section>
+<section class="s-why"><h2>Why sell with Where To Spot?</h2><div class="s-why-grid">
+<div><span class="s-wic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.6 4h12.8L20 9.5M4 9.5V20h16V9.5M4 9.5h16M9.5 20v-5.5h5V20"/></svg></span><b>A real shop</b><p>Your products listed with photos and descriptions in Arabic and English, with cash on delivery or online payment.</p></div>
+<div><span class="s-wic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></span><b>Ads &amp; social media</b><p>We promote your products in our ads and on our Instagram, Facebook and TikTok.</p></div>
+<div><span class="s-wic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a5.5 5.5 0 0 1 3.5 5.8"/></svg></span><b>A sales team</b><p>Our team answers customers on WhatsApp and phone and closes the orders.</p></div>
+</div></section>
+<section class="s-form-wrap" id="sell-form-en">
+<aside class="s-aside"><h2>Tell us about your products</h2><p>Send a few products to start. We’ll message you on WhatsApp to agree the details.</p><div class="s-need"><b>You’ll need</b><ul><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Clear photos of your products</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Your selling prices</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>A WhatsApp number</li></ul></div><p class="s-alt">Prefer to talk first? <a href="https://wa.me/201277660666?text=Hi,%20I’d%20like%20to%20sell%20my%20products%20with%20Where%20To%20Spot" target="_blank" rel="noopener">Message us on WhatsApp</a></p></aside>
+<div><form class="sell-form s-form" novalidate>
+<fieldset><legend><span>1</span>About you</legend><div class="s-grid">
+<label>Your name<input name="name" required maxlength="120" autocomplete="name"></label>
+<label>WhatsApp number<input name="phone" required type="tel" inputmode="tel" maxlength="40" autocomplete="tel" placeholder="01x xxxx xxxx" dir="ltr"></label>
+<label>Brand or shop name<input name="brand" required maxlength="120" autocomplete="organization"></label>
+<label><span class="s-lt">Instagram, Facebook or website <span class="s-opt">Optional</span></span><input name="link" maxlength="300" dir="ltr" placeholder="instagram.com/yourbrand"></label>
+<label>What do you sell?<select name="category"><option value="Coffee &amp; drinks">Coffee &amp; drinks</option><option value="Skincare &amp; beauty">Skincare &amp; beauty</option><option value="Food &amp; sweets">Food &amp; sweets</option><option value="Handmade &amp; gifts">Handmade &amp; gifts</option><option value="Fashion &amp; accessories">Fashion &amp; accessories</option><option value="Home &amp; decor">Home &amp; decor</option><option value="Pets">Pets</option><option value="Business products">Business products</option><option value="Other">Other</option></select></label>
+<label><span class="s-lt">City <span class="s-opt">Optional</span></span><input name="city" maxlength="80" placeholder="e.g. Cairo" autocomplete="address-level2"></label>
+</div><div class="s-seg-l">Stock</div><div class="s-seg" role="radiogroup"><label><input type="radio" name="stock_mode" value="Ready stock" checked><span>Ready stock</span></label><label><input type="radio" name="stock_mode" value="Made to order"><span>Made to order</span></label></div></fieldset>
+<fieldset><legend><span>2</span>Your products</legend>
+<div class="s-prod" data-p="0"><div class="s-prod-h">Product 1</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_0" accept="image/jpeg,image/png,image/webp" aria-label="Add photo"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>Add photo</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>Change</span></label><div class="s-prod-f"><label>Product name<input name="product_name_0" required maxlength="120"></label><label>Price (EGP)<input name="product_price_0" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">Short description <span class="s-opt">Optional</span></span><textarea name="product_desc_0" maxlength="400" rows="2" placeholder="Size, what it’s made of, what makes it special"></textarea></label></div>
+<div class="s-prod" hidden data-p="1"><div class="s-prod-h">Product 2</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_1" accept="image/jpeg,image/png,image/webp" aria-label="Add photo"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>Add photo</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>Change</span></label><div class="s-prod-f"><label>Product name<input name="product_name_1" maxlength="120"></label><label>Price (EGP)<input name="product_price_1" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">Short description <span class="s-opt">Optional</span></span><textarea name="product_desc_1" maxlength="400" rows="2" placeholder="Size, what it’s made of, what makes it special"></textarea></label></div>
+<div class="s-prod" hidden data-p="2"><div class="s-prod-h">Product 3</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_2" accept="image/jpeg,image/png,image/webp" aria-label="Add photo"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>Add photo</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>Change</span></label><div class="s-prod-f"><label>Product name<input name="product_name_2" maxlength="120"></label><label>Price (EGP)<input name="product_price_2" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">Short description <span class="s-opt">Optional</span></span><textarea name="product_desc_2" maxlength="400" rows="2" placeholder="Size, what it’s made of, what makes it special"></textarea></label></div>
+<div class="s-prod" hidden data-p="3"><div class="s-prod-h">Product 4</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_3" accept="image/jpeg,image/png,image/webp" aria-label="Add photo"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>Add photo</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>Change</span></label><div class="s-prod-f"><label>Product name<input name="product_name_3" maxlength="120"></label><label>Price (EGP)<input name="product_price_3" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">Short description <span class="s-opt">Optional</span></span><textarea name="product_desc_3" maxlength="400" rows="2" placeholder="Size, what it’s made of, what makes it special"></textarea></label></div>
+<div class="s-prod" hidden data-p="4"><div class="s-prod-h">Product 5</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_4" accept="image/jpeg,image/png,image/webp" aria-label="Add photo"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>Add photo</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>Change</span></label><div class="s-prod-f"><label>Product name<input name="product_name_4" maxlength="120"></label><label>Price (EGP)<input name="product_price_4" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">Short description <span class="s-opt">Optional</span></span><textarea name="product_desc_4" maxlength="400" rows="2" placeholder="Size, what it’s made of, what makes it special"></textarea></label></div>
+<p class="s-ph-note">JPG, PNG or WebP · up to 5 MB</p>
+<button type="button" class="s-addp"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add another product <span>(up to 5)</span></button></fieldset>
+<fieldset><legend><span>3</span>Anything else? <span class="s-opt">Optional</span></legend><textarea name="notes" maxlength="1000" rows="3" placeholder="Minimum quantities, delivery, how many pieces a month…" aria-label="Anything else?"></textarea></fieldset>
+<label class="trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<label class="s-check"><input type="checkbox" name="agree" required><span>I own these products or have the right to sell them, and I agree to be contacted on WhatsApp about selling with Where To Spot.</span></label>
+<div class="s-err" role="alert"></div>
+<button type="submit" class="s-btn s-submit">Send my products</button><p class="s-sub-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>We’ll reply on WhatsApp within 2 business days.</p>
+</form>
+<div class="s-done" hidden><span class="s-done-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><h2>Thank you! We got your products.</h2><p>Our team will review them and message you on WhatsApp within 2 business days to agree on the commission and next steps.</p><a class="s-btn s-btn-dark" href="index.html">Back to the shop</a></div></div>
+</section>
+<section class="s-faq"><h2>Questions</h2><details><summary>Do I pay anything to join?</summary><p>No. There’s no fee to list your products. We only take the agreed commission on orders that are delivered.</p></details><details><summary>Who sets the price?</summary><p>You tell us your price, and we agree the shop price and the commission together before anything goes live.</p></details><details><summary>What can I sell?</summary><p>Coffee, skincare, food and sweets, handmade gifts, fashion, home decor, pet products and business products. If it’s good and you can supply it, tell us.</p></details></section>
 </main>
-<main class="ar-only" lang="ar" dir="rtl">
-
-<div class="kicker">بيع معانا</div>
-<h1>منتجاتك، وتسويقنا</h1>
-<p class="muted">بتصنع أو بتبيع منتجات حلوة؟ إحنا بنعرضها في متجرنا، ونعمل لها إعلانات وسوشيال ميديا، وفريق المبيعات بتاعنا بيكلم العملاء. إنت ركز في المنتج، وإحنا بناخد عمولة على اللي بيتباع بس.</p>
-<div class="steps"><div class="card"><b>1</b><br>ابعت منتجاتك وصورها من الفورم تحت</div><div class="card"><b>2</b><br>بنراجعها ونتفق معاك على العمولة على واتساب</div><div class="card"><b>3</b><br>بنعرض منتجاتك ونسوّق لها</div><div class="card"><b>4</b><br>بتاخد فلوسك على الطلبات اللي اتسلمت، بكشف حساب واضح</div></div>
-<form class="sell sell-form" novalidate><h2>قولنا عن منتجاتك</h2><div class="two"><label>اسمك<input name="name" required maxlength="120" autocomplete="name"></label><label>رقم الواتساب<input name="phone" required type="tel" inputmode="tel" maxlength="40" autocomplete="tel" placeholder="01x xxxx xxxx" dir="ltr"></label></div><div class="two"><label>اسم البراند أو المحل<input name="brand" required maxlength="120"></label><label>المدينة<input name="city" maxlength="80"></label></div><div class="two"><label>إنستجرام أو فيسبوك أو موقع <span class="hint">اختياري</span><input name="link" maxlength="300" dir="ltr" placeholder="instagram.com/yourbrand"></label><label>الإيميل <span class="hint">اختياري</span><input name="email" type="email" maxlength="160" dir="ltr" autocomplete="email"></label></div><div class="two"><label>بتبيع إيه؟<select name="category"><option value="Coffee & drinks">قهوة ومشروبات</option><option value="Skincare & beauty">عناية وتجميل</option><option value="Food & sweets">أكل وحلويات</option><option value="Handmade & gifts">هاند ميد وهدايا</option><option value="Fashion & accessories">أزياء وإكسسوارات</option><option value="Home & decor">منزل وديكور</option><option value="Pets">مستلزمات الحيوانات الأليفة</option><option value="Business products">منتجات للشركات والمحلات</option><option value="Other">حاجة تانية</option></select></label><label>المخزون<select name="stock_mode"><option value="Ready stock">عندي مخزون جاهز</option><option value="Made to order">بالطلب</option></select></label></div><div class="prod" data-p="0"><div class="prod-h">منتج 1</div><div class="two"><label>اسم المنتج<input name="product_name_0" required maxlength="120"></label><label>السعر (ج.م)<input name="product_price_0" type="number" min="0" step="1" inputmode="numeric"></label></div><label>وصف قصير <span class="hint">المقاس، الخامات، إيه اللي يميزه</span><textarea name="product_desc_0" maxlength="400"></textarea></label><label>صورة <span class="hint">JPG أو PNG أو WebP، لحد 5 ميجا</span><input name="photo_0" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="1"><div class="prod-h">منتج 2</div><div class="two"><label>اسم المنتج<input name="product_name_1" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_1" type="number" min="0" step="1" inputmode="numeric"></label></div><label>وصف قصير <span class="hint">المقاس، الخامات، إيه اللي يميزه</span><textarea name="product_desc_1" maxlength="400"></textarea></label><label>صورة <span class="hint">JPG أو PNG أو WebP، لحد 5 ميجا</span><input name="photo_1" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="2"><div class="prod-h">منتج 3</div><div class="two"><label>اسم المنتج<input name="product_name_2" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_2" type="number" min="0" step="1" inputmode="numeric"></label></div><label>وصف قصير <span class="hint">المقاس، الخامات، إيه اللي يميزه</span><textarea name="product_desc_2" maxlength="400"></textarea></label><label>صورة <span class="hint">JPG أو PNG أو WebP، لحد 5 ميجا</span><input name="photo_2" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="3"><div class="prod-h">منتج 4</div><div class="two"><label>اسم المنتج<input name="product_name_3" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_3" type="number" min="0" step="1" inputmode="numeric"></label></div><label>وصف قصير <span class="hint">المقاس، الخامات، إيه اللي يميزه</span><textarea name="product_desc_3" maxlength="400"></textarea></label><label>صورة <span class="hint">JPG أو PNG أو WebP، لحد 5 ميجا</span><input name="photo_3" type="file" accept="image/jpeg,image/png,image/webp"></label></div><div class="prod" hidden data-p="4"><div class="prod-h">منتج 5</div><div class="two"><label>اسم المنتج<input name="product_name_4" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_4" type="number" min="0" step="1" inputmode="numeric"></label></div><label>وصف قصير <span class="hint">المقاس، الخامات، إيه اللي يميزه</span><textarea name="product_desc_4" maxlength="400"></textarea></label><label>صورة <span class="hint">JPG أو PNG أو WebP، لحد 5 ميجا</span><input name="photo_4" type="file" accept="image/jpeg,image/png,image/webp"></label></div><button type="button" class="addp">+ ضيف منتج كمان</button><label>حاجة تانية حابب تقولها؟ <span class="hint">أقل كمية، التوصيل، كام قطعة في الشهر…</span><textarea name="notes" maxlength="1000"></textarea></label><label class="trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label><label class="check"><input type="checkbox" name="agree" required> <span>المنتجات دي بتاعتي أو من حقي أبيعها، وموافق تتواصلوا معايا على واتساب بخصوص البيع مع Where To Spot.</span></label><div class="err" role="alert"></div><button type="submit" class="btn">ابعت منتجاتي</button></form><div class="done" hidden><h2 style="margin-top:0">شكرًا! وصلتنا منتجاتك.</h2><p>فريقنا هيراجعها ويكلمك على واتساب خلال يومين عمل عشان نتفق على العمولة والخطوات الجاية.</p><p><a class="btn alt" href="index.html">ارجع للمتجر</a></p></div>
-
+<main class="sellpage ar-only" lang="ar" dir="rtl" data-no-i18n>
+<section class="s-hero">
+<div class="s-copy">
+<span class="s-kicker">بيع معانا</span>
+<h1>منتجاتك، <em>وتسويقنا</em></h1>
+<p class="s-lead">بتصنع أو بتبيع منتجات حلوة؟ إحنا بنعرضها في متجرنا، ونعمل لها إعلانات على السوشيال ميديا، وفريق المبيعات بتاعنا بيتكلم مع العملاء. إنت ركّز في منتجك، وإحنا بناخد عمولة على اللي بيتباع بس.</p>
+<div class="s-ctas"><a class="s-btn" href="#sell-form-ar">ابعت منتجاتك <span aria-hidden="true">←</span></a><span class="s-note">بياخد حوالي 3 دقايق</span></div>
+<ul class="s-trust"><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>من غير أي رسوم اشتراك</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>عمولة على الطلبات اللي اتسلمت بس</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>بنرد عليك على واتساب خلال يومين عمل</li></ul>
+</div>
+<div class="s-visual" aria-hidden="true"><div class="s-blob"></div><div class="s-card s-card-back"><img src="/img/480/images/doors/beauty.jpg" alt="" width="480" height="300" loading="lazy"></div><div class="s-card s-card-front"><div class="s-ph"><img src="/img/640/images/brands/bonds-sienna.jpg" alt="" width="640" height="800"></div><div class="s-cb"><span class="s-chip">براندك</span><b>منتجك</b><div class="s-row"><span>450 ج.م</span><i>أضف للسلة</i></div></div></div><div class="s-badge s-b1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.6 4h12.8L20 9.5M4 9.5V20h16V9.5M4 9.5h16M9.5 20v-5.5h5V20"/></svg>معروض في متجرنا</div><div class="s-badge s-b2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>إعلانات على إنستجرام وفيسبوك</div><div class="s-badge s-b3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>الطلب اتسلم · فلوسك وصلت</div></div>
+</section>
+<section class="s-how"><span class="s-kicker">إزاي بيشتغل</span><h2>أربع خطوات بسيطة</h2><ol class="s-steps">
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></span><small>خطوة 1</small><b>ابعت منتجاتك</b><p>املا الفورم تحت بصور منتجاتك وأسعارها. مش هياخد غير دقايق.</p></li>
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><small>خطوة 2</small><b>نتفق على واتساب</b><p>بنراجع منتجاتك ونتفق معاك على العمولة.</p></li>
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></span><small>خطوة 3</small><b>نعرض ونسوّق</b><p>منتجاتك بتنزل في متجرنا وإعلاناتنا، وفريقنا بيتكلم مع العملاء.</p></li>
+<li><span class="s-sic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18M15.5 15h2.5"/></svg></span><small>خطوة 4</small><b>تاخد فلوسك</b><p>على كل طلب اتسلم، بكشف حساب واضح.</p></li>
+</ol></section>
+<section class="s-why"><h2>ليه تبيع معانا؟</h2><div class="s-why-grid">
+<div><span class="s-wic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.6 4h12.8L20 9.5M4 9.5V20h16V9.5M4 9.5h16M9.5 20v-5.5h5V20"/></svg></span><b>متجر حقيقي</b><p>منتجاتك معروضة بصور وأوصاف بالعربي والإنجليزي، والدفع عند الاستلام أو أونلاين.</p></div>
+<div><span class="s-wic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></span><b>إعلانات وسوشيال ميديا</b><p>بنسوّق لمنتجاتك في إعلاناتنا وعلى صفحاتنا في إنستجرام وفيسبوك وتيك توك.</p></div>
+<div><span class="s-wic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a5.5 5.5 0 0 1 3.5 5.8"/></svg></span><b>فريق مبيعات</b><p>فريقنا بيرد على العملاء على واتساب والتليفون وبيقفل الطلبات.</p></div>
+</div></section>
+<section class="s-form-wrap" id="sell-form-ar">
+<aside class="s-aside"><h2>قولنا عن منتجاتك</h2><p>ابعت كام منتج كبداية، وهنكلمك على واتساب نتفق على التفاصيل.</p><div class="s-need"><b>هتحتاج</b><ul><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>صور واضحة لمنتجاتك</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>أسعار البيع</li><li><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>رقم واتساب</li></ul></div><p class="s-alt">تحب تتكلم الأول؟ <a href="https://wa.me/201277660666?text=أهلًا،%20عايز%20أبيع%20منتجاتي%20مع%20Where%20To%20Spot" target="_blank" rel="noopener">كلمنا على واتساب</a></p></aside>
+<div><form class="sell-form s-form" novalidate>
+<fieldset><legend><span>1</span>بياناتك</legend><div class="s-grid">
+<label>اسمك<input name="name" required maxlength="120" autocomplete="name"></label>
+<label>رقم الواتساب<input name="phone" required type="tel" inputmode="tel" maxlength="40" autocomplete="tel" placeholder="01x xxxx xxxx" dir="ltr"></label>
+<label>اسم البراند أو المحل<input name="brand" required maxlength="120" autocomplete="organization"></label>
+<label><span class="s-lt">إنستجرام أو فيسبوك أو موقع <span class="s-opt">اختياري</span></span><input name="link" maxlength="300" dir="ltr" placeholder="instagram.com/yourbrand"></label>
+<label>بتبيع إيه؟<select name="category"><option value="Coffee &amp; drinks">قهوة ومشروبات</option><option value="Skincare &amp; beauty">عناية وتجميل</option><option value="Food &amp; sweets">أكل وحلويات</option><option value="Handmade &amp; gifts">هاند ميد وهدايا</option><option value="Fashion &amp; accessories">أزياء وإكسسوارات</option><option value="Home &amp; decor">منزل وديكور</option><option value="Pets">مستلزمات الحيوانات الأليفة</option><option value="Business products">منتجات للشركات والمحلات</option><option value="Other">حاجة تانية</option></select></label>
+<label><span class="s-lt">المدينة <span class="s-opt">اختياري</span></span><input name="city" maxlength="80" placeholder="مثلًا القاهرة" autocomplete="address-level2"></label>
+</div><div class="s-seg-l">المخزون</div><div class="s-seg" role="radiogroup"><label><input type="radio" name="stock_mode" value="Ready stock" checked><span>عندي مخزون جاهز</span></label><label><input type="radio" name="stock_mode" value="Made to order"><span>بالطلب</span></label></div></fieldset>
+<fieldset><legend><span>2</span>منتجاتك</legend>
+<div class="s-prod" data-p="0"><div class="s-prod-h">منتج 1</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_0" accept="image/jpeg,image/png,image/webp" aria-label="ضيف صورة"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>ضيف صورة</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>غيّر</span></label><div class="s-prod-f"><label>اسم المنتج<input name="product_name_0" required maxlength="120"></label><label>السعر (ج.م)<input name="product_price_0" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">وصف قصير <span class="s-opt">اختياري</span></span><textarea name="product_desc_0" maxlength="400" rows="2" placeholder="المقاس، الخامات، إيه اللي يميزه"></textarea></label></div>
+<div class="s-prod" hidden data-p="1"><div class="s-prod-h">منتج 2</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_1" accept="image/jpeg,image/png,image/webp" aria-label="ضيف صورة"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>ضيف صورة</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>غيّر</span></label><div class="s-prod-f"><label>اسم المنتج<input name="product_name_1" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_1" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">وصف قصير <span class="s-opt">اختياري</span></span><textarea name="product_desc_1" maxlength="400" rows="2" placeholder="المقاس، الخامات، إيه اللي يميزه"></textarea></label></div>
+<div class="s-prod" hidden data-p="2"><div class="s-prod-h">منتج 3</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_2" accept="image/jpeg,image/png,image/webp" aria-label="ضيف صورة"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>ضيف صورة</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>غيّر</span></label><div class="s-prod-f"><label>اسم المنتج<input name="product_name_2" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_2" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">وصف قصير <span class="s-opt">اختياري</span></span><textarea name="product_desc_2" maxlength="400" rows="2" placeholder="المقاس، الخامات، إيه اللي يميزه"></textarea></label></div>
+<div class="s-prod" hidden data-p="3"><div class="s-prod-h">منتج 4</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_3" accept="image/jpeg,image/png,image/webp" aria-label="ضيف صورة"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>ضيف صورة</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>غيّر</span></label><div class="s-prod-f"><label>اسم المنتج<input name="product_name_3" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_3" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">وصف قصير <span class="s-opt">اختياري</span></span><textarea name="product_desc_3" maxlength="400" rows="2" placeholder="المقاس، الخامات، إيه اللي يميزه"></textarea></label></div>
+<div class="s-prod" hidden data-p="4"><div class="s-prod-h">منتج 5</div><div class="s-prod-in"><label class="s-ph-tile"><input type="file" name="photo_4" accept="image/jpeg,image/png,image/webp" aria-label="ضيف صورة"><span class="s-ph-empty"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="9" cy="10.5" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg><b>ضيف صورة</b></span><img class="s-ph-prev" alt="" hidden><span class="s-ph-change" hidden>غيّر</span></label><div class="s-prod-f"><label>اسم المنتج<input name="product_name_4" maxlength="120"></label><label>السعر (ج.م)<input name="product_price_4" type="number" min="0" step="1" inputmode="numeric" dir="ltr"></label></div></div><label class="s-desc"><span class="s-lt">وصف قصير <span class="s-opt">اختياري</span></span><textarea name="product_desc_4" maxlength="400" rows="2" placeholder="المقاس، الخامات، إيه اللي يميزه"></textarea></label></div>
+<p class="s-ph-note">JPG أو PNG أو WebP · لحد 5 ميجا</p>
+<button type="button" class="s-addp"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>ضيف منتج كمان <span>(لحد 5)</span></button></fieldset>
+<fieldset><legend><span>3</span>حاجة تانية؟ <span class="s-opt">اختياري</span></legend><textarea name="notes" maxlength="1000" rows="3" placeholder="أقل كمية، التوصيل، كام قطعة في الشهر…" aria-label="حاجة تانية؟"></textarea></fieldset>
+<label class="trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<label class="s-check"><input type="checkbox" name="agree" required><span>المنتجات دي بتاعتي أو من حقي أبيعها، وموافق تتواصلوا معايا على واتساب بخصوص البيع مع Where To Spot.</span></label>
+<div class="s-err" role="alert"></div>
+<button type="submit" class="s-btn s-submit">ابعت منتجاتي</button><p class="s-sub-note"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>هنرد عليك على واتساب خلال يومين عمل.</p>
+</form>
+<div class="s-done" hidden><span class="s-done-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><h2>شكرًا! وصلتنا منتجاتك.</h2><p>فريقنا هيراجعها ويكلمك على واتساب خلال يومين عمل عشان نتفق على العمولة والخطوات الجاية.</p><a class="s-btn s-btn-dark" href="index.html">ارجع للمتجر</a></div></div>
+</section>
+<section class="s-faq"><h2>أسئلة</h2><details><summary>هدفع حاجة عشان أشترك؟</summary><p>لأ. مفيش أي رسوم لعرض منتجاتك. إحنا بناخد العمولة المتفق عليها على الطلبات اللي اتسلمت بس.</p></details><details><summary>مين بيحدد السعر؟</summary><p>إنت بتقولنا سعرك، وبنتفق مع بعض على سعر المتجر والعمولة قبل ما أي حاجة تنزل.</p></details><details><summary>أقدر أبيع إيه؟</summary><p>قهوة، منتجات عناية، أكل وحلويات، هدايا هاند ميد، أزياء، ديكور، مستلزمات الحيوانات الأليفة ومنتجات للشركات. لو منتجك حلو وتقدر توفّره، قولنا.</p></details></section>
 </main>
 <footer><div class="in">
 <span>© 2026 Where To Spot · MQR, El Wahat Road, 6th of October City, Giza, Egypt · <a href="mailto:info@wheretospot.com">info@wheretospot.com</a> · <a href="tel:+201277660666">+20 127 766 0666</a></span>
 <a href="about.html">About us</a><a href="contact.html">Contact us</a><a href="google-review-link.html">Free Google review link & QR</a><a href="privacy-policy.html">Privacy policy</a><a href="refund-policy.html">Refund & cancellation</a><a href="shipping-policy.html">Delivery & shipping</a><a href="terms.html">Terms & conditions</a>
 </div><div class="in pay-row"><span>We accept</span><img src="images/pay/paymob.svg" alt="Secured by Paymob" width="63" height="30" loading="lazy"><img src="images/pay/visa.svg" alt="Visa" width="47" height="30" loading="lazy"><img src="images/pay/mastercard.svg" alt="Mastercard" width="47" height="30" loading="lazy"><img src="images/pay/meeza.svg" alt="Meeza" width="47" height="30" loading="lazy"><img src="images/pay/wallet.svg" alt="Mobile wallets" width="47" height="30" loading="lazy"><img src="images/pay/cod.svg" alt="Cash on delivery" width="47" height="30" loading="lazy"><span class="pay-note">Secure online payments by Paymob</span></div></footer>
 <script>
-// Sell with us: up to 5 products (one shown, "+ Add another product" shows the next), sent with their photos.
+// Sell with us: up to 5 products (one shown, "Add another product" shows the next), each with a photo preview.
 document.querySelectorAll('.sell-form').forEach(function (f) {
   var ar = !!f.closest('[lang=ar]');
-  var add = f.querySelector('.addp');
-  add.onclick = function () { var next = f.querySelector('.prod[hidden]'); if (next) { next.hidden = false; next.querySelector('input').focus(); } if (!f.querySelector('.prod[hidden]')) add.hidden = true; };
+  var add = f.querySelector('.s-addp');
+  add.onclick = function () { var next = f.querySelector('.s-prod[hidden]'); if (next) { next.hidden = false; next.querySelector('input[name^=product_name]').focus(); } if (!f.querySelector('.s-prod[hidden]')) add.hidden = true; };
+  f.querySelectorAll('.s-ph-tile input').forEach(function (inp) {
+    inp.onchange = function () {
+      var tile = inp.closest('.s-ph-tile'), img = tile.querySelector('.s-ph-prev'), file = inp.files[0];
+      if (img.src) URL.revokeObjectURL(img.src);
+      var has = !!(file && /^image\//.test(file.type));
+      img.hidden = !has; tile.querySelector('.s-ph-change').hidden = !has; tile.querySelector('.s-ph-empty').hidden = has;
+      if (has) img.src = URL.createObjectURL(file); else img.removeAttribute('src');
+    };
+  });
   f.onsubmit = function (e) {
     e.preventDefault();
-    var err = f.querySelector('.err'), btn = f.querySelector('button[type=submit]');
+    var err = f.querySelector('.s-err'), btn = f.querySelector('button[type=submit]');
     err.textContent = '';
     if (!f.reportValidity()) return;
     var big = Array.prototype.some.call(f.querySelectorAll('input[type=file]'), function (i) { return i.files[0] && i.files[0].size > 5 * 1024 * 1024; });
@@ -104,7 +353,7 @@ document.querySelectorAll('.sell-form').forEach(function (f) {
     btn.disabled = true; var label = btn.textContent; btn.textContent = ar ? 'جاري الإرسال…' : 'Sending…';
     fetch('api/public.php?action=seller_apply', { method: 'POST', body: new FormData(f) })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Error'); return d; }); })
-      .then(function () { f.hidden = true; f.nextElementSibling.hidden = false; f.nextElementSibling.scrollIntoView({ behavior: 'smooth', block: 'center' }); })
+      .then(function () { var done = f.nextElementSibling; f.hidden = true; done.hidden = false; done.scrollIntoView({ behavior: 'smooth', block: 'center' }); })
       .catch(function (x) { err.textContent = (window.WTS_T ? window.WTS_T(x.message) : x.message) || (ar ? 'حصلت مشكلة، حاول تاني.' : 'Something went wrong, please try again.'); btn.disabled = false; btn.textContent = label; });
   };
 });
