@@ -36,7 +36,10 @@
     let res;
     for (let attempt = 0; ; attempt++) {
       try {
-        res = await fetch(API + '?action=' + action + query, opts);
+        // A read gives up after 20 s, so one left hanging while the phone slept can't freeze a page that refreshes itself.
+        const ctl = method === 'GET' && window.AbortController ? new AbortController() : null;
+        const tm = ctl ? setTimeout(() => ctl.abort(), 20000) : 0;
+        try { res = await fetch(API + '?action=' + action + query, ctl ? { ...opts, signal: ctl.signal } : opts); } finally { clearTimeout(tm); }
         if (method === 'GET' && res.status >= 500 && attempt === 0) { await new Promise((r) => setTimeout(r, 700)); continue; }
         break;
       } catch (e) {
@@ -120,6 +123,9 @@
       return;
     }
     window.addEventListener('hashchange', route);
+    // WhatsApp inbox on phones: the back gesture closes an open chat; coming back to the app refreshes it at once.
+    window.addEventListener('popstate', () => { if (S.route === 'inbox' && waInbox.closeChat && !(history.state && history.state.waChat) && waInbox.chatId) waInbox.closeChat(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && S.route === 'inbox' && waInbox.wake) waInbox.wake(); });
     route();
   }
 
@@ -256,6 +262,8 @@
     home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     bag: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
     box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     inbox: '<path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/>',
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
     pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
@@ -1723,6 +1731,77 @@
     if (!waProductList.busy[lang]) waProductList.busy[lang] = api('wa_products', { query: '&lang=' + lang }).then((r) => { waProds[lang] = r.products; return r.products; }).finally(() => { waProductList.busy[lang] = null; });
     return waProductList.busy[lang];
   };
+  const waPhone = () => matchMedia('(max-width:820px)').matches;
+  const waCopy = (text) => {
+    const ok = () => toast('Message copied');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, () => {});
+    else { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); ok(); } catch (e) {} t.remove(); }
+  };
+  // The voice-note format this browser records that WhatsApp accepts: Ogg/Opus (Firefox), WebM/Opus rewrapped
+  // as Ogg below (Chrome, Android, Edge), or M4A (iPhone Safari).
+  const waVoiceType = () => ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2'].find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  // WebM (what Chrome records) → Ogg, the same Opus sound in the box WhatsApp plays as a voice note. Nothing is re-encoded.
+  function waWebmToOgg(b) {
+    let p = 0, head = null, channels = 1;
+    const packets = [];
+    const vint = (isId) => {
+      const f = b[p]; let len = 1, m = 0x80;
+      while (len <= 8 && !(f & m)) { len++; m >>= 1; }
+      if (len > 8) throw new Error('Not a WebM file');
+      let v = isId ? f : f & (m - 1), ones = (f & (m - 1)) === m - 1;
+      for (let i = 1; i < len; i++) { v = v * 256 + b[p + i]; if (b[p + i] !== 0xff) ones = false; }
+      p += len;
+      return isId ? v : ones ? -1 : v;
+    };
+    // Segment, Tracks, TrackEntry, Audio, Cluster, BlockGroup: look inside; everything else is skipped by its size.
+    const INSIDE = [0x18538067, 0x1654ae6b, 0xae, 0xe1, 0x1f43b675, 0xa0];
+    while (p < b.length) {
+      const id = vint(true), size = vint(false);
+      if (INSIDE.includes(id)) continue;
+      const end = size < 0 ? b.length : Math.min(b.length, p + size);
+      if (id === 0x63a2) head = b.slice(p, end); // CodecPrivate = OpusHead
+      else if (id === 0x9f) channels = b[p] || 1;
+      else if (id === 0xa3 || id === 0xa1) { // SimpleBlock / Block: track number, 2-byte time, flags, then the Opus packet
+        let l = 1, m = 0x80; while (l <= 8 && !(b[p] & m)) { l++; m >>= 1; }
+        if (b[p + l + 2] & 0x06) throw new Error('Laced WebM not supported');
+        packets.push(b.slice(p + l + 3, end));
+      }
+      p = end;
+    }
+    if (!packets.length) throw new Error('No sound recorded');
+    if (!head) { head = new Uint8Array(19); head.set([79, 112, 117, 115, 72, 101, 97, 100, 1, channels, 0x38, 0x01, 0x80, 0xbb, 0, 0, 0, 0, 0]); }
+    const tags = new Uint8Array([79, 112, 117, 115, 84, 97, 103, 115, 3, 0, 0, 0, 87, 84, 83, 0, 0, 0, 0]); // "OpusTags", vendor "WTS", no comments
+    const crcT = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) { let r = i << 24; for (let j = 0; j < 8; j++) r = r & 0x80000000 ? (r << 1) ^ 0x04c11db7 : r << 1; crcT[i] = r >>> 0; }
+    const serial = (Math.random() * 0xffffffff) >>> 0, pages = [];
+    let seq = 0;
+    const page = (pkts, granule, flags) => {
+      const segs = [];
+      pkts.forEach((k) => { let n = k.length; while (n >= 255) { segs.push(255); n -= 255; } segs.push(n); });
+      const len = 27 + segs.length + pkts.reduce((a, k) => a + k.length, 0), o = new Uint8Array(len), dv = new DataView(o.buffer);
+      o.set([79, 103, 103, 83], 0); o[5] = flags;
+      dv.setUint32(6, granule % 4294967296, true); dv.setUint32(10, Math.floor(granule / 4294967296), true);
+      dv.setUint32(14, serial, true); dv.setUint32(18, seq++, true);
+      o[26] = segs.length; o.set(segs, 27);
+      let off = 27 + segs.length; pkts.forEach((k) => { o.set(k, off); off += k.length; });
+      let crc = 0; for (let i = 0; i < len; i++) crc = ((crc << 8) ^ crcT[((crc >>> 24) ^ o[i]) & 255]) >>> 0;
+      dv.setUint32(22, crc, true);
+      pages.push(o);
+    };
+    // Samples (at 48 kHz) in an Opus packet, from its first byte.
+    const samples = (k) => { const cfg = k[0] >> 3, ms = cfg < 12 ? [10, 20, 40, 60][cfg & 3] : cfg < 16 ? [10, 20][cfg & 1] : [2.5, 5, 10, 20][cfg & 3], c = k[0] & 3; return (c === 0 ? 1 : c < 3 ? 2 : (k[1] & 0x3f)) * ms * 48; };
+    page([head], 0, 2); page([tags], 0, 0);
+    let cur = [], nseg = 0, gran = 0;
+    packets.forEach((k, i) => {
+      const need = Math.floor(k.length / 255) + 1;
+      if (nseg + need > 255) { page(cur, gran, 0); cur = []; nseg = 0; }
+      cur.push(k); nseg += need; gran += samples(k);
+      if (i === packets.length - 1) page(cur, gran, 4);
+    });
+    const out = new Uint8Array(pages.reduce((a, x) => a + x.length, 0));
+    let off = 0; pages.forEach((x) => { out.set(x, off); off += x.length; });
+    return out;
+  }
   const waInbox = { view: null, q: '', chatId: null, data: null, chat: null, msgs: [], lastId: 0, timer: null };
 
   async function pageInbox() {
@@ -1772,7 +1851,12 @@
       }).join('') : '<div class="muted small" style="padding:16px">' + (st.view === 'mine' ? 'No chats for you right now.' : 'No chats here.') + '</div>';
       $$('#waItems [data-c]').forEach((b) => b.onclick = () => openChat(+b.dataset.c));
     };
+    // Phones show one panel at a time: opening a chat adds a step to the history, so the phone's back
+    // gesture (or the ← button) returns to the chat list instead of leaving the dashboard.
+    const closeChat = () => { const w = $('#wa'); if (w) w.classList.remove('open'); st.chatId = null; if (st.data) renderList(); };
+    st.closeChat = closeChat;
     const openChat = async (id) => {
+      if (waPhone() && !(history.state && history.state.waChat)) history.pushState({ waChat: id }, '');
       st.chatId = id; st.msgs = []; st.lastId = 0;
       $('#wa').classList.add('open');
       renderList();
@@ -1816,7 +1900,7 @@
           : !c.assignedTo ? '<button class="btn sm primary" id="waTake">Take this chat</button>' : '') +
         '<button class="btn sm" id="waClose">' + (c.status === 'closed' ? 'Reopen' : 'Close chat') + '</button>' +
         '<button class="btn sm wa-info-btn" id="waInfo">' + icon('person') + '</button>';
-      $('#waBack').onclick = () => { $('#wa').classList.remove('open'); st.chatId = null; renderList(); };
+      $('#waBack').onclick = () => { if (history.state && history.state.waChat) history.back(); else closeChat(); };
       const as = $('#waAssign'); if (as) as.onchange = async () => { try { const r = await api('wa_assign', { method: 'POST', body: { chat_id: c.id, user_id: as.value ? +as.value : null } }); st.chat = r.chat; toast(as.value ? 'Chat given to ' + r.chat.agent : 'Chat unassigned'); loadList(); } catch (e) { toast(e.message, true); } };
       const tk = $('#waTake'); if (tk) tk.onclick = async () => { try { const r = await api('wa_assign', { method: 'POST', body: { chat_id: c.id, user_id: S.user.id } }); st.chat = r.chat; renderHead(); loadList(); toast('The chat is yours'); } catch (e) { toast(e.message, true); } };
       $('#waClose').onclick = async () => { try { const r = await api('wa_close', { method: 'POST', body: { chat_id: c.id, open: c.status === 'closed' } }); st.chat = r.chat; renderHead(); loadList(); toast(r.chat.status === 'closed' ? 'Chat closed — it reopens if the customer writes again' : 'Chat reopened'); } catch (e) { toast(e.message, true); } };
@@ -1856,8 +1940,23 @@
       box.addEventListener('load', (e) => { if (st.stick && /IMG|VIDEO/.test(e.target.tagName)) box.scrollTop = box.scrollHeight; }, true);
       box.addEventListener('loadedmetadata', () => { if (st.stick) box.scrollTop = box.scrollHeight; }, true);
     };
+    // Long press on a message (phones) copies its text.
+    const copyOnHold = (box) => {
+      let t = null, x0 = 0, y0 = 0;
+      const stop = () => { clearTimeout(t); t = null; };
+      box.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        const el = e.target.closest('.wa-msg'); const tx = el && $('.wa-text', el); if (!tx || e.target.closest('a,audio,video')) return;
+        x0 = e.clientX; y0 = e.clientY; stop();
+        t = setTimeout(() => { t = null; waCopy(tx.innerText); el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 600); if (navigator.vibrate) navigator.vibrate(15); }, 480);
+      });
+      box.addEventListener('pointermove', (e) => { if (t && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); });
+      ['pointerup', 'pointercancel', 'scroll'].forEach((ev) => box.addEventListener(ev, stop, true));
+      box.addEventListener('contextmenu', (e) => { if (matchMedia('(pointer: coarse)').matches && e.target.closest('.wa-msg')) e.preventDefault(); });
+    };
     const renderMessages = () => {
       const box = $('#waMsgs'); if (!box) return;
+      copyOnHold(box);
       st.day = ''; st.prev = null;
       box.innerHTML = withDays(st.msgs) || '<div class="muted small wa-none" style="text-align:center;padding:20px">No messages yet.</div>';
       stickDown(box);
@@ -1946,15 +2045,18 @@
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
         '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>' +
         '<textarea id="waText" rows="1" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
+        '<button class="btn sm" id="waMic" title="Record a voice note" aria-label="Record a voice note">' + icon('mic') + '</button>' +
         '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
         '<div class="wa-window small muted">Free replies for about ' + left + ' more hour' + (left === 1 ? '' : 's') + '</div>';
       const ta = $('#waText');
       const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; };
-      ta.oninput = grow;
+      // Like WhatsApp on phones: the mic while the box is empty, the send button once there's text.
+      const hasText = () => ta.closest('.wa-cbar').classList.toggle('has-text', !!ta.value.trim());
+      ta.oninput = () => { grow(); hasText(); };
       const send = async () => {
         const text = ta.value.trim(); if (!text) return;
         $('#waSend').disabled = true;
-        try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text } }); ta.value = ''; grow(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
+        try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text } }); ta.value = ''; grow(); hasText(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
         catch (e) { toast(e.message, true); }
         $('#waSend').disabled = false; ta.focus();
       };
@@ -2003,9 +2105,49 @@
         const caption = file.type.startsWith('audio') ? '' : ta.value.trim();
         const fd = new FormData(); fd.append('chat_id', c.id); fd.append('file', file); fd.append('caption', caption);
         toast('Sending ' + file.name + '…');
-        try { const r = await api('wa_send_file', { method: 'POST', form: fd }); if (caption) { ta.value = ''; grow(); } st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); toast('Sent'); }
+        try { const r = await api('wa_send_file', { method: 'POST', form: fd }); if (caption) { ta.value = ''; grow(); hasText(); } st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); toast('Sent'); }
         catch (err) { toast(err.message, true); }
         e.target.value = '';
+      };
+      // Voice note: record, then send (or bin it). Sent as a WhatsApp voice message (Ogg/Opus; iPhones record M4A).
+      $('#waMic').onclick = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { toast('This browser can’t record voice notes.', true); return; }
+        let stream;
+        try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }); } catch (e) { toast('Allow the microphone to record a voice note.', true); return; }
+        const type = waVoiceType();
+        let mr;
+        try { mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined); } catch (e) { stream.getTracks().forEach((t) => t.stop()); toast('This browser can’t record voice notes.', true); return; }
+        const chunks = [];
+        mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+        const stopped = new Promise((r) => { mr.onstop = r; });
+        const bar = $('#waCompose .wa-cbar');
+        const rb = document.createElement('div');
+        rb.className = 'wa-rec';
+        rb.innerHTML = '<button class="btn sm" data-rec="x" title="Delete" aria-label="Delete">' + icon('trash') + '</button><span class="wa-rec-dot"></span><span class="wa-rec-t">0:00</span><span class="small muted">Recording…</span><span class="spacer"></span><button class="btn primary" data-rec="send" aria-label="Send">' + icon('send') + '</button>';
+        bar.hidden = true; bar.after(rb);
+        const t0 = Date.now();
+        let done = false, tick = 0;
+        const finish = async (sendIt) => {
+          if (done) return; done = true;
+          clearInterval(tick);
+          if (mr.state !== 'inactive') mr.stop();
+          await stopped;
+          stream.getTracks().forEach((t) => t.stop());
+          rb.remove(); bar.hidden = false;
+          if (!sendIt || Date.now() - t0 < 700 || !chunks.length) return;
+          let blob = new Blob(chunks, { type: mr.mimeType || type || 'audio/webm' }), name = 'voice.ogg';
+          try {
+            if (/webm/.test(blob.type)) blob = new Blob([waWebmToOgg(new Uint8Array(await blob.arrayBuffer()))], { type: 'audio/ogg' });
+            else if (/mp4|aac/.test(blob.type)) name = 'voice.m4a';
+          } catch (e) { toast('Could not prepare the voice note. Try again.', true); return; }
+          const fd = new FormData(); fd.append('chat_id', c.id); fd.append('file', new File([blob], name, { type: blob.type })); fd.append('caption', ''); fd.append('voice', '1');
+          toast('Sending voice note…');
+          try { const r = await api('wa_send_file', { method: 'POST', form: fd }); added(r.message); toast('Sent'); } catch (err) { toast(err.message, true); }
+        };
+        tick = setInterval(() => { const sec = Math.floor((Date.now() - t0) / 1000); $('.wa-rec-t', rb).textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); if (sec >= 300) finish(true); }, 250);
+        $('[data-rec="x"]', rb).onclick = () => finish(false);
+        $('[data-rec="send"]', rb).onclick = () => finish(true);
+        mr.start(250);
       };
       const ql = $('#waQuickList');
       $('#waQuickBtn').onclick = () => {
@@ -2013,7 +2155,7 @@
         ql.innerHTML = quick.map((q, i) => '<button data-q="' + i + '"><b>' + esc(q.title) + '</b><span>' + esc(q.body) + '</span></button>').join('') +
           (can('whatsapp_all') ? '<button class="wa-qm" id="waQuickManage">✎ Edit quick replies</button>' : '');
         ql.hidden = !ql.hidden; $('#waProdList').hidden = true;
-        $$('[data-q]', ql).forEach((b) => b.onclick = () => { ta.value = (ta.value ? ta.value + '\n' : '') + waFillName(quick[+b.dataset.q].body, (st.lead && st.lead.name) || c.name); ql.hidden = true; grow(); ta.focus(); });
+        $$('[data-q]', ql).forEach((b) => b.onclick = () => { ta.value = (ta.value ? ta.value + '\n' : '') + waFillName(quick[+b.dataset.q].body, (st.lead && st.lead.name) || c.name); ql.hidden = true; grow(); hasText(); ta.focus(); });
         const qm = $('#waQuickManage'); if (qm) qm.onclick = () => { ql.hidden = true; waQuickDrawer(); };
       };
     };
@@ -2025,10 +2167,13 @@
         poll();
       }, 5000);
     };
+    // Back on screen (the app was in the background): fetch what came in meanwhile and restart the refresh.
+    st.wake = async () => { clearTimeout(st.timer); st.timer = null; try { await loadList(); if (st.chatId) await loadChat(true); } catch (e) {} if (S.route === 'inbox') poll(); };
     clearTimeout(st.timer); st.timer = null;
     await loadList();
-    if (st.chatId) openChat(st.chatId);
-    else if (S.openWaChat) { const id = S.openWaChat; S.openWaChat = null; openChat(id); }
+    if (S.openWaChat) { const id = S.openWaChat; S.openWaChat = null; openChat(id); }
+    else if (st.chatId && !waPhone()) openChat(st.chatId);
+    else st.chatId = null; // a phone opens WhatsApp on the chat list
   }
 
   function waQuickDrawer() {

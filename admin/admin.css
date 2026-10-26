@@ -447,6 +447,16 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-cbar{display:flex;gap:8px;align-items:flex-end}
 .wa-cbar textarea{flex:1;resize:none;min-height:40px;max-height:160px;padding:9px 12px;border-radius:12px;font:inherit}
 .wa-cbar .btn{height:40px}
+.wa-cbar[hidden]{display:none}
+/* Recording a voice note */
+.wa-rec{display:flex;align-items:center;gap:10px;min-height:40px}
+.wa-rec .btn{height:40px}
+.wa-rec-dot{width:10px;height:10px;border-radius:50%;background:#D93A3A;animation:waRec 1s ease-in-out infinite}
+.wa-rec-t{font-variant-numeric:tabular-nums;font-weight:600;min-width:36px}
+@keyframes waRec{50%{opacity:.25}}
+/* Long press copies a message: a short flash shows it worked; phones don't start selecting text instead */
+.wa-msg.copied{box-shadow:0 0 0 2px var(--accent, #A8552F)}
+@media (pointer:coarse){.wa-msg{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}}
 .wa-window{margin-top:4px}
 .wa-closed{display:flex;gap:10px;align-items:center;color:var(--ink-2);font-size:13px}
 .wa-quick{position:absolute;bottom:100%;inset-inline:14px;max-height:300px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;margin-bottom:6px;display:flex;flex-direction:column}
@@ -475,6 +485,9 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
   .wa-back{display:inline-flex}
   .wa-msg{max-width:88%}
   .wa-ch select{max-width:120px}
+  .wa-cbar{gap:6px}
+  .wa-cbar .btn.sm{padding:0 9px}
+  .wa-cbar.has-text #waMic,.wa-cbar:not(.has-text) #waSend{display:none}
 }
 .wa-quick[hidden]{display:none}
 /* Send a product: search, language, and the shop's products with photo and price. */

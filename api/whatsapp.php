@@ -394,6 +394,8 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
     if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmpPath) ?: 'application/octet-stream';
     if ($mime === 'audio/x-m4a') $mime = 'audio/mp4';
+    // A voice note recorded on an iPhone (M4A) can look like an MP4 video to the type check.
+    if ($mime === 'video/mp4' && preg_match('/\.m4a$/i', $name)) $mime = 'audio/mp4';
     $kind = null;
     foreach (WA_SEND_TYPES as $k => [$types, $max]) if (in_array($mime, $types, true)) { $kind = $k; break; }
     if (!$kind) throw new ShopError('WhatsApp can’t send this kind of file (' . $mime . '). Photos must be JPG or PNG; videos MP4.');
