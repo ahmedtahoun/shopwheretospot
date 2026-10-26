@@ -142,6 +142,7 @@ function tg_remind_due(): void
     wa_set_setting('tg_remind_run', time());
     try { tg_daily_due(); } catch (Throwable $e) { error_log('[shop] daily summary: ' . $e->getMessage()); }
     try { tg_monthly_due(); } catch (Throwable $e) { error_log('[shop] monthly report: ' . $e->getMessage()); }
+    offsite_due(); // weekly backup to the owners (api/offsite.php)
     $st = db()->prepare("SELECT * FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL AND waiting_since <= datetime('now', ?) AND waiting_since > datetime('now', '-1 day')
         AND (tg_reminded_for IS NULL OR tg_reminded_for != waiting_since) ORDER BY waiting_since LIMIT 50");
     $st->execute(['-' . TG_REMIND_MINUTES . ' minutes']);

@@ -30,6 +30,7 @@ $config = [
     'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php
+    'backup_password' => '', // off-site backups: the password that locks the weekly backup sent to owners on Telegram (api/offsite.php)
     'meta' => [],           // ad tracking: Meta Pixel + Conversions API; see api/meta.php and api/config.local.example.php
     'ga4_id' => '',         // Google Analytics 4 measurement ID (G-…); see api/track.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
@@ -175,6 +176,7 @@ function schedule_daily_backup(): void
         if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
         elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
         try { make_backup(); } catch (Throwable $e) { error_log('[shop] daily backup failed: ' . $e->getMessage()); }
+        offsite_due(); // the weekly copy to the owners on Telegram (api/offsite.php)
     });
 }
 
@@ -805,6 +807,7 @@ require __DIR__ . '/devices.php';
 require __DIR__ . '/images.php';
 require __DIR__ . '/sellers.php';
 require __DIR__ . '/meta.php';
+require __DIR__ . '/offsite.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

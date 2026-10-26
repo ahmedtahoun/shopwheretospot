@@ -3139,6 +3139,26 @@
   }
 
   // ---------- backups ----------
+  // Backups → the weekly copy off the server: a locked zip sent to the owners on Telegram (api/offsite.php).
+  function offsiteCard(o) {
+    const todo = [];
+    if (!o.zipLock) todo.push('The server can’t make password-protected zip files. Ask the hosting to enable PHP’s zip extension.');
+    if (!o.password) todo.push('Add a backup password (at least 10 characters) to api/config.local.php on the server: \'backup_password\' => \'…\'. Save it somewhere safe too (a password manager or on paper): you need it to open the backups.');
+    if (!o.telegram) todo.push('Set up Telegram (Settings → WhatsApp → Telegram alerts).');
+    else if (!o.owners.length) todo.push('Connect your Telegram: in the WhatsApp inbox press ✈️ Telegram and follow the link. Only owners receive the backup.');
+    const ready = !todo.length;
+    const last = o.last ? new Date(o.last.replace(' ', 'T') + 'Z') : null;
+    const late = last && Date.now() - last > (o.everyDays + 2) * 86400000;
+    return '<div class="card stack" style="margin-bottom:16px;gap:12px"><h2>Copy off the server<span class="spacer"></span>' +
+        (ready ? (last && !late ? '<span class="pill good">✓ Weekly on Telegram</span>' : '<span class="pill warn">Not sent yet</span>') : '<span class="pill bad">✕ Not set up</span>') + '</h2>' +
+      '<p class="muted" style="margin:0;line-height:1.6">The copies below live on the hosting server. Every ' + o.everyDays + ' days the latest one (with product photos and customers’ order files) is also sent to the owners on Telegram, in a zip locked with your backup password. If the server is ever lost, that file restores the whole shop.</p>' +
+      (ready ? '<div class="list"><div class="li"><span>Goes to</span><span><b>' + esc(o.owners.join(', ')) + '</b></span></div>' +
+        '<div class="li"><span>Last sent</span><span>' + (last ? dateTime(o.last) + ' · ' + fmtSize(o.lastSize) + (o.lastNote ? ' · <span class="muted">' + esc(o.lastNote) + '</span>' : '') : '—') + '</span></div></div>' : '') +
+      (o.error ? '<div class="err">' + esc(o.error) + '</div>' : '') +
+      (todo.length ? '<div class="card" style="background:var(--warn-soft, #FFF6E5);border-color:#F0DFB8"><b>To switch it on</b><ul style="margin:8px 0 0;padding-left:18px;line-height:1.7">' + todo.map((t) => '<li>' + esc(t) + '</li>').join('') + '</ul></div>' : '') +
+      (ready && S.user.role === 'owner' ? '<div class="row"><button class="btn" id="bkOff">Send to Telegram now</button></div>' : '') + '</div>';
+  }
+
   async function pageBackups() {
     const d = await api('backups');
     const last = d.backups[0];
@@ -3146,14 +3166,20 @@
       '<button class="btn primary" id="bkNow">' + icon('shield') + 'Back up now</button>') +
       '<div class="kpis"><div class="kpi"><div class="label">Last backup</div><div class="value" style="font-size:22px">' + (last ? dateTime(last.created) : '—') + '</div><div class="note">' + (last ? fmtSize(last.size) : 'None yet') + '</div></div>' +
       '<div class="kpi"><div class="label">Copies kept</div><div class="value">' + d.backups.length + '</div><div class="note">of ' + d.keep + ' days</div></div></div>' +
-      '<div class="card" style="margin-bottom:16px"><h2>Keep a copy off the server</h2><p class="muted" style="margin:0;line-height:1.6">These copies live on the hosting server, outside the website folder. Once a week, download the latest one and keep it somewhere safe (Google Drive or your computer). If the server is ever lost, that file restores the whole shop.</p></div>' +
+      offsiteCard(d.offsite) +
       (d.backups.length ? '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Saved</th><th class="num">Size</th><th></th></tr></thead><tbody>' +
         d.backups.map((b) => '<tr><td><b>' + esc(fmtDay(b.file.slice(5, 15))) + '</b></td><td class="small muted">' + dateTime(b.created) + '</td><td class="num">' + fmtSize(b.size) + '</td>' +
           '<td class="num"><a class="btn sm" href="' + API + '?action=backup_download&file=' + encodeURIComponent(b.file) + '">' + icon('download') + 'Download</a></td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No backups yet. Press “Back up now”.</div>') +
       '<details class="card" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">How to restore a backup</summary><ol class="muted" style="line-height:1.8;margin:12px 0 0">' +
+      '<li>From Telegram: save the zip and open it with the backup password (Windows: 7-Zip; Mac: Keka or The Unarchiver). Inside is <code>shop.sqlite</code>, plus the <code>uploads</code> folders to put back in the website folder.</li>' +
       '<li>In cPanel → File Manager, open the <code>wts-shop-data</code> folder.</li><li>Rename <code>shop.sqlite</code> to <code>shop-old.sqlite</code> (keep it until you’re sure).</li>' +
       '<li>Upload the backup file and rename it to <code>shop.sqlite</code>. Delete any <code>shop.sqlite-wal</code> and <code>shop.sqlite-shm</code> files.</li><li>Reload the dashboard.</li></ol></details>';
+    const os = $('#bkOff'); if (os) os.onclick = async () => {
+      os.disabled = true; os.textContent = 'Sending…';
+      try { const r = await api('backup_offsite', { method: 'POST' }); toast('Backup sent to ' + r.to.join(', ') + ' on Telegram'); pageBackups(); }
+      catch (err) { toast(err.message, true); os.disabled = false; os.textContent = 'Send to Telegram now'; }
+    };
     $('#bkNow').onclick = async (e) => {
       const b = e.currentTarget; b.disabled = true;
       try { await api('backup_now', { method: 'POST' }); toast('Backup saved'); pageBackups(); }

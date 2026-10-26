@@ -1843,7 +1843,13 @@ try {
 
     case 'backups':
         require_perm('backups');
-        json_out(['backups' => backup_list(), 'keep' => BACKUP_KEEP]);
+        json_out(['backups' => backup_list(), 'keep' => BACKUP_KEEP, 'offsite' => offsite_status()]);
+
+    case 'backup_offsite':
+        $u = require_perm('backups');
+        if ($method !== 'POST') fail('Not found', 404);
+        if (($u['role'] ?? '') !== 'owner') fail('Only an owner can send the backup.', 403);
+        json_out(offsite_send());
 
     case 'backup_now':
         $u = require_perm('backups');

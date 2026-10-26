@@ -19,6 +19,9 @@ return [
         'awb_size' => 'A6',             // waybill paper: A6 (label printer) or A4
         'awb_lang' => 'ar',             // ar or en
     ],
+    // Off-site backups (api/offsite.php): every week the backup goes to the owners on Telegram, locked with this
+    // password (AES-256 zip). At least 10 characters; keep it safe outside the server — it's needed to open the backups.
+    'backup_password' => '',
     // Ad tracking (api/meta.php, api/track.php). Meta Events Manager → your pixel: the Pixel ID, and
     // Settings → Conversions API → Generate access token. test_code (Test events tab) only while checking; then ''.
     'meta' => [
