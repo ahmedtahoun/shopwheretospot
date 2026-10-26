@@ -30,6 +30,8 @@ $config = [
     'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php
+    'meta' => [],           // ad tracking: Meta Pixel + Conversions API; see api/meta.php and api/config.local.example.php
+    'ga4_id' => '',         // Google Analytics 4 measurement ID (G-…); see api/track.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
 ];
 if (is_file(__DIR__ . '/config.local.php')) {
@@ -98,7 +100,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 47;
+const SCHEMA_VERSION = 48;
 
 function db(): PDO
 {
@@ -622,6 +624,8 @@ function migrate(PDO $pdo): void
     reports_migrate($pdo);
     // "Sell with us" requests from brands and makers (api/sellers.php).
     sellers_migrate($pdo);
+    // Ad tracking: what the browser had at checkout, and when Meta was told about the purchase (api/meta.php).
+    meta_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -800,6 +804,7 @@ require __DIR__ . '/expenses.php';
 require __DIR__ . '/devices.php';
 require __DIR__ . '/images.php';
 require __DIR__ . '/sellers.php';
+require __DIR__ . '/meta.php';
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

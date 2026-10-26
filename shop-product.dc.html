@@ -18,6 +18,7 @@
 <meta name="twitter:description" content="One storefront, every category you sell.">
 <meta name="twitter:image" content="https://shop.wheretospot.com/images/share-card.jpg">
 <script src="./i18n.js"></script>
+<script src="/api/track.php" async></script>
 <!-- Speed: fetch React and the product list while the page is still loading, instead of one after the other. -->
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link rel="preload" as="script" crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" href="https://unpkg.com/react@18.3.1/umd/react.production.min.js">
@@ -412,6 +413,8 @@ class Component extends DCLogic {
     const variantId = keep ? this.state.variantId : product.variants && product.variants.length ? (product.variants.find(v => v.stock > 0) || product.variants[0]).id : null;
     this.setState({ product, related, inventory: inv, variantId, ...(first ? { wishlist: mod.loadWishlist(), recent: mod.pushRecent(product.id) } : {}) });
     if (first) this.loadReviews(product.id);
+    // Ad tracking (api/track.php): the product was seen.
+    if (first) { const pr = mod.salePrice ? mod.salePrice(product) : product.price; (window.wtsQ = window.wtsQ || []).push(['ViewContent', { currency: 'EGP', value: pr, content_category: product.cat, contents: [{ id: product.id, name: product.name, quantity: 1, item_price: pr }] }]); }
     if (first || final) this.updateShareMeta(product, mod);
     return true;
   }
@@ -474,7 +477,11 @@ class Component extends DCLogic {
     const next = existing
       ? cart.map(i => (i.key || this._sd.lineKey(i.id, i.variant, i.addons)) === key ? { ...i, key, qty: i.qty + this.state.qty } : i)
       : [...cart, { key, id: p.id, variant, addons, name: p.name, price: p.price, cat: p.cat, qty: this.state.qty }];
-    this._sd.saveCart(this._sd.repriceCart(next, this.state.inventory));
+    const priced = this._sd.repriceCart(next, this.state.inventory);
+    this._sd.saveCart(priced);
+    const line = priced.find(i => (i.key || this._sd.lineKey(i.id, i.variant, i.addons)) === key);
+    const unit = line ? line.price : p.price;
+    (window.wtsQ = window.wtsQ || []).push(['AddToCart', { currency: 'EGP', value: Math.round(unit * this.state.qty * 100) / 100, contents: [{ id: p.id, name: p.name, quantity: this.state.qty, item_price: unit }] }]);
     this.setState({ added: true });
     this.showToast('Added to cart ✓');
     setTimeout(() => this.setState({ added: false }), 2400);

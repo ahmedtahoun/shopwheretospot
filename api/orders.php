@@ -184,6 +184,7 @@ function confirm_online_order(int $id, string $why, string $status = 'Pending'):
     set_order_status($id, $status, $expired ? trim(str_replace(UNPAID_EXPIRED_NOTE, '', (string) $o['notes'])) : null);
     log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
     notify_order($id);
+    try { meta_purchase($id); } catch (Throwable $e) { error_log('[meta] ' . $e->getMessage()); } // ad tracking (api/meta.php)
     try {
         lead_from_order(['name' => $o['customer'], 'phone' => $o['phone'], 'email' => $o['email']], ['id' => $id, 'number' => order_number($id), 'total' => (float) $o['total']],
             $o['rep_id'] ? (int) $o['rep_id'] : null, 'Website');

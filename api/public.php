@@ -92,6 +92,8 @@ try {
         $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0, 'status' => 'Awaiting payment']);
         record_attempt('order');
         schedule_daily_backup();
+        // Ad tracking: Meta's browser cookies with the order; cash orders are a purchase now, online ones once paid.
+        try { meta_remember_order((int) $r['id']); if ($pay === 'cod') meta_purchase((int) $r['id']); } catch (Throwable $e) { error_log('[meta] ' . $e->getMessage()); }
         if ($cust = current_customer()) {
             db()->prepare('UPDATE orders SET customer_id = ? WHERE id = ?')->execute([$cust['id'], $r['id']]);
             $st = db()->prepare('SELECT * FROM orders WHERE id = ?');

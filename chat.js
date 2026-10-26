@@ -348,6 +348,7 @@
       body: JSON.stringify({ name: st.a.name, contact: st.a.contact, cat: String(st.a.need || 'chat').slice(0, 40), source: 'Website chat', notes: summary() }) });
     if (!res.ok) throw new Error('failed');
     st.leadSent = true;
+    (window.wtsQ = window.wtsQ || []).push(['Lead', { content_category: 'website chat' }]); // ad tracking (api/track.php)
   }
 
   async function trackOrder(number, email, ar) {

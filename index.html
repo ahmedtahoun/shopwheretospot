@@ -22,6 +22,7 @@
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "OnlineStore", "@id": "https://shop.wheretospot.com/#org", "name": "Where To Spot", "url": "https://shop.wheretospot.com/", "logo": "https://shop.wheretospot.com/images/logo-round.png?v=3", "description": "Online shop and marketing studio in Egypt: NFC Google-review cards and stands, acrylic display stands, Korean skincare, specialty coffee from partner roasters, and monthly lead-generation plans. Prices in EGP, delivery across Egypt, cash on delivery.", "email": "info@wheretospot.com", "telephone": "+20 127 766 0666", "currenciesAccepted": "EGP", "areaServed": "EG", "address": {"@type": "PostalAddress", "streetAddress": "MQR, El Wahat Road", "addressLocality": "6th of October City", "addressRegion": "Giza", "addressCountry": "EG"}, "sameAs": ["https://instagram.com/wheretospot", "https://facebook.com/wheretospot", "https://tiktok.com/@wheretospot"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "Where To Spot", "url": "https://shop.wheretospot.com/", "inLanguage": ["en", "ar"]}</script>
 <script src="./i18n.js"></script>
+<script src="/api/track.php" async></script>
 <!-- English: this file. Arabic (?lang=ar): built by the server (api/page.php). Each version points to itself. -->
 <link rel="alternate" hreflang="en" href="https://shop.wheretospot.com/">
 <link rel="alternate" hreflang="ar" href="https://shop.wheretospot.com/?lang=ar">
@@ -1479,6 +1480,11 @@ class Component extends DCLogic {
     if (payResult) { cart0 = []; history.replaceState(null, '', location.pathname); }
     const cartOpen = !!addP || !!payResult || params.get('cart') === '1' || params.get('checkout') === '1';
     const checkoutStep = payResult ? 'success' : (params.get('checkout') === '1' && cart.length) || (buyNow && cart0.length) ? 'info' : this.state.checkoutStep;
+    if (checkoutStep === 'info' && !payResult) setTimeout(() => this.track('InitiateCheckout', this.trackCart(cart0)), 0);
+    // Paid on Paymob and back: the purchase (same event ID as the server's, so Meta counts it once).
+    if (payResult === 'ok') {
+      try { const pp = JSON.parse(sessionStorage.getItem('wts_purchase') || 'null'); sessionStorage.removeItem('wts_purchase'); if (pp && pp.number === params.get('order')) this.track('Purchase', pp.data, 'order-' + pp.number); } catch (e) {}
+    }
     let form = this.state.form;
     let checkoutMode = this.state.checkoutMode;
     try {
@@ -1669,6 +1675,7 @@ class Component extends DCLogic {
       await this._sd.postJSON('lead', { name: s.brandQuote.name, contact: s.brandQuote.contact, cat: need.slice(0, 40), source: name + ' — quote request',
         notes: 'Needs: ' + need + (s.brandQuote.details.trim() ? '\n' + s.brandQuote.details.trim() : '') });
       this.setState({ brandQuoteOpen: false, brandQuoteSent: true, brandQuote: { name: '', contact: '', details: '' } });
+      this.track('Lead', { content_category: 'brand quote' });
     } catch (err) { this.showToast(err.message); }
   };
   setBrand = (slug) => (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ activeBrand: slug, activeFor: '', visibleCount: 12 }, () => slug && this.scrollToId('products')); };
@@ -1698,6 +1705,7 @@ class Component extends DCLogic {
       await this._sd.postJSON('lead', { name: s.brandQuote.name, contact: s.brandQuote.contact, cat: 'Bonds wholesale / private label', source: 'Shop — ' + s.activeFor + ' page · wholesale coffee',
         notes: 'Needs: Bonds wholesale / private-label coffee' + (s.brandQuote.details.trim() ? '\n' + s.brandQuote.details.trim() : '') });
       this.setState({ brandQuoteOpen: false, brandQuoteSent: true, brandQuote: { name: '', contact: '', details: '' } });
+      this.track('Lead', { content_category: 'wholesale coffee' });
     } catch (err) { this.showToast(err.message); }
   };
   clearFilters = () => this.setState({ activeCat: 'all', activeBrand: '', inStockOnly: false, priceMin: '', priceMax: '', sortKey: 'popular', search: '', visibleCount: 12 });
@@ -1727,6 +1735,10 @@ class Component extends DCLogic {
   setSaveInfoMode = () => this.setState({ checkoutMode: 'save' });
   toggleRemember = () => this.setState(s => ({ checkoutMode: s.checkoutMode === 'save' ? 'guest' : 'save' }));
   // Cart lines are keyed by product + size + extras, and re-priced on every change (quantity prices).
+  // Ad tracking (api/track.php): events in Meta's names, passed on to GA4 there.
+  track = (ev, p, id) => { (window.wtsQ = window.wtsQ || []).push([ev, p || {}, id || '']); };
+  trackLines = (lines) => lines.filter(i => i.id && i.id !== 'custom').map(i => ({ id: i.id, name: i.name, quantity: i.qty, item_price: i.price }));
+  trackCart = (lines) => ({ currency: 'EGP', value: Math.round(lines.reduce((t, i) => t + (i.total != null ? i.total : i.price * i.qty), 0) * 100) / 100, contents: this.trackLines(lines), num_items: lines.reduce((t, i) => t + i.qty, 0) });
   _persistCart = (cart) => {
     if (!this._sd) return cart;
     const priced = this.state.inventory.length ? this._sd.repriceCart(cart, this.state.inventory) : cart;
@@ -1743,6 +1755,7 @@ class Component extends DCLogic {
       const cart = existing ? s.cart.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i) : [...s.cart, { key, id: p.id, variant, addons: [], name: p.name, price: p.price, cat: p.cat, qty: 1 }];
       return { cart: this._persistCart(cart), cartOpen: true, checkoutStep: 'cart' };
     });
+    this.track('AddToCart', { currency: 'EGP', value: p.price, contents: [{ id: p.id, name: p.name, quantity: 1, item_price: p.price }] });
   };
   incItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i)) }));
   decItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.key === key ? { ...i, qty: Math.max(1, i.qty - 1) } : i)) }));
@@ -1759,6 +1772,7 @@ class Component extends DCLogic {
       return;
     }
     this.setState({ checkoutStep: 'info', stockWarning: '' });
+    this.track('InitiateCheckout', this.trackCart(this.state.cart));
   };
   backToCart = () => this.setState({ checkoutStep: 'cart' });
   setField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [field]: v } })); };
@@ -1910,6 +1924,8 @@ class Component extends DCLogic {
     try {
       const r = await this._sd.postJSON('pay_cod', { number, contact });
       this.setState({ placing: false, payResult: 'cod', orderNumber: r.number, orderTotal: r.total });
+      let pp = null; try { pp = JSON.parse(sessionStorage.getItem('wts_purchase') || 'null'); sessionStorage.removeItem('wts_purchase'); } catch (e) {}
+      this.track('Purchase', { ...(pp && pp.number === r.number ? pp.data : { currency: 'EGP' }), value: r.total }, 'order-' + r.number);
     } catch (err) { this.setState({ placing: false }); this.showToast(err.message); }
   };
   submitInfo = async (e) => {
@@ -1936,6 +1952,7 @@ class Component extends DCLogic {
       if (res.payUrl || res.payError) this.rememberOrder(res.number);
       if (res.payUrl) {
         // Off to Paymob's secure page; the cart is emptied because the order already exists.
+        try { sessionStorage.setItem('wts_purchase', JSON.stringify({ number: res.number, data: { ...this.trackCart(s.cart), value: res.total } })); } catch (e) {}
         this._sd.saveCart([]);
         window.location.href = res.payUrl;
         return;
@@ -1945,6 +1962,7 @@ class Component extends DCLogic {
       this._sd.saveCart([]);
       this.setState(st => ({ form: { ...st.form, logoToken: '', logoName: '', designNotes: '' } }));
       this.setState({ checkoutStep: 'success', orderNumber: res.number, orderTotal: res.total, inventory, placing: false, payResult: res.payError ? 'error' : null, payError: res.payError || '' });
+      if (!res.payError) this.track('Purchase', { ...this.trackCart(s.cart), value: res.total }, 'order-' + res.number);
     } catch (err) {
       const msg = err.message || '';
       this.setState({ placing: false, orderError: msg, referralError: /referral/i.test(msg) });
@@ -1959,6 +1977,7 @@ class Component extends DCLogic {
     try {
       await this._sd.postJSON('lead', { name: s.leadForm.name, contact: s.leadForm.contact, cat: s.leadForm.cat, source: 'Shop — bulk inquiry' });
       this.setState({ leadSent: true, leadForm: { name: '', contact: '', cat: 'nfc' } });
+      this.track('Lead', { content_category: 'bulk inquiry' });
     } catch (err) { this.showToast(err.message); }
   };
   openTrack = () => this.setState({ trackOpen: true, trackResult: null });

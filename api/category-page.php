@@ -120,6 +120,7 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
 <?php foreach (seo_catalog($ar) as $c): ?><a href="<?= $e(seo_category_url($c['key'], $ar)) ?>"><?= $e($c['label']) ?></a><?php endforeach; ?>
 <a href="/about.html"><?= $L('About us', 'من نحن') ?></a><a href="/shipping-policy.html"><?= $L('Delivery & shipping', 'التوصيل') ?></a><a href="/refund-policy.html"><?= $L('Refund & cancellation', 'الاسترجاع') ?></a>
 </div></footer>
+<script src="/api/track.php" async></script>
 <script src="/chat.js" defer></script>
 </body>
 </html>

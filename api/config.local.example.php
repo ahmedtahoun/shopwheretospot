@@ -19,6 +19,14 @@ return [
         'awb_size' => 'A6',             // waybill paper: A6 (label printer) or A4
         'awb_lang' => 'ar',             // ar or en
     ],
+    // Ad tracking (api/meta.php, api/track.php). Meta Events Manager → your pixel: the Pixel ID, and
+    // Settings → Conversions API → Generate access token. test_code (Test events tab) only while checking; then ''.
+    'meta' => [
+        'pixel_id' => '123456789012345',
+        'capi_token' => 'EAAG…',
+        'test_code' => '',
+    ],
+    'ga4_id' => 'G-XXXXXXXXXX',   // Google Analytics → Admin → Data streams → Measurement ID ('' = off)
     // Paymob online payments (cards + mobile wallets). All values: Paymob dashboard → Settings → Account Info
     // (Secret Key, Public Key, HMAC) and Developers → Payment Integrations (the integration IDs).
     // Start with the TEST keys and test integration IDs; switch all of them to LIVE together.

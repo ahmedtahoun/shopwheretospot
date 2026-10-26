@@ -2460,8 +2460,28 @@
       '<div class="hint">Secret values are never shown here. The connection test asks Paymob to prepare a EGP 1 payment that nobody pays — nothing is charged.</div></div>';
     $('#psRe').onclick = () => pageSettings(false);
     const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
-    $('#main').insertAdjacentHTML('beforeend', '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>');
+    $('#main').insertAdjacentHTML('beforeend', '<div class="card stack" id="adTrack" style="gap:14px;margin-top:16px"><div class="muted small">Checking ad tracking…</div></div>' +
+      '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>');
+    adTrackCard();
     waSettings(false);
+  }
+
+  // Settings → Ad tracking: Meta Pixel (browser), Conversions API (purchases sent from the server) and Google Analytics 4.
+  async function adTrackCard() {
+    const box = $('#adTrack'); if (!box) return;
+    let d;
+    try { d = await api('meta_status'); } catch (e) { box.innerHTML = '<h2>Ad tracking</h2><div class="err">' + esc(e.message) + '</div>'; return; }
+    const on = (v, text) => v ? '<span class="pill good">✓ ' + esc(text) + '</span>' : '<span class="pill bad">✕ Not set</span>';
+    box.innerHTML = '<h2>Ad tracking</h2>' +
+      '<div class="list">' +
+        '<div class="li"><span>Meta Pixel <small class="muted">(in the browser: views, add to cart, checkout, purchases, leads)</small></span><span>' + on(d.pixel, d.pixel) + '</span></div>' +
+        '<div class="li"><span>Meta Conversions API <small class="muted">(purchases sent from our server)</small></span><span>' + on(d.capi, 'On') + (d.testCode ? ' <span class="pill warn">Test code on</span>' : '') + '</span></div>' +
+        '<div class="li"><span>Google Analytics 4</span><span>' + on(d.ga4, d.ga4) + '</span></div>' +
+        '<div class="li"><span>Purchases sent to Meta from the server</span><span><b>' + d.sent + '</b></span></div>' +
+      '</div>' +
+      (d.capi ? '<div class="row"><button class="btn" id="mtTest">Send a test event to Meta</button></div>' : '') +
+      '<div class="hint">Set in api/config.local.php on the server: “meta” => [“pixel_id”, “capi_token”, “test_code”] and “ga4_id”. With a test code, server events appear in Meta Events Manager → Test events; remove it when done.' + (d.testCode ? ' <b>The test code is on — remove it once you’ve checked.</b>' : '') + '</div>';
+    const t = $('#mtTest'); if (t) t.onclick = async () => { t.disabled = true; try { const r = await api('meta_test', { method: 'POST' }); toast('Meta received ' + r.received + ' test event' + (r.received === 1 ? '' : 's')); } catch (e) { toast(e.message, true); } t.disabled = false; };
   }
 
   // Settings → WhatsApp: connection, webhook address, who takes chats, how long videos are kept.

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="i18n.js"></script>
+<script src="/api/track.php" async></script>
 <!-- English: this file. Arabic (?lang=ar): built by the server (api/page.php). Each version points to itself. -->
 <link rel="alternate" hreflang="en" href="https://shop.wheretospot.com/sell.html">
 <link rel="alternate" hreflang="ar" href="https://shop.wheretospot.com/sell.html?lang=ar">
@@ -353,7 +354,7 @@ document.querySelectorAll('.sell-form').forEach(function (f) {
     btn.disabled = true; var label = btn.textContent; btn.textContent = ar ? 'جاري الإرسال…' : 'Sending…';
     fetch('api/public.php?action=seller_apply', { method: 'POST', body: new FormData(f) })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Error'); return d; }); })
-      .then(function () { var done = f.nextElementSibling; f.hidden = true; done.hidden = false; done.scrollIntoView({ behavior: 'smooth', block: 'center' }); })
+      .then(function () { (window.wtsQ = window.wtsQ || []).push(['SubmitApplication', { content_category: 'sell with us' }]); var done = f.nextElementSibling; f.hidden = true; done.hidden = false; done.scrollIntoView({ behavior: 'smooth', block: 'center' }); })
       .catch(function (x) { err.textContent = (window.WTS_T ? window.WTS_T(x.message) : x.message) || (ar ? 'حصلت مشكلة، حاول تاني.' : 'Something went wrong, please try again.'); btn.disabled = false; btn.textContent = label; });
   };
 });

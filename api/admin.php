@@ -1784,6 +1784,16 @@ try {
 
     // ---------- online payments check (owner) ----------
     // Reports what api/config.local.php contains for Paymob without revealing any secret.
+    // Settings → Ad tracking: Meta Pixel / Conversions API / GA4 status, and a test event for the Conversions API.
+    case 'meta_status':
+        require_perm('backups');
+        json_out(meta_status());
+
+    case 'meta_test':
+        require_perm('backups');
+        if ($method !== 'POST') fail('Not found', 404);
+        try { json_out(meta_test()); } catch (RuntimeException $e) { fail('Meta said: ' . $e->getMessage()); }
+
     case 'paymob_status':
         require_perm('backups');
         $file = __DIR__ . '/config.local.php';
