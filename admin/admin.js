@@ -355,6 +355,11 @@
         : can('products') ? '<div class="card"><h2>Estimated profit</h2><div class="small muted">Add a cost price to your products (Products → edit → Cost) and profit for this period appears here.</div></div>' : '') +
       (d.leadSources && d.leadSources.length ? '<div class="card"><h2>Where leads come from</h2><div class="list">' + d.leadSources.map((r) =>
         '<div class="li"><span>' + esc(r.source) + ' <span class="muted small">' + r.n + ' lead' + (r.n > 1 ? 's' : '') + '</span></span><span class="small"><b>' + r.won + '</b> won · ' + Math.round(r.won / r.n * 100) + '%</span></div>').join('') + '</div></div>' : '') +
+      // Abandoned checkouts (api/abandoned.php): left at checkout with a phone number, and how many ordered after a follow-up.
+      (d.abandoned && d.abandoned.abandoned ? '<div class="card"><h2>Abandoned checkouts</h2><div class="list">' +
+        '<div class="li"><span>Left without ordering <span class="muted small">' + d.abandoned.abandoned + '</span></span><b>' + (money ? egp(d.abandoned.abandonedValue) : d.abandoned.abandoned) + '</b></div>' +
+        '<div class="li"><span>Recovered after a follow-up <span class="muted small">' + d.abandoned.recovered + ' · ' + Math.round(d.abandoned.recovered / d.abandoned.abandoned * 100) + '%</span></span><b>' + (money ? egp(d.abandoned.recoveredValue) : d.abandoned.recovered) + '</b></div></div>' +
+        '<div class="row" style="margin-top:10px"><a class="btn sm" href="#leads" id="abLeads">Follow them up in Leads</a></div></div>' : '') +
       '<div class="card"><h2>Orders by status</h2>' + statuses.map(([s, n]) =>
         '<div class="hbar"><span>' + pill(ORDER_TONE, s) + '</span><div class="track"><div class="fill" style="width:' + (n / maxStatus * 100) + '%"></div></div><span class="num" style="text-align:right">' + n + '</span></div>').join('') + '</div>' +
       '<div class="card"><h2>Top products</h2>' + (d.topProducts.length ? '<div class="list">' + d.topProducts.map((p) =>
@@ -366,6 +371,7 @@
       '</div></div>' +
       (!d.own && !can('orders_only') ? teamPerformanceCard(perf, monthName, money) : '');
     $$('#range button').forEach((b) => b.onclick = () => { S.range = /^\d+$/.test(b.dataset.d) ? +b.dataset.d : b.dataset.d; pageDashboard(); });
+    const ab = $('#abLeads'); if (ab) ab.onclick = () => { S.leadQ = 'Left checkout'; S.leadStatus = ''; S.leadView = 'list'; };
     const rl = $('[data-rm]'); if (rl) rl.onclick = () => { S.reportMonth = rl.dataset.rm; };
     const dn = $('#dashNew'); if (dn) dn.onclick = () => newOrderDrawer();
     const xsu = $('[data-xsup]'); if (xsu) xsu.onclick = () => { S.expTab = 'suppliers'; };
@@ -1506,6 +1512,15 @@
   function leadWa(l) {
     const p = phoneOf(l.contact);
     if (!p) return '';
+    // Abandoned checkout (api/abandoned.php): a reminder in the customer's language, with their cart and the link that puts it back.
+    const resume = String(l.notes || '').match(/https?:\/\/\S+\?restore=[a-f0-9]+/);
+    if (resume && l.status !== 'Won' && String(l.notes).indexOf('Left checkout without ordering') !== -1) {
+      const ar = /Language: Arabic/.test(l.notes), cart0 = (String(l.notes).match(/Cart: (.+)/) || [])[1] || '', cart = ar ? cart0.replace(/ cm\b/g, ' سم') : cart0;
+      const who = String(l.name || '').split(/\s+/)[0], me = S.user.name.split(' ')[0];
+      const msg = ar ? 'أهلًا ' + who + ' 👋 معاك ' + me + ' من Where To Spot. لاحظت إنك كنت بتطلب ' + (cart || 'من متجرنا') + ' ومكملتش الطلب. لو عندك أي سؤال عن المنتج أو الدفع أو التوصيل أنا موجود أساعدك 🙏\nتقدر تكمل طلبك من هنا: ' + resume[0]
+        : 'Hi ' + who + ' 👋 this is ' + me + ' from Where To Spot. I saw you were ordering ' + (cart || 'from our shop') + ' but didn’t finish. If you have any question about the product, payment or delivery, I’m happy to help 🙏\nYou can complete your order here: ' + resume[0];
+      return 'https://wa.me/' + waNumber(p) + '?text=' + encodeURIComponent(msg);
+    }
     const first = String(l.name || '').split(/\s+/)[0];
     const interest = leadInterest(l);
     const msg = AR ? 'أهلًا ' + first + '، معك ' + S.user.name.split(' ')[0] + ' من Where To Spot. شكرًا لاهتمامك' + (interest ? ' بـ ' + WTS_T(interest) : '') +

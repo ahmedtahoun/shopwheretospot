@@ -260,6 +260,7 @@ try {
                 'products' => (int) $pdo->query("SELECT COUNT(*) FROM products WHERE status = 'Active'")->fetchColumn(),
             ],
             'series' => $series, 'statusCounts' => $status, 'topProducts' => array_slice($top, 0, 5), 'sources' => $sources,
+            'abandoned' => ($revenue || in_array('leads', $u['perms'], true)) ? abandoned_stats($fromUtc, $toUtc) : null,
             'lowStock' => $lowStock, 'recentOrders' => $recent,
             'performance' => $perf,
         ]);
@@ -937,6 +938,7 @@ try {
 
     case 'leads':
         require_perm('leads');
+        abandoned_due(); // checkouts left 30+ minutes ago become leads now, even without the cron job
         $rows = db()->query('SELECT l.*, u.name AS assigned_name FROM leads l LEFT JOIN users u ON u.id = l.assigned_to ORDER BY l.id DESC LIMIT 500')->fetchAll();
         if (($_GET['format'] ?? '') === 'csv') csv_out('leads.csv', $rows);
         json_out(['leads' => $rows]);

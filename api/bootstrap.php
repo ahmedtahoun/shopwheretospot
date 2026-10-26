@@ -101,7 +101,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 49;
+const SCHEMA_VERSION = 50;
 
 function db(): PDO
 {
@@ -630,6 +630,8 @@ function migrate(PDO $pdo): void
     meta_migrate($pdo);
     // Problems behind the scenes, for the owners' alerts and Settings → Problems (api/alerts.php).
     alerts_migrate($pdo);
+    // Checkouts left without ordering, followed up as leads (api/abandoned.php).
+    abandoned_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -811,6 +813,7 @@ require __DIR__ . '/sellers.php';
 require __DIR__ . '/meta.php';
 require __DIR__ . '/offsite.php';
 require __DIR__ . '/alerts.php';
+require __DIR__ . '/abandoned.php';
 alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.

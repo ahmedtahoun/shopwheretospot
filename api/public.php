@@ -32,6 +32,11 @@ try {
         json_out(['categories' => $cats, 'products' => $products, 'brands' => $brands, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]], 200, paymob_is_test() ? 0 : 60);
     }
 
+    // The cart behind a "complete your order" link (?restore=…): products only (api/abandoned.php).
+    if ($action === 'draft_cart' && $method === 'GET') {
+        json_out(['items' => draft_cart((string) ($_GET['t'] ?? ''))]);
+    }
+
     // Cities Bosta delivers to (?action=areas) or the areas of one city (?action=areas&city=ID).
     if ($action === 'areas' && $method === 'GET') {
         $cities = bosta_areas();
@@ -83,6 +88,15 @@ try {
             'pct' => $p['kind'] === 'percent' ? (float) $p['value'] : 0, 'label' => promo_label($p)]);
     }
 
+    // Abandoned checkouts (api/abandoned.php): the checkout form saves who and what as soon as there's a phone number.
+    if ($action === 'checkout_draft') {
+        if (too_many_attempts('draft', 120, 3600)) json_out(['ok' => true]);
+        record_attempt('draft');
+        draft_save($b);
+        abandoned_due();
+        json_out(['ok' => true]);
+    }
+
     if ($action === 'order') {
         if (too_many_attempts('order', 10, 3600)) fail('Too many orders from this connection. Please call us.', 429);
         // Online payment: the order is saved first (unpaid), then the customer pays on Paymob's page.
@@ -92,6 +106,7 @@ try {
         $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0, 'status' => 'Awaiting payment']);
         record_attempt('order');
         schedule_daily_backup();
+        try { draft_ordered((string) ($b['draft_token'] ?? ''), (string) ($b['phone'] ?? ''), (int) $r['id']); } catch (Throwable $e) { ops_error('Leads', 'An order’s checkout draft could not be closed', $e); }
         // Ad tracking: Meta's browser cookies with the order; cash orders are a purchase now, online ones once paid.
         try { meta_remember_order((int) $r['id']); if ($pay === 'cod') meta_purchase((int) $r['id']); } catch (Throwable $e) { ops_error('Ad tracking', 'An order’s tracking details could not be saved', $e); }
         if ($cust = current_customer()) {

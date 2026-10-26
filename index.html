@@ -1475,12 +1475,29 @@ class Component extends DCLogic {
       mod.saveCart(cart0);
       history.replaceState(null, '', location.pathname);
     }
+    // ?restore=<id>: the "complete your order" link the team sends after an abandoned checkout (api/abandoned.php).
+    const restoreT = params.get('restore');
+    let restored = false;
+    if (restoreT && /^[a-f0-9]{24,40}$/.test(restoreT)) {
+      try {
+        const r = await fetch('api/public.php?action=draft_cart&t=' + restoreT).then(x => x.json());
+        const lines = (r.items || []).map(i => {
+          const p = inventory.find(x => x.id === i.id && x.status === 'Active');
+          return p ? { key: mod.lineKey(p.id, i.variant || undefined, i.addons || []), id: p.id, variant: i.variant || undefined, addons: i.addons || [], name: p.name, price: p.price, cat: p.cat, qty: i.qty } : null;
+        }).filter(Boolean);
+        if (lines.length) {
+          cart0 = mod.repriceCart(lines, inventory); mod.saveCart(cart0); restored = true;
+          try { localStorage.setItem('wts_ck', restoreT); } catch (e) {} // ordering now counts as recovered
+        }
+      } catch (e) {}
+      history.replaceState(null, '', location.pathname);
+    }
     // Back from Paymob: ?pay=ok|failed|check&order=WTS-1001
     const payResult = ['ok', 'failed', 'check'].includes(params.get('pay')) ? params.get('pay') : null;
     if (payResult) { cart0 = []; history.replaceState(null, '', location.pathname); }
-    const cartOpen = !!addP || !!payResult || params.get('cart') === '1' || params.get('checkout') === '1';
+    const cartOpen = !!addP || restored || !!payResult || params.get('cart') === '1' || params.get('checkout') === '1';
     const checkoutStep = payResult ? 'success' : (params.get('checkout') === '1' && cart.length) || (buyNow && cart0.length) ? 'info' : this.state.checkoutStep;
-    if (checkoutStep === 'info' && !payResult) setTimeout(() => this.track('InitiateCheckout', this.trackCart(cart0)), 0);
+    if (checkoutStep === 'info' && !payResult) setTimeout(() => { this.track('InitiateCheckout', this.trackCart(cart0)); this.queueDraft(); }, 0);
     // Paid on Paymob and back: the purchase (same event ID as the server's, so Meta counts it once).
     if (payResult === 'ok') {
       try { const pp = JSON.parse(sessionStorage.getItem('wts_purchase') || 'null'); sessionStorage.removeItem('wts_purchase'); if (pp && pp.number === params.get('order')) this.track('Purchase', pp.data, 'order-' + pp.number); } catch (e) {}
@@ -1771,11 +1788,30 @@ class Component extends DCLogic {
       this.setState({ cart, inventory: fresh, stockWarning: shortages.map(s => s.name + ' (only ' + s.available + ' left)').join(', ') });
       return;
     }
-    this.setState({ checkoutStep: 'info', stockWarning: '' });
+    this.setState({ checkoutStep: 'info', stockWarning: '' }, () => this.queueDraft()); // saved details count straight away
     this.track('InitiateCheckout', this.trackCart(this.state.cart));
   };
   backToCart = () => this.setState({ checkoutStep: 'cart' });
-  setField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [field]: v } })); };
+  setField = (field) => (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [field]: v } }), () => { if (field === 'name' || field === 'phone' || field === 'email') this.queueDraft(); }); };
+  // Abandoned checkouts (api/abandoned.php): once there's a phone number, the cart and contact are saved as a
+  // draft (one id per checkout, kept until the order is placed); the team follows up if no order comes.
+  draftToken = () => {
+    let t = '';
+    try { t = localStorage.getItem('wts_ck') || ''; } catch (e) {}
+    if (!/^[a-f0-9]{24,40}$/.test(t)) {
+      t = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('');
+      try { localStorage.setItem('wts_ck', t); } catch (e) {}
+    }
+    return t;
+  };
+  queueDraft = () => { clearTimeout(this._draftT); this._draftT = setTimeout(this.saveDraft, 1500); };
+  saveDraft = () => {
+    const s = this.state, phone = this.joinPhone(s.form.phoneCc, s.form.phone);
+    if (!this._sd || s.placing || s.checkoutStep !== 'info' || !s.cart.length || phone.replace(/\D/g, '').length < 10) return;
+    this._sd.postJSON('checkout_draft', { token: this.draftToken(), name: s.form.name || '', phone, email: s.form.email || '', lang: window.WTS_LANG === 'ar' ? 'ar' : 'en',
+      total: this.trackCart(s.cart).value, items: s.cart.map(i => ({ id: i.id, variant: i.variant, addons: i.addons || [], qty: i.qty, name: i.name, price: i.price })) }).catch(() => {});
+  };
+  draftDone = () => { clearTimeout(this._draftT); try { localStorage.removeItem('wts_ck'); } catch (e) {} };
   // Governorate + area come from Bosta's delivery list so shipments can be created without retyping.
   loadAreas = async () => {
     try {
@@ -1937,8 +1973,10 @@ class Component extends DCLogic {
       return;
     }
     this.setState({ placing: true, orderError: '', referralError: false });
+    clearTimeout(this._draftT);
     try {
       const res = await this._sd.postJSON('order', {
+        draft_token: this.draftToken(),
         name: s.form.name, email: s.form.email, phone: this.joinPhone(s.form.phoneCc, s.form.phone), address: s.form.address, city: s.form.city,
         city_id: s.form.cityId || '', district_id: s.form.districtId || '',
         items: s.cart.map(i => ({ id: i.id, variant: i.variant, addons: i.addons || [], qty: i.qty })),
@@ -1949,6 +1987,7 @@ class Component extends DCLogic {
         zone_id: s.form.zoneId || '', area_title: s.form.areaTitle || '', area_sub: s.form.areaSub || ''
       });
       if (s.account) this.refreshAccount();
+      this.draftDone();
       if (res.payUrl || res.payError) this.rememberOrder(res.number);
       if (res.payUrl) {
         // Off to Paymob's secure page; the cart is emptied because the order already exists.
