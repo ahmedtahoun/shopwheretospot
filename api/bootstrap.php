@@ -30,6 +30,7 @@ $config = [
     'ipinfo_token' => '',   // optional: ipinfo.io token for sign-in city/provider (otherwise ipapi.co's free lookup)
     'whatsapp' => [],       // WhatsApp inbox (Meta Cloud API); see api/whatsapp.php and api/config.local.example.php
     'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php
+    'google_review_url' => '', // optional: our Google review link, offered after a customer reviews their order (api/review-page.php)
     'backup_password' => '', // off-site backups: the password that locks the weekly backup sent to owners on Telegram (api/offsite.php)
     'meta' => [],           // ad tracking: Meta Pixel + Conversions API; see api/meta.php and api/config.local.example.php
     'ga4_id' => '',         // Google Analytics 4 measurement ID (G-…); see api/track.php
@@ -101,7 +102,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 50;
+const SCHEMA_VERSION = 51;
 
 function db(): PDO
 {
@@ -632,6 +633,8 @@ function migrate(PDO $pdo): void
     alerts_migrate($pdo);
     // Checkouts left without ordering, followed up as leads (api/abandoned.php).
     abandoned_migrate($pdo);
+    // Review requests after delivery: the order's review link, when it was asked and reminded, its language (api/review-requests.php).
+    reviewreq_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -814,6 +817,7 @@ require __DIR__ . '/meta.php';
 require __DIR__ . '/offsite.php';
 require __DIR__ . '/alerts.php';
 require __DIR__ . '/abandoned.php';
+require __DIR__ . '/review-requests.php';
 alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
@@ -1019,7 +1023,10 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
         ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);
     // The delivery date decides which month's commission the order counts toward.
-    if ($status === 'Delivered' && $o['status'] !== 'Delivered') $pdo->prepare("UPDATE orders SET delivered_at = datetime('now') WHERE id = ?")->execute([$id]);
+    if ($status === 'Delivered' && $o['status'] !== 'Delivered') {
+        $pdo->prepare("UPDATE orders SET delivered_at = datetime('now') WHERE id = ?")->execute([$id]);
+        if (function_exists('review_request_queue')) review_request_queue($id); // ask the customer for a review (api/review-requests.php)
+    }
     // Moved back by mistake: no longer delivered. Returned/cancelled after delivery keeps the date, so a return in a
     // later month can come off that month's commission.
     if ($o['status'] === 'Delivered' && $isOpen && $status !== 'Delivered') $pdo->prepare('UPDATE orders SET delivered_at = NULL WHERE id = ?')->execute([$id]);

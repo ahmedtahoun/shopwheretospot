@@ -687,6 +687,12 @@
       '<div class="li muted"><span>Delivery</span><span>' + (o.shipping ? egp(o.shipping) : 'Free') + '</span></div>' +
       '<div class="li"><b>Total</b><b>' + egp(o.total) + '</b></div></div></div>' +
       '<div class="card" id="oPay"><div class="muted small">Loading payments…</div></div>' +
+      // Delivered: the customer's review link (sent by email automatically; also on WhatsApp from here).
+      (o.rateUrl ? '<div class="card row" style="gap:10px;flex-wrap:wrap"><span><b>⭐ Review</b> <span class="small muted">' + (o.reviewAskedAt ? 'asked ' + dateTime(o.reviewAskedAt) : 'not asked yet') + '</span></span><span class="spacer"></span>' +
+        (o.phone ? '<a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(waNumber(o.phone.replace(/\D/g, ''))) + '?text=' + encodeURIComponent(o.lang === 'en'
+          ? 'Hi ' + o.customer.split(/\s+/)[0] + ' 👋 this is ' + S.user.name.split(' ')[0] + ' from Where To Spot. We hope your order ' + o.number + ' arrived and you love it! If you have a minute, rate it here ⭐ ' + o.rateUrl
+          : 'أهلًا ' + o.customer.split(/\s+/)[0] + ' 👋 معاك ' + S.user.name.split(' ')[0] + ' من Where To Spot. نتمنى يكون طلبك ' + o.number + ' وصل وعجبك! لو عندك دقيقة قيّمه من هنا ⭐ ' + o.rateUrl) + '">' + icon('chat') + 'Ask on WhatsApp</a>' : '') +
+        '<button type="button" class="btn sm" id="oRateCopy">Copy link</button></div>' : '') +
       bostaSection(o, bosta) +
       ((o.businessName || o.reviewLink || o.links || o.designNotes) ? '<div class="card small"><b>Print details from the customer</b><div class="muted" style="white-space:pre-line;margin-top:4px">' +
         esc([o.businessName, o.reviewLink, o.links, o.designNotes].filter(Boolean).join('\n')) + '</div></div>' : '') +
@@ -702,6 +708,7 @@
     openDrawer('Order ' + o.number, body, '<a class="btn" href="doc.html?type=invoice&id=' + o.id + '" target="_blank" rel="noopener">' + icon('file') + 'Invoice</a>' +
       '<span class="spacer"></span><button class="btn" data-close>Close</button><button class="btn primary" form="of" type="submit">Save</button>');
     paymentsCard(o);
+    const rc = $('#oRateCopy'); if (rc) rc.onclick = () => navigator.clipboard.writeText(o.rateUrl).then(() => toast('Copied'));
     const reopen = async () => { await pageOrders(); const fresh = S.orders.find((x) => x.id === o.id); if (fresh) orderDrawer(fresh); };
     $('#of').onsubmit = async (e) => {
       e.preventDefault();

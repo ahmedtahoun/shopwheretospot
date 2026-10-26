@@ -45,7 +45,7 @@ function customer_send_code(string $email, string $lang): void
     $inner = '<p style="font-size:15px;line-height:1.6">' . ($ar ? 'استخدم هذا الكود لتسجيل الدخول إلى حسابك في متجر Where To Spot:' : 'Use this code to sign in to your Where To Spot shop account:') . '</p>'
         . '<div style="font-size:34px;font-weight:bold;letter-spacing:8px;background:#F7F3ED;border-radius:12px;padding:16px;text-align:center;margin:16px 0">' . $code . '</div>'
         . '<p style="font-size:13px;color:#6B6660">' . ($ar ? 'الكود صالح لمدة 15 دقيقة. إذا لم تطلبه، تجاهل هذه الرسالة.' : 'The code works for 15 minutes. If you didn’t ask for it, you can ignore this email.') . '</p>';
-    send_mail_later([$email], $title, email_shell($ar ? 'تسجيل الدخول' : 'Sign in', $inner),
+    send_mail_later([$email], $title, email_shell($ar ? 'تسجيل الدخول' : 'Sign in', $inner, 'customer'),
         ($ar ? 'كود الدخول: ' : 'Your sign-in code: ') . $code . "\n" . ($ar ? 'صالح لمدة 15 دقيقة.' : 'It works for 15 minutes.'));
 }
 

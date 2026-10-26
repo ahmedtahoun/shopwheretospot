@@ -19,6 +19,8 @@ return [
         'awb_size' => 'A6',             // waybill paper: A6 (label printer) or A4
         'awb_lang' => 'ar',             // ar or en
     ],
+    // Optional: our Google review link (g.page/r/…/review). After a customer rates their order, the thank-you offers it.
+    'google_review_url' => '',
     // Off-site backups (api/offsite.php): every week the backup goes to the owners on Telegram, locked with this
     // password (AES-256 zip). At least 10 characters; keep it safe outside the server — it's needed to open the backups.
     'backup_password' => '',

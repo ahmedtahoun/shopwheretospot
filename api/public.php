@@ -88,6 +88,13 @@ try {
             'pct' => $p['kind'] === 'percent' ? (float) $p['value'] : 0, 'label' => promo_label($p)]);
     }
 
+    // Reviews from the link sent after delivery (/rate/<token>, api/review-requests.php): no sign-in needed.
+    if ($action === 'review_token_save') {
+        if (too_many_attempts('rtoken', 30, 3600)) fail('Too many tries. Please wait a while.', 429);
+        record_attempt('rtoken');
+        json_out(review_save_token((string) ($b['t'] ?? ''), $b));
+    }
+
     // Abandoned checkouts (api/abandoned.php): the checkout form saves who and what as soon as there's a phone number.
     if ($action === 'checkout_draft') {
         if (too_many_attempts('draft', 120, 3600)) json_out(['ok' => true]);
@@ -106,6 +113,7 @@ try {
         $r = create_order($b, $pay === 'cod' ? [] : ['payment' => $pay, 'paid_now' => 0, 'status' => 'Awaiting payment']);
         record_attempt('order');
         schedule_daily_backup();
+        db()->prepare('UPDATE orders SET lang = ? WHERE id = ?')->execute([($b['lang'] ?? '') === 'en' ? 'en' : 'ar', (int) $r['id']]); // for the review request
         try { draft_ordered((string) ($b['draft_token'] ?? ''), (string) ($b['phone'] ?? ''), (int) $r['id']); } catch (Throwable $e) { ops_error('Leads', 'An order’s checkout draft could not be closed', $e); }
         // Ad tracking: Meta's browser cookies with the order; cash orders are a purchase now, online ones once paid.
         try { meta_remember_order((int) $r['id']); if ($pay === 'cod') meta_purchase((int) $r['id']); } catch (Throwable $e) { ops_error('Ad tracking', 'An order’s tracking details could not be saved', $e); }

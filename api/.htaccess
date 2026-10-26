@@ -1,6 +1,6 @@
 Options -Indexes
 # Only the entry points are reachable (public, admin, image, webhooks); libraries, config and seed data are not.
-<FilesMatch "^(bootstrap\.php|mailer\.php|bosta\.php|paymob\.php|customers\.php|brands\.php|seo-lib\.php|whatsapp\.php|telegram\.php|qrtool\.php|reviews\.php|reports\.php|expenses\.php|devices\.php|images\.php|sellers\.php|meta\.php|offsite\.php|alerts\.php|abandoned\.php|share-page\.php|pricing\.php|orders\.php|config\.local(\.example)?\.php|seed-products\.json)$">
+<FilesMatch "^(bootstrap\.php|mailer\.php|bosta\.php|paymob\.php|customers\.php|brands\.php|seo-lib\.php|whatsapp\.php|telegram\.php|qrtool\.php|reviews\.php|reports\.php|expenses\.php|devices\.php|images\.php|sellers\.php|meta\.php|offsite\.php|alerts\.php|abandoned\.php|review-requests\.php|share-page\.php|pricing\.php|orders\.php|config\.local(\.example)?\.php|seed-products\.json)$">
   Require all denied
 </FilesMatch>
 

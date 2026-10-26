@@ -1,0 +1,5 @@
+# Review links sent after delivery: /rate/<token> → api/review-page.php (api/review-requests.php)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^([a-f0-9]{24})/?$ /api/review-page.php?t=$1 [L,QSA]
+</IfModule>

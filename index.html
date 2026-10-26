@@ -1976,7 +1976,7 @@ class Component extends DCLogic {
     clearTimeout(this._draftT);
     try {
       const res = await this._sd.postJSON('order', {
-        draft_token: this.draftToken(),
+        draft_token: this.draftToken(), lang: window.WTS_LANG === 'en' ? 'en' : 'ar',
         name: s.form.name, email: s.form.email, phone: this.joinPhone(s.form.phoneCc, s.form.phone), address: s.form.address, city: s.form.city,
         city_id: s.form.cityId || '', district_id: s.form.districtId || '',
         items: s.cart.map(i => ({ id: i.id, variant: i.variant, addons: i.addons || [], qty: i.qty })),

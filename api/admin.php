@@ -722,6 +722,7 @@ try {
 
     case 'orders':
         require_perm('orders');
+        try { reviews_due(); } catch (Throwable $e) { ops_error('Reviews', 'Review reminders could not be checked', $e); } // also without the cron job
         $where = [];
         $args = [];
         if (!empty($_GET['status'])) { $where[] = 'o.status = ?'; $args[] = $_GET['status']; }
@@ -2072,6 +2073,8 @@ function order_out(array $o): array
         'tracking' => $o['tracking_number'], 'bostaState' => $o['bosta_state'] === null ? null : (int) $o['bosta_state'],
         'bostaLabel' => bosta_state_label($o['bosta_state'] === null ? null : (int) $o['bosta_state']), 'bostaNote' => $o['bosta_note'],
         'bostaCod' => $o['bosta_cod'] === null ? null : (float) $o['bosta_cod'], 'bostaUpdatedAt' => $o['bosta_updated_at'],
+        // Review request after delivery (api/review-requests.php).
+        'rateUrl' => $o['status'] === 'Delivered' ? review_url($o) : null, 'reviewAskedAt' => $o['review_asked_at'] ?? null, 'lang' => (string) ($o['lang'] ?? ''),
     ];
 }
 
