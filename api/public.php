@@ -93,7 +93,7 @@ try {
         record_attempt('order');
         schedule_daily_backup();
         // Ad tracking: Meta's browser cookies with the order; cash orders are a purchase now, online ones once paid.
-        try { meta_remember_order((int) $r['id']); if ($pay === 'cod') meta_purchase((int) $r['id']); } catch (Throwable $e) { error_log('[meta] ' . $e->getMessage()); }
+        try { meta_remember_order((int) $r['id']); if ($pay === 'cod') meta_purchase((int) $r['id']); } catch (Throwable $e) { ops_error('Ad tracking', 'An order’s tracking details could not be saved', $e); }
         if ($cust = current_customer()) {
             db()->prepare('UPDATE orders SET customer_id = ? WHERE id = ?')->execute([$cust['id'], $r['id']]);
             $st = db()->prepare('SELECT * FROM orders WHERE id = ?');
@@ -105,14 +105,14 @@ try {
             $st = db()->prepare('SELECT rep_id FROM orders WHERE id = ?');
             $st->execute([$r['id']]);
             lead_from_order($b, $r, ($rep = $st->fetchColumn()) ? (int) $rep : null, 'Website');
-        } catch (Throwable $e) { error_log('[shop] lead from website order failed: ' . $e->getMessage()); }
+        } catch (Throwable $e) { ops_error('Leads', 'A website order was saved but its lead wasn’t', $e); }
         if ($pay === 'cod') log_activity(null, 'New order', $r['number'] . ' · ' . str_in($b['name'] ?? '', 120) . ' · EGP ' . number_format($r['total']));
         $payUrl = null; $payError = null;
         if ($pay !== 'cod') {
             try { $payUrl = paymob_checkout_url((int) $r['id'], $pay); }
             catch (Throwable $e) {
                 $payError = 'Online payment could not be started.';
-                error_log('[paymob] ' . $e->getMessage());
+                ops_error('Paymob', 'Online payment could not start for ' . $r['number'] . ' — ' . mb_substr((string) ($GLOBALS['paymob_last_error'] ?? ''), 0, 200), $e);
                 // Paymob's own reply goes to Activity so the owner can see why (wrong key, ID, mode…).
                 log_activity(null, 'Online payment could not start', $r['number'] . ' · ' . mb_substr((string) ($GLOBALS['paymob_last_error'] ?? $e->getMessage()), 0, 250));
             }
@@ -247,6 +247,6 @@ try {
 } catch (ShopError $e) {
     fail($e->getMessage(), 422);
 } catch (Throwable $e) {
-    error_log('[shop api] ' . $e->getMessage());
+    ops_error('Server', 'Shop error (' . ($action ?? '') . ')', $e);
     fail('Something went wrong. Please try again or contact us.', 500);
 }

@@ -106,7 +106,7 @@ function meta_purchase(int $orderId): void
         elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
         try { meta_send([$event]); }
         catch (Throwable $e) {
-            error_log('[meta] purchase ' . $orderId . ': ' . $e->getMessage());
+            ops_error('Ad tracking', 'Purchase ' . order_number($orderId) . ' was not sent to Meta', $e);
             log_activity(null, 'Meta purchase event not sent', order_number($orderId) . ' · ' . mb_substr($e->getMessage(), 0, 200));
         }
     });

@@ -114,7 +114,7 @@ function offsite_due(): void
     try { offsite_send(); }
     catch (Throwable $e) {
         wa_set_setting('backup_offsite_error', $e->getMessage());
-        error_log('[shop] off-site backup: ' . $e->getMessage());
+        ops_error('Backups', 'The weekly backup could not be sent off the server', $e);
         log_activity(null, 'Backup not sent off the server', mb_substr($e->getMessage(), 0, 250));
     }
 }

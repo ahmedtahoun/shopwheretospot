@@ -25,6 +25,6 @@ try {
     log_activity(['id' => null, 'name' => 'Bosta'], 'Shipment ' . bosta_state_label($code), order_number((int) $id) . ' · ' . $tracking . ($note ? ' · ' . $note : ''));
     json_out(['ok' => true]);
 } catch (Throwable $e) {
-    error_log('[bosta webhook] ' . $e->getMessage());
+    ops_error('Bosta', 'A delivery update from Bosta could not be saved', $e);
     fail('Error', 500);
 }

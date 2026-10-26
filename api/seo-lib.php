@@ -275,7 +275,7 @@ function seo_publish(): void
         @file_put_contents($root . '/llms.txt', seo_llms(), LOCK_EX);
         seo_publish_home();
     } catch (Throwable $e) {
-        error_log('[shop] seo publish failed: ' . $e->getMessage());
+        ops_error('SEO', 'Updating the sitemap / search engines failed', $e);
     }
 }
 

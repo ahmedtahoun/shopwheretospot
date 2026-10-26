@@ -461,7 +461,7 @@ function bosta_sync_open(int $limit = 60): array
         try { $d = bosta_view((string) $t->fetchColumn()); }
         catch (Throwable $e) {
             if (bosta_gone($e)) { bosta_mark_deleted((int) $r['id']); $changed++; $checked++; }
-            else error_log('[bosta sync] ' . $e->getMessage());
+            else ops_error('Bosta', 'Checking a shipment with Bosta failed', $e);
             continue;
         }
         $checked++;
@@ -501,6 +501,6 @@ function schedule_bosta_sync(): void
     register_shutdown_function(function () {
         if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
         elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
-        try { bosta_sync_open(); } catch (Throwable $e) { error_log('[bosta sync] ' . $e->getMessage()); }
+        try { bosta_sync_open(); } catch (Throwable $e) { ops_error('Bosta', 'Updating shipments from Bosta failed', $e); }
     });
 }

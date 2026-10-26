@@ -173,6 +173,7 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
     $legacy = trim((string) $o['pay_refs']) === '' && strpos((string) $o['payment'], 'paymob_') === 0;
     if (!$legacy && ($ref === '' || !in_array($ref, preg_split('/\s+/', trim((string) $o['pay_refs'])), true))) {
         log_activity(null, 'Online payment not matched', 'Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · EGP ' . number_format($amountCents / 100) . ' — check in Paymob');
+        ops_error('Paymob', 'Money received that doesn’t match an order: Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · EGP ' . number_format($amountCents / 100) . ' — check it in Paymob');
         return false;
     }
     tx_begin();
@@ -196,7 +197,7 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
     if ($full) {
         confirm_online_order($orderId, 'New order · paid online', 'Confirmed');
         // A QR pack from the review-link tool: add the codes to the customer's account (api/qrtool.php).
-        try { qr_order_paid($orderId); } catch (Throwable $e) { error_log('[shop] QR pack credit failed: ' . $e->getMessage()); }
+        try { qr_order_paid($orderId); } catch (Throwable $e) { ops_error('Payments', 'A QR pack was paid (' . order_number($orderId) . ') but the codes weren’t added', $e); }
     }
     return $full;
 }

@@ -507,7 +507,7 @@ try {
         try {
             $r['lead'] = lead_from_order($b, $r, $repId, in_array($b['source'] ?? '', ORDER_SOURCES, true) ? $b['source'] : 'Phone');
         } catch (Throwable $e) {
-            error_log('[shop] lead from order failed: ' . $e->getMessage()); // never block the order itself
+            ops_error('Leads', 'An order was saved but its lead wasn’t', $e); // never block the order itself
         }
         json_out($r);
 
@@ -1785,6 +1785,18 @@ try {
     // ---------- online payments check (owner) ----------
     // Reports what api/config.local.php contains for Paymob without revealing any secret.
     // Settings → Ad tracking: Meta Pixel / Conversions API / GA4 status, and a test event for the Conversions API.
+    // Settings → Problems: what went wrong behind the scenes (api/alerts.php), and clearing the list once fixed.
+    case 'ops_errors':
+        require_perm('backups');
+        json_out(['problems' => ops_list()]);
+
+    case 'ops_clear':
+        $u = require_perm('backups');
+        if ($method !== 'POST') fail('Not found', 404);
+        db()->exec('DELETE FROM ops_errors');
+        log_activity($u, 'Cleared the problems list', '');
+        json_out(['ok' => true]);
+
     case 'meta_status':
         require_perm('backups');
         json_out(meta_status());
@@ -1974,7 +1986,7 @@ try {
     fail($e->getMessage(), 502);
 } catch (Throwable $e) {
     tx_rollback();
-    error_log('[shop admin] ' . $e->getMessage());
+    ops_error('Server', 'Dashboard error (' . ($action ?? '') . ')', $e);
     fail('Something went wrong. Please try again.', 500);
 }
 

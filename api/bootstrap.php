@@ -101,7 +101,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 48;
+const SCHEMA_VERSION = 49;
 
 function db(): PDO
 {
@@ -175,7 +175,7 @@ function schedule_daily_backup(): void
     register_shutdown_function(function () {
         if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
         elseif (function_exists('litespeed_finish_request')) litespeed_finish_request();
-        try { make_backup(); } catch (Throwable $e) { error_log('[shop] daily backup failed: ' . $e->getMessage()); }
+        try { make_backup(); } catch (Throwable $e) { ops_error('Backups', 'The daily backup failed', $e); }
         offsite_due(); // the weekly copy to the owners on Telegram (api/offsite.php)
     });
 }
@@ -628,6 +628,8 @@ function migrate(PDO $pdo): void
     sellers_migrate($pdo);
     // Ad tracking: what the browser had at checkout, and when Meta was told about the purchase (api/meta.php).
     meta_migrate($pdo);
+    // Problems behind the scenes, for the owners' alerts and Settings → Problems (api/alerts.php).
+    alerts_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -808,6 +810,8 @@ require __DIR__ . '/images.php';
 require __DIR__ . '/sellers.php';
 require __DIR__ . '/meta.php';
 require __DIR__ . '/offsite.php';
+require __DIR__ . '/alerts.php';
+alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
 function backfill_lead_keys(): void

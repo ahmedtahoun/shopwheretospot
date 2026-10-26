@@ -38,7 +38,7 @@ try {
     wa_cleanup();
     tg_remind_later(); // 15-minute reminders (api/telegram.php)
 } catch (Throwable $e) {
-    error_log('[shop] whatsapp webhook: ' . $e->getMessage());
+    ops_error('WhatsApp', 'A message from WhatsApp could not be processed', $e);
 }
 // Always 200 once the signature is right, so Meta doesn't keep resending the same update.
 http_response_code(200);

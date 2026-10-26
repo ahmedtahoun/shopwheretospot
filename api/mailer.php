@@ -50,7 +50,7 @@ function send_mail(array $to, string $subject, string $html, string $text): bool
         }
         return mail(implode(', ', $to), $encSubject, $body, implode("\r\n", $headers), '-f' . $fromEmail);
     } catch (Throwable $e) {
-        error_log('[shop mail] to ' . implode(', ', $to) . ': ' . $e->getMessage());
+        ops_error('Email', 'An email to ' . implode(', ', $to) . ' could not be sent', $e);
         return false;
     }
 }

@@ -260,7 +260,7 @@ function wa_handle_webhook(array $payload): void
                     wa_store_incoming($m, $names[(string) ($m['from'] ?? '')] ?? '');
                     wa_set_setting('last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'saved']);
                 } catch (Throwable $e) {
-                    error_log('[shop] whatsapp message failed: ' . $e->getMessage());
+                    ops_error('WhatsApp', 'An incoming WhatsApp message could not be saved', $e);
                     wa_set_setting('last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'error', 'error' => mb_substr($e->getMessage(), 0, 300)]);
                 }
             }
@@ -538,7 +538,7 @@ function wa_payment_received(int $orderId, float $amount): void
                 $text = '✅ تم استلام دفعتك ' . $fmt($amount) . ' ج.م لطلب ' . $num . '. شكرًا لك!'
                     . ($due > 0 ? "\n" . 'المتبقي: ' . $fmt($due) . ' ج.م' : "\n" . 'طلبك مدفوع بالكامل، وهنتواصل معاك بخصوص التنفيذ والتوصيل.')
                     . "\n\n" . 'Payment received: EGP ' . $fmt($amount) . ' for order ' . $num . '. Thank you!' . ($due > 0 ? ' Remaining: EGP ' . $fmt($due) . '.' : '');
-                try { wa_send_text($chat, $text, null, false); } catch (Throwable $e) { error_log('[shop] payment thank-you: ' . $e->getMessage()); }
+                try { wa_send_text($chat, $text, null, false); } catch (Throwable $e) { ops_error('WhatsApp', 'The payment thank-you message could not be sent', $e); }
             }
             if (!function_exists('tg_ready') || !tg_ready()) return;
             // Telegram: the chat's person, else the order's rep, else the managers.

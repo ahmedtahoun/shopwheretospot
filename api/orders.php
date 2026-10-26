@@ -184,11 +184,11 @@ function confirm_online_order(int $id, string $why, string $status = 'Pending'):
     set_order_status($id, $status, $expired ? trim(str_replace(UNPAID_EXPIRED_NOTE, '', (string) $o['notes'])) : null);
     log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
     notify_order($id);
-    try { meta_purchase($id); } catch (Throwable $e) { error_log('[meta] ' . $e->getMessage()); } // ad tracking (api/meta.php)
+    try { meta_purchase($id); } catch (Throwable $e) { ops_error('Ad tracking', 'Purchase ' . order_number($id) . ' was not sent to Meta', $e); } // ad tracking (api/meta.php)
     try {
         lead_from_order(['name' => $o['customer'], 'phone' => $o['phone'], 'email' => $o['email']], ['id' => $id, 'number' => order_number($id), 'total' => (float) $o['total']],
             $o['rep_id'] ? (int) $o['rep_id'] : null, 'Website');
-    } catch (Throwable $e) { error_log('[shop] lead from paid order failed: ' . $e->getMessage()); }
+    } catch (Throwable $e) { ops_error('Leads', 'A paid order was saved but its lead wasn’t', $e); }
 }
 
 const UNPAID_EXPIRED_NOTE = 'Online payment not completed — released automatically.';
@@ -207,7 +207,7 @@ function expire_unpaid_orders(): void
             if ($lead) touch_lead($lead, $note, $lead['status'] === 'Won' ? null : 'New', $o['rep_id'] ? (int) $o['rep_id'] : null, $contact);
             else insert_lead(['name' => $o['customer'], 'contact' => $contact, 'cat' => mb_substr($items, 0, 120), 'source' => 'Unfinished online payment',
                 'status' => 'New', 'notes' => $note, 'assigned_to' => $o['rep_id'] ?: null]);
-        } catch (Throwable $e) { error_log('[shop] expiring unpaid order failed: ' . $e->getMessage()); }
+        } catch (Throwable $e) { ops_error('Orders', 'An unpaid online order could not be released', $e); }
     }
 }
 

@@ -12,7 +12,7 @@ $update = json_decode((string) file_get_contents('php://input'), true);
 try {
     if (is_array($update)) tg_handle_update($update);
 } catch (Throwable $e) {
-    error_log('[shop] telegram webhook: ' . $e->getMessage());
+    ops_error('Telegram', 'A message to the Telegram bot could not be processed', $e);
 }
 // Always 200, so Telegram doesn't keep resending the same update.
 header('Content-Type: application/json');

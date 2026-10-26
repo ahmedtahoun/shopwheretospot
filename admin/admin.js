@@ -2464,6 +2464,22 @@
       '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>');
     adTrackCard();
     waSettings(false);
+    problemsCard();
+  }
+
+  // Settings → Problems: things that went wrong behind the scenes; the owners also get them on Telegram (api/alerts.php).
+  async function problemsCard() {
+    let box = $('#opsCard');
+    if (!box) { $('#main').firstElementChild.insertAdjacentHTML('afterend', '<div class="card stack" id="opsCard" style="gap:12px;margin-bottom:16px"></div>'); box = $('#opsCard'); }
+    let d;
+    try { d = await api('ops_errors'); } catch (e) { box.remove(); return; }
+    const list = d.problems;
+    const recent = list.filter((p) => Date.now() - new Date(p.lastAt.replace(' ', 'T') + 'Z') < 7 * 86400000);
+    box.innerHTML = '<h2>Problems<span class="spacer"></span>' + (recent.length ? '<span class="pill bad">' + recent.length + ' this week</span>' : '<span class="pill good">✓ Nothing wrong</span>') + '</h2>' +
+      '<div class="hint">When something breaks behind the scenes (payments, Bosta, WhatsApp, emails, backups, ad tracking, the server), the owners get a Telegram message (an email if Telegram isn’t connected) — at most once an hour for the same problem. Send a screenshot of anything here you don’t understand.</div>' +
+      (list.length ? '<div class="list">' + list.slice(0, 20).map((p) => '<div class="li" style="align-items:flex-start"><span><b>' + esc(p.area) + '</b> <span class="muted small">' + dateTime(p.lastAt) + (p.count > 1 ? ' · ' + p.count + '×' : '') + '</span><div class="small" style="margin-top:2px;word-break:break-word">' + esc(p.message) + '</div></span></div>').join('') + '</div>' +
+        '<div class="row"><button class="btn sm" id="opsClear">Clear the list (fixed)</button></div>' : '');
+    const c = $('#opsClear'); if (c) c.onclick = async () => { if (!confirm('Clear the problems list?')) return; try { await api('ops_clear', { method: 'POST' }); problemsCard(); toast('Cleared'); } catch (e) { toast(e.message, true); } };
   }
 
   // Settings → Ad tracking: Meta Pixel (browser), Conversions API (purchases sent from the server) and Google Analytics 4.

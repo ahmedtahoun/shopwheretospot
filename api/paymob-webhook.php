@@ -11,7 +11,7 @@ $t = is_array($payload) ? ($payload['obj'] ?? null) : null;
 if (!is_array($t) || ($payload['type'] ?? '') !== 'TRANSACTION') { http_response_code(200); echo 'ignored'; exit; }
 
 if (!paymob_hmac_valid($t, (string) ($_GET['hmac'] ?? ''), false)) {
-    error_log('[paymob] webhook with a bad HMAC for transaction ' . ($t['id'] ?? '?'));
+    ops_error('Paymob', 'A payment notice with a wrong signature was refused (transaction ' . ($t['id'] ?? '?') . '). If real payments stop being confirmed, check the HMAC in config.local.php.');
     http_response_code(401);
     echo 'bad hmac';
     exit;
@@ -30,7 +30,7 @@ try {
         log_activity(null, 'Online payment failed', order_number($orderId) . ' · ' . mb_substr((string) ($t['data']['message'] ?? 'declined'), 0, 80));
     }
 } catch (Throwable $e) {
-    error_log('[paymob] webhook error: ' . $e->getMessage());
+    ops_error('Paymob', 'A payment notice from Paymob could not be processed', $e);
     http_response_code(500);
     exit;
 }
