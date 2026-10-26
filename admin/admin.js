@@ -1939,12 +1939,13 @@
         };
         return;
       }
+      const touchKeys = matchMedia('(pointer: coarse)').matches; // a phone or tablet keyboard
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
       $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div><div class="wa-quick wa-prods" id="waProdList" hidden></div>' +
         '<div class="wa-cbar"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
         '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>' +
-        '<textarea id="waText" rows="1" placeholder="Write a message" title="Enter sends · Shift+Enter adds a new line"></textarea>' +
+        '<textarea id="waText" rows="1" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
         '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
         '<div class="wa-window small muted">Free replies for about ' + left + ' more hour' + (left === 1 ? '' : 's') + '</div>';
       const ta = $('#waText');
@@ -1958,7 +1959,8 @@
         $('#waSend').disabled = false; ta.focus();
       };
       $('#waSend').onclick = send;
-      ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+      // Phones: the keyboard's Enter adds a new line (send with the button). Computers: Enter sends, Shift+Enter adds a line.
+      ta.onkeydown = (e) => { if (!touchKeys && e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
       // Send a product: its photo with name, price and the link to order, in Arabic or English.
       const pl = $('#waProdList');
       waProductList(st.prodLang || 'ar').catch(() => {}); // ready before the button is tapped
