@@ -2066,7 +2066,7 @@
         '<div class="wa-cbar"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
         '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>' +
-        '<textarea id="waText" rows="1" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
+        '<textarea id="waText" rows="1" dir="auto" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
         '<button class="btn sm" id="waMic" title="Record a voice note" aria-label="Record a voice note">' + icon('mic') + '</button>' +
         '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
         '<div class="wa-window small muted">Free replies for about ' + left + ' more hour' + (left === 1 ? '' : 's') + '</div>';

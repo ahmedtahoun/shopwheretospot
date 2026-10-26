@@ -430,7 +430,8 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-msg.in:has(+ .wa-msg.in.cont) .wa-meta{display:none}
 .wa-msg.out:has(+ .wa-msg.out.cont) .wa-by{display:none}
 .wa-msg.failed{background:#FBE5E5}
-.wa-text{font-size:14px;line-height:1.45}
+.wa-text{font-size:14px;line-height:1.45;unicode-bidi:plaintext;text-align:start} /* each line right-to-left or left-to-right by its own first letter, like WhatsApp */
+#waText,.wa-tpl-text,.wa-last{unicode-bidi:plaintext;text-align:start}
 .wa-text a{color:var(--info)}
 .wa-meta{align-self:flex-end;font-size:11px;color:var(--ink-3);white-space:nowrap}
 .wa-tick{font-weight:700;letter-spacing:-2px}
