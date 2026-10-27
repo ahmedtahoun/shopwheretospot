@@ -54,9 +54,35 @@ function sm_migrate(PDO $pdo): void
 function sm_graph(string $method, string $path, ?array $body = null): array
 {
     if (!sm_cfg('page_token')) throw new ShopError('Instagram and Messenger aren’t connected yet (no Page access key in api/config.local.php).');
+    return sm_call($method, $path, $body, sm_token());
+}
+
+// The Page's own key. The key in config.local.php can be a system user's (Business settings → System users →
+// Generate token): Meta then hands us the Page's key for it once, kept until the configured key changes.
+function sm_token(): string
+{
+    static $done = null;
+    if ($done !== null) return $done;
+    $given = (string) sm_cfg('page_token');
+    $tag = substr(hash('sha256', $given), 0, 16);
+    $kept = wa_setting('sm_ptok');
+    if (is_array($kept) && ($kept['k'] ?? '') === $tag) return $done = (string) $kept['t'];
+    try {
+        $r = sm_call('GET', '/' . rawurlencode((string) sm_cfg('page_id')) . '?fields=access_token', null, $given);
+        $page = (string) ($r['access_token'] ?? '');
+    } catch (ShopError $e) {
+        if (strpos($e->getMessage(), 'Could not reach') === 0) return $given; // offline for a moment: ask again next time
+        $page = '';
+    }
+    wa_set_setting('sm_ptok', ['k' => $tag, 't' => $page !== '' ? $page : $given]);
+    return $done = $page !== '' ? $page : $given;
+}
+
+function sm_call(string $method, string $path, ?array $body, string $token): array
+{
     $base = rtrim((string) (sm_cfg('graph_url') ?: wa_cfg('graph_url', 'https://graph.facebook.com')), '/') . '/' . trim((string) (sm_cfg('graph_version') ?: wa_cfg('graph_version', 'v23.0')), '/');
     $ch = curl_init($base . $path);
-    $headers = ['Authorization: Bearer ' . sm_cfg('page_token'), 'Accept: application/json'];
+    $headers = ['Authorization: Bearer ' . $token, 'Accept: application/json'];
     if ($body !== null) $headers[] = 'Content-Type: application/json';
     curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_HTTPHEADER => $headers,
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4]);
