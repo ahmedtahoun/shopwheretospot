@@ -128,7 +128,9 @@ function tg_alert_message(array $chat): void
     if (!tg_ready()) return;
     foreach (tg_chat_recipients($chat) as $u) {
         if ($u['wa_seen_at'] && strtotime($u['wa_seen_at'] . ' UTC') > time() - TG_SEEN_SECONDS) continue;
-        tg_send_user($u, tg_chat_text($chat, $chat['assigned_to'] ? '💬 New WhatsApp message · رسالة واتساب جديدة' : '💬 WhatsApp message, nobody has this chat · رسالة واتساب بدون مسؤول'), tg_open_button($chat));
+        $app = SM_NAMES[sm_channel($chat)];
+        $ar = ['WhatsApp' => 'واتساب', 'Instagram' => 'إنستجرام', 'Messenger' => 'ماسنجر'][$app];
+        tg_send_user($u, tg_chat_text($chat, $chat['assigned_to'] ? '💬 New ' . $app . ' message · رسالة ' . $ar . ' جديدة' : '💬 ' . $app . ' message, nobody has this chat · رسالة ' . $ar . ' بدون مسؤول'), tg_open_button($chat));
     }
 }
 
@@ -200,7 +202,7 @@ function tg_alert_assigned(array $chat, int $toUserId, string $byName): void
 
 function tg_chat_text(array $chat, string $head): string
 {
-    $phone = wa_local_phone($chat['wa_id']);
+    $phone = sm_label($chat); // the number, or @username · Instagram / Messenger
     $name = trim((string) $chat['name']);
     $text = trim((string) $chat['last_text']);
     return '<b>' . $head . '</b>' . "\n" . ($name !== '' && $name !== $phone ? tg_h($name) . ' · ' : '') . tg_h($phone)
@@ -313,7 +315,7 @@ function tg_daily_summary(): string
     [$newChats, $fromAds] = $one("SELECT COUNT(*), SUM(CASE WHEN ad_id != '' OR ad_headline != '' THEN 1 ELSE 0 END) FROM wa_chats WHERE created_at >= ? AND created_at < ?", [$from, $to]);
     [$talked] = $one("SELECT COUNT(DISTINCT chat_id) FROM wa_messages WHERE dir = 'in' AND kind != 'reaction' AND created_at >= ? AND created_at < ?", [$from, $to]);
     [$sent] = $one("SELECT COUNT(*) FROM wa_messages WHERE dir = 'out' AND user_id IS NOT NULL AND created_at >= ? AND created_at < ?", [$from, $to]);
-    $waiting = $all("SELECT c.name, c.wa_id, c.waiting_since, u.name AS agent FROM wa_chats c LEFT JOIN users u ON u.id = c.assigned_to
+    $waiting = $all("SELECT c.name, c.wa_id, c.channel, c.handle, c.waiting_since, u.name AS agent FROM wa_chats c LEFT JOIN users u ON u.id = c.assigned_to
         WHERE c.status = 'open' AND c.waiting_since IS NOT NULL ORDER BY c.waiting_since LIMIT 50");
 
     // Each person today: first replies to new customers (and how fast), messages sent, orders entered.
@@ -356,7 +358,7 @@ function tg_daily_summary(): string
         $L[] = '⏰ <b>Still waiting for a reply · مستنيين رد: ' . count($waiting) . '</b>';
         foreach (array_slice($waiting, 0, 5) as $w) {
             $m = (time() - strtotime($w['waiting_since'] . ' UTC')) / 60;
-            $L[] = '• ' . tg_h(trim((string) $w['name']) ?: wa_local_phone($w['wa_id'])) . ' · ' . $mins($m) . ' · ' . tg_h($w['agent'] ?: 'nobody');
+            $L[] = '• ' . tg_h(trim((string) $w['name']) ?: sm_label($w)) . ' · ' . $mins($m) . ' · ' . tg_h($w['agent'] ?: 'nobody');
         }
         if (count($waiting) > 5) $L[] = '… and ' . (count($waiting) - 5) . ' more';
     } else {

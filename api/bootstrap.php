@@ -32,6 +32,7 @@ $config = [
     'telegram' => [],       // Telegram alerts for WhatsApp chats; see api/telegram.php and api/config.local.example.php
     'google_review_url' => '', // optional: our Google review link, offered after a customer reviews their order (api/review-page.php)
     'backup_password' => '', // off-site backups: the password that locks the weekly backup sent to owners on Telegram (api/offsite.php)
+    'social' => [],         // Instagram Direct + Messenger in the WhatsApp inbox; see api/social.php
     'meta' => [],           // ad tracking: Meta Pixel + Conversions API; see api/meta.php and api/config.local.example.php
     'ga4_id' => '',         // Google Analytics 4 measurement ID (G-…); see api/track.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
@@ -102,7 +103,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 51;
+const SCHEMA_VERSION = 52;
 
 function db(): PDO
 {
@@ -635,6 +636,8 @@ function migrate(PDO $pdo): void
     abandoned_migrate($pdo);
     // Review requests after delivery: the order's review link, when it was asked and reminded, its language (api/review-requests.php).
     reviewreq_migrate($pdo);
+    // Instagram Direct and Messenger chats in the same inbox: which app a chat is on, and the Instagram @username (api/social.php).
+    sm_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -818,6 +821,7 @@ require __DIR__ . '/offsite.php';
 require __DIR__ . '/alerts.php';
 require __DIR__ . '/abandoned.php';
 require __DIR__ . '/review-requests.php';
+require __DIR__ . '/social.php';
 alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.

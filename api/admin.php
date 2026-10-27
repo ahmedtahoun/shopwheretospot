@@ -1194,9 +1194,11 @@ try {
         $all = in_array('whatsapp_all', $u['perms'], true);
         $view = (string) ($_GET['view'] ?? 'mine');
         $q = trim(str_in($_GET['q'] ?? '', 60));
+        $channel = (string) ($_GET['ch'] ?? '');
         $where = [];
         $args = [];
         if (!$all) { $where[] = '(c.assigned_to = ? OR c.assigned_to IS NULL)'; $args[] = (int) $u['id']; }
+        if (isset(SM_NAMES[$channel])) { $where[] = 'c.channel = ?'; $args[] = $channel; }
         if ($view === 'mine') { $where[] = 'c.assigned_to = ?'; $args[] = (int) $u['id']; $where[] = "c.status = 'open'"; }
         elseif ($view === 'unassigned') { $where[] = 'c.assigned_to IS NULL'; $where[] = "c.status = 'open'"; }
         elseif ($view === 'waiting') { $where[] = 'c.waiting_since IS NOT NULL'; $where[] = "c.status = 'open'"; }
@@ -1204,8 +1206,8 @@ try {
         else { $where[] = "c.status = 'open'"; }
         if ($q !== '') {
             $digits = preg_replace('/\D/', '', $q);
-            $where[] = '(c.name LIKE ? OR l.name LIKE ?' . (strlen($digits) >= 3 ? ' OR c.wa_id LIKE ?' : '') . ')';
-            array_push($args, '%' . $q . '%', '%' . $q . '%');
+            $where[] = '(c.name LIKE ? OR l.name LIKE ? OR c.handle LIKE ?' . (strlen($digits) >= 3 ? " OR (c.channel = 'wa' AND c.wa_id LIKE ?)" : '') . ')';
+            array_push($args, '%' . $q . '%', '%' . $q . '%', '%' . ltrim($q, '@') . '%');
             if (strlen($digits) >= 3) $args[] = '%' . substr($digits, -9) . '%';
         }
         $st = db()->prepare('SELECT c.*, u.name AS agent_name, l.name AS lead_name, l.status AS lead_status FROM wa_chats c LEFT JOIN users u ON u.id = c.assigned_to LEFT JOIN leads l ON l.id = c.lead_id'
@@ -1220,7 +1222,10 @@ try {
         $agents = db()->query('SELECT id, name, wa_away FROM users WHERE active = 1 AND wa_agent = 1 ORDER BY name')->fetchAll();
         $quick = db()->query('SELECT id, title, body FROM wa_quick ORDER BY sort, id')->fetchAll();
         try { wa_cleanup(); } catch (Throwable $e) {}
-        json_out(['chats' => $chats, 'counts' => $counts, 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
+        // Which apps have chats (the inbox shows the WhatsApp / Instagram / Messenger filter once there's more than one).
+        $channels = db()->query('SELECT DISTINCT channel FROM wa_chats')->fetchAll(PDO::FETCH_COLUMN);
+        if (sm_ready()) $channels = array_unique(array_merge($channels, ['wa', 'ig', 'fb']));
+        json_out(['chats' => $chats, 'counts' => $counts, 'channels' => array_values(array_intersect(array_keys(SM_NAMES), $channels)), 'social' => sm_ready(), 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
             'quick' => $quick, 'ready' => wa_ready(), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all, 'telegram' => !empty($u['tg_chat_id'])]]);
 
     // Small and frequent: the unread badge and new-message sound on every page.
@@ -1285,8 +1290,8 @@ try {
             $l->execute([(int) $chat['lead_id']]);
             if ($row = $l->fetch()) $lead = ['id' => (int) $row['id'], 'name' => $row['name'], 'contact' => $row['contact'], 'status' => $row['status'], 'source' => $row['source'], 'cat' => $row['cat'], 'notes' => $row['notes'], 'assigned' => $row['assigned_name'], 'createdAt' => $row['created_at']];
         }
-        // What this customer already has with us.
-        $key = phone_key(wa_local_phone($chat['wa_id']));
+        // What this customer already has with us (by phone, so WhatsApp only).
+        $key = sm_channel($chat) === 'wa' ? phone_key(wa_local_phone($chat['wa_id'])) : null;
         $orders = []; $quotes = [];
         if ($key) {
             // Unpaid online orders too: those are the ones a payment link helps most.
@@ -1361,7 +1366,7 @@ try {
         $st->execute([(int) ($b['order_id'] ?? 0)]);
         $o = $st->fetch();
         // Only an order of this customer (same phone number as the chat).
-        if (!$o || !phone_key((string) $o['phone']) || phone_key((string) $o['phone']) !== phone_key(wa_local_phone($chat['wa_id']))) fail('That order isn’t this customer’s.', 404);
+        if (sm_channel($chat) !== 'wa' || !$o || !phone_key((string) $o['phone']) || phone_key((string) $o['phone']) !== phone_key(wa_local_phone($chat['wa_id']))) fail('That order isn’t this customer’s.', 404);
         if ($why = pay_link_problem($o)) fail($why);
         $num = order_number((int) $o['id']);
         $due = round((float) $o['total'] - order_paid((int) $o['id']), 2);
@@ -1416,7 +1421,7 @@ try {
         if ($to) { $ok = db()->prepare('SELECT name FROM users WHERE id = ? AND active = 1'); $ok->execute([$to]); $toName = $ok->fetchColumn(); if (!$toName) fail('Unknown team member.'); }
         wa_assign((int) $chat['id'], $to);
         if ($to && $chat['lead_id']) db()->prepare('UPDATE leads SET assigned_to = ? WHERE id = ?')->execute([$to, (int) $chat['lead_id']]);
-        log_activity($u, 'WhatsApp chat assigned', wa_local_phone($chat['wa_id']) . ' → ' . ($to ? $toName : 'nobody'));
+        log_activity($u, 'Chat assigned', sm_label($chat) . ' → ' . ($to ? $toName : 'nobody'));
         if ($to && $to !== (int) $u['id']) { try { tg_alert_assigned(wa_chat_row((int) $chat['id']), $to, (string) $u['name']); } catch (Throwable $e) {} }
         json_out(['chat' => wa_chat_out(wa_chat_row((int) $chat['id']))]);
 
@@ -1447,7 +1452,7 @@ try {
         if ($note !== '' || $status !== '') {
             touch_lead($lead, $note !== '' ? date('Y-m-d') . ' · ' . $u['name'] . ': ' . $note : '', $status !== '' ? $status : null, null);
         }
-        log_activity($u, 'Updated lead from WhatsApp', $lead['name'] . ($status !== '' ? ' → ' . $status : ''));
+        log_activity($u, 'Updated lead from ' . SM_NAMES[sm_channel($chat)], $lead['name'] . ($status !== '' ? ' → ' . $status : ''));
         json_out(['ok' => true]);
 
     // Team member marks themselves away (no new chats handed to them) or back.
@@ -1486,7 +1491,15 @@ try {
             'ready' => wa_ready(), 'live' => $live, 'lastWebhook' => wa_setting('last_webhook', null), 'lastRejected' => wa_setting('last_rejected', null), 'lastNote' => wa_setting('last_note', null), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php', 'info' => $info, 'error' => $error,
             'users' => array_map(function ($r) { return ['id' => (int) $r['id'], 'name' => $r['name'], 'role' => $r['role'], 'agent' => (bool) $r['wa_agent'], 'away' => (bool) $r['wa_away'], 'telegram' => !empty($r['tg_chat_id'])]; }, $users),
             'telegram' => tg_ready(), 'tgCron' => tg_ready() ? tg_cron_url() : null, 'tgLastCron' => wa_setting('tg_cron_at', null), 'tgRemindManagers' => (bool) wa_setting('tg_remind_managers', true), 'tgDaily' => (bool) wa_setting('tg_daily', true), 'videoDays' => (int) wa_setting('video_days', 90), 'storage' => wa_storage_bytes(), 'diskFree' => @disk_free_space(cfg('data_dir')) ?: null,
-            'chats' => (int) db()->query('SELECT COUNT(*) FROM wa_chats')->fetchColumn()]);
+            'chats' => (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE channel = 'wa'")->fetchColumn(), 'social' => sm_status(!empty($_GET['test']))]);
+
+    // Settings → Instagram & Messenger → Connect: Meta starts sending the Page's and Instagram's messages here.
+    case 'sm_subscribe':
+        $u = require_perm('backups');
+        if (!sm_ready()) fail('Add the Page id and Page access key to api/config.local.php first.');
+        sm_subscribe();
+        log_activity($u, 'Connected Instagram and Messenger messages');
+        json_out(['social' => sm_status(true)]);
 
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
     case 'wa_register':
@@ -2202,13 +2215,17 @@ function wa_customer_keys(): array
 
 function wa_chat_out(array $c): array
 {
-    return ['id' => (int) $c['id'], 'waId' => $c['wa_id'], 'phone' => wa_local_phone($c['wa_id']), 'name' => $c['lead_name'] ?: $c['name'] ?: wa_local_phone($c['wa_id']),
+    $ch = sm_channel($c);
+    $phone = $ch === 'wa' ? wa_local_phone($c['wa_id']) : '';
+    $handle = (string) ($c['handle'] ?? '');
+    return ['id' => (int) $c['id'], 'waId' => $c['wa_id'], 'channel' => $ch, 'handle' => $handle, 'phone' => $phone,
+        'name' => $c['lead_name'] ?: $c['name'] ?: ($phone !== '' ? $phone : ($handle !== '' ? '@' . $handle : SM_NAMES[$ch] . ' customer')),
         'profileName' => $c['name'], 'leadId' => $c['lead_id'] === null ? null : (int) $c['lead_id'], 'leadStatus' => $c['lead_status'] ?? null,
         'assignedTo' => $c['assigned_to'] === null ? null : (int) $c['assigned_to'], 'agent' => $c['agent_name'] ?? null, 'status' => $c['status'],
         'unread' => (int) $c['unread'], 'lastAt' => $c['last_at'], 'lastText' => $c['last_text'], 'lastDir' => $c['last_dir'], 'waitingSince' => $c['waiting_since'],
         'lastInAt' => $c['last_in_at'], 'windowOpen' => wa_window_open($c), 'windowEnds' => $c['last_in_at'] ? gmdate('Y-m-d H:i:s', strtotime($c['last_in_at'] . ' UTC') + 86400) : null,
         'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at'],
-        'returning' => isset(wa_customer_keys()[phone_key(wa_local_phone($c['wa_id'])) ?? ''])];
+        'returning' => $ch === 'wa' && isset(wa_customer_keys()[phone_key($phone) ?? ''])];
 }
 
 function wa_message_out(array $m): array
@@ -2216,6 +2233,6 @@ function wa_message_out(array $m): array
     $meta = $m['meta'] ? (json_decode($m['meta'], true) ?: []) : [];
     return ['id' => (int) $m['id'], 'dir' => $m['dir'], 'kind' => $m['kind'], 'body' => $m['body'], 'status' => $m['status'], 'error' => $m['error'],
         'media' => $m['media_path'] !== '' ? ['mime' => $m['media_mime'], 'name' => $m['media_name'], 'size' => (int) $m['media_size']] : null,
-        'by' => $m['user_name'] ?? null, 'at' => $m['created_at'], 'ad' => isset($meta['referral']) ? ['headline' => $meta['referral']['headline'] ?? '', 'url' => $meta['referral']['source_url'] ?? ''] : null];
+        'by' => $m['user_name'] ?? ($meta['via'] ?? null), 'at' => $m['created_at'], 'ad' => isset($meta['referral']) ? ['headline' => $meta['referral']['headline'] ?? '', 'url' => $meta['referral']['source_url'] ?? ''] : null];
 }
 

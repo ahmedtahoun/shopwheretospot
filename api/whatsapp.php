@@ -327,6 +327,14 @@ function wa_window_open(array $chat): bool
     return $chat['last_in_at'] && strtotime($chat['last_in_at'] . ' UTC') > time() - 86400;
 }
 
+// Replying after the window has closed: WhatsApp needs a template; Instagram and Messenger don't allow it at all.
+function wa_window_check(array $chat): void
+{
+    if (wa_window_open($chat)) return;
+    if (sm_channel($chat) === 'wa') throw new ShopError(wa_error_text(['code' => 131047]));
+    throw new ShopError('More than 24 hours since the customer’s last message, so ' . SM_NAMES[sm_channel($chat)] . ' doesn’t allow a reply. The chat opens again when they write.');
+}
+
 // $userId null: sent by the shop itself (e.g. the payment thank-you).
 function wa_record_out(array $chat, string $wamid, string $kind, string $body, array $media, ?int $userId, string $status = 'sent'): int
 {
@@ -374,8 +382,8 @@ function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = t
 {
     $text = trim($text);
     if ($text === '') throw new ShopError('Write a message first.');
-    if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
-    $send = function () use ($chat, $text, $preview) {
+    wa_window_check($chat);
+    $send = sm_channel($chat) !== 'wa' ? function () use ($chat, $text) { return sm_send_text($chat, $text); } : function () use ($chat, $text, $preview) {
         return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
             'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => $preview]]);
     };
@@ -391,16 +399,19 @@ function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = t
 // Send a file the team uploaded (or a document made by the dashboard, e.g. a quote PDF).
 function wa_send_file(array $chat, string $tmpPath, string $name, string $caption, ?int $userId, bool $background = false): int
 {
-    if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
+    wa_window_check($chat);
+    $channel = sm_channel($chat);
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmpPath) ?: 'application/octet-stream';
     if ($mime === 'audio/x-m4a') $mime = 'audio/mp4';
     // A voice note recorded on an iPhone (M4A) can look like an MP4 video to the type check.
     if ($mime === 'video/mp4' && preg_match('/\.m4a$/i', $name)) $mime = 'audio/mp4';
     $kind = null;
-    foreach (WA_SEND_TYPES as $k => [$types, $max]) if (in_array($mime, $types, true)) { $kind = $k; break; }
-    if (!$kind) throw new ShopError('WhatsApp can’t send this kind of file (' . $mime . '). Photos must be JPG or PNG; videos MP4.');
+    $allowed = $channel === 'wa' ? WA_SEND_TYPES : sm_send_types($channel);
+    $app = SM_NAMES[$channel];
+    foreach ($allowed as $k => [$types, $max]) if (in_array($mime, $types, true)) { $kind = $k; break; }
+    if (!$kind) throw new ShopError($app . ' can’t send this kind of file (' . $mime . ').' . ($channel === 'ig' ? ' Instagram takes photos (JPG, PNG), videos (MP4), and PDF files.' : ' Photos must be JPG or PNG; videos MP4.'));
     $size = filesize($tmpPath);
-    if ($size > WA_SEND_TYPES[$kind][1]) throw new ShopError('This file is too large for WhatsApp (max ' . (WA_SEND_TYPES[$kind][1] >> 20) . ' MB for this type).');
+    if ($size > $allowed[$kind][1]) throw new ShopError('This file is too large for ' . $app . ' (max ' . ($allowed[$kind][1] >> 20) . ' MB for this type).');
     // Keep our own copy for the chat history.
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION) ?: 'bin');
     $ext = preg_replace('/[^a-z0-9]/', '', $ext) ?: 'bin';
@@ -408,7 +419,7 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
     $path = wa_media_dir() . '/' . $rel;
     if (!is_dir(dirname($path))) mkdir(dirname($path), 0750, true);
     if (!copy($tmpPath, $path)) throw new ShopError('Could not save the file.');
-    $send = function () use ($chat, $path, $mime, $name, $caption, $kind) {
+    $send = $channel !== 'wa' ? function () use ($chat, $rel, $kind, $caption) { return sm_send_file($chat, $rel, $kind, $caption); } : function () use ($chat, $path, $mime, $name, $caption, $kind) {
         $up = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/media', ['messaging_product' => 'whatsapp', 'type' => $mime, 'file' => new CURLFile($path, $mime, $name)], true);
         $obj = ['id' => (string) $up['id']];
         if ($caption !== '' && $kind !== 'audio') $obj['caption'] = mb_substr($caption, 0, 1024);
@@ -430,7 +441,7 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
 // (in Arabic or English). The photo is sent as a JPEG, which WhatsApp always accepts.
 function wa_send_product(array $chat, string $productId, bool $ar, int $userId): int
 {
-    if (!wa_window_open($chat)) throw new ShopError(wa_error_text(['code' => 131047]));
+    wa_window_check($chat);
     $p = null;
     foreach (load_products(true) as $row) if ($row['id'] === $productId) { $p = $row; break; }
     if (!$p) throw new ShopError('That product isn’t in the shop (it may be a draft or archived).');
@@ -441,6 +452,14 @@ function wa_send_product(array $chat, string $productId, bool $ar, int $userId):
         . "\n🛒 " . ($ar ? 'اطلب من هنا: ' : 'Order here: ') . seo_product_url($p['id'], $ar);
     $photo = $p['images'] ? wa_product_photo((string) $p['images'][0]) : null;
     if (!$photo) return wa_send_text($chat, $caption, $userId, true, true);
+    if (sm_channel($chat) !== 'wa') {
+        // Instagram / Messenger: the photo, then the text (no *bold* there, so plain).
+        $plain = str_replace('*', '', $caption);
+        $id = wa_record_out($chat, '', 'image', $plain,
+            ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], $userId, 'sending');
+        wa_send_later($id, (int) $chat['id'], function () use ($chat, $photo, $plain) { return sm_send_file($chat, $photo['path'], 'image', $plain); });
+        return $id;
+    }
     // The photo's id at Meta is kept for 20 days (Meta keeps uploads 30), so sending the same product
     // again is a single quick call. If Meta no longer has it, upload again once.
     $send = function (bool $fresh) use ($chat, $photo, $caption) {
@@ -508,6 +527,7 @@ function wa_mark_read(array $chat): void
     $st->execute([$chat['id']]);
     $wamid = $st->fetchColumn();
     db()->prepare('UPDATE wa_chats SET unread = 0 WHERE id = ?')->execute([$chat['id']]);
+    if (sm_channel($chat) !== 'wa') { if ($wamid) sm_mark_seen($chat); return; }
     if ($wamid && wa_ready()) {
         try { wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'status' => 'read', 'message_id' => $wamid]); }
         catch (Throwable $e) { /* not important enough to bother the team */ }
@@ -766,6 +786,7 @@ function wa_template_options(array $chat, string $lang): array
 function wa_send_template(array $chat, string $name, string $lang, int $userId): int
 {
     if (!isset(WA_TEMPLATES[$name])) throw new ShopError('Unknown template.');
+    if (sm_channel($chat) !== 'wa') throw new ShopError('Templates are for WhatsApp only.');
     $opt = null;
     foreach (wa_template_options($chat, $lang) as $o) if ($o['name'] === $name) $opt = $o;
     if (!$opt || !$opt['ready']) throw new ShopError($opt['why'] ?? 'This template can’t be sent.');

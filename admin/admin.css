@@ -489,6 +489,7 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
   .wa-cbar{gap:6px}
   .wa-cbar .btn.sm{padding:0 9px}
   .wa-cbar.has-text #waMic,.wa-cbar:not(.has-text) #waSend{display:none}
+  .wa-cbar.no-mic #waSend{display:inline-flex}
 }
 .wa-quick[hidden]{display:none}
 /* Send a product: search, language, and the shop's products with photo and price. */
@@ -564,3 +565,15 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .seller-prod{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:8px}
 .seller-prod img,.seller-prod .sp-ph{width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--surface-2);flex:none}
 .seller-notes{background:var(--surface-2);border-radius:10px;padding:10px 12px;white-space:pre-line}
+
+/* Which app a chat is on: WhatsApp, Instagram or Messenger */
+.sm-logo{display:inline-flex;width:16px;height:16px;flex:none;vertical-align:-3px}
+.sm-logo svg{width:100%;height:100%;display:block}
+.wa-av .wa-chn{position:absolute;inset-inline-start:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;box-shadow:0 0 0 2px var(--surface,#fff);background:var(--surface,#fff)}
+.wa-via{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.wa-via a{color:inherit}
+.wa-chs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:8px 0 2px}
+.wa-chs::-webkit-scrollbar{display:none}
+.wa-chs button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.wa-chs button.on{border-color:var(--ink);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--ink)}
+.wa-via-app{font-size:11px;color:var(--ink-3)}

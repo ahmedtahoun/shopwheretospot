@@ -57,6 +57,22 @@ return [
         'graph_version' => 'v23.0',
         // 'waba_id' => '…',  // optional: WhatsApp Manager → Account tools → WhatsApp account ID (found automatically from the token when left out)
     ],
+    // Instagram Direct + Facebook Messenger in the same dashboard inbox (api/social.php). Uses the same Meta app as
+    // WhatsApp (same app secret and webhook address). In Meta for Developers → your app:
+    //   1. Add the "Messenger" and "Instagram" products; Webhooks → Page and → Instagram: callback URL
+    //      https://shop.wheretospot.com/api/whatsapp-webhook.php, the WhatsApp verify token, tick "messages".
+    //   2. Business settings → System users → your system user → Add assets → the Page (full control), then
+    //      Generate token with: pages_messaging, pages_manage_metadata, pages_show_list, pages_read_engagement,
+    //      instagram_basic, instagram_manage_messages. That's the page_token (a Page token, never expires).
+    //   3. App Review: request Advanced access to pages_messaging and instagram_manage_messages (needs the
+    //      business verified). Until approved, only people with a role on the app can message in.
+    //   4. Dashboard → Settings → Instagram & Messenger → Test → Connect.
+    'social' => [
+        'page_id' => '123456789012345',   // Page → About → Page transparency → Page ID
+        'page_token' => 'EAAG…',
+        // 'app_secret' => '…',          // only if the Page uses a different Meta app than WhatsApp
+        // 'verify_token' => '…',        // only if you want a different one than WhatsApp's
+    ],
     // Telegram alerts: a ping on the team's phones when a WhatsApp customer is waiting. In Telegram, message
     // @BotFather → /newbot → choose a name (e.g. Where To Spot Alerts) → copy the token it gives you here.
     // Each person then taps "Connect Telegram" in the dashboard's WhatsApp inbox. Nothing else to set up.

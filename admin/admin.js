@@ -176,7 +176,7 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['inbox', 'WhatsApp', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
+      ['dashboard', 'Dashboard', 'home'], ['inbox', 'Chats', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
       ['leads', 'Leads', 'inbox'], ['reports', 'Monthly reports', 'chart'], ['commissions', 'Salaries & commissions', 'coins'], ['expenses', 'Expenses & suppliers', 'receipt'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
     ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' || k === 'reports' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -1651,6 +1651,14 @@
   const waSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
   const waLink = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/(^|[\s>])\*([^*\n<]+)\*(?=$|[\s<.,!?])/g, '$1<b>$2</b>').replace(/\n/g, '<br>');
   const WA_TICK = { sending: '🕓', sent: '✓', delivered: '✓✓', read: '✓✓', failed: '⚠' };
+  // Which app a chat is on: a small logo on every chat (WhatsApp, Instagram Direct, Messenger).
+  const SM_NAME = { wa: 'WhatsApp', ig: 'Instagram', fb: 'Messenger' };
+  const SM_LOGO = {
+    wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#25D366"/><path d="M12 5.2a6.8 6.8 0 0 0-5.9 10.2l-.9 3.4 3.5-.9A6.8 6.8 0 1 0 12 5.2z" fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.6 8.9c.2-.4.5-.4.7-.1l.5 1.1c.1.2 0 .4-.1.6l-.3.3c.4.8 1 1.4 1.8 1.8l.3-.3c.2-.2.4-.2.6-.1l1.1.5c.3.2.3.5-.1.7-.7.4-1.6.3-2.6-.3-1-.6-1.8-1.4-2.4-2.4-.6-1-.6-1.9-.3-2.6z" fill="#fff"/></svg>',
+    ig: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="smIg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".3" stop-color="#FA7E1E"/><stop offset=".6" stop-color="#D62976"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#smIg)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="16" cy="8" r="1" fill="#fff"/></svg>',
+    fb: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="smFb" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0099FF"/><stop offset=".6" stop-color="#A033FF"/><stop offset="1" stop-color="#FF5C87"/></linearGradient></defs><circle cx="12" cy="12" r="12" fill="url(#smFb)"/><path d="M12 5.3c-3.8 0-6.7 2.8-6.7 6.5 0 2 .8 3.7 2.2 4.9v2.1l2-1.1c.8.2 1.6.3 2.5.3 3.8 0 6.7-2.8 6.7-6.2S15.8 5.3 12 5.3z" fill="#fff"/><path d="M7.9 13.8l2.5-2.7 1.6 1.4 2.4-2.6-2.5 2.7-1.6-1.4z" fill="none" stroke="url(#smFb)" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+  };
+  const smLogo = (ch, cls) => SM_LOGO[ch] ? '<span class="sm-logo' + (cls ? ' ' + cls : '') + '" title="' + SM_NAME[ch] + '">' + SM_LOGO[ch] + '</span>' : '';
 
   // Unread badge + a sound (and a notification, if allowed) when a new customer message arrives — on every page.
   function waWatch() {
@@ -1666,7 +1674,7 @@
         document.title = (d.unread ? '(' + d.unread + ') ' : '') + document.title.replace(/^\(\d+\) /, '');
         if (waWatch.last != null && d.lastIn > waWatch.last) {
           waBeep();
-          if (S.route !== 'inbox' && window.Notification && Notification.permission === 'granted') new Notification('New WhatsApp message', { body: 'Open the WhatsApp inbox', icon: '../images/logo.png?v=3' });
+          if (S.route !== 'inbox' && window.Notification && Notification.permission === 'granted') new Notification('New message', { body: 'Open Chats in the dashboard', icon: '../images/logo.png?v=3' });
           if (S.route === 'inbox' && waInbox.refresh) waInbox.refresh();
         }
         waWatch.last = d.lastIn;
@@ -1736,7 +1744,7 @@
     const isNew = c.createdAt && Date.now() - new Date(c.createdAt.replace(' ', 'T') + 'Z') < 86400000;
     const badge = c.returning ? ['⭐', 'Has bought before'] : c.ad ? ['📣', 'Came from an ad'] : isNew ? ['🆕', 'New customer (first message in the last 24 hours)'] : null;
     return '<span class="wa-av" style="background:' + bg + ';color:' + fg + '">' + (ini ? esc(ini) : icon('person')) +
-      (badge ? '<span class="wa-badge" title="' + badge[1] + '">' + badge[0] + '</span>' : '') + '</span>';
+      (badge ? '<span class="wa-badge" title="' + badge[1] + '">' + badge[0] + '</span>' : '') + smLogo(c.channel, 'wa-chn') + '</span>';
   };
   // Quick replies: {name} becomes the customer's first name. Without a usable name (only a number or a
   // single letter), it's left out together with the "يا" before it: "أهلًا يا {name} 👋" → "أهلًا 👋".
@@ -1829,13 +1837,13 @@
   async function pageInbox() {
     const st = waInbox;
     if (!st.view) st.view = can('whatsapp_all') ? 'all' : 'mine';
-    $('#main').innerHTML = '<div class="wa" id="wa"><section class="wa-list"><div class="wa-lh"><div class="row"><h1>WhatsApp</h1><span class="spacer"></span><span id="waMe"></span></div>' +
-      '<div class="seg wa-tabs" id="waTabs"></div><input type="search" id="waQ" placeholder="Search name or number" value="' + esc(st.q) + '"></div><div class="wa-items" id="waItems"><div class="muted small" style="padding:16px">Loading…</div></div></section>' +
+    $('#main').innerHTML = '<div class="wa" id="wa"><section class="wa-list"><div class="wa-lh"><div class="row"><h1>Chats</h1><span class="spacer"></span><span id="waMe"></span></div>' +
+      '<div class="seg wa-tabs" id="waTabs"></div><div class="wa-chs" id="waChs" hidden></div><input type="search" id="waQ" placeholder="Search name, number or @username" value="' + esc(st.q) + '"></div><div class="wa-items" id="waItems"><div class="muted small" style="padding:16px">Loading…</div></div></section>' +
       '<section class="wa-chat" id="waChat"><div class="wa-empty">' + icon('chat') + '<div>Choose a chat</div></div></section></div>';
     let qt;
     $('#waQ').oninput = (e) => { clearTimeout(qt); qt = setTimeout(() => { st.q = e.target.value; loadList(); }, 300); };
     const loadList = async () => {
-      const d = await api('wa_chats', { query: '&view=' + st.view + '&q=' + encodeURIComponent(st.q) });
+      const d = await api('wa_chats', { query: '&view=' + st.view + '&q=' + encodeURIComponent(st.q) + '&ch=' + (st.ch || '') });
       if (S.route !== 'inbox') return;
       st.data = d;
       renderTabs(); renderList();
@@ -1847,6 +1855,12 @@
       const tabs = [['mine', 'Mine', c.mine.unread || ''], ['unassigned', 'Unassigned', c.unassigned || '']].concat(me.all ? [['waiting', 'Waiting', c.waiting || ''], ['all', 'All', '']] : [['all', 'All', '']]).concat([['closed', 'Closed', '']]);
       $('#waTabs').innerHTML = tabs.map(([k, l, n]) => '<button data-v="' + k + '" class="' + (st.view === k ? 'on' : '') + '"><span>' + l + '</span>' + (n ? ' <span class="seg-n">' + n + '</span>' : '') + '</button>').join('');
       $$('#waTabs button').forEach((b) => b.onclick = () => { st.view = b.dataset.v; loadList(); });
+      // WhatsApp / Instagram / Messenger: shown once more than one app is connected or has chats.
+      const chs = st.data.channels || [], cb = $('#waChs');
+      cb.hidden = chs.length < 2;
+      cb.innerHTML = chs.length < 2 ? '' : '<button data-ch="" class="' + (!st.ch ? 'on' : '') + '"><span>All</span></button>' +
+        chs.map((k) => '<button data-ch="' + k + '" class="' + (st.ch === k ? 'on' : '') + '">' + smLogo(k) + '<span>' + SM_NAME[k] + '</span></button>').join('');
+      $$('#waChs button').forEach((b) => b.onclick = () => { st.ch = b.dataset.ch; loadList(); });
       $('#waMe').innerHTML = (!st.data.ready ? '<span class="pill warn" title="Settings → WhatsApp">Not connected</span> ' : '') +
         (me.agent ? '<label class="row small wa-away"><input type="checkbox" id="waAway"' + (me.away ? '' : ' checked') + '> <span>Taking chats</span></label>' : '') +
         (window.Notification && Notification.permission === 'default' ? ' <button class="btn sm" id="waNotif" title="Get a notification for new messages">🔔</button>' : '') +
@@ -1915,7 +1929,9 @@
       st.headKey = JSON.stringify([c.assignedTo, c.status, c.name]);
       const agents = (st.data && st.data.agents) || [];
       $('#waHead').innerHTML = '<button class="btn sm wa-back" id="waBack" aria-label="Back">' + icon('back') + '</button>' +
-        waAvatar(c) + '<div class="wa-who"><b>' + esc(c.name) + '</b><small><span dir="ltr">' + esc(c.phone) + '</span>' + (c.profileName && c.profileName !== c.name ? ' · <span>WhatsApp name:</span> ' + esc(c.profileName) : '') + '</small></div>' +
+        waAvatar(c) + '<div class="wa-who"><b>' + esc(c.name) + '</b><small class="wa-via">' + smLogo(c.channel) +
+          (c.channel === 'wa' ? '<span dir="ltr">' + esc(c.phone) + '</span>' + (c.profileName && c.profileName !== c.name ? ' · <span>WhatsApp name:</span> ' + esc(c.profileName) : '')
+            : '<span>' + SM_NAME[c.channel] + '</span>' + (c.handle ? ' · <a dir="ltr" href="https://instagram.com/' + encodeURIComponent(c.handle) + '" target="_blank" rel="noopener">@' + esc(c.handle) + '</a>' : '') + (c.profileName && c.profileName !== c.name ? ' · ' + esc(c.profileName) : '')) + '</small></div>' +
         '<span class="spacer"></span>' +
         (all ? '<label class="wa-handled"><span>Handled by</span><select id="waAssign" title="Who handles this chat"><option value="">Unassigned</option>' + agents.map((a) => '<option value="' + a.id + '"' + (a.id === c.assignedTo ? ' selected' : '') + '>' + esc(a.name) + (a.away ? ' (away)' : '') + '</option>').join('') +
             (c.assignedTo && !agents.some((a) => a.id === c.assignedTo) ? '<option value="' + c.assignedTo + '" selected>' + esc(c.agent || '') + '</option>' : '') + '</select></label>'
@@ -2031,6 +2047,11 @@
     const renderCompose = () => {
       const c = st.chat;
       st.composeOpen = c.windowOpen;
+      if (!c.windowOpen && c.channel !== 'wa') {
+        // Instagram and Messenger: no templates, so nothing can be sent until the customer writes again.
+        $('#waCompose').innerHTML = '<div class="wa-closed">' + icon('clock') + '<span>More than 24 hours since the customer’s last message, so Instagram and Messenger don’t allow a reply. The chat opens again as soon as the customer writes.</span></div>';
+        return;
+      }
       if (!c.windowOpen) {
         // After 24 hours only an approved template can be sent (Settings → WhatsApp → Message templates).
         $('#waCompose').innerHTML = '<div class="wa-quick wa-prods wa-tpls" id="waTplList" hidden></div><div class="wa-closed">' + icon('clock') + '<span>More than 24 hours since the customer’s last message, so WhatsApp only allows an approved template. The chat opens again as soon as the customer writes.</span>' +
@@ -2063,11 +2084,12 @@
       const touchKeys = matchMedia('(pointer: coarse)').matches; // a phone or tablet keyboard
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
       $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div><div class="wa-quick wa-prods" id="waProdList" hidden></div>' +
-        '<div class="wa-cbar"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
+        '<div class="wa-cbar' + (c.channel === 'wa' ? '' : ' no-mic') + '"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
-        '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"></label>' +
+        '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="' + (c.channel === 'ig' ? 'image/jpeg,image/png,image/gif,video/mp4,video/quicktime,.pdf' : 'image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt') + '"></label>' +
         '<textarea id="waText" rows="1" dir="auto" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
-        '<button class="btn sm" id="waMic" title="Record a voice note" aria-label="Record a voice note">' + icon('mic') + '</button>' +
+        // Voice notes are recorded in WhatsApp's format, which Instagram and Messenger don't play.
+        (c.channel === 'wa' ? '<button class="btn sm" id="waMic" title="Record a voice note" aria-label="Record a voice note">' + icon('mic') + '</button>' : '') +
         '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
         '<div class="wa-window small muted">Free replies for about ' + left + ' more hour' + (left === 1 ? '' : 's') + '</div>';
       const ta = $('#waText');
@@ -2132,7 +2154,7 @@
         e.target.value = '';
       };
       // Voice note: record, then send (or bin it). Sent as a WhatsApp voice message (Ogg/Opus; iPhones record M4A).
-      $('#waMic').onclick = async () => {
+      if ($('#waMic')) $('#waMic').onclick = async () => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { toast('This browser can’t record voice notes.', true); return; }
         let stream;
         try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }); } catch (e) { toast('Allow the microphone to record a voice note.', true); return; }
@@ -2483,7 +2505,8 @@
     $('#psRe').onclick = () => pageSettings(false);
     const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
     $('#main').insertAdjacentHTML('beforeend', '<div class="card stack" id="adTrack" style="gap:14px;margin-top:16px"><div class="muted small">Checking ad tracking…</div></div>' +
-      '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>');
+      '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>' +
+      '<div class="card stack" id="smSettings" style="gap:14px;margin-top:16px" hidden></div>');
     adTrackCard();
     waSettings(false);
     problemsCard();
@@ -2602,11 +2625,49 @@
       try { await api('wa_subscribe', { method: 'POST', body: { waba: b.dataset.sub } }); toast('Webhook connected'); waSettings(true); } catch (e) { toast(e.message, true); }
     });
     waTemplatesCard();
+    smSettings(d.social, !!d.live);
     $('#waSave').onclick = async () => {
       const agents = d.users.map((u) => ({ id: u.id, agent: $('[data-agent="' + u.id + '"]').checked, away: $('[data-away="' + u.id + '"]').checked }));
       try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value, tg_remind_managers: $('#tgMgr') ? ($('#tgMgr').checked ? 1 : 0) : undefined, tg_daily: $('#tgDaily') ? ($('#tgDaily').checked ? 1 : 0) : undefined } }); toast('WhatsApp settings saved'); }
       catch (e) { toast(e.message, true); }
     };
+  }
+
+  // Instagram Direct and Messenger in the same inbox (api/social.php): what's set up, and the steps left.
+  function smSettings(s, live) {
+    const box = $('#smSettings'); if (!box || !s) return;
+    box.hidden = false;
+    const ok = (b) => b ? '<span class="pill good">✓</span>' : '<span class="pill bad">✕ Missing</span>';
+    const step = (okv, title, todo) => '<div class="li" style="align-items:flex-start"><span><b>' + (okv ? '✓ ' : okv === false ? '✕ ' : '• ') + esc(title) + '</b>' + (okv ? '' : '<div class="small muted" style="margin-top:3px">' + todo + '</div>') + '</span>' +
+      '<span>' + (okv ? '<span class="pill good">Done</span>' : okv === false ? '<span class="pill bad">To do</span>' : '<span class="pill">Check</span>') + '</span></div>';
+    const note = s.lastNote;
+    box.innerHTML = '<h2 class="row" style="gap:8px">' + smLogo('ig') + smLogo('fb') + '<span>Instagram &amp; Messenger</span><span class="spacer"></span>' + (s.ready ? '<span class="pill good">✓ Connected</span>' : '<span class="pill warn">Not connected yet</span>') + '</h2>' +
+      '<div class="hint">Instagram Direct messages and Facebook Messenger chats come into the same Chats page as WhatsApp, each marked with its app’s logo. They’re handed out, timed and alerted on Telegram just like WhatsApp chats.</div>' +
+      '<div class="list">' +
+        '<div class="li"><span>Facebook Page ID</span><span>' + ok(s.pageId) + '</span></div>' +
+        '<div class="li"><span>Page access key (token)</span><span>' + ok(s.pageToken) + '</span></div>' +
+        '<div class="li"><span>App secret (WhatsApp’s, unless the Page uses another Meta app)</span><span>' + ok(s.appSecret) + '</span></div>' +
+        (s.page != null ? '<div class="li"><span>Page</span><span><b>' + esc(s.page) + '</b></span></div>' : '') +
+        (live && s.ready ? '<div class="li"><span>Instagram account linked to the Page</span><span>' + (s.instagram ? '<b dir="ltr">@' + esc(s.instagram) + '</b>' : '<span class="pill bad">✕ None</span>') + '</span></div>' : '') +
+        s.errors.map((e) => '<div class="li"><span>Connection</span><span class="pill bad">✕ ' + esc(e) + '</span></div>').join('') +
+        '<div class="li"><span>Last message from Instagram or Messenger</span><span>' + (s.lastWebhook ? dateTime(s.lastWebhook) : '<span class="muted">none yet</span>') + '</span></div>' +
+        (note ? '<div class="li"><span>Last message result · ' + dateTime(note.at) + (note.kind === 'error' ? '<div class="small muted">' + esc(note.error || '') + '</div>' : '') + '</span>' +
+          (note.kind === 'saved' ? '<span class="pill good">✓ Saved · ' + esc(SM_NAME[note.channel] || '') + '</span>' : '<span class="pill bad">✕ Couldn’t save</span>') + '</div>' : '') +
+        '<div class="li"><span>Chats so far</span><span>' + smLogo('ig') + ' ' + s.chats.ig + ' · ' + smLogo('fb') + ' ' + s.chats.fb + '</span></div>' +
+      '</div>' +
+      (live && s.ready ? '<h3 style="margin:10px 0 0">Go-live checklist</h3><div class="list">' +
+        step(s.page != null && !s.errors.length, 'Meta accepts the Page ID and access key', 'Check page_id and page_token in the “social” block of api/config.local.php.') +
+        step(s.instagram ? true : false, 'Your Instagram account is linked to the Page', 'In the Instagram app: Settings → Account type and tools → switch to a Professional (Business) account, then Meta Business Suite → Settings → Instagram → Connect account, choosing this Page. Also turn on Instagram → Settings → Messages and story replies → Message controls → Connected tools → Allow access to messages.') +
+        step(s.subscribed, 'Messages are sent to this dashboard', 'Press Connect. Also check Meta for Developers → your app → Webhooks: “Page” and “Instagram” both use the address below with the WhatsApp verify token, with “messages” ticked.' +
+          '<div class="row" style="margin-top:6px"><button class="btn sm" id="smSub">Connect</button></div>') +
+        step(s.lastWebhook ? true : null, 'A real message arrived', 'Message the Page on Messenger and the Instagram account from your own phone, then press Check again. They should appear in Chats with their logos.') +
+      '</div>' : '') +
+      '<div class="list"><div class="li"><span>Webhook address (Meta → your app → Webhooks → Page and Instagram)</span><span><code dir="ltr">' + esc(s.webhook) + '</code></span></div></div>' +
+      '<div class="row"><button class="btn" id="smTest"' + (s.ready ? '' : ' disabled title="Add the Page ID and access key first"') + '>Test Instagram &amp; Messenger</button></div>' +
+      '<div class="hint">' + (s.ready ? 'The test asks Meta about your Page, Instagram account and webhook. Nothing is sent to customers.'
+        : 'Add the “social” block to api/config.local.php on the server (see config.local.example.php): the Page ID and a Page access key with pages_messaging, pages_manage_metadata, instagram_basic and instagram_manage_messages. Meta must approve the app for these before customers’ messages arrive.') + '</div>';
+    const t = $('#smTest'); if (t) t.onclick = async () => { t.disabled = true; t.textContent = 'Checking…'; await waSettings(true); };
+    const sb = $('#smSub'); if (sb) sb.onclick = async () => { sb.disabled = true; try { await api('sm_subscribe', { method: 'POST' }); toast('Connected'); await waSettings(true); } catch (e) { toast(e.message, true); sb.disabled = false; } };
   }
 
   // What still stands between the number and real customer chats, in order, each with what to do.
