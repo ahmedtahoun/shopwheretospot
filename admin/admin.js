@@ -2649,7 +2649,8 @@
         '<div class="li"><span>App secret (WhatsApp’s, unless the Page uses another Meta app)</span><span>' + ok(s.appSecret) + '</span></div>' +
         (s.page != null ? '<div class="li"><span>Page</span><span><b>' + esc(s.page) + '</b></span></div>' : '') +
         (live && s.ready ? '<div class="li"><span>Instagram account linked to the Page</span><span>' + (s.instagram ? '<b dir="ltr">@' + esc(s.instagram) + '</b>' : '<span class="pill bad">✕ None</span>') + '</span></div>' : '') +
-        s.errors.map((e) => '<div class="li"><span>Connection</span><span class="pill bad">✕ ' + esc(e) + '</span></div>').join('') +
+        // Meta's errors can be long: shown under the label, wrapping, instead of in a one-line pill.
+        s.errors.map((e) => '<div class="li" style="align-items:flex-start"><span>Connection<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(e) + '</div></span><span class="pill bad">✕</span></div>').join('') +
         '<div class="li"><span>Last message from Instagram or Messenger</span><span>' + (s.lastWebhook ? dateTime(s.lastWebhook) : '<span class="muted">none yet</span>') + '</span></div>' +
         (note ? '<div class="li"><span>Last message result · ' + dateTime(note.at) + (note.kind === 'error' ? '<div class="small muted">' + esc(note.error || '') + '</div>' : '') + '</span>' +
           (note.kind === 'saved' ? '<span class="pill good">✓ Saved · ' + esc(SM_NAME[note.channel] || '') + '</span>' : '<span class="pill bad">✕ Couldn’t save</span>') + '</div>' : '') +
