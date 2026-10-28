@@ -482,9 +482,20 @@ function sm_status(bool $live): array
     $out = ['pageId' => !empty($c['page_id']), 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
         'verifyToken' => (bool) (($c['verify_token'] ?? '') ?: wa_cfg('verify_token')), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php',
         'lastWebhook' => wa_setting('sm_last_webhook', null), 'lastNote' => wa_setting('sm_last_note', null),
-        'chats' => ['ig' => 0, 'fb' => 0], 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
+        'chats' => ['ig' => 0, 'fb' => 0], 'token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
     foreach (db()->query("SELECT channel, COUNT(*) n FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY channel") as $r) $out['chats'][$r['channel']] = (int) $r['n'];
     if (!$live || !sm_ready()) return $out;
+    // What the key in config.local.php is allowed to do, so a missing permission is named, not guessed.
+    try {
+        $given = (string) $c['page_token'];
+        $t = sm_call('GET', '/debug_token?input_token=' . rawurlencode($given), null, $given)['data'] ?? [];
+        $scopes = array_values((array) ($t['scopes'] ?? []));
+        $need = ['pages_messaging', 'pages_manage_metadata', 'pages_show_list', 'pages_read_engagement', 'instagram_basic', 'instagram_manage_messages'];
+        $pages = [];
+        foreach ((array) ($t['granular_scopes'] ?? []) as $g) if (($g['scope'] ?? '') === 'pages_messaging') $pages = array_map('strval', (array) ($g['target_ids'] ?? []));
+        $out['token'] = ['type' => (string) ($t['type'] ?? ''), 'valid' => !empty($t['is_valid']), 'expires' => (int) ($t['expires_at'] ?? 0),
+            'missing' => array_values(array_diff($need, $scopes)), 'pageAllowed' => !$pages || in_array((string) $c['page_id'], $pages, true), 'app' => (string) ($t['application'] ?? '')];
+    } catch (Throwable $e) { $out['errors'][] = 'Token check: ' . $e->getMessage(); }
     try {
         $p = sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '?fields=name,instagram_business_account{username,name}');
         $out['page'] = (string) ($p['name'] ?? '');

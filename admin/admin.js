@@ -2648,6 +2648,12 @@
         '<div class="li"><span>Page access key (token)</span><span>' + ok(s.pageToken) + '</span></div>' +
         '<div class="li"><span>App secret (WhatsApp’s, unless the Page uses another Meta app)</span><span>' + ok(s.appSecret) + '</span></div>' +
         (s.page != null ? '<div class="li"><span>Page</span><span><b>' + esc(s.page) + '</b></span></div>' : '') +
+        // The key's own permissions, from Meta: names exactly what to tick when generating it again.
+        (s.token ? '<div class="li" style="align-items:flex-start"><span>Access key permissions' + (s.token.app ? ' <span class="small muted">· app ' + esc(s.token.app) + '</span>' : '') +
+          (s.token.missing.length ? '<div class="small err" style="margin-top:3px">Missing: <b>' + s.token.missing.map(esc).join(', ') + '</b>. Generate the token again with these ticked (add them to the app first if they aren’t in the list).</div>' : '') +
+          (!s.token.pageAllowed ? '<div class="small err" style="margin-top:3px">This key can’t message this Page: give the system user the Page (Assign assets → Pages → Full control) and generate it again.</div>' : '') +
+          (s.token.expires ? '<div class="small muted" style="margin-top:3px">Expires ' + esc(new Date(s.token.expires * 1000).toLocaleString(LOC)) + ' — choose “Never” when generating it.</div>' : '') + '</span>' +
+          '<span>' + (s.token.valid && !s.token.missing.length && s.token.pageAllowed ? '<span class="pill good">✓ All set</span>' : '<span class="pill bad">✕ Fix</span>') + '</span></div>' : '') +
         (live && s.ready ? '<div class="li"><span>Instagram account linked to the Page</span><span>' + (s.instagram ? '<b dir="ltr">@' + esc(s.instagram) + '</b>' : '<span class="pill bad">✕ None</span>') + '</span></div>' : '') +
         // Meta's errors can be long: shown under the label, wrapping, instead of in a one-line pill.
         s.errors.map((e) => '<div class="li" style="align-items:flex-start"><span>Connection<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(e) + '</div></span><span class="pill bad">✕</span></div>').join('') +
