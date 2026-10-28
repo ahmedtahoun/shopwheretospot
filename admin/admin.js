@@ -2647,7 +2647,7 @@
         '<div class="li"><span>Facebook Page ID</span><span>' + ok(s.pageId) + '</span></div>' +
         '<div class="li"><span>Page access key (token)</span><span>' + ok(s.pageToken) + '</span></div>' +
         '<div class="li"><span>App secret (WhatsApp’s, unless the Page uses another Meta app)</span><span>' + ok(s.appSecret) + '</span></div>' +
-        (s.page != null ? '<div class="li"><span>Page</span><span><b>' + esc(s.page) + '</b></span></div>' : '') +
+        (s.page ? '<div class="li"><span>Page</span><span><b>' + esc(s.page) + '</b></span></div>' : '') +
         // The key's own permissions, from Meta: names exactly what to tick when generating it again.
         (s.token ? '<div class="li" style="align-items:flex-start"><span>Access key permissions' + (s.token.app ? ' <span class="small muted">· app ' + esc(s.token.app) + '</span>' : '') +
           (s.token.missing.length ? '<div class="small err" style="margin-top:3px">Missing: <b>' + s.token.missing.map(esc).join(', ') + '</b>. Generate the token again with these ticked (add them to the app first if they aren’t in the list).</div>' : '') +
@@ -2663,7 +2663,7 @@
         '<div class="li"><span>Chats so far</span><span>' + smLogo('ig') + ' ' + s.chats.ig + ' · ' + smLogo('fb') + ' ' + s.chats.fb + '</span></div>' +
       '</div>' +
       (live && s.ready ? '<h3 style="margin:10px 0 0">Go-live checklist</h3><div class="list">' +
-        step(s.page != null && !s.errors.length, 'Meta accepts the Page ID and access key', 'Check page_id and page_token in the “social” block of api/config.local.php.') +
+        step(s.token ? s.token.valid && s.token.pageAllowed : s.page != null, 'Meta accepts the Page ID and access key', 'Check page_id and page_token in the “social” block of api/config.local.php.') +
         step(s.instagram ? true : false, 'Your Instagram account is linked to the Page', 'In the Instagram app: Settings → Account type and tools → switch to a Professional (Business) account, then Meta Business Suite → Settings → Instagram → Connect account, choosing this Page. Also turn on Instagram → Settings → Messages and story replies → Message controls → Connected tools → Allow access to messages.') +
         step(s.subscribed, 'Messages are sent to this dashboard', 'Press Connect. Also check Meta for Developers → your app → Webhooks: “Page” and “Instagram” both use the address below with the WhatsApp verify token, with “messages” ticked.' +
           '<div class="row" style="margin-top:6px"><button class="btn sm" id="smSub">Connect</button></div>') +

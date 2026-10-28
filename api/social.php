@@ -486,21 +486,36 @@ function sm_status(bool $live): array
     foreach (db()->query("SELECT channel, COUNT(*) n FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY channel") as $r) $out['chats'][$r['channel']] = (int) $r['n'];
     if (!$live || !sm_ready()) return $out;
     // What the key in config.local.php is allowed to do, so a missing permission is named, not guessed.
+    // pages_read_engagement isn't needed for messages (only for the Page's name), so it's not required.
+    $igIds = [];
     try {
         $given = (string) $c['page_token'];
         $t = sm_call('GET', '/debug_token?input_token=' . rawurlencode($given), null, $given)['data'] ?? [];
         $scopes = array_values((array) ($t['scopes'] ?? []));
-        $need = ['pages_messaging', 'pages_manage_metadata', 'pages_show_list', 'pages_read_engagement', 'instagram_basic', 'instagram_manage_messages'];
+        $need = ['pages_messaging', 'pages_manage_metadata', 'pages_show_list', 'instagram_basic', 'instagram_manage_messages'];
         $pages = [];
-        foreach ((array) ($t['granular_scopes'] ?? []) as $g) if (($g['scope'] ?? '') === 'pages_messaging') $pages = array_map('strval', (array) ($g['target_ids'] ?? []));
+        foreach ((array) ($t['granular_scopes'] ?? []) as $g) {
+            if (($g['scope'] ?? '') === 'pages_messaging') $pages = array_map('strval', (array) ($g['target_ids'] ?? []));
+            // The Instagram accounts this key may message: how we find the linked account without reading the Page.
+            if (in_array($g['scope'] ?? '', ['instagram_manage_messages', 'instagram_basic'], true)) $igIds = array_merge($igIds, array_map('strval', (array) ($g['target_ids'] ?? [])));
+        }
         $out['token'] = ['type' => (string) ($t['type'] ?? ''), 'valid' => !empty($t['is_valid']), 'expires' => (int) ($t['expires_at'] ?? 0),
             'missing' => array_values(array_diff($need, $scopes)), 'pageAllowed' => !$pages || in_array((string) $c['page_id'], $pages, true), 'app' => (string) ($t['application'] ?? '')];
     } catch (Throwable $e) { $out['errors'][] = 'Token check: ' . $e->getMessage(); }
+    // The Page's name and linked Instagram account: from the Page when allowed, else from the Instagram account(s) on the key.
     try {
         $p = sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '?fields=name,instagram_business_account{username,name}');
         $out['page'] = (string) ($p['name'] ?? '');
         $out['instagram'] = isset($p['instagram_business_account']['username']) ? (string) $p['instagram_business_account']['username'] : null;
-    } catch (Throwable $e) { $out['errors'][] = $e->getMessage(); }
+    } catch (Throwable $e) {
+        try { $out['page'] = (string) (sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '?fields=name')['name'] ?? ''); } catch (Throwable $e2) {}
+    }
+    if ($out['instagram'] === null) {
+        foreach (array_unique($igIds) as $id) {
+            try { $u = (string) (sm_graph('GET', '/' . rawurlencode($id) . '?fields=username')['username'] ?? ''); if ($u !== '') { $out['instagram'] = $u; break; } }
+            catch (Throwable $e) { $out['errors'][] = 'Instagram account: ' . $e->getMessage(); }
+        }
+    }
     try {
         $apps = sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '/subscribed_apps')['data'] ?? [];
         $fields = [];
