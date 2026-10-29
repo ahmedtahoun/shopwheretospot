@@ -18,7 +18,8 @@ function bot_migrate(PDO $pdo): void
 {
     $cols = array_column($pdo->query('PRAGMA table_info(wa_chats)')->fetchAll(), 'name');
     // bot: '' = not started, 'on' = the bot has the chat, 'human' = handed to the team (since bot_at).
-    foreach (['bot' => "TEXT NOT NULL DEFAULT ''", 'bot_at' => 'TEXT', 'bot_fails' => 'INTEGER NOT NULL DEFAULT 0', 'bot_lang' => "TEXT NOT NULL DEFAULT ''"] as $col => $type) {
+    // bot_wait: 'order' = the bot asked for an order number and the next message may be it.
+    foreach (['bot' => "TEXT NOT NULL DEFAULT ''", 'bot_at' => 'TEXT', 'bot_fails' => 'INTEGER NOT NULL DEFAULT 0', 'bot_lang' => "TEXT NOT NULL DEFAULT ''", 'bot_wait' => "TEXT NOT NULL DEFAULT ''"] as $col => $type) {
         if (!in_array($col, $cols, true)) $pdo->exec("ALTER TABLE wa_chats ADD COLUMN $col $type");
     }
     $pdo->exec("CREATE TABLE IF NOT EXISTS bot_events (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL REFERENCES wa_chats(id) ON DELETE CASCADE,
@@ -59,10 +60,11 @@ function bot_defaults(): array
                 'keywords' => 'اطلب, عايز اطلب, عاوز اطلب, اشتري, احجز, atlob, a3mel order, order now, buy, purchase',
                 'answer' => ['ar' => "تقدر تطلب أونلاين في دقيقة 👇\n{shop}\nاختار المنتج، اكتب عنوانك، وادفع عند الاستلام أو أونلاين.\nلو حابب نساعدك في الطلب، اختار «كلّم فريقنا».",
                     'en' => "You can order online in a minute 👇\n{shop}\nPick the product, add your address, and pay on delivery or online.\nIf you’d like help with the order, choose “Talk to us”."]],
-            ['id' => 'track', 'action' => 'human', 'title' => ['ar' => '📦 طلبي فين؟', 'en' => '📦 My order'],
-                'keywords' => 'طلبي, الاوردر, اوردري, الشحنه, تتبع, رقم الطلب, el order, my order, track, tracking, where is',
-                'answer' => ['ar' => 'ابعتلنا رقم الطلب أو رقم الموبايل اللي طلبت بيه، وحد من الفريق هيرد عليك بحالة طلبك 📦',
-                    'en' => 'Send us your order number or the phone number you ordered with, and someone from the team will reply with its status 📦']],
+            // 'orders': looks up their orders (api/order-updates.php); the answer is what it says when it needs the order number.
+            ['id' => 'track', 'action' => 'orders', 'title' => ['ar' => '📦 طلبي فين؟', 'en' => '📦 My order'],
+                'keywords' => 'طلبي, الاوردر, اوردري, الشحنه, تتبع, رقم الطلب, هيوصل امتي, وصل فين, el order, my order, track, tracking, where is',
+                'answer' => ['ar' => 'ابعتلنا رقم الطلب (زي WTS-1234) أو رقم الموبايل اللي طلبت بيه 📦',
+                    'en' => 'Send us your order number (like WTS-1234) or the phone number you ordered with 📦']],
             ['id' => 'human', 'action' => 'human', 'title' => ['ar' => '💬 كلّم فريقنا', 'en' => '💬 Talk to us'], 'keywords' => '', 'answer' => ['ar' => '', 'en' => '']],
         ],
         'ads' => [], // ad id => product id: a chat from that ad gets the product first
@@ -145,6 +147,7 @@ function bot_items(array $cfg): array
 
 function bot_lang(string $text, array $chat): string
 {
+    $text = preg_replace('/\bwts\s*-?\s*\d+/i', '', $text); // an order number says nothing about the language
     if (preg_match('/\p{Arabic}/u', $text)) return 'ar';
     // Arabic in Latin letters ("3ayez a3raf el se3r"): they read Arabic.
     if (preg_match('/[a-z][2357]|[2357][a-z]/i', $text)) return 'ar';
@@ -177,8 +180,20 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     $since = time() - max(1, (int) $cfg['pause_hours']) * 3600;
     $fresh = ($chat['bot'] ?? '') !== 'on' || !$chat['last_in_at'] || strtotime($chat['last_in_at'] . ' UTC') < $since;
     $lang = bot_lang(in_array($kind, ['text', 'button', 'interactive'], true) ? $text : '', $chat);
-    $plan = function (string $do, ?array $item, string $how) use ($fresh, &$lang) { return ['do' => $do, 'item' => $item, 'lang' => $lang, 'how' => $how, 'fresh' => $fresh]; };
-    $pick = function (array $it, string $how) use ($plan) { return $plan($it['action'] === 'human' ? 'handover' : 'answer', $it, $how); };
+    $plan = function (string $do, ?array $item, string $how, array $more = []) use ($fresh, &$lang) { return ['do' => $do, 'item' => $item, 'lang' => $lang, 'how' => $how, 'fresh' => $fresh] + $more; };
+    // Their orders: the status of each (with the team following up a problem one), or ask for the order number.
+    $orders = function (?array $it, string $how, array $refs) use ($plan, $chat) {
+        $found = ou_lookup($chat, $refs);
+        // Money (what's due, a payment link) only for the chat's own WhatsApp number, not for a number someone typed.
+        if ($found) return $plan('orders', $it, $how, ['orders' => $found, 'team' => ou_problem($found), 'own' => !$refs['ids'] && !$refs['phone']]);
+        if ($refs['ids'] || $refs['phone']) return $plan('handover', $it, $how, ['say' => 'notfound']);
+        return $plan('ask', $it, $how);
+    };
+    $none = ['ids' => [], 'phone' => null];
+    $pick = function (array $it, string $how) use ($plan, $orders, $none) {
+        if ($it['action'] === 'orders') return $orders($it, $how, $none);
+        return $plan($it['action'] === 'human' ? 'handover' : 'answer', $it, $how);
+    };
     if (strpos($tap, 'bot:') === 0) {
         // The menu came in the chat's language, so the answer does too.
         if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang'];
@@ -191,13 +206,19 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     if (!in_array($kind, ['text', 'button', 'interactive'], true)) return $plan('handover', null, $kind);
     $norm = bot_norm($text);
     if ($norm === '') return $fresh ? $plan('welcome', null, 'first') : null;
+    // An order number (or, once asked, a phone number): straight to its status.
+    $refs = ou_refs($text);
+    $track = null;
+    foreach ($items as $it) if ($it['action'] === 'orders') $track = $it;
+    if ($track && ($refs['ids'] || (!$fresh && ($chat['bot_wait'] ?? '') === 'order' && $refs['phone']))) return $orders($track, 'number', $refs);
     if (bot_has($norm, (string) $cfg['human_words'])) return $plan('handover', null, 'words');
     // "2": the second line of the menu.
     if (!$fresh && preg_match('/^\d{1,2}$/', $norm) && isset($items[(int) $norm - 1])) return $pick($items[(int) $norm - 1], 'number');
     if ($it = bot_match($norm, $items)) return $pick($it, 'keyword');
     $short = count(explode(' ', $norm)) <= 4;
+    // "Thanks" after an order update or an answer: nothing to add, even at the start of a conversation.
+    if ($short && bot_has($norm, BOT_THANKS) && !bot_has($norm, BOT_HELLO)) return $plan('ignore', null, 'thanks');
     if ($fresh || ($short && bot_has($norm, BOT_HELLO))) return $plan('welcome', null, $fresh ? 'first' : 'hello');
-    if ($short && bot_has($norm, BOT_THANKS)) return $plan('ignore', null, 'thanks');
     if ((int) $chat['bot_fails'] + 1 >= max(1, (int) $cfg['fails'])) return $plan('handover', null, 'not understood');
     return $plan('retry', null, 'not understood');
 }
@@ -212,8 +233,17 @@ function bot_reply(array $plan, array $cfg): array
         case 'welcome': return ['text' => bot_fill((string) $cfg['welcome'][$lang], $ar), 'menu' => true];
         case 'retry': return ['text' => bot_fill((string) $cfg['retry'][$lang], $ar), 'menu' => true];
         case 'handover':
-            $t = $it ? trim((string) ($it['answer'][$lang] ?? '')) : '';
+            if (($plan['say'] ?? '') === 'notfound') return ['text' => $ar ? 'مالقيناش طلب بالرقم ده 🤔 حد من فريقنا هيراجع ويرد عليك.' : 'We couldn’t find an order with that number 🤔 Someone from our team will check and reply.', 'menu' => false];
+            $t = $it && $it['action'] === 'human' ? trim((string) ($it['answer'][$lang] ?? '')) : '';
             return ['text' => bot_fill($t !== '' ? $t : (string) $cfg['handover'][$lang], $ar), 'menu' => false];
+        case 'ask':
+            $t = trim((string) ($it['answer'][$lang] ?? ''));
+            return ['text' => $t !== '' ? $t : ($ar ? 'ابعتلنا رقم الطلب (زي WTS-1234) أو رقم الموبايل اللي طلبت بيه 📦' : 'Send us your order number (like WTS-1234) or the phone number you ordered with 📦'), 'menu' => true];
+        case 'orders':
+            $t = ou_status_text($plan['orders'], $ar, !empty($plan['own']));
+            if ($plan['fresh']) $t = trim(strtok((string) $cfg['welcome'][$lang], "\n")) . "\n\n" . $t;
+            if (!empty($plan['team'])) return ['text' => $t . "\n\n" . (string) $cfg['handover'][$lang], 'menu' => false];
+            return ['text' => $t, 'menu' => true];
         case 'answer':
             $t = bot_fill((string) ($it['answer'][$lang] ?? ''), $ar);
             // The first message of a conversation answered straight away still gets a hello.
@@ -256,10 +286,17 @@ function bot_run(array $chat, array $plan): void
         $r = bot_reply($plan, $cfg);
         if ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg);
     }
-    $state = $plan['do'] === 'handover' ? 'human' : 'on';
+    $state = bot_takes($plan) ? 'on' : 'human';
     $fails = $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0;
-    db()->prepare("UPDATE wa_chats SET bot = ?, bot_at = datetime('now'), bot_fails = ?, bot_lang = ? WHERE id = ?")->execute([$state, $fails, $lang, (int) $chat['id']]);
+    db()->prepare("UPDATE wa_chats SET bot = ?, bot_at = datetime('now'), bot_fails = ?, bot_lang = ?, bot_wait = ? WHERE id = ?")
+        ->execute([$state, $fails, $lang, $plan['do'] === 'ask' ? 'order' : '', (int) $chat['id']]);
     bot_event($chat, $plan['do'], $plan['item']['id'] ?? '', $plan['how']);
+}
+
+// The bot answers this one itself (not waiting, no alert); otherwise the team takes over.
+function bot_takes(?array $plan): bool
+{
+    return $plan && $plan['do'] !== 'handover' && empty($plan['team']);
 }
 
 // Once per chat: a customer coming back another day doesn't get the ad's product again.
@@ -275,10 +312,10 @@ function bot_event(array $chat, string $kind, string $item, string $how): void
     db()->prepare("INSERT INTO bot_events (chat_id, kind, item, how, created_at) VALUES (?, ?, ?, ?, datetime('now'))")->execute([(int) $chat['id'], $kind, $item, $how]);
 }
 
-// The bot's messages say so in the chat ("🤖 Bot" instead of a team member's name).
-function bot_mark(int $messageId): void
+// The bot's messages say so in the chat ("🤖 Bot", "📦 Order update" instead of a team member's name).
+function bot_mark(int $messageId, string $via = BOT_VIA): void
 {
-    db()->prepare('UPDATE wa_messages SET meta = ? WHERE id = ?')->execute([json_encode(['via' => BOT_VIA, 'bot' => 1], JSON_UNESCAPED_UNICODE), $messageId]);
+    db()->prepare('UPDATE wa_messages SET meta = ? WHERE id = ?')->execute([json_encode(['via' => $via, 'bot' => 1], JSON_UNESCAPED_UNICODE), $messageId]);
 }
 
 // A text with the menu under it: a WhatsApp list (one "Menu" button that opens the choices), or
@@ -361,7 +398,7 @@ function bot_clean(array $b): array
             if ($title[$l] === '') fail('Every menu item needs a button in Arabic and in English.');
             if (mb_strlen($title[$l]) > BOT_TITLE_MAX) fail('“' . $title[$l] . '” is too long for a button: at most ' . BOT_TITLE_MAX . ' characters (Instagram’s limit).');
         }
-        $action = ($it['action'] ?? '') === 'human' ? 'human' : 'answer';
+        $action = in_array($it['action'] ?? '', ['human', 'orders'], true) ? $it['action'] : 'answer';
         $answer = $two($it['answer'] ?? [], 3000);
         if ($action === 'answer' && ($answer['ar'] === '' || $answer['en'] === '')) fail('Write the answer for “' . $title['en'] . '” in Arabic and in English.');
         $id = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($it['id'] ?? '')));
@@ -390,7 +427,7 @@ function bot_try(array $b): array
     $cfg = is_array($b['cfg'] ?? null) ? bot_clean($b['cfg']) : bot_cfg();
     $fresh = !empty($b['fresh']);
     $chat = ['id' => 0, 'channel' => in_array($b['channel'] ?? '', ['wa', 'ig', 'fb'], true) ? $b['channel'] : 'wa', 'wa_id' => '', 'waiting_since' => null,
-        'bot' => $fresh ? '' : 'on', 'bot_at' => gmdate('Y-m-d H:i:s'), 'bot_fails' => (int) ($b['fails'] ?? 0), 'bot_lang' => (string) ($b['lang'] ?? ''),
+        'bot' => $fresh ? '' : 'on', 'bot_at' => gmdate('Y-m-d H:i:s'), 'bot_fails' => (int) ($b['fails'] ?? 0), 'bot_lang' => (string) ($b['lang'] ?? ''), 'bot_wait' => (string) ($b['wait'] ?? ''),
         'last_in_at' => $fresh ? null : gmdate('Y-m-d H:i:s'), 'ad_id' => ''];
     // It can be tried before it's switched on.
     $cfg['on'] = true;
@@ -400,5 +437,5 @@ function bot_try(array $b): array
     $r = bot_reply($plan, $cfg);
     return ['do' => $plan['do'], 'how' => $plan['how'], 'item' => $plan['item']['id'] ?? '', 'lang' => $plan['lang'], 'text' => $r['text'],
         'menu' => $r['menu'] ? array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_items($cfg)) : [],
-        'fails' => $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0];
+        'fails' => $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0, 'wait' => $plan['do'] === 'ask' ? 'order' : '', 'team' => !bot_takes($plan)];
 }

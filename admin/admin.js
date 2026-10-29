@@ -2510,9 +2510,11 @@
     $('#main').insertAdjacentHTML('beforeend', '<div class="card stack" id="adTrack" style="gap:14px;margin-top:16px"><div class="muted small">Checking ad tracking…</div></div>' +
       '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>' +
       '<div class="card stack" id="smSettings" style="gap:14px;margin-top:16px" hidden></div>' +
-      '<div class="card stack" id="botSettings" style="gap:14px;margin-top:16px"><div class="muted small">Loading the chat bot…</div></div>');
+      '<div class="card stack" id="botSettings" style="gap:14px;margin-top:16px"><div class="muted small">Loading the chat bot…</div></div>' +
+      '<div class="card stack" id="ouSettings" style="gap:14px;margin-top:16px"></div>');
     adTrackCard();
     botSettings();
+    ouSettings();
     waSettings(false);
     problemsCard();
   }
@@ -2670,10 +2672,10 @@
         '<input type="text" id="botTryT" placeholder="e.g. بكام الكارت؟" style="flex:1;min-width:0"><button class="btn primary">Send</button><button type="button" class="btn" id="botTryNew">Start over</button></form></div>';
     const drawItems = () => {
       $('#botItems').innerHTML = c.items.map((it, i) => '<div class="bot-item" data-i="' + i + '">' +
-        '<div class="row"><b>' + (i + 1) + '</b><select data-f="action"><option value="answer"' + (it.action !== 'human' ? ' selected' : '') + '>Sends the answer</option><option value="human"' + (it.action === 'human' ? ' selected' : '') + '>Hands the chat to the team</option></select>' +
+        '<div class="row"><b>' + (i + 1) + '</b><select data-f="action">' + [['answer', 'Sends the answer'], ['orders', 'Looks up their orders'], ['human', 'Hands the chat to the team']].map(([v, l]) => '<option value="' + v + '"' + ((it.action || 'answer') === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
           '<span class="spacer"></span><button type="button" class="btn sm" data-mv="-1"' + (i ? '' : ' disabled') + ' aria-label="Up">↑</button><button type="button" class="btn sm" data-mv="1"' + (i < c.items.length - 1 ? '' : ' disabled') + ' aria-label="Down">↓</button><button type="button" class="btn sm" data-rm aria-label="Remove">✕</button></div>' +
         '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>Button</span> · <span>' + name + '</span></span><input type="text" data-f="title.' + l + '" maxlength="' + d.titleMax + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '" value="' + esc(it.title[l] || '') + '"></label>').join('') + '</div>' +
-        '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>' + (it.action === 'human' ? 'Message before handing over (optional)' : 'Answer') + '</span> · <span>' + name + '</span></span><textarea rows="4" data-f="answer.' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '">' + esc(it.answer[l] || '') + '</textarea></label>').join('') + '</div>' +
+        '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>' + (it.action === 'human' ? 'Message before handing over (optional)' : it.action === 'orders' ? 'When it can’t find their orders, it asks' : 'Answer') + '</span> · <span>' + name + '</span></span><textarea rows="4" data-f="answer.' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '">' + esc(it.answer[l] || '') + '</textarea></label>').join('') + '</div>' +
         '<label class="field"><span>Keywords (comma between them)</span><input type="text" data-f="keywords" value="' + esc(it.keywords || '') + '"></label></div>').join('');
       $('#botAdd').disabled = c.items.length >= d.maxItems;
       $$('#botItems .bot-item').forEach((el) => {
@@ -2706,7 +2708,7 @@
       botSettings(Object.assign({}, d, { cfg: Object.assign({}, d.defaults, { on: $('#botOn').checked, ads: c.ads }) }));
     };
     // Try it: a pretend chat with its own state (a new conversation, failed guesses, the menu's language).
-    let t = { fresh: true, fails: 0, lang: '', human: false };
+    let t = { fresh: true, fails: 0, lang: '', wait: '', human: false };
     const msgs = $('#botMsgs');
     const say = (who, html) => { msgs.insertAdjacentHTML('beforeend', '<div class="bot-b ' + who + '">' + html + '</div>'); msgs.scrollTop = msgs.scrollHeight; };
     const NOTE = { handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
@@ -2714,15 +2716,47 @@
       say('in', '<div class="wa-text">' + esc(text) + '</div>');
       if (t.human) { say('note', '<span>The team has this chat now, so the bot stays quiet.</span>'); return; }
       let r;
-      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, channel: $('#botTryCh').value } }); }
+      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, wait: t.wait, channel: $('#botTryCh').value } }); }
       catch (e) { say('note', esc(e.message)); return; }
       if (r.text) say('out', '<div class="wa-text">' + waLink(r.text) + '</div>' + (r.menu.length ? '<div class="bot-menu">' + r.menu.map((m) => '<button type="button" class="btn sm" data-tap="' + esc(m.id) + '">' + esc(m.title) + '</button>').join('') + '</div>' : ''));
-      if (NOTE[r.do]) say('note', '<span>' + NOTE[r.do] + '</span>');
-      if (r.do !== 'none') { t.fresh = false; t.fails = r.fails; t.lang = r.lang; t.human = r.do === 'handover'; }
+      if (NOTE[r.do] || r.team) say('note', '<span>' + NOTE[r.team ? 'handover' : r.do] + '</span>');
+      if (r.do !== 'none') { t.fresh = false; t.fails = r.fails; t.lang = r.lang; t.wait = r.wait; t.human = r.team; }
       $$('[data-tap]', msgs).forEach((b) => b.onclick = () => send(b.textContent, b.dataset.tap));
     };
     $('#botTryF').onsubmit = (e) => { e.preventDefault(); const v = $('#botTryT').value.trim(); if (!v) return; $('#botTryT').value = ''; send(v); };
     $('#botTryNew').onclick = () => { t = { fresh: true, fails: 0, lang: '', human: false }; msgs.innerHTML = ''; };
+  }
+
+  // Settings → Order updates (api/order-updates.php): WhatsApp messages when an order ships, goes out for
+  // delivery, a delivery attempt fails, or it arrives. Free while the customer's chat is open; templates otherwise.
+  async function ouSettings(d) {
+    const box = $('#ouSettings'); if (!box) return;
+    if (!d) { try { d = await api('ou_settings'); } catch (e) { box.innerHTML = '<h2>Order updates on WhatsApp</h2><div class="err">' + esc(e.message) + '</div>'; return; } }
+    const c = d.cfg;
+    const EV = [['shipped', 'Shipped', 'With the Bosta tracking link and what to pay on delivery.'], ['out', 'Out for delivery', 'Keep your phone close, the courier will call.'],
+      ['attempt', 'Delivery attempt failed', 'Reply with a time or address; their answer goes to the team.'], ['delivered', 'Delivered', 'Only as a template: an open chat already gets the review request.']];
+    const TPL = { APPROVED: ['good', '✓ Approved'], PENDING: ['warn', 'Waiting for Meta'], REJECTED: ['bad', '✕ Rejected'], NOT_SUBMITTED: ['', 'Not submitted'] };
+    const tpl = (s) => { const [cls, l] = TPL[s] || ['', s]; return '<span class="pill ' + cls + '">' + l + '</span>'; };
+    const HOW = { text: ['good', 'Sent'], template: ['good', 'Sent as template'], skipped: ['', 'Not sent'] };
+    const sent = d.week.text + d.week.template;
+    box.innerHTML = '<h2>Order updates on WhatsApp<span class="spacer"></span>' + (c.on ? '<span class="pill good">✓ On</span>' : '<span class="pill">Off</span>') + '</h2>' +
+      '<div class="hint">The customer hears about their order without anyone writing, from Bosta’s updates and the status you set. While their chat is open (they wrote in the last 24 hours) it’s a normal message and free. Otherwise WhatsApp only allows an approved template, which Meta charges for, so that has its own switch.</div>' +
+      (!d.ready ? '<div class="hint" style="color:var(--warn)">WhatsApp isn’t connected yet, so nothing is sent.</div>' : '') +
+      (sent + d.week.skipped ? '<div class="small"><span>Last 7 days:</span> <b>' + sent + '</b> <span>sent</span> · <b>' + d.week.skipped + '</b> <span>not sent</span></div>' : '') +
+      '<label class="row"><input type="checkbox" id="ouOn"' + (c.on ? ' checked' : '') + '> <b>Send order updates on WhatsApp</b></label>' +
+      '<div class="table-wrap"><table><thead><tr><th>Update</th><th>Send</th><th>Template (Arabic · English)</th></tr></thead><tbody>' +
+        EV.map(([k, l, h]) => '<tr><td><b>' + l + '</b><div class="small muted">' + h + '</div></td><td><input type="checkbox" data-ev="' + k + '"' + (c.events[k] ? ' checked' : '') + '></td><td>' + tpl(d.templates[k].ar) + ' ' + tpl(d.templates[k].en) + '</td></tr>').join('') +
+      '</tbody></table></div>' +
+      '<label class="row"><input type="checkbox" id="ouTpl"' + (c.templates ? ' checked' : '') + '> <span>Also when the chat is closed, as an approved template (Meta charges per message)</span></label>' +
+      '<div class="hint">Templates not approved yet: Settings → WhatsApp → Message templates → Submit to Meta.</div>' +
+      '<div class="row"><button class="btn primary" id="ouSave">Save order updates</button></div>' +
+      (d.recent.length ? '<h3 style="margin:6px 0 0">Latest</h3><div class="list">' + d.recent.map((r) => '<div class="li"><span><b>' + esc(r.order) + '</b> · <span>' + esc((EV.find((e) => e[0] === r.event) || [0, r.event])[1]) + '</span>' +
+        '<div class="small muted">' + dateTime(r.at) + (r.detail ? ' · <span>' + esc(r.detail) + '</span>' : '') + '</div></span><span class="pill ' + HOW[r.how][0] + '">' + HOW[r.how][1] + '</span></div>').join('') + '</div>' : '');
+    $('#ouSave').onclick = async () => {
+      const events = {}; $$('[data-ev]', box).forEach((x) => events[x.dataset.ev] = x.checked);
+      try { const r = await api('ou_save', { method: 'POST', body: { on: $('#ouOn').checked, templates: $('#ouTpl').checked, events } }); toast('Order updates saved'); ouSettings(r); }
+      catch (e) { toast(e.message, true); }
+    };
   }
 
   // Instagram Direct and Messenger in the same inbox (api/social.php): what's set up, and the steps left.

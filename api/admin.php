@@ -1519,6 +1519,17 @@ try {
         log_activity($u, 'Updated the chat bot', !empty(bot_cfg()['on']) ? 'on' : 'off');
         json_out(bot_settings_out());
 
+    // Settings → Order updates (api/order-updates.php): WhatsApp messages when an order ships, goes out, fails or arrives.
+    case 'ou_settings':
+        require_perm('backups');
+        json_out(ou_settings_out());
+
+    case 'ou_save':
+        $u = require_perm('backups');
+        ou_save(body());
+        log_activity($u, 'Updated order updates on WhatsApp', ou_cfg()['on'] ? 'on' : 'off');
+        json_out(ou_settings_out());
+
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
     case 'wa_register':
         $u = require_perm('backups');

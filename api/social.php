@@ -331,7 +331,7 @@ function sm_store_incoming(string $channel, string $waId, string $person, array 
     $types = array_column((array) ($m['attachments'] ?? []), 'type');
     $plan = in_array('story_mention', $types, true) ? null : bot_plan_safe($chat, array_intersect($types, ['share', 'ig_reel', 'reel', 'ig_post']) ? 'share' : $first, $text,
         (string) ($m['quick_reply']['payload'] ?? $m['_tap'] ?? ''));
-    $bot = $plan && $plan['do'] !== 'handover';
+    $bot = bot_takes($plan);
     db()->prepare("UPDATE wa_chats SET unread = unread + ?, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
         ->execute([$bot ? 0 : 1, $at, $at, mb_substr($preview, 0, 200), $at, $bot ? null : $at, $chat['id']]);
     bot_run_safe(wa_chat_by_wa_id($waId), $plan);

@@ -430,6 +430,8 @@ function bosta_apply_state(int $orderId, int $code, string $note = ''): void
     $before = $o['bosta_state'] === null ? null : (int) $o['bosta_state'];
     $pdo->prepare("UPDATE orders SET bosta_state = ?, bosta_note = ?, bosta_updated_at = datetime('now') WHERE id = ?")
         ->execute([$code, mb_substr($note, 0, 300), $orderId]);
+    // Out for delivery, or a delivery attempt that failed: the customer hears on WhatsApp (api/order-updates.php).
+    if ($code !== $before && in_array($code, [41, 47], true) && function_exists('order_update_queue')) order_update_queue($orderId, $code === 41 ? 'out' : 'attempt');
     $next = bosta_order_status($code);
     if (!$next || $next === $current || $current === 'Cancelled') return;
     if ($next === 'Cancelled') {

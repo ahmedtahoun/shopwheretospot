@@ -301,7 +301,7 @@ function wa_store_incoming(array $m, string $name): void
     // The chat bot (api/bot.php): a message it answers isn't waiting for anyone and alerts nobody.
     $tap = (string) ($m['interactive']['list_reply']['id'] ?? $m['interactive']['button_reply']['id'] ?? '');
     $plan = bot_plan_safe($chat, $kind, $text, $tap);
-    $bot = $plan && $plan['do'] !== 'handover';
+    $bot = bot_takes($plan);
     db()->prepare("UPDATE wa_chats SET unread = unread + ?, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
         ->execute([$bot ? 0 : 1, $at, $at, mb_substr($preview, 0, 200), $at, $bot ? null : $at, $chat['id']]);
     bot_run_safe(wa_chat_by_wa_id($from), $plan);
@@ -678,6 +678,19 @@ const WA_TEMPLATES = [
         'en' => "Hi {{1}},\nYour order {{2}} has shipped with Bosta 🚚 and will reach you in a few days. You can follow the shipment with the button below.",
         'button' => ['var' => 'track', 'ar' => 'تتبع الشحنة', 'en' => 'Track shipment', 'base' => 'https://bosta.co/tracking-shipments?shipment-number=', 'example' => '7234519820'],
     ],
+    // Sent by themselves when Bosta says so (Settings → Order updates, api/order-updates.php), or from the inbox.
+    'wts_out_for_delivery' => [
+        'category' => 'UTILITY', 'vars' => ['name', 'order'], 'needs' => 'shipped',
+        'title' => 'Out for delivery',
+        'ar' => "أهلًا يا {{1}}،\nطلبك رقم {{2}} خرج مع المندوب للتوصيل النهارده 🛵 خلي موبايلك جنبك عشان المندوب يقدر يكلمك.",
+        'en' => "Hi {{1}},\nYour order {{2}} is out for delivery today 🛵 Please keep your phone close so the courier can reach you.",
+    ],
+    'wts_delivery_failed' => [
+        'category' => 'UTILITY', 'vars' => ['name', 'order'], 'needs' => 'shipped',
+        'title' => 'Delivery attempt failed',
+        'ar' => "أهلًا يا {{1}}،\nالمندوب حاول يوصل طلبك رقم {{2}} ومقدرش. رد على الرسالة دي بالوقت أو العنوان المناسب لك، وفريقنا هيرتب التوصيل تاني.",
+        'en' => "Hi {{1}},\nThe courier tried to deliver your order {{2}} but couldn't. Reply to this message with a time or address that suits you, and our team will arrange delivery again.",
+    ],
     'wts_order_delivered' => [
         'category' => 'UTILITY', 'vars' => ['name', 'order'], 'needs' => 'delivered',
         'title' => 'Order delivered',
@@ -798,9 +811,18 @@ function wa_send_template(array $chat, string $name, string $lang, int $userId):
     $opt = null;
     foreach (wa_template_options($chat, $lang) as $o) if ($o['name'] === $name) $opt = $o;
     if (!$opt || !$opt['ready']) throw new ShopError($opt['why'] ?? 'This template can’t be sent.');
-    $components = [['type' => 'body', 'parameters' => array_map(function ($v) { return ['type' => 'text', 'text' => (string) $v]; }, $opt['vals'])]];
-    if ($opt['btn'] !== null) $components[] = ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $opt['btn']]]];
-    $body = $opt['preview'] . ($opt['button'] ? "\n[" . $opt['button'] . ']' : '');
+    return wa_send_template_filled($chat, $name, $lang, $opt['vals'], $opt['btn'], $userId);
+}
+
+// A template with its blanks already chosen (also for automatic order updates, $userId null).
+function wa_send_template_filled(array $chat, string $name, string $lang, array $vals, ?string $btn, ?int $userId): int
+{
+    $t = WA_TEMPLATES[$name];
+    $components = [['type' => 'body', 'parameters' => array_map(function ($v) { return ['type' => 'text', 'text' => (string) $v]; }, $vals)]];
+    if ($btn !== null) $components[] = ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $btn]]];
+    $text = $t[$lang];
+    foreach ($vals as $i => $v) $text = str_replace('{{' . ($i + 1) . '}}', (string) $v, $text);
+    $body = $text . (!empty($t['button']) ? "\n[" . $t['button'][$lang] . ']' : '');
     $id = wa_record_out($chat, '', 'template', $body, [], $userId, 'sending');
     wa_send_later($id, (int) $chat['id'], function () use ($chat, $name, $lang, $components) {
         return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'],
