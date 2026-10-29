@@ -1959,7 +1959,11 @@
       else if (media) inner = '<a class="wa-doc" href="' + media + '" target="_blank" rel="noopener">' + icon('file') + '<span><b>' + esc(m.media.name || 'Document') + '</b><small>' + waSize(m.media.size) + '</small></span></a>';
       else if (['image', 'video', 'audio', 'document'].includes(m.kind)) inner = '<div class="muted small">(' + m.kind + ' not available)</div>';
       if (m.kind === 'reaction') return '<div class="wa-sys">Reacted ' + esc(m.body) + '</div>';
-      const text = m.body ? '<div class="wa-text">' + waLink(m.body) + '</div>' : '';
+      // The bot's buttons (saved as a "☰ A · B · C" line under its text) look like WhatsApp's.
+      let body = m.body || '', btns = '';
+      const cut = m.dir === 'out' ? body.lastIndexOf('\n\n☰ ') : -1;
+      if (cut >= 0) { btns = '<div class="wa-btns">' + body.slice(cut + 4).split(' · ').map((b) => '<span dir="auto">' + esc(b) + '</span>').join('') + '</div>'; body = body.slice(0, cut); }
+      const text = (body ? '<div class="wa-text">' + waLink(body) + '</div>' : '') + btns;
       const ad = m.ad ? '<div class="wa-adref">📣 From ad: <b>' + esc(m.ad.headline || 'Facebook / Instagram ad') + '</b>' + (m.ad.url ? ' · <a href="' + esc(m.ad.url) + '" target="_blank" rel="noopener">view</a>' : '') + '</div>' : '';
       const time = new Date(m.at.replace(' ', 'T') + 'Z').toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' });
       const meta = '<span class="wa-meta">' + (m.dir === 'out' && m.by ? '<span class="wa-by">' + esc(m.by) + ' · </span>' : '') + time +
@@ -2724,7 +2728,7 @@
       let r;
       try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, wait: t.wait, channel: $('#botTryCh').value } }); }
       catch (e) { say('note', esc(e.message)); return; }
-      if (r.text) say('out', '<div class="wa-text">' + waLink(r.text) + '</div>' + (r.menu.length ? '<div class="bot-menu">' + r.menu.map((m) => '<button type="button" class="btn sm" data-tap="' + esc(m.id) + '">' + esc(m.title) + '</button>').join('') + '</div>' : ''));
+      if (r.text) say('out', (r.photo ? '<img class="bot-photo" src="' + esc(thumb(r.photo, 480)) + '" alt="">' : '') + '<div class="wa-text">' + waLink(r.text) + '</div>' + (r.menu.length ? '<div class="bot-menu">' + r.menu.map((m) => '<button type="button" class="btn sm" data-tap="' + esc(m.id) + '">' + esc(m.title) + '</button>').join('') + '</div>' : ''));
       if (NOTE[r.do] || r.team) say('note', '<span>' + NOTE[r.team ? 'handover' : r.do] + '</span>');
       if (r.do !== 'none') { t.fresh = false; t.fails = r.fails; t.lang = r.lang; t.wait = r.wait; t.human = r.team; }
       $$('[data-tap]', msgs).forEach((b) => b.onclick = () => send(b.textContent, b.dataset.tap));

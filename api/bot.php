@@ -50,8 +50,9 @@ function bot_defaults(): array
         'items' => [
             ['id' => 'prices', 'action' => 'answer', 'title' => ['ar' => '💰 الأسعار', 'en' => '💰 Prices'],
                 'keywords' => 'بكام, سعر, السعر, اسعار, الاسعار, كام, تمن, ثمن, bkam, b kam, se3r, el se3r, as3ar, price, prices, cost, how much',
-                'answer' => ['ar' => "أسعار منتجات تقييمات جوجل 👇\n{prices:nfc,stands}\n\nكل المنتجات والأسعار: {shop}",
-                    'en' => "Our Google review products 👇\n{prices:nfc,stands}\n\nEverything we sell: {shop}"]],
+                // {prices:…}: a product the customer names (or the ad's product) goes as its photo card instead.
+                'answer' => ['ar' => "أسعارنا تبدأ من 👇\n{prices:nfc,stands}\n\nقولّي محتاج كارت ولا ستاند، وأبعتلك صورته وسعره 😊",
+                    'en' => "Our prices start from 👇\n{prices:nfc,stands}\n\nTell me if you need a card or a stand, and I’ll send you its photo and price 😊"]],
             ['id' => 'how', 'action' => 'answer', 'title' => ['ar' => '📲 بيشتغل إزاي؟', 'en' => '📲 How it works'],
                 'keywords' => 'ازاي, بيشتغل, يشتغل, طريقه, فكرته, nfc, ان اف سي, ايفون, اندرويد, ezay, izay, bysht8al, byshta8al, how, work, works, iphone, android',
                 'answer' => ['ar' => "الفكرة بسيطة 👌\nعميلك يقرّب موبايله من الكارت أو الستاند، فتفتح له صفحة تقييمك على جوجل على طول، من غير أي تطبيق.\nوالستاند عليه كمان كود QR لأي موبايل مفيهوش NFC.\nبنجهّزه على رابط نشاطك، وتقدر تغيّر الرابط في أي وقت.",
@@ -83,6 +84,9 @@ function bot_cfg(): array
     $cfg = array_replace($d, array_intersect_key($s, $d));
     // Saved before the bot could look orders up: "My order" with its first, unchanged text now does.
     foreach ($cfg['items'] as &$it) {
+        if (($it['id'] ?? '') === 'prices' && ($it['answer']['ar'] ?? '') === "أسعار منتجات تقييمات جوجل 👇\n{prices:nfc,stands}\n\nكل المنتجات والأسعار: {shop}") {
+            foreach ($d['items'] as $def) if ($def['id'] === 'prices') $it['answer'] = $def['answer'];
+        }
         if (($it['id'] ?? '') === 'track' && ($it['action'] ?? '') === 'human' && ($it['answer']['ar'] ?? '') === 'ابعتلنا رقم الطلب أو رقم الموبايل اللي طلبت بيه، وحد من الفريق هيرد عليك بحالة طلبك 📦') {
             foreach ($d['items'] as $def) if ($def['id'] === 'track') { $it['action'] = 'orders'; $it['answer'] = $def['answer']; $it['keywords'] = $def['keywords']; }
         }
@@ -193,7 +197,8 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     $since = time() - max(1, (int) $cfg['pause_hours']) * 3600;
     $fresh = ($chat['bot'] ?? '') !== 'on' || !$chat['last_in_at'] || strtotime($chat['last_in_at'] . ' UTC') < $since;
     $lang = bot_lang(in_array($kind, ['text', 'button', 'interactive'], true) ? $text : '', $chat);
-    $plan = function (string $do, ?array $item, string $how, array $more = []) use ($fresh, &$lang) { return ['do' => $do, 'item' => $item, 'lang' => $lang, 'how' => $how, 'fresh' => $fresh] + $more; };
+    $said = $tap === '' ? bot_norm($text) : '';
+    $plan = function (string $do, ?array $item, string $how, array $more = []) use ($fresh, &$lang, $said) { return ['do' => $do, 'item' => $item, 'lang' => $lang, 'how' => $how, 'fresh' => $fresh, 'said' => $said] + $more; };
     // Their orders: the status of each (with the team following up a problem one), or ask for the order number.
     $orders = function (?array $it, string $how, array $refs) use ($plan, $chat) {
         $found = ou_lookup($chat, $refs);
@@ -260,7 +265,16 @@ function bot_reply(array $plan, array $cfg): array
             if (!empty($plan['team'])) return ['text' => $t . "\n\n" . (string) $cfg['handover'][$lang], 'menu' => false];
             return ['text' => $t, 'menu' => true];
         case 'answer':
-            $t = bot_fill((string) ($it['answer'][$lang] ?? ''), $ar);
+            $raw = (string) ($it['answer'][$lang] ?? '');
+            if (strpos($raw, '{prices') !== false) {
+                // The product they named, or the ad they came from: its photo card. Several: just those, short.
+                $found = bot_products_named((string) ($plan['said'] ?? ''));
+                if (!$found && !empty($plan['adProduct'])) foreach (load_products(true) as $p) if ($p['id'] === $plan['adProduct']) $found = [$p];
+                if (count($found) === 1) return ['text' => bot_card_text($found[0], $ar), 'menu' => true, 'card' => $found[0]];
+                if ($found) return ['text' => ($ar ? 'دي الأسعار 👇' : 'Here are the prices 👇') . "\n" . implode("\n", array_map(function ($p) use ($ar) { return bot_price_line($p, $ar); }, $found))
+                    . "\n\n" . ($ar ? 'التفاصيل والصور: ' : 'Photos and details: ') . seo_category_url($found[0]['cat'], $ar), 'menu' => true];
+            }
+            $t = bot_fill($raw, $ar);
             // The first message of a conversation answered straight away still gets a hello.
             if ($plan['fresh']) $t = trim(strtok((string) $cfg['welcome'][$lang], "\n")) . "\n\n" . $t;
             return ['text' => $t, 'menu' => true];
@@ -268,10 +282,21 @@ function bot_reply(array $plan, array $cfg): array
     return ['text' => '', 'menu' => false];
 }
 
+// {shop}: the shop's link. {prices:nfc,stands}: one line per category, its lowest price and its page.
+// {products:nfc}: every product of those categories with its price.
 function bot_fill(string $text, bool $ar): string
 {
     $text = str_replace('{shop}', seo_base() . ($ar ? '/ar' : ''), $text);
-    return trim(preg_replace_callback('/\{prices(?::([a-z0-9_,-]+))?\}/i', function ($m) use ($ar) {
+    $text = preg_replace_callback('/\{prices(?::([a-z0-9_,-]+))?\}/i', function ($m) use ($ar) {
+        $cats = db()->query('SELECT key, label, label_ar FROM categories ORDER BY sort')->fetchAll();
+        $want = !empty($m[1]) ? explode(',', strtolower($m[1])) : array_column($cats, 'key');
+        $low = [];
+        foreach (load_products(true) as $p) if (in_array($p['cat'], $want, true) && wa_product_brief($p, $ar)['inStock']) $low[$p['cat']] = min($low[$p['cat']] ?? PHP_INT_MAX, wa_product_brief($p, $ar)['low']);
+        $lines = [];
+        foreach ($cats as $c) if (isset($low[$c['key']])) $lines[] = '• ' . ($ar && $c['label_ar'] ? $c['label_ar'] : $c['label']) . ': ' . ($ar ? 'من ' . number_format($low[$c['key']]) . ' ج.م' : 'from EGP ' . number_format($low[$c['key']])) . "\n" . seo_category_url($c['key'], $ar);
+        return implode("\n", $lines);
+    }, $text);
+    return trim(preg_replace_callback('/\{products(?::([a-z0-9_,-]+))?\}/i', function ($m) use ($ar) {
         $cats = !empty($m[1]) ? explode(',', strtolower($m[1])) : null;
         $lines = [];
         foreach (load_products(true) as $p) {
@@ -293,13 +318,21 @@ function bot_run(array $chat, array $plan): void
     $lang = $plan['lang'];
     if ($plan['do'] !== 'ignore') {
         // A chat from an ad starts with the ad's product (Settings → Chat bot → Ads).
-        $pid = $plan['fresh'] && $chat['ad_id'] !== '' ? (string) ($cfg['ads'][$chat['ad_id']] ?? '') : '';
-        if ($pid !== '' && $plan['do'] !== 'handover' && !bot_sent_product($chat, $pid)) {
+        $pid = $chat['ad_id'] !== '' ? (string) ($cfg['ads'][$chat['ad_id']] ?? '') : '';
+        $plan['adProduct'] = $pid;
+        $r = bot_reply($plan, $cfg);
+        $skip = (string) ($plan['item']['id'] ?? '');
+        // A chat from an ad starts with the ad's product (Settings → Chat bot → Ads), unless the answer is that card.
+        $adCard = !empty($r['card']) && $r['card']['id'] === $pid;
+        if ($pid !== '' && $plan['fresh'] && !$adCard && $plan['do'] !== 'handover' && !bot_sent_product($chat, $pid)) {
+            // Just the photo and its text: the buttons come with the message right after it.
             try { bot_mark(wa_send_product($chat, $pid, $lang === 'ar', null)); bot_event($chat, 'ad_product', $pid, 'ad'); }
             catch (Throwable $e) { error_log('[shop] bot ad product: ' . $e->getMessage()); }
         }
-        $r = bot_reply($plan, $cfg);
-        if ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg, BOT_VIA, (string) ($plan['item']['id'] ?? ''), !empty($r['list']));
+        if (!empty($r['card'])) {
+            bot_send_card($chat, $r['card'], $lang, $cfg, $r['text'], $skip);
+            if ($adCard) bot_event($chat, 'ad_product', $pid, 'ad');
+        } elseif ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg, BOT_VIA, $skip, !empty($r['list']));
     }
     $state = bot_takes($plan) ? 'on' : 'human';
     $fails = $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0;
@@ -307,6 +340,83 @@ function bot_run(array $chat, array $plan): void
         ->execute([$state, $fails, $lang, $plan['do'] === 'ask' ? 'order' : '', (int) $chat['id']]);
     // An order lookup that found a problem counts as a handover in the reports.
     bot_event($chat, bot_takes($plan) || $plan['do'] === 'handover' ? $plan['do'] : 'handover', $plan['item']['id'] ?? '', $plan['how']);
+}
+
+// Customers' words for a kind of product, added to the words of each product's name.
+const BOT_KINDS = ['card' => 'كارت, كارد, كروت, card', 'keychain' => 'ميداليه, ميداليا, سلسله, keychain', 'coaster' => 'كوستر, coaster', 'stand' => 'ستاند, استاند, ستاندات, stand',
+    'coffee' => 'قهوه, بن, coffee', 'blend' => 'قهوه, بن, coffee', 'serum' => 'سيروم, serum', 'cream' => 'كريم, cream', 'cleanser' => 'غسول, cleanser', 'wash' => 'غسول, wash', 'plan' => 'خطه, باقه, plan'];
+// Words in many product names that don't tell products apart.
+const BOT_PRODUCT_COMMON = 'nfc, qr, google, review, reviews, جوجل, تقييمات, لتقييمات, تقييم, كود, عرض, social, media, payment, سوشيال, ميديا, والدفع, الدفع, display, code, cm, سم, اكريليك, acrylic, shape, شكل, علي, على, with, and, لتقييم, generation, lead';
+
+// The products a message names: the best-matching ones (one = a clear match, up to 5 on a tie).
+function bot_products_named(string $norm): array
+{
+    if ($norm === '') return [];
+    $common = array_flip(bot_words(BOT_PRODUCT_COMMON));
+    $scores = [];
+    foreach (load_products(true) as $p) {
+        preg_match_all('/[\p{L}\p{N}]+/u', bot_norm($p['name'] . ' ' . $p['nameAr']), $t);
+        $words = array_filter($t[0], function ($w) use ($common) { return mb_strlen($w) >= 2 && !isset($common[$w]); });
+        foreach (BOT_KINDS as $en => $list) if (preg_match('/\b' . $en . '/i', $p['name'])) $words = array_merge($words, bot_words($list));
+        $s = 0;
+        foreach (array_unique($words) as $w) if (bot_hit($norm, $w)) $s += preg_match('/^\d+$/', $w) ? 1 : 2;
+        if ($s) $scores[] = [$s, $p];
+    }
+    if (!$scores) return [];
+    usort($scores, function ($a, $b) { return $b[0] <=> $a[0]; });
+    $top = $scores[0][0];
+    return array_slice(array_map(function ($x) { return $x[1]; }, array_filter($scores, function ($x) use ($top) { return $x[0] === $top; })), 0, 5);
+}
+
+function bot_price_line(array $p, bool $ar): string
+{
+    $i = wa_product_brief($p, $ar);
+    $prices = $i['sizes'] ? array_column($i['sizes'], 'price') : [$i['low']];
+    $from = count(array_unique($prices)) > 1 ? ($ar ? 'من ' : 'from ') : '';
+    return '• ' . $i['title'] . ': ' . $from . ($ar ? number_format($i['low']) . ' ج.م' : 'EGP ' . number_format($i['low']));
+}
+
+// A product in a few lines: name, one line about it, price (sizes when there are 3 or fewer), its page.
+function bot_card_text(array $p, bool $ar): string
+{
+    $i = wa_product_brief($p, $ar);
+    $prices = $i['sizes'] ? array_unique(array_column($i['sizes'], 'price')) : [$i['low']];
+    $price = count($prices) > 1 && count($i['sizes']) <= 3 ? seo_price_text($i, $ar) : (count($prices) > 1 ? ($ar ? 'من ' . number_format($i['low']) . ' ج.م (' . count($i['sizes']) . ' مقاسات)' : 'from EGP ' . number_format($i['low']) . ' (' . count($i['sizes']) . ' sizes)') : seo_price_text($i, $ar));
+    return '*' . $i['title'] . '*' . ($i['summary'] !== '' ? "\n" . $i['summary'] : '') . "\n\n💰 " . $price . (!$i['inStock'] ? ' ' . ($ar ? '(غير متوفر حاليًا)' : '(out of stock)') : '')
+        . "\n🛒 " . ($ar ? 'الصور والتفاصيل والطلب: ' : 'Photos, details and ordering: ') . seo_product_url($p['id'], $ar);
+}
+
+// A product card: WhatsApp — its photo on top, the text, and the menu buttons, in one message.
+// Instagram / Messenger — the photo, then the text with the quick replies. $text '' = the card's own text.
+function bot_send_card(array $chat, array $p, string $lang, array $cfg, string $text, string $skip): void
+{
+    $text = $text !== '' ? $text : bot_card_text($p, $lang === 'ar');
+    $photo = $p['images'] ? wa_product_photo((string) $p['images'][0]) : null;
+    if (!$photo) { bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip); return; }
+    if (sm_channel($chat) !== 'wa' || empty($cfg['wa_buttons'])) {
+        $plain = sm_channel($chat) === 'wa' ? $text : str_replace('*', '', $text);
+        $id = wa_record_out($chat, '', 'image', '', ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], null, 'sending');
+        bot_mark($id);
+        wa_send_later($id, (int) $chat['id'], function () use ($chat, $photo) {
+            if (sm_channel($chat) !== 'wa') return sm_send_file($chat, $photo['path'], 'image', '');
+            return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'image', 'image' => ['id' => bot_media_id($photo, false)]]);
+        });
+        bot_send($chat, $plain, true, $lang, $cfg, BOT_VIA, $skip);
+        return;
+    }
+    bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip, false, $photo);
+}
+
+// The product photo's id at Meta, uploaded once and kept 20 days (Meta keeps uploads 30), like wa_send_product().
+function bot_media_id(array $photo, bool $fresh): string
+{
+    $mid = $fresh ? null : wa_setting('pm.' . $photo['key']);
+    if (!is_array($mid) || ($mid['at'] ?? 0) < time() - 20 * 86400) {
+        $up = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/media', ['messaging_product' => 'whatsapp', 'type' => 'image/jpeg',
+            'file' => new CURLFile(wa_media_dir() . '/' . $photo['path'], 'image/jpeg', 'product.jpg')], true);
+        wa_set_setting('pm.' . $photo['key'], $mid = ['id' => (string) $up['id'], 'at' => time()]);
+    }
+    return (string) $mid['id'];
 }
 
 // The bot answers this one itself (not waiting, no alert); otherwise the team takes over.
@@ -337,7 +447,8 @@ function bot_mark(int $messageId, string $via = BOT_VIA): void
 // A text with the menu under it: a WhatsApp list (one "Menu" button that opens the choices), or
 // quick-reply buttons on Instagram and Messenger. The chat history shows the choices under the text.
 // $skip: the item just answered (not offered again as a button); $list: the full list even with buttons on.
-function bot_send(array $chat, string $text, bool $withMenu, string $lang, array $cfg, string $via = BOT_VIA, string $skip = '', bool $list = false): void
+// $photo: a product photo on top (WhatsApp buttons only).
+function bot_send(array $chat, string $text, bool $withMenu, string $lang, array $cfg, string $via = BOT_VIA, string $skip = '', bool $list = false, ?array $photo = null): void
 {
     $rows = [];
     foreach (bot_items($cfg) as $it) $rows[] = ['id' => 'bot:' . $it['id'], 'title' => mb_substr(trim((string) $it['title'][$lang]), 0, BOT_TITLE_MAX)];
@@ -355,10 +466,19 @@ function bot_send(array $chat, string $text, bool $withMenu, string $lang, array
             $rows = $btns;
             $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
                 'interactive' => ['type' => 'button', 'body' => ['text' => $text], 'action' => ['buttons' => array_map(function ($r) { return ['type' => 'reply', 'reply' => ['id' => $r['id'], 'title' => $r['title']]]; }, $btns)]]];
+            if ($photo) {
+                $send = function () use ($body, $photo) {
+                    $go = function (bool $fresh) use ($body, $photo) {
+                        $body['interactive']['header'] = ['type' => 'image', 'image' => ['id' => bot_media_id($photo, $fresh)]];
+                        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', $body);
+                    };
+                    try { return $go(false); } catch (ShopError $e) { return $go(true); } // Meta no longer has the photo: upload again once
+                };
+            }
         } else $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
             'interactive' => ['type' => 'list', 'body' => ['text' => $text], 'action' => ['button' => $label,
                 'sections' => [['title' => mb_substr($label, 0, 24), 'rows' => array_map(function ($r) { return ['id' => $r['id'], 'title' => mb_substr($r['title'], 0, 24)]; }, $rows)]]]]];
-        $send = function () use ($body) { return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', $body); };
+        $send = $send ?? function () use ($body) { return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', $body); };
     } else {
         $send = function () use ($chat, $text, $rows, $ch) {
             $pieces = sm_chunks($text, $ch);
@@ -368,7 +488,8 @@ function bot_send(array $chat, string $text, bool $withMenu, string $lang, array
         };
     }
     $shown = $text . "\n\n☰ " . implode(' · ', array_column($rows, 'title'));
-    $id = wa_record_out($chat, '', 'interactive', $shown, [], null, 'sending');
+    $media = $photo ? ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => 'product.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])] : [];
+    $id = wa_record_out($chat, '', $photo ? 'image' : 'interactive', $shown, $media, null, 'sending');
     bot_mark($id, $via);
     wa_send_later($id, (int) $chat['id'], $send);
 }
@@ -460,7 +581,7 @@ function bot_try(array $b): array
     $plan = bot_plan($chat, (string) ($b['kind'] ?? 'text'), str_in($b['text'] ?? '', 1000), (string) ($b['tap'] ?? ''), $cfg);
     if (!$plan) return ['do' => 'none'];
     $r = bot_reply($plan, $cfg);
-    return ['do' => $plan['do'], 'how' => $plan['how'], 'item' => $plan['item']['id'] ?? '', 'lang' => $plan['lang'], 'text' => $r['text'],
+    return ['do' => $plan['do'], 'how' => $plan['how'], 'item' => $plan['item']['id'] ?? '', 'lang' => $plan['lang'], 'text' => $r['text'], 'photo' => !empty($r['card']['images']) ? (string) $r['card']['images'][0] : '',
         'menu' => $r['menu'] ? array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_items($cfg)) : [],
         'fails' => $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0, 'wait' => $plan['do'] === 'ask' ? 'order' : '', 'team' => !bot_takes($plan)];
 }
