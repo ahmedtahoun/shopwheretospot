@@ -147,6 +147,7 @@ function tg_remind_due(): void
     offsite_due(); // weekly backup to the owners (api/offsite.php)
     try { reviews_due(); } catch (Throwable $e) { ops_error('Reviews', 'Review reminders could not be checked', $e); }
     try { abandoned_due(); } catch (Throwable $e) { ops_error('Leads', 'Abandoned checkouts could not be checked', $e); }
+    au_due(); // follow-ups and reorder reminders (api/automations.php)
     $st = db()->prepare("SELECT * FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL AND waiting_since <= datetime('now', ?) AND waiting_since > datetime('now', '-1 day')
         AND (tg_reminded_for IS NULL OR tg_reminded_for != waiting_since) ORDER BY waiting_since LIMIT 50");
     $st->execute(['-' . TG_REMIND_MINUTES . ' minutes']);

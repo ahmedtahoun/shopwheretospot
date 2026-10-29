@@ -309,6 +309,7 @@ function wa_store_incoming(array $m, string $name): void
     // A ping on the phone of whoever has the chat (api/telegram.php); never holds up saving the message.
     try { tg_alert_message(wa_chat_by_wa_id($from)); }
     catch (Throwable $e) { error_log('[shop] telegram alert: ' . $e->getMessage()); }
+    au_after_hours_safe(wa_chat_by_wa_id($from)); // "we'll reply at 10" outside working hours (api/automations.php)
 }
 
 // Sent → delivered → read (never backwards), or failed with the reason.
@@ -691,6 +692,21 @@ const WA_TEMPLATES = [
         'ar' => "أهلًا يا {{1}}،\nالمندوب حاول يوصل طلبك رقم {{2}} ومقدرش. رد على الرسالة دي بالوقت أو العنوان المناسب لك، وفريقنا هيرتب التوصيل تاني.",
         'en' => "Hi {{1}},\nThe courier tried to deliver your order {{2}} but couldn't. Reply to this message with a time or address that suits you, and our team will arrange delivery again.",
     ],
+    // Automatic only (Settings → Automatic messages, api/automations.php); not offered in the inbox.
+    'wts_cart_reminder' => [
+        'category' => 'MARKETING', 'vars' => ['name'], 'needs' => '', 'auto' => true,
+        'title' => 'Cart reminder',
+        'ar' => "أهلًا يا {{1}} 👋\nطلبك في Where To Spot لسه ما كملش، والسلة زي ما سبتها. تقدر تكمله في دقيقة من الزرار تحت.",
+        'en' => "Hi {{1}} 👋\nYour Where To Spot order isn't finished yet, and your cart is just as you left it. You can complete it in a minute with the button below.",
+        'button' => ['var' => 'cart', 'ar' => 'كمّل طلبك', 'en' => 'Complete your order', 'base' => '/?restore=', 'example' => '0a1b2c3d4e5f6a7b8c9d0e1f'],
+    ],
+    'wts_reorder' => [
+        'category' => 'MARKETING', 'vars' => ['name', 'product'], 'needs' => '', 'auto' => true,
+        'title' => 'Reorder reminder',
+        'ar' => "أهلًا يا {{1}} 👋\nقرّبت تخلص {{2}}؟ تقدر تطلبها تاني في دقيقة من الزرار تحت، وتوصلك خلال 2–5 أيام.",
+        'en' => "Hi {{1}} 👋\nRunning low on {{2}}? You can order it again in a minute with the button below; it reaches you in 2–5 days.",
+        'button' => ['var' => 'product', 'ar' => 'اطلب تاني', 'en' => 'Order again', 'base' => '/p/', 'example' => 'bonds-chrome'],
+    ],
     'wts_order_delivered' => [
         'category' => 'UTILITY', 'vars' => ['name', 'order'], 'needs' => 'delivered',
         'title' => 'Order delivered',
@@ -741,7 +757,7 @@ function wa_templates_submit(): array
     $sent = 0; $errors = [];
     foreach (WA_TEMPLATES as $name => $t) foreach (['ar', 'en'] as $lang) {
         if (isset($have[$name . '|' . $lang])) continue;
-        $examples = ['name' => $lang === 'ar' ? 'أحمد' : 'Ahmed', 'order' => 'WTS-1024', 'due' => '450'];
+        $examples = ['name' => $lang === 'ar' ? 'أحمد' : 'Ahmed', 'order' => 'WTS-1024', 'due' => '450', 'product' => $lang === 'ar' ? 'قهوة كروم بلند' : 'Chrome Coffee Blend'];
         $components = [['type' => 'BODY', 'text' => $t[$lang], 'example' => ['body_text' => [array_map(function ($v) use ($examples) { return $examples[$v]; }, $t['vars'])]]]];
         if (!empty($t['button'])) {
             $b = $t['button'];
@@ -786,6 +802,7 @@ function wa_template_options(array $chat, string $lang): array
     };
     $out = [];
     foreach (WA_TEMPLATES as $tname => $t) {
+        if (!empty($t['auto'])) continue;
         $status = $seen[$tname . '|' . $lang]['status'] ?? 'NOT_SUBMITTED';
         $o = $t['needs'] ? $pick($t['needs']) : null;
         $why = $status !== 'APPROVED' ? ($status === 'NOT_SUBMITTED' ? 'Not submitted to Meta yet (Settings → WhatsApp).' : 'Meta status: ' . strtolower(str_replace('_', ' ', $status)) . '.')

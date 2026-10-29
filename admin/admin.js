@@ -2511,10 +2511,12 @@
       '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>' +
       '<div class="card stack" id="smSettings" style="gap:14px;margin-top:16px" hidden></div>' +
       '<div class="card stack" id="botSettings" style="gap:14px;margin-top:16px"><div class="muted small">Loading the chat bot…</div></div>' +
-      '<div class="card stack" id="ouSettings" style="gap:14px;margin-top:16px"></div>');
+      '<div class="card stack" id="ouSettings" style="gap:14px;margin-top:16px"></div>' +
+      '<div class="card stack" id="auSettings" style="gap:14px;margin-top:16px"></div>');
     adTrackCard();
     botSettings();
     ouSettings();
+    auSettings();
     waSettings(false);
     problemsCard();
   }
@@ -2756,6 +2758,53 @@
       const events = {}; $$('[data-ev]', box).forEach((x) => events[x.dataset.ev] = x.checked);
       try { const r = await api('ou_save', { method: 'POST', body: { on: $('#ouOn').checked, templates: $('#ouTpl').checked, events } }); toast('Order updates saved'); ouSettings(r); }
       catch (e) { toast(e.message, true); }
+    };
+  }
+
+  // Settings → Automatic messages (api/automations.php): follow-ups, after hours, cart and reorder reminders.
+  async function auSettings(d) {
+    const box = $('#auSettings'); if (!box) return;
+    if (!d) { try { d = await api('au_settings'); } catch (e) { box.innerHTML = '<h2>Automatic messages</h2><div class="err">' + esc(e.message) + '</div>'; return; } }
+    const c = d.cfg;
+    const LANGS = [['ar', 'Arabic'], ['en', 'English']];
+    const two = (key, label) => '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>' + label + '</span> · <span>' + name + '</span></span><textarea rows="3" data-au="' + key + '" data-l="' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '">' + esc(c[key].text[l]) + '</textarea></label>').join('') + '</div>';
+    const TPL = { APPROVED: ['good', '✓ Approved'], PENDING: ['warn', 'Waiting for Meta'], REJECTED: ['bad', '✕ Rejected'], NOT_SUBMITTED: ['', 'Not submitted'] };
+    const tpl = (k) => ['ar', 'en'].map((l) => { const [cls, t] = TPL[d.templates[k][l]] || ['', d.templates[k][l]]; return '<span class="pill ' + cls + '">' + t + '</span>'; }).join(' ');
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const on = (id, v, label) => '<label class="row"><input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + '> <b>' + label + '</b></label>';
+    const w = d.week;
+    const total = (w.followup || 0) + (w.away || 0) + (w.cart || 0) + (w.reorder || 0);
+    box.innerHTML = '<h2>Automatic messages</h2>' +
+      '<div class="hint">Messages that go out by themselves, each with its own switch. Each one is marked in the chat (⏰ 🌙 🛒 🔁) so the team sees what was sent.</div>' +
+      (total ? '<div class="small"><span>Last 7 days:</span> <b>' + (w.followup || 0) + '</b> <span>follow-ups</span> · <b>' + (w.away || 0) + '</b> <span>after-hours replies</span> · <b>' + (w.cart || 0) + '</b> <span>cart reminders</span> · <b>' + (w.reorder || 0) + '</b> <span>reorder reminders</span></div>' : '') +
+      '<div class="bot-item">' + on('auF', c.followup.on, '⏰ Follow up customers who go quiet') +
+        '<div class="hint">After we sent prices, a product or the shop’s link and the customer didn’t answer: one friendly nudge, always inside the free 24 hours. Not if they ordered or the lead is Won or Lost.</div>' +
+        '<div class="grid2"><label class="field"><span>Hours after our last message</span><input type="number" id="auFH" min="1" max="20" value="' + c.followup.hours + '"></label></div>' +
+        '<label class="row small"><input type="checkbox" id="auFT"' + (c.followup.team ? ' checked' : '') + '> <span>Also chats the team answered (not only the bot’s)</span></label>' +
+        two('followup', 'Message') + '</div>' +
+      '<div class="bot-item">' + on('auH', c.hours.on, '🌙 After-hours reply') +
+        '<div class="hint"><span>A message for the team outside working hours gets this reply (once every 12 hours), so nobody waits in silence. Chats the bot answers don’t need it.</span> <span>{hours} becomes your hours.</span> <span>Cairo time now:</span> <b dir="ltr">' + esc(d.cairo) + '</b></div>' +
+        '<div class="row small" style="flex-wrap:wrap">' + DAYS.map((n, i) => '<label class="row"><input type="checkbox" data-day="' + i + '"' + (c.hours.days.includes(i) ? ' checked' : '') + '> <span>' + n + '</span></label>').join('') + '</div>' +
+        '<div class="grid2"><label class="field"><span>Opens at</span><input type="time" id="auHF" value="' + esc(c.hours.from) + '"></label><label class="field"><span>Closes at</span><input type="time" id="auHT" value="' + esc(c.hours.to) + '"></label></div>' +
+        two('hours', 'Message') + '</div>' +
+      '<div class="bot-item">' + on('auC', c.cart.on, '🛒 Remind abandoned checkouts') +
+        '<div class="hint">30 minutes after someone leaves checkout without ordering: an email with the “complete your order” link (their cart as they left it), and WhatsApp while their chat is open. The team’s follow-up in Leads moves to the next day.</div>' +
+        '<label class="row small"><input type="checkbox" id="auCW"' + (c.cart.wa ? ' checked' : '') + '> <span>Also on WhatsApp when the chat is closed, as a template (Meta charges per message)</span> ' + tpl('cart') + '</label></div>' +
+      '<div class="bot-item">' + on('auR', c.reorder.on, '🔁 Reorder reminders') +
+        '<div class="hint">This many days after delivery, customers who bought from these categories get an email with the product’s link (daytime only), unless they already ordered again. Leave empty for categories that don’t run out.</div>' +
+        '<div class="grid2">' + d.cats.map((k) => '<label class="field"><span>' + esc(k) + ' <span class="muted">(days)</span></span><input type="number" min="0" max="365" data-cat="' + esc(k) + '" value="' + (c.reorder.cats[k] || '') + '"></label>').join('') + '</div>' +
+        '<label class="row small"><input type="checkbox" id="auRW"' + (c.reorder.wa ? ' checked' : '') + '> <span>Also on WhatsApp (a template when the chat is closed; Meta charges per message)</span> ' + tpl('reorder') + '</label></div>' +
+      '<div class="hint">Templates not approved yet: Settings → WhatsApp → Message templates → Submit to Meta.</div>' +
+      '<div class="row"><button class="btn primary" id="auSave">Save automatic messages</button></div>';
+    $('#auSave').onclick = async () => {
+      const text = (k) => { const t = {}; $$('[data-au="' + k + '"]', box).forEach((x) => t[x.dataset.l] = x.value); return t; };
+      const cats = {}; $$('[data-cat]', box).forEach((x) => { if (+x.value > 0) cats[x.dataset.cat] = +x.value; });
+      const body = {
+        followup: { on: $('#auF').checked, hours: +$('#auFH').value, team: $('#auFT').checked, text: text('followup') },
+        hours: { on: $('#auH').checked, days: $$('[data-day]', box).filter((x) => x.checked).map((x) => +x.dataset.day), from: $('#auHF').value, to: $('#auHT').value, text: text('hours') },
+        cart: { on: $('#auC').checked, wa: $('#auCW').checked }, reorder: { on: $('#auR').checked, wa: $('#auRW').checked, cats },
+      };
+      try { const r = await api('au_save', { method: 'POST', body }); toast('Automatic messages saved'); auSettings(r); } catch (e) { toast(e.message, true); }
     };
   }
 

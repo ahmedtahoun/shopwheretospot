@@ -121,6 +121,8 @@ function abandoned_due(): void
                 notify_new_lead(['name' => $d['name'] ?: $d['phone'], 'contact' => $contact, 'cat' => 'Abandoned checkout · EGP ' . number_format((float) $d['total']), 'source' => 'Abandoned checkout', 'notes' => $note]);
             }
             $pdo->prepare("UPDATE checkout_drafts SET status = 'abandoned', abandoned_at = datetime('now'), lead_id = ? WHERE id = ?")->execute([$leadId, $d['id']]);
+            // The customer gets the "complete your order" link by themselves, if switched on (api/automations.php).
+            try { au_cart($d, $leadId); } catch (Throwable $e) { ops_error('Leads', 'The cart reminder could not be sent', $e); }
         } catch (Throwable $e) {
             ops_error('Leads', 'An abandoned checkout could not be turned into a lead', $e);
         }

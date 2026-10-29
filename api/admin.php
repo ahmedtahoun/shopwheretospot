@@ -1530,6 +1530,17 @@ try {
         log_activity($u, 'Updated order updates on WhatsApp', ou_cfg()['on'] ? 'on' : 'off');
         json_out(ou_settings_out());
 
+    // Settings → Automatic messages (api/automations.php).
+    case 'au_settings':
+        require_perm('backups');
+        json_out(au_settings_out());
+
+    case 'au_save':
+        $u = require_perm('backups');
+        au_save(body());
+        log_activity($u, 'Updated automatic messages');
+        json_out(au_settings_out());
+
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
     case 'wa_register':
         $u = require_perm('backups');

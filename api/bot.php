@@ -320,15 +320,15 @@ function bot_mark(int $messageId, string $via = BOT_VIA): void
 
 // A text with the menu under it: a WhatsApp list (one "Menu" button that opens the choices), or
 // quick-reply buttons on Instagram and Messenger. The chat history shows the choices under the text.
-function bot_send(array $chat, string $text, bool $withMenu, string $lang, array $cfg): void
+function bot_send(array $chat, string $text, bool $withMenu, string $lang, array $cfg, string $via = BOT_VIA): void
 {
     $rows = [];
     foreach (bot_items($cfg) as $it) $rows[] = ['id' => 'bot:' . $it['id'], 'title' => mb_substr(trim((string) $it['title'][$lang]), 0, BOT_TITLE_MAX)];
-    if (!$withMenu || !$rows) { bot_mark(wa_send_text($chat, $text, null, false, true)); return; }
+    if (!$withMenu || !$rows) { bot_mark(wa_send_text($chat, $text, null, false, true), $via); return; }
     $ch = sm_channel($chat);
     if ($ch === 'wa') {
         // A list's text holds 1024 characters: a long answer goes first on its own, the menu after it.
-        if (mb_strlen($text) > 1000) { bot_mark(wa_send_text($chat, $text, null, false, true)); $text = $lang === 'ar' ? 'اختار من القائمة 👇' : 'Pick from the menu 👇'; }
+        if (mb_strlen($text) > 1000) { bot_mark(wa_send_text($chat, $text, null, false, true), $via); $text = $lang === 'ar' ? 'اختار من القائمة 👇' : 'Pick from the menu 👇'; }
         $label = mb_substr(trim((string) $cfg['menu'][$lang]) ?: 'Menu', 0, 20);
         $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
             'interactive' => ['type' => 'list', 'body' => ['text' => $text], 'action' => ['button' => $label,
@@ -344,7 +344,7 @@ function bot_send(array $chat, string $text, bool $withMenu, string $lang, array
     }
     $shown = $text . "\n\n☰ " . implode(' · ', array_column($rows, 'title'));
     $id = wa_record_out($chat, '', 'interactive', $shown, [], null, 'sending');
-    bot_mark($id);
+    bot_mark($id, $via);
     wa_send_later($id, (int) $chat['id'], $send);
 }
 

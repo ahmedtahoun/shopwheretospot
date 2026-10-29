@@ -80,7 +80,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .seg button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(28,27,25,.12)}
 .field{display:flex;flex-direction:column;gap:6px;font-weight:500;font-size:13px;color:var(--ink-2)}
 .field .hint{font-weight:400;color:var(--ink-3);font-size:12px}
-input[type=text],input[type=email],input[type=password],input[type=number],input[type=search],input[type=tel],input[type=date],input[type=month],select,textarea{
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=search],input[type=tel],input[type=date],input[type=month],input[type=time],select,textarea{
   border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;font-weight:400;width:100%;color:var(--ink);box-shadow:var(--shadow-sm);transition:border-color .15s ease,box-shadow .15s ease}
 textarea{min-height:90px;resize:vertical}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,47,.14)}

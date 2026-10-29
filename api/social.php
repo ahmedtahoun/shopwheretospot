@@ -338,6 +338,7 @@ function sm_store_incoming(string $channel, string $waId, string $person, array 
     if ($bot) return;
     try { tg_alert_message(wa_chat_by_wa_id($waId)); }
     catch (Throwable $e) { error_log('[shop] telegram alert: ' . $e->getMessage()); }
+    au_after_hours_safe(wa_chat_by_wa_id($waId)); // "we'll reply at 10" outside working hours (api/automations.php)
 }
 
 // A message the business sent. Ours (from this dashboard) are already saved; one written in the Instagram

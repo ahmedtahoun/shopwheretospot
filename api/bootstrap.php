@@ -103,7 +103,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 54;
+const SCHEMA_VERSION = 55;
 
 function db(): PDO
 {
@@ -642,6 +642,8 @@ function migrate(PDO $pdo): void
     bot_migrate($pdo);
     // Order updates on WhatsApp, one row per update sent or skipped (api/order-updates.php).
     ou_migrate($pdo);
+    // Automatic messages (follow-ups, after hours, cart and reorder reminders), one row per message sent (api/automations.php).
+    au_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -828,6 +830,7 @@ require __DIR__ . '/review-requests.php';
 require __DIR__ . '/social.php';
 require __DIR__ . '/bot.php';
 require __DIR__ . '/order-updates.php';
+require __DIR__ . '/automations.php';
 alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.
