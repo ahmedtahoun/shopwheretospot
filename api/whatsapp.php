@@ -298,8 +298,14 @@ function wa_store_incoming(array $m, string $name): void
     db()->prepare("INSERT INTO wa_messages (chat_id, wamid, dir, kind, body, media_path, media_mime, media_name, media_size, status, meta, created_at) VALUES (?, ?, 'in', ?, ?, ?, ?, ?, ?, 'received', ?, ?)")
         ->execute([$chat['id'], $wamid, $kind, $text, $media['path'], $media['mime'], $fileName, $media['size'], $meta ? json_encode($meta, JSON_UNESCAPED_UNICODE) : '', $at]);
     if ($kind === 'reaction') return; // a reaction doesn't need an answer
-    db()->prepare("UPDATE wa_chats SET unread = unread + 1, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
-        ->execute([$at, $at, mb_substr($preview, 0, 200), $at, $at, $chat['id']]);
+    // The chat bot (api/bot.php): a message it answers isn't waiting for anyone and alerts nobody.
+    $tap = (string) ($m['interactive']['list_reply']['id'] ?? $m['interactive']['button_reply']['id'] ?? '');
+    $plan = bot_plan_safe($chat, $kind, $text, $tap);
+    $bot = $plan && $plan['do'] !== 'handover';
+    db()->prepare("UPDATE wa_chats SET unread = unread + ?, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
+        ->execute([$bot ? 0 : 1, $at, $at, mb_substr($preview, 0, 200), $at, $bot ? null : $at, $chat['id']]);
+    bot_run_safe(wa_chat_by_wa_id($from), $plan);
+    if ($bot) return;
     // A ping on the phone of whoever has the chat (api/telegram.php); never holds up saving the message.
     try { tg_alert_message(wa_chat_by_wa_id($from)); }
     catch (Throwable $e) { error_log('[shop] telegram alert: ' . $e->getMessage()); }
@@ -348,7 +354,9 @@ function wa_record_out(array $chat, string $wamid, string $kind, string $body, a
         return $id;
     }
     // The customer got an answer: no longer waiting, and the first answer time is kept for the reports.
+    // A person writing takes the chat from the bot.
     db()->prepare("UPDATE wa_chats SET last_out_at = datetime('now'), last_at = datetime('now'), last_text = ?, last_dir = 'out', waiting_since = NULL,
+        bot = CASE WHEN bot = 'on' THEN 'human' ELSE bot END, bot_at = CASE WHEN bot = 'on' THEN datetime('now') ELSE bot_at END,
         first_reply_at = COALESCE(first_reply_at, CASE WHEN first_in_at IS NOT NULL THEN datetime('now') END), first_reply_by = COALESCE(first_reply_by, ?) WHERE id = ?")
         ->execute([mb_substr($preview, 0, 200), $userId, $chat['id']]);
     return $id;
@@ -439,7 +447,7 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
 
 // A product from the shop: its photo, with name, short line, price and the link to order as the caption
 // (in Arabic or English). The photo is sent as a JPEG, which WhatsApp always accepts.
-function wa_send_product(array $chat, string $productId, bool $ar, int $userId): int
+function wa_send_product(array $chat, string $productId, bool $ar, ?int $userId): int
 {
     wa_window_check($chat);
     $p = null;

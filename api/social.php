@@ -164,7 +164,7 @@ function sm_handle_event(string $channel, string $own, array $ev): void
     }
     if (isset($ev['postback'])) { // a button the customer tapped (e.g. "Get started" on Messenger)
         $p = (array) $ev['postback'];
-        sm_store_incoming($channel, $waId, $person, ['mid' => (string) ($p['mid'] ?? ''), 'text' => (string) ($p['title'] ?? ''), '_kind' => 'button'], $p['referral'] ?? null, $at);
+        sm_store_incoming($channel, $waId, $person, ['mid' => (string) ($p['mid'] ?? ''), 'text' => (string) ($p['title'] ?? ''), '_kind' => 'button', '_tap' => (string) ($p['payload'] ?? '')], $p['referral'] ?? null, $at);
         return;
     }
     if (isset($ev['referral']) && !$mine) { // opened the chat from an ad without writing yet: remember the ad
@@ -327,8 +327,15 @@ function sm_store_incoming(string $channel, string $waId, string $person, array 
         $ins->execute([$chat['id'], $i === 0 ? $mid : $mid . '#' . $i, $f ? $f['kind'] : (($m['_kind'] ?? '') ?: 'text'), $body, $media['path'], $media['mime'], $f['name'] ?? '', $media['size'],
             $i === 0 && $meta ? json_encode($meta, JSON_UNESCAPED_UNICODE) : '', $at]);
     }
-    db()->prepare("UPDATE wa_chats SET unread = unread + 1, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
-        ->execute([$at, $at, mb_substr($preview, 0, 200), $at, $at, $chat['id']]);
+    // The chat bot (api/bot.php). A story mention is a thank-you for the team, not a question; a shared post gets the menu.
+    $types = array_column((array) ($m['attachments'] ?? []), 'type');
+    $plan = in_array('story_mention', $types, true) ? null : bot_plan_safe($chat, array_intersect($types, ['share', 'ig_reel', 'reel', 'ig_post']) ? 'share' : $first, $text,
+        (string) ($m['quick_reply']['payload'] ?? $m['_tap'] ?? ''));
+    $bot = $plan && $plan['do'] !== 'handover';
+    db()->prepare("UPDATE wa_chats SET unread = unread + ?, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
+        ->execute([$bot ? 0 : 1, $at, $at, mb_substr($preview, 0, 200), $at, $bot ? null : $at, $chat['id']]);
+    bot_run_safe(wa_chat_by_wa_id($waId), $plan);
+    if ($bot) return;
     try { tg_alert_message(wa_chat_by_wa_id($waId)); }
     catch (Throwable $e) { error_log('[shop] telegram alert: ' . $e->getMessage()); }
 }
@@ -360,7 +367,7 @@ function sm_store_echo(string $channel, string $waId, array $m, string $at): voi
         ->execute([$chat['id'], $mid, $kind, $text, $media['path'], $media['mime'], $files[0]['name'] ?? '', $media['size'], json_encode(['via' => $via]), $at]);
     $preview = $text !== '' ? $text : '📎 ' . $kind;
     // Answered from the phone: the customer isn't waiting any more.
-    db()->prepare("UPDATE wa_chats SET last_out_at = ?, last_at = ?, last_text = ?, last_dir = 'out', waiting_since = NULL, first_reply_at = COALESCE(first_reply_at, CASE WHEN first_in_at IS NOT NULL THEN ? END) WHERE id = ?")
+    db()->prepare("UPDATE wa_chats SET last_out_at = ?, last_at = ?, last_text = ?, last_dir = 'out', waiting_since = NULL, bot = CASE WHEN bot = 'on' THEN 'human' ELSE bot END, bot_at = CASE WHEN bot = 'on' THEN datetime('now') ELSE bot_at END, first_reply_at = COALESCE(first_reply_at, CASE WHEN first_in_at IS NOT NULL THEN ? END) WHERE id = ?")
         ->execute([$at, $at, mb_substr($preview, 0, 200), $at, $chat['id']]);
 }
 

@@ -1199,8 +1199,10 @@ try {
         $args = [];
         if (!$all) { $where[] = '(c.assigned_to = ? OR c.assigned_to IS NULL)'; $args[] = (int) $u['id']; }
         if (isset(SM_NAMES[$channel])) { $where[] = 'c.channel = ?'; $args[] = $channel; }
-        if ($view === 'mine') { $where[] = 'c.assigned_to = ?'; $args[] = (int) $u['id']; $where[] = "c.status = 'open'"; }
-        elseif ($view === 'unassigned') { $where[] = 'c.assigned_to IS NULL'; $where[] = "c.status = 'open'"; }
+        // Chats the bot is answering (api/bot.php) have their own tab, out of everyone's way until handed over.
+        if ($view === 'mine') { $where[] = 'c.assigned_to = ?'; $args[] = (int) $u['id']; $where[] = "c.status = 'open'"; $where[] = "c.bot != 'on'"; }
+        elseif ($view === 'unassigned') { $where[] = 'c.assigned_to IS NULL'; $where[] = "c.status = 'open'"; $where[] = "c.bot != 'on'"; }
+        elseif ($view === 'bot') { $where[] = "c.bot = 'on'"; $where[] = "c.status = 'open'"; }
         elseif ($view === 'waiting') { $where[] = 'c.waiting_since IS NOT NULL'; $where[] = "c.status = 'open'"; }
         elseif ($view === 'closed') { $where[] = "c.status = 'closed'"; }
         else { $where[] = "c.status = 'open'"; }
@@ -1215,9 +1217,10 @@ try {
         $st->execute($args);
         $chats = array_map('wa_chat_out', $st->fetchAll());
         // Badge numbers for each view.
-        $mine = db()->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(unread), 0) AS unread, SUM(CASE WHEN waiting_since IS NOT NULL THEN 1 ELSE 0 END) AS waiting FROM wa_chats WHERE status = 'open' AND assigned_to = ?");
+        $mine = db()->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(unread), 0) AS unread, SUM(CASE WHEN waiting_since IS NOT NULL THEN 1 ELSE 0 END) AS waiting FROM wa_chats WHERE status = 'open' AND assigned_to = ? AND bot != 'on'");
         $mine->execute([(int) $u['id']]);
-        $counts = ['mine' => $mine->fetch(), 'unassigned' => (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE status = 'open' AND assigned_to IS NULL")->fetchColumn()];
+        $counts = ['mine' => $mine->fetch(), 'unassigned' => (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE status = 'open' AND assigned_to IS NULL AND bot != 'on'")->fetchColumn(),
+            'bot' => (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE status = 'open' AND bot = 'on'")->fetchColumn()];
         if ($all) $counts['waiting'] = (int) db()->query("SELECT COUNT(*) FROM wa_chats WHERE status = 'open' AND waiting_since IS NOT NULL")->fetchColumn();
         $agents = db()->query('SELECT id, name, wa_away FROM users WHERE active = 1 AND wa_agent = 1 ORDER BY name')->fetchAll();
         $quick = db()->query('SELECT id, title, body FROM wa_quick ORDER BY sort, id')->fetchAll();
@@ -1226,7 +1229,7 @@ try {
         $channels = db()->query('SELECT DISTINCT channel FROM wa_chats')->fetchAll(PDO::FETCH_COLUMN);
         if (sm_ready()) $channels = array_unique(array_merge($channels, ['wa', 'ig', 'fb']));
         json_out(['chats' => $chats, 'counts' => $counts, 'channels' => array_values(array_intersect(array_keys(SM_NAMES), $channels)), 'social' => sm_ready(), 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
-            'quick' => $quick, 'ready' => wa_ready(), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all, 'telegram' => !empty($u['tg_chat_id'])]]);
+            'quick' => $quick, 'ready' => wa_ready(), 'bot' => !empty(bot_cfg()['on']), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all, 'telegram' => !empty($u['tg_chat_id'])]]);
 
     // Small and frequent: the unread badge and new-message sound on every page.
     case 'wa_unread':
@@ -1234,7 +1237,7 @@ try {
         // Your chats plus the ones nobody has taken yet.
         $st = db()->prepare("SELECT COALESCE(SUM(unread), 0) FROM wa_chats WHERE status = 'open' AND (assigned_to = ? OR assigned_to IS NULL)");
         $st->execute([(int) $u['id']]);
-        $last = db()->prepare("SELECT COALESCE(MAX(m.id), 0) FROM wa_messages m JOIN wa_chats c ON c.id = m.chat_id WHERE m.dir = 'in' AND m.kind != 'reaction' AND (c.assigned_to = ? OR c.assigned_to IS NULL)");
+        $last = db()->prepare("SELECT COALESCE(MAX(m.id), 0) FROM wa_messages m JOIN wa_chats c ON c.id = m.chat_id WHERE m.dir = 'in' AND m.kind != 'reaction' AND c.bot != 'on' AND (c.assigned_to = ? OR c.assigned_to IS NULL)");
         $last->execute([(int) $u['id']]);
         // The dashboard is on their screen: no Telegram ping while it can beep (api/telegram.php).
         if (!empty($_GET['vis']) && (!$u['wa_seen_at'] || strtotime($u['wa_seen_at'] . ' UTC') < time() - 15)) db()->prepare("UPDATE users SET wa_seen_at = datetime('now') WHERE id = ?")->execute([(int) $u['id']]);
@@ -1500,6 +1503,21 @@ try {
         sm_subscribe();
         log_activity($u, 'Connected Instagram and Messenger messages');
         json_out(['social' => sm_status(true)]);
+
+    // Settings → Chat bot (api/bot.php): its menu and answers, trying it, saving.
+    case 'bot_settings':
+        require_perm('backups');
+        json_out(bot_settings_out());
+
+    case 'bot_try':
+        require_perm('backups');
+        json_out(bot_try(body()));
+
+    case 'bot_save':
+        $u = require_perm('backups');
+        bot_save(body());
+        log_activity($u, 'Updated the chat bot', !empty(bot_cfg()['on']) ? 'on' : 'off');
+        json_out(bot_settings_out());
 
     // Going live: register the number with Cloud API (its two-step PIN), and subscribe the app to the WhatsApp account.
     case 'wa_register':
@@ -2225,7 +2243,7 @@ function wa_chat_out(array $c): array
         'unread' => (int) $c['unread'], 'lastAt' => $c['last_at'], 'lastText' => $c['last_text'], 'lastDir' => $c['last_dir'], 'waitingSince' => $c['waiting_since'],
         'lastInAt' => $c['last_in_at'], 'windowOpen' => wa_window_open($c), 'windowEnds' => $c['last_in_at'] ? gmdate('Y-m-d H:i:s', strtotime($c['last_in_at'] . ' UTC') + 86400) : null,
         'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at'],
-        'returning' => $ch === 'wa' && isset(wa_customer_keys()[phone_key($phone) ?? ''])];
+        'returning' => $ch === 'wa' && isset(wa_customer_keys()[phone_key($phone) ?? '']), 'bot' => (string) ($c['bot'] ?? '')];
 }
 
 function wa_message_out(array $m): array

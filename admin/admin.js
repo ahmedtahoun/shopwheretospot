@@ -1852,7 +1852,8 @@
     st.refresh = () => { loadList(); if (st.chatId) loadChat(true); };
     const renderTabs = () => {
       const c = st.data.counts, me = st.data.me;
-      const tabs = [['mine', 'Mine', c.mine.unread || ''], ['unassigned', 'Unassigned', c.unassigned || '']].concat(me.all ? [['waiting', 'Waiting', c.waiting || ''], ['all', 'All', '']] : [['all', 'All', '']]).concat([['closed', 'Closed', '']]);
+      // Bot: chats the chat bot is answering (Settings → Chat bot), until it hands them to the team.
+      const tabs = [['mine', 'Mine', c.mine.unread || ''], ['unassigned', 'Unassigned', c.unassigned || '']].concat(st.data.bot || c.bot ? [['bot', '🤖 Bot', c.bot || '']] : []).concat(me.all ? [['waiting', 'Waiting', c.waiting || ''], ['all', 'All', '']] : [['all', 'All', '']]).concat([['closed', 'Closed', '']]);
       $('#waTabs').innerHTML = tabs.map(([k, l, n]) => '<button data-v="' + k + '" class="' + (st.view === k ? 'on' : '') + '"><span>' + l + '</span>' + (n ? ' <span class="seg-n">' + n + '</span>' : '') + '</button>').join('');
       $$('#waTabs button').forEach((b) => b.onclick = () => { st.view = b.dataset.v; loadList(); });
       // WhatsApp / Instagram / Messenger: shown once more than one app is connected or has chats.
@@ -1878,11 +1879,11 @@
         return '<button class="wa-item' + (c.id === st.chatId ? ' on' : '') + (c.unread ? ' unread' : '') + '" data-c="' + c.id + '">' +
           waAvatar(c) +
           '<span class="wa-it"><span class="wa-row"><b>' + esc(c.name) + '</b><small>' + waTime(c.lastAt) + '</small></span>' +
-          '<span class="wa-row"><span class="wa-last">' + (c.lastDir === 'out' ? '<span class="muted">You: </span>' : '') + esc(c.lastText || '') + '</span>' + (c.unread ? '<span class="wa-n">' + c.unread + '</span>' : '') + '</span>' +
+          '<span class="wa-row"><span class="wa-last">' + (c.lastDir === 'out' ? (c.bot === 'on' ? '<span class="muted">🤖 </span>' : '<span class="muted">You: </span>') : '') + esc(c.lastText || '') + '</span>' + (c.unread ? '<span class="wa-n">' + c.unread + '</span>' : '') + '</span>' +
           '<span class="wa-tags">' + (wait ? '<span class="wa-wait' + (wait >= 60 ? ' late' : wait >= 15 ? ' warn' : '') + '">⏱ <span>Waiting</span> ' + waAgo(wait) + '</span>' : '') +
             // The free-reply window: warn in the list before it closes, so nobody misses it.
             (left != null && left <= 360 ? '<span class="wa-win' + (left <= 120 ? ' late' : '') + '" title="Free replies end then">⌛ <span>Closes in</span> ' + waAgo(Math.max(1, left)) + '</span>'
-              : wait && c.status === 'open' && !c.windowOpen ? '<span class="wa-win late">⌛ <span>Reply window closed</span></span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') +
+              : wait && c.status === 'open' && !c.windowOpen ? '<span class="wa-win late">⌛ <span>Reply window closed</span></span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') + (c.bot === 'on' ? '<span class="wa-botc" title="The bot is answering this chat">🤖 <span>Bot</span></span>' : '') +
             (st.data.me.all ? '<span class="muted">' + esc(c.agent || 'Unassigned') + '</span>' : '') + (c.leadStatus ? pill(LEAD_TONE, c.leadStatus) : '') + '</span></span></button>';
       }).join('') : '<div class="muted small" style="padding:16px">' + (st.view === 'mine' ? 'No chats for you right now.' : 'No chats here.') + '</div>';
       $$('#waItems [data-c]').forEach((b) => b.onclick = () => openChat(+b.dataset.c));
@@ -1919,6 +1920,7 @@
       const headKey = JSON.stringify([d.chat.assignedTo, d.chat.status, d.chat.name]);
       if (headKey !== st.headKey) renderHead();
       if (d.chat.windowOpen !== st.composeOpen) renderCompose();
+      const bn = $('#waBotNote'); if (bn) bn.hidden = d.chat.bot !== 'on';
     };
     const renderChat = () => {
       $('#waChat').innerHTML = '<header class="wa-ch" id="waHead"></header><div class="wa-body"><div class="wa-msgs" id="waMsgs"></div><aside class="wa-side" id="waSide"></aside></div><footer class="wa-compose" id="waCompose"></footer>';
@@ -2084,6 +2086,7 @@
       const touchKeys = matchMedia('(pointer: coarse)').matches; // a phone or tablet keyboard
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
       $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div><div class="wa-quick wa-prods" id="waProdList" hidden></div>' +
+        '<div class="wa-botnote" id="waBotNote"' + (c.bot === 'on' ? '' : ' hidden') + '>🤖 <span>The bot is answering this chat. Writing here takes it over.</span></div>' +
         '<div class="wa-cbar' + (c.channel === 'wa' ? '' : ' no-mic') + '"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
         '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="' + (c.channel === 'ig' ? 'image/jpeg,image/png,image/gif,video/mp4,video/quicktime,.pdf' : 'image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt') + '"></label>' +
@@ -2506,8 +2509,10 @@
     const t = $('#psTest'); if (t) t.onclick = () => pageSettings(true);
     $('#main').insertAdjacentHTML('beforeend', '<div class="card stack" id="adTrack" style="gap:14px;margin-top:16px"><div class="muted small">Checking ad tracking…</div></div>' +
       '<div class="card stack" id="waSettings" style="gap:14px;margin-top:16px"><div class="muted small">Checking WhatsApp…</div></div>' +
-      '<div class="card stack" id="smSettings" style="gap:14px;margin-top:16px" hidden></div>');
+      '<div class="card stack" id="smSettings" style="gap:14px;margin-top:16px" hidden></div>' +
+      '<div class="card stack" id="botSettings" style="gap:14px;margin-top:16px"><div class="muted small">Loading the chat bot…</div></div>');
     adTrackCard();
+    botSettings();
     waSettings(false);
     problemsCard();
   }
@@ -2631,6 +2636,93 @@
       try { await api('wa_settings_save', { method: 'POST', body: { agents, video_days: +$('#waDays').value, tg_remind_managers: $('#tgMgr') ? ($('#tgMgr').checked ? 1 : 0) : undefined, tg_daily: $('#tgDaily') ? ($('#tgDaily').checked ? 1 : 0) : undefined } }); toast('WhatsApp settings saved'); }
       catch (e) { toast(e.message, true); }
     };
+  }
+
+  // Settings → Chat bot (api/bot.php): the menu customers get, each choice's answer, when it hands the
+  // chat to the team, and Try it (a pretend chat that sends nothing, with what's on the page, saved or not).
+  async function botSettings(d) {
+    const box = $('#botSettings'); if (!box) return;
+    if (!d) { try { d = await api('bot_settings'); } catch (e) { box.innerHTML = '<h2>Chat bot</h2><div class="err">' + esc(e.message) + '</div>'; return; } }
+    const c = JSON.parse(JSON.stringify(d.cfg));
+    const LANGS = [['ar', 'Arabic'], ['en', 'English']];
+    const two = (key, label, rows) => '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>' + label + '</span> · <span>' + name + '</span></span>' +
+      (rows ? '<textarea rows="' + rows + '" data-two="' + key + '" data-l="' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '">' + esc(c[key][l]) + '</textarea>'
+        : '<input type="text" data-two="' + key + '" data-l="' + l + '" maxlength="20" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '" value="' + esc(c[key][l]) + '">') + '</label>').join('') + '</div>';
+    const prodOpts = (sel) => '<option value="">—</option>' + d.products.map((p) => '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
+    box.innerHTML = '<h2>Chat bot<span class="spacer"></span>' + (d.cfg.on ? '<span class="pill good">✓ On</span>' : '<span class="pill">Off</span>') + '</h2>' +
+      '<div class="hint">Answers new WhatsApp, Instagram and Messenger chats with a menu and your ready answers, so the team only gets the chats that need a person. It hands a chat to the team when the customer picks “Talk to us”, sends a voice note or photo, uses words like “complaint”, or isn’t understood twice. While the bot has a chat it isn’t waiting and nobody is alerted (inbox → 🤖 Bot).</div>' +
+      (d.week.chats ? '<div class="small"><span>Last 7 days:</span> <b>' + d.week.chats + '</b> <span>chats answered by the bot</span> · <b>' + d.week.handover + '</b> <span>handed to the team</span></div>' : '') +
+      '<label class="row"><input type="checkbox" id="botOn"' + (c.on ? ' checked' : '') + '> <b>The bot answers new chats</b></label>' +
+      '<div class="row small">' + [['wa', 'WhatsApp'], ['ig', 'Instagram'], ['fb', 'Messenger']].map(([k, n]) => '<label class="row">' + smLogo(k) + '<input type="checkbox" data-bch="' + k + '"' + (c.channels[k] ? ' checked' : '') + '> <span>' + n + '</span></label>').join('') + '</div>' +
+      '<h3 style="margin:6px 0 0">First message</h3>' + two('welcome', 'Welcome', 3) + two('menu', 'Menu button (WhatsApp)', 0) +
+      '<h3 style="margin:6px 0 0">Menu</h3><div class="hint"><span>Each item is a button (up to 20 characters, Instagram’s limit). Keywords catch the same question when it’s typed instead.</span> <span>{prices:nfc,stands} becomes today’s prices of those categories, {shop} the shop’s link.</span> <span>Categories:</span> <code>' + esc(d.cats.join(', ')) + '</code></div>' +
+      '<div class="stack" id="botItems" style="gap:10px"></div><div class="row"><button class="btn sm" id="botAdd">+ Add an item</button></div>' +
+      '<h3 style="margin:6px 0 0">Handing to the team</h3>' + two('retry', 'When the bot didn’t understand', 2) + two('handover', 'When it hands the chat to the team', 2) +
+      '<label class="field"><span>Words that call a person (comma between them)</span><input type="text" id="botHuman" value="' + esc(c.human_words) + '"></label>' +
+      '<div class="grid2"><label class="field"><span>Hand over after this many messages it didn’t understand</span><input type="number" id="botFails" min="1" max="5" value="' + c.fails + '"></label>' +
+        '<label class="field"><span>Bot stays quiet after someone from the team writes (hours)</span><input type="number" id="botPause" min="1" max="72" value="' + c.pause_hours + '"></label></div>' +
+      (d.ads.length ? '<h3 style="margin:6px 0 0">Ads</h3><div class="hint">A chat that comes from an ad starts with the ad’s product (photo, price, order link), then the menu.</div>' +
+        '<div class="table-wrap"><table><thead><tr><th>Ad</th><th>Chats</th><th>Product</th></tr></thead><tbody>' +
+        d.ads.map((a) => '<tr><td>' + esc(a.headline || a.id) + '<div class="small muted" dir="ltr">' + esc(a.id) + '</div></td><td>' + a.chats + '</td><td><select data-ad="' + esc(a.id) + '">' + prodOpts(c.ads[a.id] || '') + '</select></td></tr>').join('') + '</tbody></table></div>' : '') +
+      '<div class="row"><button class="btn primary" id="botSave">Save the chat bot</button><button class="btn" id="botReset">Start from the suggested texts</button></div>' +
+      '<h3 style="margin:6px 0 0">Try it</h3><div class="hint">Write like a customer. Nothing is sent to anyone; it uses what’s on this page, saved or not.</div>' +
+      '<div class="bot-try"><div class="bot-msgs" id="botMsgs"></div><form class="row" id="botTryF"><select id="botTryCh"><option value="wa">WhatsApp</option><option value="ig">Instagram</option></select>' +
+        '<input type="text" id="botTryT" placeholder="e.g. بكام الكارت؟" style="flex:1;min-width:0"><button class="btn primary">Send</button><button type="button" class="btn" id="botTryNew">Start over</button></form></div>';
+    const drawItems = () => {
+      $('#botItems').innerHTML = c.items.map((it, i) => '<div class="bot-item" data-i="' + i + '">' +
+        '<div class="row"><b>' + (i + 1) + '</b><select data-f="action"><option value="answer"' + (it.action !== 'human' ? ' selected' : '') + '>Sends the answer</option><option value="human"' + (it.action === 'human' ? ' selected' : '') + '>Hands the chat to the team</option></select>' +
+          '<span class="spacer"></span><button type="button" class="btn sm" data-mv="-1"' + (i ? '' : ' disabled') + ' aria-label="Up">↑</button><button type="button" class="btn sm" data-mv="1"' + (i < c.items.length - 1 ? '' : ' disabled') + ' aria-label="Down">↓</button><button type="button" class="btn sm" data-rm aria-label="Remove">✕</button></div>' +
+        '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>Button</span> · <span>' + name + '</span></span><input type="text" data-f="title.' + l + '" maxlength="' + d.titleMax + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '" value="' + esc(it.title[l] || '') + '"></label>').join('') + '</div>' +
+        '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>' + (it.action === 'human' ? 'Message before handing over (optional)' : 'Answer') + '</span> · <span>' + name + '</span></span><textarea rows="4" data-f="answer.' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '">' + esc(it.answer[l] || '') + '</textarea></label>').join('') + '</div>' +
+        '<label class="field"><span>Keywords (comma between them)</span><input type="text" data-f="keywords" value="' + esc(it.keywords || '') + '"></label></div>').join('');
+      $('#botAdd').disabled = c.items.length >= d.maxItems;
+      $$('#botItems .bot-item').forEach((el) => {
+        const it = c.items[+el.dataset.i];
+        $$('[data-f]', el).forEach((f) => f.oninput = f.onchange = () => {
+          const [k, l] = f.dataset.f.split('.');
+          if (l) it[k][l] = f.value; else it[k] = f.value;
+          if (k === 'action') drawItems();
+        });
+        $$('[data-mv]', el).forEach((b) => b.onclick = () => { const i = +el.dataset.i, j = i + +b.dataset.mv; [c.items[i], c.items[j]] = [c.items[j], c.items[i]]; drawItems(); });
+        $('[data-rm]', el).onclick = () => { c.items.splice(+el.dataset.i, 1); drawItems(); };
+      });
+    };
+    drawItems();
+    $('#botAdd').onclick = () => { c.items.push({ id: '', action: 'answer', title: { ar: '', en: '' }, answer: { ar: '', en: '' }, keywords: '' }); drawItems(); };
+    const collect = () => {
+      c.on = $('#botOn').checked;
+      $$('[data-bch]', box).forEach((x) => c.channels[x.dataset.bch] = x.checked);
+      $$('[data-two]', box).forEach((x) => c[x.dataset.two][x.dataset.l] = x.value);
+      c.human_words = $('#botHuman').value; c.fails = +$('#botFails').value; c.pause_hours = +$('#botPause').value;
+      $$('[data-ad]', box).forEach((x) => { if (x.value) c.ads[x.dataset.ad] = x.value; else delete c.ads[x.dataset.ad]; });
+      return c;
+    };
+    $('#botSave').onclick = async () => {
+      try { const r = await api('bot_save', { method: 'POST', body: collect() }); toast(r.cfg.on ? 'Chat bot saved · it answers new chats now' : 'Chat bot saved · it’s off'); botSettings(r); }
+      catch (e) { toast(e.message, true); }
+    };
+    $('#botReset').onclick = () => {
+      if (!confirm('Put back the suggested texts and menu? Your changes on this page are replaced (nothing is saved until you press Save).')) return;
+      botSettings(Object.assign({}, d, { cfg: Object.assign({}, d.defaults, { on: $('#botOn').checked, ads: c.ads }) }));
+    };
+    // Try it: a pretend chat with its own state (a new conversation, failed guesses, the menu's language).
+    let t = { fresh: true, fails: 0, lang: '', human: false };
+    const msgs = $('#botMsgs');
+    const say = (who, html) => { msgs.insertAdjacentHTML('beforeend', '<div class="bot-b ' + who + '">' + html + '</div>'); msgs.scrollTop = msgs.scrollHeight; };
+    const NOTE = { handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
+    const send = async (text, tap) => {
+      say('in', '<div class="wa-text">' + esc(text) + '</div>');
+      if (t.human) { say('note', '<span>The team has this chat now, so the bot stays quiet.</span>'); return; }
+      let r;
+      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, channel: $('#botTryCh').value } }); }
+      catch (e) { say('note', esc(e.message)); return; }
+      if (r.text) say('out', '<div class="wa-text">' + waLink(r.text) + '</div>' + (r.menu.length ? '<div class="bot-menu">' + r.menu.map((m) => '<button type="button" class="btn sm" data-tap="' + esc(m.id) + '">' + esc(m.title) + '</button>').join('') + '</div>' : ''));
+      if (NOTE[r.do]) say('note', '<span>' + NOTE[r.do] + '</span>');
+      if (r.do !== 'none') { t.fresh = false; t.fails = r.fails; t.lang = r.lang; t.human = r.do === 'handover'; }
+      $$('[data-tap]', msgs).forEach((b) => b.onclick = () => send(b.textContent, b.dataset.tap));
+    };
+    $('#botTryF').onsubmit = (e) => { e.preventDefault(); const v = $('#botTryT').value.trim(); if (!v) return; $('#botTryT').value = ''; send(v); };
+    $('#botTryNew').onclick = () => { t = { fresh: true, fails: 0, lang: '', human: false }; msgs.innerHTML = ''; };
   }
 
   // Instagram Direct and Messenger in the same inbox (api/social.php): what's set up, and the steps left.
