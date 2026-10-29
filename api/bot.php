@@ -39,6 +39,10 @@ function bot_defaults(): array
         'welcome' => ['ar' => "أهلًا بحضرتك في Where To Spot 👋\nاختار اللي محتاجه من القائمة وهترد عليك فورًا.",
             'en' => "Welcome to Where To Spot 👋\nPick what you need from the menu and you’ll get an answer right away."],
         'menu' => ['ar' => 'القائمة', 'en' => 'Menu'],
+        // WhatsApp shows at most 3 buttons in the chat: two menu items and "More options" (the full list).
+        // Off: one Menu button that opens the list.
+        'wa_buttons' => true,
+        'more' => ['ar' => '☰ اختيارات تانية', 'en' => '☰ More options'],
         'retry' => ['ar' => "معلش مافهمتش طلبك 🙏\nاختار من القائمة، أو اختار «كلّم فريقنا» وحد من الفريق هيرد عليك.",
             'en' => "Sorry, I didn’t get that 🙏\nPick from the menu, or choose “Talk to us” and someone from the team will reply."],
         'handover' => ['ar' => 'تمام 👍 حد من فريقنا هيرد عليك في أقرب وقت.', 'en' => 'Sure 👍 someone from our team will reply shortly.'],
@@ -75,7 +79,16 @@ function bot_cfg(): array
 {
     $d = bot_defaults();
     $s = wa_setting('bot', null);
-    return is_array($s) ? array_replace($d, array_intersect_key($s, $d)) : $d;
+    if (!is_array($s)) return $d;
+    $cfg = array_replace($d, array_intersect_key($s, $d));
+    // Saved before the bot could look orders up: "My order" with its first, unchanged text now does.
+    foreach ($cfg['items'] as &$it) {
+        if (($it['id'] ?? '') === 'track' && ($it['action'] ?? '') === 'human' && ($it['answer']['ar'] ?? '') === 'ابعتلنا رقم الطلب أو رقم الموبايل اللي طلبت بيه، وحد من الفريق هيرد عليك بحالة طلبك 📦') {
+            foreach ($d['items'] as $def) if ($def['id'] === 'track') { $it['action'] = 'orders'; $it['answer'] = $def['answer']; $it['keywords'] = $def['keywords']; }
+        }
+    }
+    unset($it);
+    return $cfg;
 }
 
 // Short words that don't need an answer, and hellos (the menu again rather than "didn't get that").
@@ -194,6 +207,7 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
         if ($it['action'] === 'orders') return $orders($it, $how, $none);
         return $plan($it['action'] === 'human' ? 'handover' : 'answer', $it, $how);
     };
+    if ($tap === 'bot:_more') { if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang']; return $plan('more', null, 'tap'); }
     if (strpos($tap, 'bot:') === 0) {
         // The menu came in the chat's language, so the answer does too.
         if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang'];
@@ -231,6 +245,7 @@ function bot_reply(array $plan, array $cfg): array
     $it = $plan['item'];
     switch ($plan['do']) {
         case 'welcome': return ['text' => bot_fill((string) $cfg['welcome'][$lang], $ar), 'menu' => true];
+        case 'more': return ['text' => $ar ? 'كل الاختيارات 👇' : 'All the options 👇', 'menu' => true, 'list' => true];
         case 'retry': return ['text' => bot_fill((string) $cfg['retry'][$lang], $ar), 'menu' => true];
         case 'handover':
             if (($plan['say'] ?? '') === 'notfound') return ['text' => $ar ? 'مالقيناش طلب بالرقم ده 🤔 حد من فريقنا هيراجع ويرد عليك.' : 'We couldn’t find an order with that number 🤔 Someone from our team will check and reply.', 'menu' => false];
@@ -284,7 +299,7 @@ function bot_run(array $chat, array $plan): void
             catch (Throwable $e) { error_log('[shop] bot ad product: ' . $e->getMessage()); }
         }
         $r = bot_reply($plan, $cfg);
-        if ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg);
+        if ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg, BOT_VIA, (string) ($plan['item']['id'] ?? ''), !empty($r['list']));
     }
     $state = bot_takes($plan) ? 'on' : 'human';
     $fails = $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0;
@@ -321,7 +336,8 @@ function bot_mark(int $messageId, string $via = BOT_VIA): void
 
 // A text with the menu under it: a WhatsApp list (one "Menu" button that opens the choices), or
 // quick-reply buttons on Instagram and Messenger. The chat history shows the choices under the text.
-function bot_send(array $chat, string $text, bool $withMenu, string $lang, array $cfg, string $via = BOT_VIA): void
+// $skip: the item just answered (not offered again as a button); $list: the full list even with buttons on.
+function bot_send(array $chat, string $text, bool $withMenu, string $lang, array $cfg, string $via = BOT_VIA, string $skip = '', bool $list = false): void
 {
     $rows = [];
     foreach (bot_items($cfg) as $it) $rows[] = ['id' => 'bot:' . $it['id'], 'title' => mb_substr(trim((string) $it['title'][$lang]), 0, BOT_TITLE_MAX)];
@@ -331,7 +347,15 @@ function bot_send(array $chat, string $text, bool $withMenu, string $lang, array
         // A list's text holds 1024 characters: a long answer goes first on its own, the menu after it.
         if (mb_strlen($text) > 1000) { bot_mark(wa_send_text($chat, $text, null, false, true), $via); $text = $lang === 'ar' ? 'اختار من القائمة 👇' : 'Pick from the menu 👇'; }
         $label = mb_substr(trim((string) $cfg['menu'][$lang]) ?: 'Menu', 0, 20);
-        $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
+        if (!empty($cfg['wa_buttons']) && !$list) {
+            // Buttons right under the message: all of them when there are 3 or fewer, else the first two
+            // (not the one just answered) and "More options".
+            $btns = count($rows) <= 3 ? $rows : array_values(array_filter($rows, function ($r) use ($skip) { return $r['id'] !== 'bot:' . $skip; }));
+            if (count($btns) > 3) $btns = array_merge(array_slice($btns, 0, 2), [['id' => 'bot:_more', 'title' => mb_substr(trim((string) ($cfg['more'][$lang] ?? '')) ?: '☰', 0, 20)]]);
+            $rows = $btns;
+            $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
+                'interactive' => ['type' => 'button', 'body' => ['text' => $text], 'action' => ['buttons' => array_map(function ($r) { return ['type' => 'reply', 'reply' => ['id' => $r['id'], 'title' => $r['title']]]; }, $btns)]]];
+        } else $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
             'interactive' => ['type' => 'list', 'body' => ['text' => $text], 'action' => ['button' => $label,
                 'sections' => [['title' => mb_substr($label, 0, 24), 'rows' => array_map(function ($r) { return ['id' => $r['id'], 'title' => mb_substr($r['title'], 0, 24)]; }, $rows)]]]]];
         $send = function () use ($body) { return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', $body); };
@@ -387,10 +411,10 @@ function bot_clean(array $b): array
     $cfg = ['on' => !empty($b['on']),
         'channels' => ['wa' => !empty($b['channels']['wa']), 'ig' => !empty($b['channels']['ig']), 'fb' => !empty($b['channels']['fb'])],
         'pause_hours' => max(1, min(72, (int) ($b['pause_hours'] ?? 12))), 'fails' => max(1, min(5, (int) ($b['fails'] ?? 2))),
-        'welcome' => $two($b['welcome'] ?? [], 900), 'menu' => $two($b['menu'] ?? [], 20), 'retry' => $two($b['retry'] ?? [], 900),
+        'welcome' => $two($b['welcome'] ?? [], 900), 'menu' => $two($b['menu'] ?? [], 20), 'wa_buttons' => !empty($b['wa_buttons']), 'more' => $two($b['more'] ?? [], 20), 'retry' => $two($b['retry'] ?? [], 900),
         'handover' => $two($b['handover'] ?? [], 900), 'human_words' => str_in($b['human_words'] ?? '', 2000), 'items' => [], 'ads' => []];
     foreach (['welcome', 'retry', 'handover'] as $k) foreach (['ar', 'en'] as $l) if ($cfg[$k][$l] === '') fail('Write the ' . ($k === 'welcome' ? 'welcome' : ($k === 'retry' ? '“didn’t understand”' : '“handing to the team”')) . ' message in ' . ($l === 'ar' ? 'Arabic' : 'English') . '.');
-    foreach (['ar', 'en'] as $l) if ($cfg['menu'][$l] === '') $cfg['menu'][$l] = $d['menu'][$l];
+    foreach (['ar', 'en'] as $l) foreach (['menu', 'more'] as $k) if ($cfg[$k][$l] === '') $cfg[$k][$l] = $d[$k][$l];
     $seen = [];
     foreach (array_slice((array) ($b['items'] ?? []), 0, BOT_MAX_ITEMS) as $it) {
         $title = $two($it['title'] ?? [], 60);

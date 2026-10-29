@@ -2659,7 +2659,9 @@
       (d.week.chats ? '<div class="small"><span>Last 7 days:</span> <b>' + d.week.chats + '</b> <span>chats answered by the bot</span> · <b>' + d.week.handover + '</b> <span>handed to the team</span></div>' : '') +
       '<label class="row"><input type="checkbox" id="botOn"' + (c.on ? ' checked' : '') + '> <b>The bot answers new chats</b></label>' +
       '<div class="row small">' + [['wa', 'WhatsApp'], ['ig', 'Instagram'], ['fb', 'Messenger']].map(([k, n]) => '<label class="row">' + smLogo(k) + '<input type="checkbox" data-bch="' + k + '"' + (c.channels[k] ? ' checked' : '') + '> <span>' + n + '</span></label>').join('') + '</div>' +
-      '<h3 style="margin:6px 0 0">First message</h3>' + two('welcome', 'Welcome', 3) + two('menu', 'Menu button (WhatsApp)', 0) +
+      '<h3 style="margin:6px 0 0">First message</h3>' + two('welcome', 'Welcome', 3) +
+      '<label class="row"><input type="checkbox" id="botWaBtns"' + (c.wa_buttons ? ' checked' : '') + '> <span>WhatsApp: buttons right in the chat (WhatsApp allows 3: the first two menu items and “More options”), instead of one Menu button</span></label>' +
+      two('more', '“More options” button (WhatsApp)', 0) + two('menu', 'Menu button (WhatsApp)', 0) +
       '<h3 style="margin:6px 0 0">Menu</h3><div class="hint"><span>Each item is a button (up to 20 characters, Instagram’s limit). Keywords catch the same question when it’s typed instead.</span> <span>{prices:nfc,stands} becomes today’s prices of those categories, {shop} the shop’s link.</span> <span>Categories:</span> <code>' + esc(d.cats.join(', ')) + '</code></div>' +
       '<div class="stack" id="botItems" style="gap:10px"></div><div class="row"><button class="btn sm" id="botAdd">+ Add an item</button></div>' +
       '<h3 style="margin:6px 0 0">Handing to the team</h3>' + two('retry', 'When the bot didn’t understand', 2) + two('handover', 'When it hands the chat to the team', 2) +
@@ -2696,6 +2698,7 @@
     $('#botAdd').onclick = () => { c.items.push({ id: '', action: 'answer', title: { ar: '', en: '' }, answer: { ar: '', en: '' }, keywords: '' }); drawItems(); };
     const collect = () => {
       c.on = $('#botOn').checked;
+      c.wa_buttons = $('#botWaBtns').checked;
       $$('[data-bch]', box).forEach((x) => c.channels[x.dataset.bch] = x.checked);
       $$('[data-two]', box).forEach((x) => c[x.dataset.two][x.dataset.l] = x.value);
       c.human_words = $('#botHuman').value; c.fails = +$('#botFails').value; c.pause_hours = +$('#botPause').value;
