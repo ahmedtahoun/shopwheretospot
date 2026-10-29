@@ -831,6 +831,7 @@ require __DIR__ . '/social.php';
 require __DIR__ . '/bot.php';
 require __DIR__ . '/order-updates.php';
 require __DIR__ . '/automations.php';
+require __DIR__ . '/insights.php';
 alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.

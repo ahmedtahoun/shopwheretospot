@@ -176,9 +176,9 @@
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
-      ['dashboard', 'Dashboard', 'home'], ['inbox', 'Chats', 'chat'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
+      ['dashboard', 'Dashboard', 'home'], ['inbox', 'Chats', 'chat'], ['insights', 'Chat insights', 'chart'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
       ['leads', 'Leads', 'inbox'], ['reports', 'Monthly reports', 'chart'], ['commissions', 'Salaries & commissions', 'coins'], ['expenses', 'Expenses & suppliers', 'receipt'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' || k === 'reports' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
+    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'insights' ? can('whatsapp_all') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' || k === 'reports' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -201,7 +201,7 @@
     $('#pwBtn').onclick = changePassword;
     const sb = $('#searchBtn'); if (sb) sb.onclick = openSearch;
     const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
-    const pages = { dashboard: pageDashboard, inbox: pageInbox, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, reports: pageReports, expenses: pageExpenses, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
+    const pages = { dashboard: pageDashboard, inbox: pageInbox, insights: pageInsights, orders: pageOrders, quotes: pageQuotes, customers: pageCustomers, products: pageProducts, brands: pageBrands, promos: pagePromos, leads: pageLeads, commissions: pageCommissions, reports: pageReports, expenses: pageExpenses, team: pageTeam, activity: pageActivity, backups: pageBackups, settings: pageSettings };
     document.body.classList.toggle('in-inbox', S.route === 'inbox');
     pages[S.route]().catch((e) => { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
     waWatch();
@@ -1907,6 +1907,7 @@
       if (id !== st.chatId || S.route !== 'inbox') return;
       const isNew = !update;
       st.chat = d.chat; st.lead = d.lead; st.orders = d.orders; st.quotes = d.quotes;
+      if (d.summary !== null && d.summary !== undefined) st.summary = d.summary;
       if (isNew) st.msgs = d.messages; else st.msgs = st.msgs.concat(d.messages);
       const ticks = {}; d.ticks.forEach((t) => ticks[t.id] = t);
       st.msgs.forEach((m) => { if (ticks[m.id]) { m.status = ticks[m.id].status; m.error = ticks[m.id].error; } });
@@ -2013,7 +2014,7 @@
     };
     const renderSide = () => {
       const c = st.chat, l = st.lead;
-      $('#waSide').innerHTML = '<div class="stack" style="gap:12px">' +
+      $('#waSide').innerHTML = '<div class="stack" style="gap:12px">' + chatSummary(st.summary) +
         (c.ad ? '<div class="card wa-adcard"><small class="muted">Came from ad</small><b>' + esc(c.ad.headline || '—') + '</b>' + (c.ad.body ? '<div class="small">' + esc(c.ad.body) + '</div>' : '') + (c.ad.id ? '<small class="muted">Ad ID ' + esc(c.ad.id) + '</small>' : '') + '</div>' : '') +
         (l ? '<div class="card stack" style="gap:8px"><small class="muted">Lead</small><input type="text" id="waLeadName" value="' + esc(l.name) + '" aria-label="Customer name">' +
           '<select id="waLeadStatus">' + S.meta.leadStatuses.map((s2) => '<option value="' + s2 + '"' + (s2 === l.status ? ' selected' : '') + '>' + s2 + '</option>').join('') + '</select>' +
@@ -3040,6 +3041,84 @@
 
   // ---------- commissions ----------
   // Earned on delivered orders, in the month they're delivered, on the products' value (order total without shipping).
+  // ---------- Chat insights (api/insights.php) ----------
+
+  const STAGE_TONE = { 'Ordered': 'good', 'Waiting for us': 'warn', 'Quiet after price': 'bad', 'With the bot': 'info' };
+  const howLabel = (h) => {
+    if (!h) return '';
+    if (h.indexOf('tap: ') === 0) { const id = h.slice(5); return id === 'human' ? 'Tapped “Talk to us”' : 'Tapped ' + id; }
+    return { words: 'Asked for a person', 'not understood': 'Not understood twice', audio: 'Sent a voice note', image: 'Sent a photo', video: 'Sent a video', document: 'Sent a file', location: 'Sent a location', number: 'Order number not found', tap: 'Tapped a menu item', keyword: 'Asked about their order' }[h] || h;
+  };
+  const AUTO_ICON = { followup: '⏰', away: '🌙', cart: '🛒', reorder: '🔁' };
+
+  // The top of a chat's side panel: what happened in it, at a glance (last 30 days).
+  function chatSummary(m) {
+    if (!m || !m.start) return '';
+    const li = (label, val) => val ? '<div class="li small"><span class="muted">' + label + '</span><span>' + val + '</span></div>' : '';
+    return '<div class="card stack wa-sum" style="gap:6px"><div class="row"><small class="muted">Summary</small><span class="spacer"></span><span class="pill ' + (STAGE_TONE[m.stage] || '') + '">' + esc(m.stage) + '</span></div><div class="list">' +
+      li('Started', dateTime(m.start)) +
+      li('First reply', m.replyMins !== null ? '<span>' + waAgo(Math.max(1, m.replyMins)) + '</span>' : m.botOnly ? '🤖 <span>Bot only</span>' : '—') +
+      li('Messages', m.in + ' ↔ ' + m.out) +
+      li('Asked about', m.topics.map((t) => esc(AR ? t.ar : t.en)).join(' · ')) +
+      li('Products sent', m.products.map(esc).join(' · ')) +
+      li('Price sent', m.priceSent ? '✓' : '') +
+      li('Handed over', m.handover ? '<span>' + esc(howLabel(m.handover)) + '</span>' : '') +
+      li('Orders', m.orders.map(esc).join(', ')) +
+      li('Automatic', m.auto.map((k) => AUTO_ICON[k] || k).join(' ')) + '</div></div>';
+  }
+
+  async function pageInsights() {
+    S.inDays = S.inDays || 30;
+    const title = 'What customers ask, which chats turn into orders, and where we lose them. From the chats, the bot and the orders (no AI).';
+    const acts = '<div class="seg" id="inDays">' + [7, 30, 90].map((n) => '<button data-d="' + n + '" class="' + (S.inDays === n ? 'on' : '') + '"><span>' + n + ' days</span></button>').join('') + '</div>' +
+      '<button class="btn" id="inXlsx">' + icon('download') + '<span>Download Excel</span></button>';
+    $('#main').innerHTML = header('Chat insights', title, acts) + '<div class="card"><div class="muted small">Loading…</div></div>';
+    let d;
+    try { d = await api('insights', { query: '&days=' + S.inDays }); } catch (e) { $('#main .card').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+    if (S.route !== 'insights') return;
+    const k = d.kpi;
+    const pct = (x) => '<span class="small muted">' + x + '%</span>';
+    const bar = (v, max, tone) => '<span class="in-bar"><i style="width:' + (max ? Math.max(2, Math.round(v / max * 100)) : 0) + '%"' + (tone ? ' class="' + tone + '"' : '') + '></i></span>';
+    const table = (title, hint, rows, cols) => rows.length ? '<div class="card stack" style="gap:10px"><h2>' + title + '</h2>' + (hint ? '<div class="hint">' + hint + '</div>' : '') +
+      '<div class="table-wrap"><table><thead><tr>' + cols.map((c) => '<th>' + c[0] + '</th>').join('') + '</tr></thead><tbody>' + rows.map((r) => '<tr>' + cols.map((c) => '<td>' + c[1](r) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div></div>' : '';
+    const maxRate = Math.max(1, ...d.speed.map((x) => x.rate), ...d.questions.map((x) => x.rate));
+    const rateCell = (r) => '<div class="in-rate">' + bar(r.rate, maxRate, 'good') + '<b>' + r.rate + '%</b> <span class="small muted">(' + r.orders + ')</span></div>';
+    const maxQ = Math.max(1, ...d.questions.map((x) => x.chats));
+    // Busy hours: Saturday first (the Egyptian week), darker = more customer messages.
+    const heatMax = Math.max(1, ...d.heat.flat());
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const heat = '<div class="in-heat"><span></span>' + Array.from({ length: 24 }, (_, h) => '<span class="in-hh">' + (h % 3 === 0 ? h : '') + '</span>').join('') +
+      [6, 0, 1, 2, 3, 4, 5].map((day) => '<span class="in-hd">' + DAYS[day] + '</span>' + d.heat[day].map((n, h) => '<span class="in-hc" style="--a:' + (n / heatMax).toFixed(2) + '" title="' + DAYS[day] + ' ' + String(h).padStart(2, '0') + ':00 · ' + n + '"></span>').join('')).join('') + '</div>';
+    $('#main').innerHTML = header('Chat insights', title, acts) +
+      '<div class="kpis">' +
+        '<div class="kpi"><div class="label">Chats</div><div class="value">' + k.chats + '</div><div class="note"><span>' + k.new + '</span> <span>new customers</span></div></div>' +
+        '<div class="kpi"><div class="label">Ordered</div><div class="value">' + k.orders + ' ' + pct(k.rate) + '</div><div class="note">' + egp(k.revenue) + '</div></div>' +
+        '<div class="kpi"><div class="label">Answered by the bot alone</div><div class="value">' + k.botOnly + ' ' + pct(k.botRate) + '</div><div class="note"><span>' + k.handovers + '</span> <span>handed to the team</span></div></div>' +
+        '<div class="kpi"><div class="label">Team’s first reply (median)</div><div class="value">' + (k.reply === null ? '—' : waAgo(Math.max(1, Math.round(k.reply)))) + '</div><div class="note">' + (d.quiet.length ? '<span>' + d.quiet.length + '</span> <span>quiet after the price</span>' : '') + '</div></div>' +
+      '</div>' +
+      '<div class="in-grid">' +
+      table('Top questions', 'Menu items customers tapped, or the same question typed (the bot’s keywords). How many of those chats ordered.', d.questions, [
+        ['Question', (r) => esc(AR ? r.titleAr : r.title)], ['Chats', (r) => '<div class="in-rate">' + bar(r.chats, maxQ) + '<b>' + r.chats + '</b></div>'], ['Ordered', rateCell]]) +
+      (d.phrases.length || d.words.length ? '<div class="card stack" style="gap:10px"><h2>What customers write most</h2><div class="hint">Their own words, counted once per chat. New questions show up here before they’re in the bot’s menu.</div>' +
+        '<div class="in-chips">' + d.phrases.map((p) => '<span class="in-chip" dir="auto">' + esc(p.p) + ' <b>' + p.n + '</b></span>').join('') + '</div>' +
+        (d.words.length ? '<details><summary class="small">Single words</summary><div class="in-chips" style="margin-top:8px">' + d.words.map((p) => '<span class="in-chip" dir="auto">' + esc(p.w) + ' <b>' + p.n + '</b></span>').join('') + '</div></details>' : '') + '</div>' : '') +
+      table('Reply speed and buying', 'How fast the team first answered, and how many of those chats ordered.', d.speed, [['First reply', (r) => '<span>' + esc(r.key) + '</span>'], ['Chats', (r) => r.chats], ['Ordered', rateCell]]) +
+      (d.quiet.length ? '<div class="card stack" style="gap:10px"><h2>Quiet after the price</h2><div class="hint">Got prices or a product, didn’t answer for a day, no order yet. Worth a message or a call.</div><div class="list">' +
+        d.quiet.map((q) => '<div class="li"><span>' + smLogo(q.channel) + ' <b>' + esc(q.name) + '</b><div class="small muted">' + dateTime(q.lastIn) + (q.products.length ? ' · ' + q.products.map(esc).join(', ') : '') + (q.followup ? ' · <span>⏰ follow-up sent</span>' : '') + '</div></span>' +
+          '<a class="btn sm" href="#inbox/' + q.id + '">Open chat</a></div>').join('') + '</div></div>' : '') +
+      '<div class="card stack" style="gap:10px"><h2>Busy hours</h2><div class="hint">Customer messages by day and hour (Cairo). Have someone online at the dark times.</div>' + heat + '</div>' +
+      table('By app', '', d.apps, [['App', (r) => esc(r.key)], ['Chats', (r) => r.chats], ['Ordered', rateCell], ['Order value', (r) => egp(r.revenue)]]) +
+      table('By ad', 'Chats that came from an ad, and how many ordered.', d.ads, [['Ad', (r) => esc(r.key)], ['Chats', (r) => r.chats], ['Ordered', rateCell], ['Order value', (r) => egp(r.revenue)]]) +
+      table('By team member', '', d.agents, [['Team member', (r) => esc(r.key)], ['Chats', (r) => r.chats], ['First reply (median)', (r) => r.reply === null ? '—' : waAgo(Math.max(1, Math.round(r.reply)))], ['Ordered', rateCell]]) +
+      table('Why chats went to the team', '', d.handover, [['Reason', (r) => '<span>' + esc(howLabel(r.how)) + '</span>'], ['Chats', (r) => r.n]]) +
+      '</div>' +
+      (can('backups') ? '<div class="card row" style="gap:12px;flex-wrap:wrap"><label class="row"><input type="checkbox" id="inWeekly"' + (d.weekly ? ' checked' : '') + '> <span>Weekly report on Telegram to owners and managers (Saturday 10:00)</span></label><span class="spacer"></span><button class="btn sm" id="inWeeklyTest">Send it to me now</button></div>' : '');
+    $$('#inDays button').forEach((b) => b.onclick = () => { S.inDays = +b.dataset.d; pageInsights(); });
+    $('#inXlsx').onclick = () => { location.href = API + '?action=insights_xlsx&days=' + S.inDays; };
+    const wk = $('#inWeekly'); if (wk) wk.onchange = async () => { try { await api('insights_weekly', { method: 'POST', body: { on: wk.checked ? 1 : 0 } }); toast(wk.checked ? 'Weekly report on' : 'Weekly report off'); } catch (e) { toast(e.message, true); } };
+    const wt = $('#inWeeklyTest'); if (wt) wt.onclick = async () => { wt.disabled = true; try { await api('insights_weekly', { method: 'POST', body: { test: 1 } }); toast('Sent — check Telegram'); } catch (e) { toast(e.message, true); } wt.disabled = false; };
+  }
+
   // ---------- Monthly reports: each Cairo month's orders, money, expenses and profit (api/reports.php) ----------
   async function pageReports() {
     const list = (await api('reports')).months;

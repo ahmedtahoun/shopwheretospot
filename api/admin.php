@@ -1310,7 +1310,10 @@ try {
             $qq->execute(['%' . $key]);
             foreach ($qq->fetchAll() as $r) $quotes[] = ['id' => (int) $r['id'], 'number' => quote_number((int) $r['id']), 'status' => $r['status'], 'total' => (float) $r['total'], 'at' => $r['created_at']];
         }
-        json_out(['chat' => $full, 'messages' => $msgs, 'ticks' => array_map(function ($t) { return ['id' => (int) $t['id'], 'status' => $t['status'], 'error' => $t['error']]; }, $ticks->fetchAll()),
+        // The summary card at the top of the side panel (api/insights.php); never stops the chat from opening.
+        $summary = null;
+        if (!$after) { try { $summary = in_chat_summary($chat); } catch (Throwable $e) { $summary = []; } }
+        json_out(['chat' => $full, 'summary' => $summary, 'messages' => $msgs, 'ticks' => array_map(function ($t) { return ['id' => (int) $t['id'], 'status' => $t['status'], 'error' => $t['error']]; }, $ticks->fetchAll()),
             'lead' => $lead, 'orders' => $orders, 'quotes' => $quotes]);
 
     case 'wa_send':
@@ -1529,6 +1532,32 @@ try {
         ou_save(body());
         log_activity($u, 'Updated order updates on WhatsApp', ou_cfg()['on'] ? 'on' : 'off');
         json_out(ou_settings_out());
+
+    // Chat insights (api/insights.php): the page, the Excel sheet, the weekly Telegram report.
+    case 'insights':
+        require_perm('whatsapp_all');
+        json_out(insights((int) ($_GET['days'] ?? 30)));
+
+    case 'insights_xlsx':
+        $u = require_perm('whatsapp_all');
+        $days = max(1, min(365, (int) ($_GET['days'] ?? 30)));
+        $data = in_workbook($days);
+        log_activity($u, 'Downloaded the chats sheet', $days . ' days');
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="where-to-spot-chats-' . gmdate('Y-m-d') . '.xlsx"');
+        header('Content-Length: ' . strlen($data));
+        echo $data;
+        exit;
+
+    case 'insights_weekly':
+        $u = require_perm('backups');
+        $b = body();
+        if (isset($b['on'])) wa_set_setting('tg_weekly', !empty($b['on']));
+        if (!empty($b['test'])) {
+            if (empty($u['tg_chat_id'])) fail('Connect Telegram first (✈️ in the Chats inbox).');
+            if (!tg_send_user($u, in_weekly_text())) fail('Telegram didn’t deliver it. Connect Telegram again.');
+        }
+        json_out(['weekly' => (bool) wa_setting('tg_weekly', true)]);
 
     // Settings → Automatic messages (api/automations.php).
     case 'au_settings':

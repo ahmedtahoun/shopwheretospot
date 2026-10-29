@@ -290,7 +290,8 @@ function bot_run(array $chat, array $plan): void
     $fails = $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0;
     db()->prepare("UPDATE wa_chats SET bot = ?, bot_at = datetime('now'), bot_fails = ?, bot_lang = ?, bot_wait = ? WHERE id = ?")
         ->execute([$state, $fails, $lang, $plan['do'] === 'ask' ? 'order' : '', (int) $chat['id']]);
-    bot_event($chat, $plan['do'], $plan['item']['id'] ?? '', $plan['how']);
+    // An order lookup that found a problem counts as a handover in the reports.
+    bot_event($chat, bot_takes($plan) || $plan['do'] === 'handover' ? $plan['do'] : 'handover', $plan['item']['id'] ?? '', $plan['how']);
 }
 
 // The bot answers this one itself (not waiting, no alert); otherwise the team takes over.

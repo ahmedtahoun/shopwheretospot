@@ -594,3 +594,20 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .bot-menu{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .bot-try form{padding:10px;border-top:1px solid var(--line);flex-wrap:nowrap}
 .bot-try select{width:auto}
+
+/* ---------- chat insights (dashboard → Chat insights, summary on each chat) ---------- */
+.in-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px;align-items:start;margin-bottom:16px}
+.in-grid>.card{margin:0}
+.in-rate{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.in-bar{flex:1;min-width:50px;height:8px;border-radius:99px;background:var(--line-2);overflow:hidden;display:block}
+.in-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.in-bar i.good{background:var(--good)}
+.in-chips{display:flex;flex-wrap:wrap;gap:6px}
+.in-chip{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px}
+.in-chip b{color:var(--accent-2);margin-inline-start:4px}
+.in-heat{display:grid;grid-template-columns:34px repeat(24,minmax(0,1fr));gap:2px;font-size:10.5px;color:var(--ink-3);direction:ltr}
+.in-hh{text-align:center}
+.in-hd{align-self:center}
+.in-hc{aspect-ratio:1;border-radius:3px;background:rgba(168,85,47,calc(.06 + var(--a) * .94))}
+.wa-sum .li{padding:5px 0;gap:10px}
+.wa-sum .li span:last-child{text-align:end}
