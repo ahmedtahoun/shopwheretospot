@@ -388,7 +388,8 @@ function wa_send_later(int $messageId, int $chatId, callable $send): void
 }
 
 // $background: the inbox (instant, 🕓 then ✓); false for other pages, which wait for Meta's answer.
-function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = true, bool $background = false): int
+// $replyTo: the wamid of the message being answered (WhatsApp shows it quoted above the reply).
+function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = true, bool $background = false, string $replyTo = ''): int
 {
     $text = trim($text);
     if ($text === '') throw new ShopError('Write a message first.');
@@ -399,24 +400,65 @@ function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = t
         if ($id = (int) $dup->fetchColumn()) return $id;
     }
     wa_window_check($chat);
-    $send = sm_channel($chat) !== 'wa' ? function () use ($chat, $text) { return sm_send_text($chat, $text); } : function () use ($chat, $text, $preview) {
+    if (sm_channel($chat) !== 'wa') $replyTo = '';
+    $send = sm_channel($chat) !== 'wa' ? function () use ($chat, $text) { return sm_send_text($chat, $text); } : function () use ($chat, $text, $preview, $replyTo) {
         return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
-            'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => $preview]]);
+            'to' => $chat['wa_id'], 'type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => $preview]] + wa_context($replyTo));
     };
     if ($background) {
         $id = wa_record_out($chat, '', 'text', $text, [], $userId, 'sending');
+        wa_reply_meta($id, $replyTo);
         wa_send_later($id, (int) $chat['id'], $send);
         return $id;
     }
     $r = $send();
-    return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), 'text', $text, [], $userId);
+    $id = wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), 'text', $text, [], $userId);
+    wa_reply_meta($id, $replyTo);
+    return $id;
+}
+
+function wa_context(string $replyTo): array
+{
+    return $replyTo !== '' ? ['context' => ['message_id' => $replyTo]] : [];
+}
+
+// The quoted message is kept like a customer's reply ('context'), so the inbox draws it the same way.
+function wa_reply_meta(int $id, string $replyTo): void
+{
+    if ($replyTo !== '') db()->prepare('UPDATE wa_messages SET meta = ? WHERE id = ?')->execute([json_encode(['context' => $replyTo]), $id]);
+}
+
+// The wamid of a message in this chat that can be quoted or reacted to (WhatsApp only; '' when it has none yet).
+function wa_target_wamid(array $chat, int $messageId): string
+{
+    if (!$messageId) return '';
+    $st = db()->prepare("SELECT wamid FROM wa_messages WHERE id = ? AND chat_id = ? AND kind NOT IN ('reaction', 'note')");
+    $st->execute([$messageId, $chat['id']]);
+    $w = (string) $st->fetchColumn();
+    if ($w === '') throw new ShopError('This message can’t be answered or reacted to yet. Try again in a moment.');
+    return $w;
+}
+
+// A reaction from the team, like WhatsApp: one per message (a new one replaces it, '' takes it away).
+// Saved as a 'reaction' row that doesn't count as answering the customer.
+function wa_send_reaction(array $chat, int $messageId, string $emoji, array $user): int
+{
+    if (sm_channel($chat) !== 'wa') throw new ShopError('Reactions work in WhatsApp chats only.');
+    wa_window_check($chat);
+    $wamid = wa_target_wamid($chat, $messageId);
+    wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
+        'to' => $chat['wa_id'], 'type' => 'reaction', 'reaction' => ['message_id' => $wamid, 'emoji' => $emoji]]);
+    db()->prepare("INSERT INTO wa_messages (chat_id, wamid, dir, kind, body, status, meta, created_at) VALUES (?, '', 'out', 'reaction', ?, 'sent', ?, datetime('now'))")
+        ->execute([$chat['id'], $emoji, json_encode(['reaction_to' => $wamid, 'via' => (string) $user['name']], JSON_UNESCAPED_UNICODE)]);
+    return (int) db()->lastInsertId();
 }
 
 // Send a file the team uploaded (or a document made by the dashboard, e.g. a quote PDF).
-function wa_send_file(array $chat, string $tmpPath, string $name, string $caption, ?int $userId, bool $background = false): int
+function wa_send_file(array $chat, string $tmpPath, string $name, string $caption, ?int $userId, bool $background = false, string $replyTo = ''): int
 {
     wa_window_check($chat);
     $channel = sm_channel($chat);
+    if ($channel !== 'wa') $replyTo = '';
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmpPath) ?: 'application/octet-stream';
     if ($mime === 'audio/x-m4a') $mime = 'audio/mp4';
     // A voice note recorded on an iPhone (M4A) can look like an MP4 video to the type check.
@@ -435,22 +477,25 @@ function wa_send_file(array $chat, string $tmpPath, string $name, string $captio
     $path = wa_media_dir() . '/' . $rel;
     if (!is_dir(dirname($path))) mkdir(dirname($path), 0750, true);
     if (!copy($tmpPath, $path)) throw new ShopError('Could not save the file.');
-    $send = $channel !== 'wa' ? function () use ($chat, $rel, $kind, $caption) { return sm_send_file($chat, $rel, $kind, $caption); } : function () use ($chat, $path, $mime, $name, $caption, $kind) {
+    $send = $channel !== 'wa' ? function () use ($chat, $rel, $kind, $caption) { return sm_send_file($chat, $rel, $kind, $caption); } : function () use ($chat, $path, $mime, $name, $caption, $kind, $replyTo) {
         $up = wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/media', ['messaging_product' => 'whatsapp', 'type' => $mime, 'file' => new CURLFile($path, $mime, $name)], true);
         $obj = ['id' => (string) $up['id']];
         if ($caption !== '' && $kind !== 'audio') $obj['caption'] = mb_substr($caption, 0, 1024);
         if ($kind === 'document') $obj['filename'] = mb_substr($name, 0, 240);
-        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => $kind, $kind => $obj]);
+        return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => $kind, $kind => $obj] + wa_context($replyTo));
     };
     $media = ['path' => $rel, 'mime' => $mime, 'name' => $name, 'size' => $size];
     if ($background) {
         // The copy stays for the chat history even if WhatsApp refuses it (the message shows ⚠).
         $id = wa_record_out($chat, '', $kind, $caption, $media, $userId, 'sending');
+        wa_reply_meta($id, $replyTo);
         wa_send_later($id, (int) $chat['id'], $send);
         return $id;
     }
     try { $r = $send(); } catch (Throwable $e) { @unlink($path); throw $e; }
-    return wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), $kind, $caption, $media, $userId);
+    $id = wa_record_out($chat, (string) ($r['messages'][0]['id'] ?? ''), $kind, $caption, $media, $userId);
+    wa_reply_meta($id, $replyTo);
+    return $id;
 }
 
 // A product from the shop: its photo, with name, short line, price and the link to order as the caption

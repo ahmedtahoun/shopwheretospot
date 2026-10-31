@@ -1894,7 +1894,7 @@
     st.closeChat = closeChat;
     const openChat = async (id) => {
       if (waPhone() && !(history.state && history.state.waChat)) history.pushState({ waChat: id }, '');
-      st.chatId = id; st.msgs = []; st.lastId = 0;
+      st.chatId = id; st.msgs = []; st.lastId = 0; st.reply = null;
       $('#wa').classList.add('open');
       renderList();
       $('#waChat').innerHTML = '<div class="wa-empty"><div>Loading…</div></div>';
@@ -1910,11 +1910,13 @@
       if (d.summary !== null && d.summary !== undefined) st.summary = d.summary;
       if (isNew) st.msgs = d.messages; else st.msgs = st.msgs.concat(d.messages);
       const ticks = {}; d.ticks.forEach((t) => ticks[t.id] = t);
-      st.msgs.forEach((m) => { if (ticks[m.id]) { m.status = ticks[m.id].status; m.error = ticks[m.id].error; } });
+      st.msgs.forEach((m) => { if (ticks[m.id]) { m.status = ticks[m.id].status; m.error = ticks[m.id].error; if (ticks[m.id].w) m.w = ticks[m.id].w; } });
       if (st.msgs.length) st.lastId = st.msgs[st.msgs.length - 1].id;
       if (isNew) { renderChat(); return; }
       // Live update: add new messages and refresh ticks without redrawing (a playing video keeps playing).
       if (d.messages.length) appendMessages(d.messages);
+      // A message sent in the background gets its WhatsApp id once sent: reactions to it can find it.
+      d.ticks.forEach((t) => { const b = t.w && $('#waMsgs [data-m="' + t.id + '"]'); if (b && !b.dataset.w) b.dataset.w = t.w; });
       d.ticks.forEach((t) => { const el = $('#waMsgs [data-m="' + t.id + '"] .wa-tick'); if (el && !el.classList.contains(t.status)) { el.className = 'wa-tick ' + t.status; el.textContent = WA_TICK[t.status] || ''; el.title = t.error || t.status;
         // A message sent in the background that WhatsApp refused: show it in red with the reason.
         if (t.status === 'failed') { const m = el.closest('.wa-msg'); if (m && !m.classList.contains('failed')) { m.classList.add('failed'); if (t.error) el.closest('.wa-meta').insertAdjacentHTML('beforebegin', '<div class="wa-err">' + esc(t.error) + '</div>'); } } } });
@@ -1949,6 +1951,24 @@
     };
     // cont: follows a message from the same side (and same team member) within 5 minutes, so it's drawn
     // as one group, like WhatsApp: tighter spacing, and the time only under the group's last message.
+    // Quotes and reactions find their message by its WhatsApp id.
+    const byW = (w) => w ? st.msgs.find((x) => x.w === w && x.kind !== 'reaction') : null;
+    const snippet = (m) => (m.body || '').replace(/\n\n☰ [\s\S]*$/, '').slice(0, 100) ||
+      ({ image: '📷 Photo', video: '🎥 Video', audio: '🎤 Voice message', document: '📄 ' + ((m.media && m.media.name) || 'Document'), sticker: 'Sticker' })[m.kind] || '…';
+    const quoteHtml = (m) => '<div class="wa-quote ' + m.dir + '" data-goto="' + m.id + '"><b dir="auto">' + esc(m.dir === 'out' ? (m.by || 'You') : st.chat.name) + '</b><span dir="auto">' + esc(snippet(m)) + '</span></div>';
+    // The reactions on a message, like WhatsApp's small bubble: the latest from each side ('' = taken away).
+    const reactsOf = (w) => {
+      const last = {};
+      if (w) st.msgs.forEach((x) => { if (x.kind === 'reaction' && x.reactTo === w) last[x.dir] = x.body; });
+      return last;
+    };
+    const reactsHtml = (w) => { const r = reactsOf(w), e = [r.in, r.out].filter(Boolean); return e.length ? '<div class="wa-reacts">' + e.map(esc).join('') + '</div>' : ''; };
+    const refreshReacts = (w) => {
+      const el = w && $$('#waMsgs .wa-msg').find((x) => x.dataset.w === w); if (!el) return;
+      const old = $('.wa-reacts', el); if (old) old.remove();
+      const h = reactsHtml(w); if (h) el.insertAdjacentHTML('beforeend', h);
+      el.classList.toggle('has-react', !!h);
+    };
     const msgHtml = (m, cont) => {
       const media = m.media ? '../api/admin.php?action=wa_media&id=' + m.id : '';
       let inner = '';
@@ -1958,7 +1978,8 @@
       else if (m.kind === 'audio' && media) inner = '<audio src="' + media + '" controls preload="none"></audio>';
       else if (media) inner = '<a class="wa-doc" href="' + media + '" target="_blank" rel="noopener">' + icon('file') + '<span><b>' + esc(m.media.name || 'Document') + '</b><small>' + waSize(m.media.size) + '</small></span></a>';
       else if (['image', 'video', 'audio', 'document'].includes(m.kind)) inner = '<div class="muted small">(' + m.kind + ' not available)</div>';
-      if (m.kind === 'reaction') return '<div class="wa-sys">Reacted ' + esc(m.body) + '</div>';
+      if (m.kind === 'reaction') return m.body ? '<div class="wa-sys">Reacted ' + esc(m.body) + '</div>' : '';
+      const q = m.replyTo ? byW(m.replyTo) : null, reacts = reactsHtml(m.w);
       // The bot's buttons (saved as a "☰ A · B · C" line under its text) look like WhatsApp's.
       let body = m.body || '', btns = '';
       const cut = m.dir === 'out' ? body.lastIndexOf('\n\n☰ ') : -1;
@@ -1968,10 +1989,12 @@
       const time = new Date(m.at.replace(' ', 'T') + 'Z').toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' });
       const meta = '<span class="wa-meta">' + (m.dir === 'out' && m.by ? '<span class="wa-by">' + esc(m.by) + ' · </span>' : '') + time +
         (m.dir === 'out' ? ' <span class="wa-tick ' + esc(m.status) + '" title="' + esc(m.error || m.status) + '">' + (WA_TICK[m.status] || '') + '</span>' : '') + '</span>';
-      return '<div class="wa-msg ' + m.dir + (cont ? ' cont' : '') + (m.status === 'failed' ? ' failed' : '') + '" data-m="' + m.id + '" title="' + esc(time) + '">' + ad + inner + text + (m.status === 'failed' && m.error ? '<div class="wa-err">' + esc(m.error) + '</div>' : '') + meta + '</div>';
+      return '<div class="wa-msg ' + m.dir + (cont ? ' cont' : '') + (m.status === 'failed' ? ' failed' : '') + (reacts ? ' has-react' : '') + '" data-m="' + m.id + '" data-w="' + esc(m.w || '') + '" title="' + esc(time) + '">' +
+        '<button class="wa-act" aria-label="Reply or react">⌄</button>' + ad + (q ? quoteHtml(q) : '') + inner + text + (m.status === 'failed' && m.error ? '<div class="wa-err">' + esc(m.error) + '</div>' : '') + meta + reacts + '</div>';
     };
     const dayOf = (m) => new Date(m.at.replace(' ', 'T') + 'Z').toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' });
     const withDays = (list) => list.map((m) => {
+      if (m.kind === 'reaction' && byW(m.reactTo)) return '';
       const d = dayOf(m), p = st.prev, sep = d !== st.day ? '<div class="wa-day">' + esc(d) + '</div>' : '';
       const cont = !sep && p && m.kind !== 'reaction' && p.kind !== 'reaction' && !m.ad && p.dir === m.dir && (p.by || '') === (m.by || '') &&
         new Date(m.at.replace(' ', 'T') + 'Z') - new Date(p.at.replace(' ', 'T') + 'Z') < 5 * 60000;
@@ -1985,23 +2008,71 @@
       box.addEventListener('load', (e) => { if (st.stick && /IMG|VIDEO/.test(e.target.tagName)) box.scrollTop = box.scrollHeight; }, true);
       box.addEventListener('loadedmetadata', () => { if (st.stick) box.scrollTop = box.scrollHeight; }, true);
     };
-    // Long press on a message (phones) copies its text.
-    const copyOnHold = (box) => {
+    // A message's menu, like WhatsApp: react with an emoji, reply (quoted), copy. Opened with the ⌄ on the
+    // message (computers, on hover) or a long press (phones). Reactions and replies are WhatsApp only.
+    const WA_EMOJI = ['👍', '❤️', '😂', '😮', '🙏', '✅'];
+    let menuOff = null; // the "tap outside closes it" listener of the open menu
+    const closeMenu = () => {
+      const x = $('#waMenu'); if (x) x.remove();
+      if (menuOff) { document.removeEventListener('pointerdown', menuOff, true); menuOff = null; }
+    };
+    const drawReply = () => {
+      const rb = $('#waReplyBar'); if (!rb) return;
+      const m = st.reply; rb.hidden = !m;
+      rb.innerHTML = m ? quoteHtml(m) + '<button class="btn sm" id="waReplyX" aria-label="Cancel reply">✕</button>' : '';
+      if (m) $('#waReplyX').onclick = () => { st.reply = null; drawReply(); };
+    };
+    const react = async (m, emoji) => {
+      try { const r = await api('wa_react', { method: 'POST', body: { chat_id: st.chat.id, message_id: m.id, emoji } }); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); refreshReacts(m.w); }
+      catch (e) { toast(e.message, true); }
+    };
+    const msgMenu = (el) => {
+      closeMenu();
+      const m = st.msgs.find((x) => x.id === +el.dataset.m); if (!m) return;
+      const wa = st.chat.channel === 'wa' && st.chat.windowOpen && m.status !== 'failed', tx = $('.wa-text', el), mine = reactsOf(m.w).out || '';
+      const menu = document.createElement('div');
+      menu.className = 'wa-menu'; menu.id = 'waMenu';
+      menu.innerHTML = (wa ? '<div class="wa-emojis">' + WA_EMOJI.map((e) => '<button data-e="' + e + '"' + (e === mine ? ' class="on"' : '') + '>' + e + '</button>').join('') + '</div>' : '') +
+        (wa ? '<button data-a="reply">↩ <span>Reply</span></button>' : '') + (tx ? '<button data-a="copy">⧉ <span>Copy</span></button>' : '');
+      if (!menu.innerHTML) return;
+      document.body.appendChild(menu);
+      const r = el.getBoundingClientRect(), w = menu.offsetWidth, h = menu.offsetHeight;
+      menu.style.left = Math.max(8, Math.min(innerWidth - w - 8, m.dir === 'out' ? r.right - w : r.left)) + 'px';
+      menu.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : Math.min(innerHeight - h - 8, r.bottom + 6)) + 'px';
+      // The same emoji again takes the reaction away, like WhatsApp.
+      $$('[data-e]', menu).forEach((b) => b.onclick = () => { closeMenu(); react(m, b.dataset.e === mine ? '' : b.dataset.e); });
+      const rp = $('[data-a="reply"]', menu); if (rp) rp.onclick = () => { closeMenu(); st.reply = m; drawReply(); const ta = $('#waText'); if (ta) ta.focus(); };
+      const cp = $('[data-a="copy"]', menu); if (cp) cp.onclick = () => { closeMenu(); waCopy(tx.innerText); };
+      setTimeout(() => {
+        if (!menu.isConnected) return;
+        menuOff = (e) => { if (!menu.contains(e.target)) closeMenu(); };
+        document.addEventListener('pointerdown', menuOff, true);
+      });
+    };
+    const holdMenu = (box) => {
       let t = null, x0 = 0, y0 = 0;
       const stop = () => { clearTimeout(t); t = null; };
-      box.addEventListener('pointerdown', (e) => {
+      box.onpointerdown = (e) => {
         if (e.pointerType === 'mouse') return;
-        const el = e.target.closest('.wa-msg'); const tx = el && $('.wa-text', el); if (!tx || e.target.closest('a,audio,video')) return;
+        const el = e.target.closest('.wa-msg'); if (!el || e.target.closest('a,audio,video,.wa-act,.wa-quote')) return;
         x0 = e.clientX; y0 = e.clientY; stop();
-        t = setTimeout(() => { t = null; waCopy(tx.innerText); el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 600); if (navigator.vibrate) navigator.vibrate(15); }, 480);
-      });
-      box.addEventListener('pointermove', (e) => { if (t && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); });
-      ['pointerup', 'pointercancel', 'scroll'].forEach((ev) => box.addEventListener(ev, stop, true));
-      box.addEventListener('contextmenu', (e) => { if (matchMedia('(pointer: coarse)').matches && e.target.closest('.wa-msg')) e.preventDefault(); });
+        t = setTimeout(() => { t = null; if (navigator.vibrate) navigator.vibrate(15); msgMenu(el); }, 450);
+      };
+      box.onpointermove = (e) => { if (t && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); };
+      box.onpointerup = box.onpointercancel = stop;
+      box.addEventListener('scroll', () => { stop(); closeMenu(); }, { passive: true });
+      box.oncontextmenu = (e) => { if (matchMedia('(pointer: coarse)').matches && e.target.closest('.wa-msg')) e.preventDefault(); };
+      box.onclick = (e) => {
+        const a = e.target.closest('.wa-act'); if (a) { msgMenu(a.closest('.wa-msg')); return; }
+        // A quote jumps to the message it answers.
+        const g = e.target.closest('.wa-msg .wa-quote'); if (!g) return;
+        const to = $('#waMsgs [data-m="' + g.dataset.goto + '"]'); if (!to) return;
+        to.scrollIntoView({ block: 'center', behavior: 'smooth' }); to.classList.add('copied'); setTimeout(() => to.classList.remove('copied'), 900);
+      };
     };
     const renderMessages = () => {
       const box = $('#waMsgs'); if (!box) return;
-      copyOnHold(box);
+      holdMenu(box);
       st.day = ''; st.prev = null;
       box.innerHTML = withDays(st.msgs) || '<div class="muted small wa-none" style="text-align:center;padding:20px">No messages yet.</div>';
       stickDown(box);
@@ -2014,6 +2085,7 @@
       const none = $('.wa-none', box); if (none) none.remove();
       list = list.filter((m) => !$('[data-m="' + m.id + '"]', box));
       box.insertAdjacentHTML('beforeend', withDays(list));
+      list.forEach((m) => { if (m.kind === 'reaction') refreshReacts(m.reactTo); });
       if (atBottom || list.some((m) => m.dir === 'out')) box.scrollTop = box.scrollHeight;
     };
     const renderSide = () => {
@@ -2091,15 +2163,17 @@
       const touchKeys = matchMedia('(pointer: coarse)').matches; // a phone or tablet keyboard
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
       $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div><div class="wa-quick wa-prods" id="waProdList" hidden></div>' +
+        '<div class="wa-replybar" id="waReplyBar" hidden></div>' +
         '<div class="wa-botnote" id="waBotNote"' + (c.bot === 'on' ? '' : ' hidden') + '>🤖 <span>The bot is answering this chat. Writing here takes it over.</span></div>' +
         '<div class="wa-cbar' + (c.channel === 'wa' ? '' : ' no-mic') + '"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
-        '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" hidden accept="' + (c.channel === 'ig' ? 'image/jpeg,image/png,image/gif,video/mp4,video/quicktime,.pdf' : 'image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt') + '"></label>' +
+        '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" multiple hidden accept="' + (c.channel === 'ig' ? 'image/jpeg,image/png,image/gif,video/mp4,video/quicktime,.pdf' : 'image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt') + '"></label>' +
         '<textarea id="waText" rows="1" dir="auto" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
         // Voice notes are recorded in WhatsApp's format, which Instagram and Messenger don't play.
         (c.channel === 'wa' ? '<button class="btn sm" id="waMic" title="Record a voice note" aria-label="Record a voice note">' + icon('mic') + '</button>' : '') +
         '<button class="btn primary" id="waSend" aria-label="Send">' + icon('send') + '</button></div>' +
         '<div class="wa-window small muted">Free replies for about ' + left + ' more hour' + (left === 1 ? '' : 's') + '</div>';
+      drawReply();
       const ta = $('#waText');
       const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; };
       // Like WhatsApp on phones: the mic while the box is empty, the send button once there's text.
@@ -2110,7 +2184,7 @@
         const text = ta.value.trim(); if (!text || busy) return;
         busy = true; // Enter pressed twice or held down sends once
         $('#waSend').disabled = true;
-        try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text } }); ta.value = ''; grow(); hasText(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
+        try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text, reply_to: st.reply ? st.reply.id : 0 } }); ta.value = ''; grow(); hasText(); st.reply = null; drawReply(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
         catch (e) { toast(e.message, true); }
         busy = false;
         $('#waSend').disabled = false; ta.focus();
@@ -2155,14 +2229,24 @@
         loadProducts();
         $('#waProdQ').focus();
       };
+      // Several photos or files at once, like WhatsApp's gallery: sent one after another, in the order chosen.
+      // The text in the box goes as the first one's caption, and the reply (if any) quotes the first one.
       $('#waFile').onchange = async (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        const caption = file.type.startsWith('audio') ? '' : ta.value.trim();
-        const fd = new FormData(); fd.append('chat_id', c.id); fd.append('file', file); fd.append('caption', caption);
-        toast('Sending ' + file.name + '…');
-        try { const r = await api('wa_send_file', { method: 'POST', form: fd }); if (caption) { ta.value = ''; grow(); hasText(); } st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); toast('Sent'); }
-        catch (err) { toast(err.message, true); }
-        e.target.value = '';
+        const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+        let caption = ta.value.trim(), reply = st.reply ? st.reply.id : 0, sent = 0;
+        toast(files.length > 1 ? 'Sending ' + files.length + ' files…' : 'Sending ' + files[0].name + '…');
+        for (const file of files) {
+          const cap = file.type.startsWith('audio') ? '' : caption;
+          const fd = new FormData(); fd.append('chat_id', c.id); fd.append('file', file); fd.append('caption', cap); fd.append('reply_to', reply);
+          try {
+            const r = await api('wa_send_file', { method: 'POST', form: fd });
+            if (cap) { caption = ''; ta.value = ''; grow(); hasText(); }
+            if (reply) { reply = 0; st.reply = null; drawReply(); }
+            if (st.chatId === c.id) added(r.message);
+            sent++;
+          } catch (err) { toast(file.name + ': ' + err.message, true); }
+        }
+        if (sent) toast(sent > 1 ? sent + ' files sent' : 'Sent');
       };
       // Voice note: record, then send (or bin it). Sent as a WhatsApp voice message (Ogg/Opus; iPhones record M4A).
       if ($('#waMic')) $('#waMic').onclick = async () => {

@@ -1282,7 +1282,7 @@ try {
         $st->execute([(int) $chat['id'], $after]);
         $msgs = array_reverse(array_map('wa_message_out', $st->fetchAll()));
         // Status changes (delivered/read) of the latest sent messages, so ticks update live.
-        $ticks = db()->prepare("SELECT id, status, error FROM wa_messages WHERE chat_id = ? AND dir = 'out' ORDER BY id DESC LIMIT 40");
+        $ticks = db()->prepare("SELECT id, status, error, wamid FROM wa_messages WHERE chat_id = ? AND dir = 'out' ORDER BY id DESC LIMIT 40");
         $ticks->execute([(int) $chat['id']]);
         // Opened by the person it belongs to (or an unassigned chat): read. A manager looking in doesn't clear someone else's unread.
         if (!empty($_GET['read']) && (int) $chat['unread'] > 0 && (!$chat['assigned_to'] || (int) $chat['assigned_to'] === (int) $u['id'])) wa_mark_read($chat);
@@ -1313,16 +1313,25 @@ try {
         // The summary card at the top of the side panel (api/insights.php); never stops the chat from opening.
         $summary = null;
         if (!$after) { try { $summary = in_chat_summary($chat); } catch (Throwable $e) { $summary = []; } }
-        json_out(['chat' => $full, 'summary' => $summary, 'messages' => $msgs, 'ticks' => array_map(function ($t) { return ['id' => (int) $t['id'], 'status' => $t['status'], 'error' => $t['error']]; }, $ticks->fetchAll()),
+        json_out(['chat' => $full, 'summary' => $summary, 'messages' => $msgs, 'ticks' => array_map(function ($t) { return ['id' => (int) $t['id'], 'status' => $t['status'], 'error' => $t['error'], 'w' => (string) $t['wamid']]; }, $ticks->fetchAll()),
             'lead' => $lead, 'orders' => $orders, 'quotes' => $quotes]);
 
     case 'wa_send':
         $u = require_perm('whatsapp');
         $b = body();
         $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
-        $id = wa_send_text($chat, str_in($b['text'] ?? '', 4096), (int) $u['id'], true, true);
+        $id = wa_send_text($chat, str_in($b['text'] ?? '', 4096), (int) $u['id'], true, true, wa_target_wamid($chat, (int) ($b['reply_to'] ?? 0)));
         wa_claim($chat, $u);
         json_out(['message' => wa_message_out(wa_message_row($id))]);
+
+    // An emoji on a message, like WhatsApp ('' takes the team's reaction away).
+    case 'wa_react':
+        $u = require_perm('whatsapp');
+        $b = body();
+        $chat = wa_chat_for_user($u, (int) ($b['chat_id'] ?? 0));
+        $emoji = trim((string) ($b['emoji'] ?? ''));
+        if (mb_strlen($emoji) > 8) fail('Choose one emoji.');
+        json_out(['message' => wa_message_out(wa_message_row(wa_send_reaction($chat, (int) ($b['message_id'] ?? 0), $emoji, $u)))]);
 
     // A file from the team (multipart: chat_id or phone, file, caption).
     case 'wa_send_file':
@@ -1340,7 +1349,7 @@ try {
         }
         $name = preg_replace('/[\/\\\\:*?"<>|]+/', '', (string) $f['name']) ?: 'file';
         // From the inbox: instant (🕓 then ✓). From an order or quote page: waits, so the page can say it was sent.
-        $id = wa_send_file($chat, $f['tmp_name'], mb_substr($name, 0, 160), str_in($_POST['caption'] ?? '', 1024), (int) $u['id'], !empty($_POST['chat_id']));
+        $id = wa_send_file($chat, $f['tmp_name'], mb_substr($name, 0, 160), str_in($_POST['caption'] ?? '', 1024), (int) $u['id'], !empty($_POST['chat_id']), wa_target_wamid($chat, (int) ($_POST['reply_to'] ?? 0)));
         wa_claim($chat, $u);
         json_out(['message' => wa_message_out(wa_message_row($id))]);
 
@@ -2313,6 +2322,8 @@ function wa_message_out(array $m): array
     $meta = $m['meta'] ? (json_decode($m['meta'], true) ?: []) : [];
     return ['id' => (int) $m['id'], 'dir' => $m['dir'], 'kind' => $m['kind'], 'body' => $m['body'], 'status' => $m['status'], 'error' => $m['error'],
         'media' => $m['media_path'] !== '' ? ['mime' => $m['media_mime'], 'name' => $m['media_name'], 'size' => (int) $m['media_size']] : null,
-        'by' => $m['user_name'] ?? ($meta['via'] ?? null), 'at' => $m['created_at'], 'ad' => isset($meta['referral']) ? ['headline' => $meta['referral']['headline'] ?? '', 'url' => $meta['referral']['source_url'] ?? ''] : null];
+        'by' => $m['user_name'] ?? ($meta['via'] ?? null), 'at' => $m['created_at'],
+        // For quotes and reactions: the message's WhatsApp id, the one it answers, the one it reacts to.
+        'w' => (string) $m['wamid'], 'replyTo' => $meta['context'] ?? null, 'reactTo' => $meta['reaction_to'] ?? null, 'ad' => isset($meta['referral']) ? ['headline' => $meta['referral']['headline'] ?? '', 'url' => $meta['referral']['source_url'] ?? ''] : null];
 }
 
