@@ -301,6 +301,7 @@ function wa_store_incoming(array $m, string $name): void
     // The chat bot (api/bot.php): a message it answers isn't waiting for anyone and alerts nobody.
     $tap = (string) ($m['interactive']['list_reply']['id'] ?? $m['interactive']['button_reply']['id'] ?? '');
     $plan = bot_plan_safe($chat, $kind, $text, $tap);
+    if ($plan) $plan['wamid'] = $wamid; // for "typing…" (api/bot.php)
     $bot = bot_takes($plan);
     db()->prepare("UPDATE wa_chats SET unread = unread + ?, last_in_at = ?, last_at = ?, last_text = ?, last_dir = 'in', first_in_at = COALESCE(first_in_at, ?), waiting_since = COALESCE(waiting_since, ?) WHERE id = ?")
         ->execute([$bot ? 0 : 1, $at, $at, mb_substr($preview, 0, 200), $at, $bot ? null : $at, $chat['id']]);

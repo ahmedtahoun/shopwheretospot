@@ -2666,12 +2666,16 @@
       '<h3 style="margin:6px 0 0">First message</h3>' + two('welcome', 'Welcome', 3) +
       '<label class="row"><input type="checkbox" id="botWaBtns"' + (c.wa_buttons ? ' checked' : '') + '> <span>WhatsApp: buttons right in the chat (WhatsApp allows 3: the first two menu items and “More options”), instead of one Menu button</span></label>' +
       two('more', '“More options” button (WhatsApp)', 0) + two('menu', 'Menu button (WhatsApp)', 0) +
+      '<label class="row"><input type="checkbox" id="botTyping"' + (c.typing ? ' checked' : '') + '> <span>Show “typing…” and wait a moment before answering, like a person</span></label>' +
       '<h3 style="margin:6px 0 0">Menu</h3><div class="hint"><span>Each item is a button (up to 20 characters, Instagram’s limit). Keywords catch the same question when it’s typed instead.</span> <span>{prices:nfc,stands} becomes today’s prices of those categories, {shop} the shop’s link.</span> <span>Categories:</span> <code>' + esc(d.cats.join(', ')) + '</code></div>' +
       '<div class="stack" id="botItems" style="gap:10px"></div><div class="row"><button class="btn sm" id="botAdd">+ Add an item</button></div>' +
       '<h3 style="margin:6px 0 0">Handing to the team</h3>' + two('retry', 'When the bot didn’t understand', 2) + two('handover', 'When it hands the chat to the team', 2) +
       '<label class="field"><span>Words that call a person (comma between them)</span><input type="text" id="botHuman" value="' + esc(c.human_words) + '"></label>' +
       '<div class="grid2"><label class="field"><span>Hand over after this many messages it didn’t understand</span><input type="number" id="botFails" min="1" max="5" value="' + c.fails + '"></label>' +
         '<label class="field"><span>Bot stays quiet after someone from the team writes (hours)</span><input type="number" id="botPause" min="1" max="72" value="' + c.pause_hours + '"></label></div>' +
+      (d.missed.length ? '<h3 style="margin:6px 0 0">Messages it didn’t understand</h3><div class="hint">What customers wrote when the bot had to say “I didn’t get that” (last 60 days). Add one to a menu item and the bot understands it next time; then press Save.</div>' +
+        '<div class="list" id="botMissed">' + d.missed.map((m, i) => '<div class="li"><span dir="auto">' + esc(m.said) + ' <span class="muted small">×' + m.n + '</span></span><span class="row" style="gap:6px;flex-wrap:nowrap"><select data-mi="' + i + '"><option value="">—</option>' +
+          c.items.map((it, j) => '<option value="' + j + '">' + esc(it.title[AR ? 'ar' : 'en'] || it.title.en) + '</option>').join('') + '</select><button type="button" class="btn sm" data-madd="' + i + '">Add as keyword</button></span></div>').join('') + '</div>' : '') +
       (d.ads.length ? '<h3 style="margin:6px 0 0">Ads</h3><div class="hint">A chat that comes from an ad starts with the ad’s product (photo, price, order link), then the menu.</div>' +
         '<div class="table-wrap"><table><thead><tr><th>Ad</th><th>Chats</th><th>Product</th></tr></thead><tbody>' +
         d.ads.map((a) => '<tr><td>' + esc(a.headline || a.id) + '<div class="small muted" dir="ltr">' + esc(a.id) + '</div></td><td>' + a.chats + '</td><td><select data-ad="' + esc(a.id) + '">' + prodOpts(c.ads[a.id] || '') + '</select></td></tr>').join('') + '</tbody></table></div>' : '') +
@@ -2699,10 +2703,19 @@
       });
     };
     drawItems();
+    $$('[data-madd]', box).forEach((b) => b.onclick = () => {
+      const sel = $('[data-mi="' + b.dataset.madd + '"]', box), it = c.items[+sel.value];
+      if (!it) { toast('Choose the menu item first', true); return; }
+      const phrase = d.missed[+b.dataset.madd].said.trim();
+      it.keywords = (it.keywords ? it.keywords.replace(/[\s,،]+$/, '') + ', ' : '') + phrase;
+      drawItems(); b.closest('.li').remove();
+      toast('Added — press Save');
+    });
     $('#botAdd').onclick = () => { c.items.push({ id: '', action: 'answer', title: { ar: '', en: '' }, answer: { ar: '', en: '' }, keywords: '' }); drawItems(); };
     const collect = () => {
       c.on = $('#botOn').checked;
       c.wa_buttons = $('#botWaBtns').checked;
+      c.typing = $('#botTyping').checked;
       $$('[data-bch]', box).forEach((x) => c.channels[x.dataset.bch] = x.checked);
       $$('[data-two]', box).forEach((x) => c[x.dataset.two][x.dataset.l] = x.value);
       c.human_words = $('#botHuman').value; c.fails = +$('#botFails').value; c.pause_hours = +$('#botPause').value;
@@ -2721,7 +2734,7 @@
     let t = { fresh: true, fails: 0, lang: '', wait: '', human: false };
     const msgs = $('#botMsgs');
     const say = (who, html) => { msgs.insertAdjacentHTML('beforeend', '<div class="bot-b ' + who + '">' + html + '</div>'); msgs.scrollTop = msgs.scrollHeight; };
-    const NOTE = { handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
+    const NOTE = { product: 'It recognised a product in the message.', handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
     const send = async (text, tap) => {
       say('in', '<div class="wa-text">' + esc(text) + '</div>');
       if (t.human) { say('note', '<span>The team has this chat now, so the bot stays quiet.</span>'); return; }

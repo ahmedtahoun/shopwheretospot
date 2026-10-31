@@ -25,6 +25,8 @@ function bot_migrate(PDO $pdo): void
     $pdo->exec("CREATE TABLE IF NOT EXISTS bot_events (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL REFERENCES wa_chats(id) ON DELETE CASCADE,
         kind TEXT NOT NULL, item TEXT DEFAULT '', how TEXT DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_bot_events_at ON bot_events(created_at)');
+    // said: what the customer wrote (Settings → Chat bot → "Messages it didn't understand").
+    if (!in_array('said', array_column($pdo->query('PRAGMA table_info(bot_events)')->fetchAll(), 'name'), true)) $pdo->exec("ALTER TABLE bot_events ADD COLUMN said TEXT DEFAULT ''");
 }
 
 // The texts the bot starts with; Settings → Chat bot changes them. {prices:nfc,stands} = today's prices
@@ -42,6 +44,8 @@ function bot_defaults(): array
         // WhatsApp shows at most 3 buttons in the chat: two menu items and "More options" (the full list).
         // Off: one Menu button that opens the list.
         'wa_buttons' => true,
+        // "typing…" in the customer's chat and a short pause (longer for longer answers), like a person.
+        'typing' => true,
         'more' => ['ar' => '☰ اختيارات تانية', 'en' => '☰ More options'],
         'retry' => ['ar' => "معلش مافهمتش طلبك 🙏\nاختار من القائمة، أو اختار «كلّم فريقنا» وحد من الفريق هيرد عليك.",
             'en' => "Sorry, I didn’t get that 🙏\nPick from the menu, or choose “Talk to us” and someone from the team will reply."],
@@ -129,11 +133,46 @@ function bot_has(string $norm, string $list): bool
 }
 
 // The menu item a typed message is about: the one with the most (and longest) keywords; none on a tie.
+// More ways customers ask, for the suggested menu items (on top of the keywords in Settings).
+const BOT_SYNONYMS = [
+    'prices' => 'بكم, كم سعر, سعره, سعرها, اسعاركم, التكلفه, تكلفه, عرض, العرض, خصم, مقاسات, المقاسات, مقاس, باكدج, الباكدج, باكيدج, بكام ده, offer, discount, package, size, sizes',
+    'how' => 'تفاصيل, التفاصيل, شرح, يعني ايه, فكره, بيعمل ايه, بتشتغل, ازاي استخدم, محتاج ابلكيشن, تطبيق, برنامج, details, explain, app',
+    'delivery' => 'بتوصلوا, توصلوا, بتشحنوا, الشحن كام, مصاريف الشحن, اسكندريه, المحافظات, كاش, فيزا, فلوس, pay, visa',
+    'order' => 'عايز اشتري, عاوز اشتري, حابب اطلب, اطلبه, ازاي اطلب, طريقه الطلب, خدها, هاخد, هطلب, buy, checkout',
+    'track' => 'وصل فين, اوردر, شحنتي, امتي يوصل, لسه موصلش, متابعه الطلب',
+];
+
+// Close enough for a typo ("التوصل" for "التوصيل"): one letter off, in a word of 4 letters or more.
+function bot_near(string $norm, string $kw): bool
+{
+    if (mb_strlen($kw) < 4 || strpos($kw, ' ') !== false) return false;
+    $k = preg_split('//u', $kw, -1, PREG_SPLIT_NO_EMPTY);
+    $words = [];
+    // "الاثيوبي" ~ "اثيوبيا": also without the Arabic "ال" / "بال" / "وال" in front.
+    foreach (preg_split('/\s+/u', $norm) as $w) { $words[] = $w; if (preg_match('/^(?:وال|بال|ال)(.{3,})$/u', $w, $m)) $words[] = $m[1]; }
+    foreach ($words as $w) {
+        if (abs(mb_strlen($w) - count($k)) > 1 || mb_strlen($w) < 4) continue;
+        $a = preg_split('//u', $w, -1, PREG_SPLIT_NO_EMPTY);
+        // Levenshtein on letters (PHP's counts bytes, and an Arabic letter is two).
+        $prev = range(0, count($k));
+        foreach ($a as $i => $ca) {
+            $cur = [$i + 1];
+            foreach ($k as $j => $ck) $cur[] = min($prev[$j + 1] + 1, $cur[$j] + 1, $prev[$j] + ($ca === $ck ? 0 : 1));
+            $prev = $cur;
+        }
+        if (end($prev) <= 1) return true;
+    }
+    return false;
+}
+
 function bot_match(string $norm, array $items): ?array
 {
     $scores = [];
     foreach ($items as $i => $it) {
-        $hits = array_values(array_filter(bot_words($it['keywords']), function ($kw) use ($norm) { return bot_hit($norm, $kw); }));
+        $words = array_merge(bot_words((string) $it['keywords']), bot_words(BOT_SYNONYMS[$it['id']] ?? ''));
+        $hits = array_values(array_unique(array_filter($words, function ($kw) use ($norm) { return bot_hit($norm, $kw); })));
+        // Nothing exact: a typo of a keyword counts too.
+        if (!$hits) $hits = array_values(array_unique(array_filter($words, function ($kw) use ($norm) { return bot_near($norm, $kw); })));
         $n = 0;
         // "كام" inside "بكام" counts once.
         foreach ($hits as $kw) {
@@ -233,13 +272,35 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     if (bot_has($norm, (string) $cfg['human_words'])) return $plan('handover', null, 'words');
     // "2": the second line of the menu.
     if (!$fresh && preg_match('/^\d{1,2}$/', $norm) && isset($items[(int) $norm - 1])) return $pick($items[(int) $norm - 1], 'number');
-    if ($it = bot_match($norm, $items)) return $pick($it, 'keyword');
+    $it = bot_match($norm, $items);
+    // A product named ("كارت", "عايز ستاند A5"), unless they asked something else about it (how it works,
+    // delivery…): its photo card or its price, like a salesperson would answer.
+    if ((!$it || bot_about_products($it)) && ($found = bot_products_named($norm))) {
+        $prices = $it && bot_about_products($it) ? $it : null;
+        foreach ($items as $x) if (!$prices && strpos(json_encode($x['answer'], JSON_UNESCAPED_UNICODE), '{prices') !== false) $prices = $x;
+        return $plan('product', $prices, 'product', ['products' => array_column($found, 'id')]);
+    }
+    if ($it) return $pick($it, 'keyword');
     $short = count(explode(' ', $norm)) <= 4;
     // "Thanks" after an order update or an answer: nothing to add, even at the start of a conversation.
     if ($short && bot_has($norm, BOT_THANKS) && !bot_has($norm, BOT_HELLO)) return $plan('ignore', null, 'thanks');
     if ($fresh || ($short && bot_has($norm, BOT_HELLO))) return $plan('welcome', null, $fresh ? 'first' : 'hello');
     if ((int) $chat['bot_fails'] + 1 >= max(1, (int) $cfg['fails'])) return $plan('handover', null, 'not understood');
     return $plan('retry', null, 'not understood');
+}
+
+// An item whose answer is about the products (prices, ordering): a named product answers it better.
+function bot_about_products(array $it): bool
+{
+    return $it['action'] === 'answer' && preg_match('/\{(prices|products|shop)/', json_encode($it['answer'], JSON_UNESCAPED_UNICODE));
+}
+
+// One product: its photo card. Several: just their prices and their page.
+function bot_product_reply(array $found, bool $ar): array
+{
+    if (count($found) === 1) return ['text' => bot_card_text($found[0], $ar), 'menu' => true, 'card' => $found[0]];
+    return ['text' => ($ar ? 'دي الأسعار 👇' : 'Here are the prices 👇') . "\n" . implode("\n", array_map(function ($p) use ($ar) { return bot_price_line($p, $ar); }, $found))
+        . "\n\n" . ($ar ? 'الصور والتفاصيل: ' : 'Photos and details: ') . seo_category_url($found[0]['cat'], $ar) . "\n" . ($ar ? 'قولّي أنهي واحد يعجبك وأبعتلك صورته 😊' : 'Tell me which one you like and I’ll send its photo 😊'), 'menu' => true];
 }
 
 // What the bot says for a plan: the text, and whether the menu goes with it.
@@ -250,6 +311,9 @@ function bot_reply(array $plan, array $cfg): array
     $it = $plan['item'];
     switch ($plan['do']) {
         case 'welcome': return ['text' => bot_fill((string) $cfg['welcome'][$lang], $ar), 'menu' => true];
+        case 'product':
+            $found = array_values(array_filter(load_products(true), function ($p) use ($plan) { return in_array($p['id'], $plan['products'], true); }));
+            return $found ? bot_product_reply($found, $ar) : ['text' => bot_fill((string) $cfg['welcome'][$lang], $ar), 'menu' => true];
         case 'more': return ['text' => $ar ? 'كل الاختيارات 👇' : 'All the options 👇', 'menu' => true, 'list' => true];
         case 'retry': return ['text' => bot_fill((string) $cfg['retry'][$lang], $ar), 'menu' => true];
         case 'handover':
@@ -270,9 +334,7 @@ function bot_reply(array $plan, array $cfg): array
                 // The product they named, or the ad they came from: its photo card. Several: just those, short.
                 $found = bot_products_named((string) ($plan['said'] ?? ''));
                 if (!$found && !empty($plan['adProduct'])) foreach (load_products(true) as $p) if ($p['id'] === $plan['adProduct']) $found = [$p];
-                if (count($found) === 1) return ['text' => bot_card_text($found[0], $ar), 'menu' => true, 'card' => $found[0]];
-                if ($found) return ['text' => ($ar ? 'دي الأسعار 👇' : 'Here are the prices 👇') . "\n" . implode("\n", array_map(function ($p) use ($ar) { return bot_price_line($p, $ar); }, $found))
-                    . "\n\n" . ($ar ? 'التفاصيل والصور: ' : 'Photos and details: ') . seo_category_url($found[0]['cat'], $ar), 'menu' => true];
+                if ($found) return bot_product_reply($found, $ar);
             }
             $t = bot_fill($raw, $ar);
             // The first message of a conversation answered straight away still gets a hello.
@@ -288,13 +350,23 @@ function bot_fill(string $text, bool $ar): string
 {
     $text = str_replace('{shop}', seo_base() . ($ar ? '/ar' : ''), $text);
     $text = preg_replace_callback('/\{prices(?::([a-z0-9_,-]+))?\}/i', function ($m) use ($ar) {
-        $cats = db()->query('SELECT key, label, label_ar FROM categories ORDER BY sort')->fetchAll();
-        $want = !empty($m[1]) ? explode(',', strtolower($m[1])) : array_column($cats, 'key');
+        // One line per kind of product (cards, keychains, stands, coasters…), so a cheap coaster doesn't
+        // make "stands from 45" — then one link to see them all with photos.
+        $cats = db()->query('SELECT key, label, label_ar FROM categories ORDER BY sort')->fetchAll(PDO::FETCH_UNIQUE);
+        $want = !empty($m[1]) ? explode(',', strtolower($m[1])) : array_keys($cats);
         $low = [];
-        foreach (load_products(true) as $p) if (in_array($p['cat'], $want, true) && wa_product_brief($p, $ar)['inStock']) $low[$p['cat']] = min($low[$p['cat']] ?? PHP_INT_MAX, wa_product_brief($p, $ar)['low']);
+        foreach (load_products(true) as $p) {
+            if (!in_array($p['cat'], $want, true)) continue;
+            $i = wa_product_brief($p, $ar);
+            if (!$i['inStock']) continue;
+            $k = bot_kind($p);
+            $c = $cats[$p['cat']] ?? ['label' => $p['cat'], 'label_ar' => ''];
+            $name = BOT_KIND_NAMES[$k][$ar ? 0 : 1] ?? ($ar && $c['label_ar'] !== '' ? $c['label_ar'] : $c['label']);
+            $low[$name] = min($low[$name] ?? PHP_INT_MAX, $i['low']);
+        }
         $lines = [];
-        foreach ($cats as $c) if (isset($low[$c['key']])) $lines[] = '• ' . ($ar && $c['label_ar'] ? $c['label_ar'] : $c['label']) . ': ' . ($ar ? 'من ' . number_format($low[$c['key']]) . ' ج.م' : 'from EGP ' . number_format($low[$c['key']])) . "\n" . seo_category_url($c['key'], $ar);
-        return implode("\n", $lines);
+        foreach ($low as $name => $n) $lines[] = '• ' . $name . ': ' . ($ar ? 'من ' . number_format($n) . ' ج.م' : 'from EGP ' . number_format($n));
+        return implode("\n", $lines) . ($lines ? "\n\n🛒 " . ($ar ? 'كلها بالصور: ' : 'All with photos: ') . seo_base() . ($ar ? '/ar' : '') : '');
     }, $text);
     return trim(preg_replace_callback('/\{products(?::([a-z0-9_,-]+))?\}/i', function ($m) use ($ar) {
         $cats = !empty($m[1]) ? explode(',', strtolower($m[1])) : null;
@@ -316,6 +388,7 @@ function bot_run(array $chat, array $plan): void
 {
     $cfg = bot_cfg();
     $lang = $plan['lang'];
+    if ($plan['do'] !== 'ignore' && !empty($cfg['typing'])) bot_typing($chat, (string) ($plan['wamid'] ?? ''));
     if ($plan['do'] !== 'ignore') {
         // A chat from an ad starts with the ad's product (Settings → Chat bot → Ads).
         $pid = $chat['ad_id'] !== '' ? (string) ($cfg['ads'][$chat['ad_id']] ?? '') : '';
@@ -339,12 +412,23 @@ function bot_run(array $chat, array $plan): void
     db()->prepare("UPDATE wa_chats SET bot = ?, bot_at = datetime('now'), bot_fails = ?, bot_lang = ?, bot_wait = ? WHERE id = ?")
         ->execute([$state, $fails, $lang, $plan['do'] === 'ask' ? 'order' : '', (int) $chat['id']]);
     // An order lookup that found a problem counts as a handover in the reports.
-    bot_event($chat, bot_takes($plan) || $plan['do'] === 'handover' ? $plan['do'] : 'handover', $plan['item']['id'] ?? '', $plan['how']);
+    bot_event($chat, bot_takes($plan) || $plan['do'] === 'handover' ? $plan['do'] : 'handover', $plan['item']['id'] ?? '', $plan['how'], (string) ($plan['said'] ?? ''));
 }
 
 // Customers' words for a kind of product, added to the words of each product's name.
 const BOT_KINDS = ['card' => 'كارت, كارد, كروت, card', 'keychain' => 'ميداليه, ميداليا, سلسله, keychain', 'coaster' => 'كوستر, coaster', 'stand' => 'ستاند, استاند, ستاندات, stand',
     'coffee' => 'قهوه, بن, coffee', 'blend' => 'قهوه, بن, coffee', 'serum' => 'سيروم, serum', 'cream' => 'كريم, cream', 'cleanser' => 'غسول, cleanser', 'wash' => 'غسول, wash', 'plan' => 'خطه, باقه, plan'];
+// What a product is, from its English name (the first kind that fits); '' = none of these.
+function bot_kind(array $p): string
+{
+    foreach (['keychain', 'coaster', 'card', 'stand', 'coffee', 'blend', 'serum', 'cream', 'cleanser', 'wash', 'plan'] as $k) if (preg_match('/\b' . $k . '/i', (string) $p['name'])) return $k === 'blend' ? 'coffee' : $k;
+    return '';
+}
+const BOT_KIND_NAMES = ['card' => ['كروت NFC', 'NFC cards'], 'keychain' => ['ميداليات NFC', 'NFC keychains'], 'stand' => ['ستاندات', 'Stands'], 'coaster' => ['كوستر QR', 'QR coasters'],
+    'coffee' => ['قهوة', 'Coffee'], 'serum' => ['سيروم', 'Serums'], 'cream' => ['كريمات', 'Creams'], 'cleanser' => ['غسول', 'Cleansers'], 'wash' => ['غسول', 'Cleansers'], 'plan' => ['خطط التسويق', 'Marketing plans']];
+
+const BOT_CAT_WORDS = ['coffee' => 'قهوه, بن, coffee', 'cosmetics' => 'سكين كير, عنايه, بشره, skincare, skin care', 'services' => 'تسويق, اعلانات, marketing, ads'];
+
 // Words in many product names that don't tell products apart.
 const BOT_PRODUCT_COMMON = 'nfc, qr, google, review, reviews, جوجل, تقييمات, لتقييمات, تقييم, كود, عرض, social, media, payment, سوشيال, ميديا, والدفع, الدفع, display, code, cm, سم, اكريليك, acrylic, shape, شكل, علي, على, with, and, لتقييم, generation, lead';
 
@@ -358,8 +442,10 @@ function bot_products_named(string $norm): array
         preg_match_all('/[\p{L}\p{N}]+/u', bot_norm($p['name'] . ' ' . $p['nameAr']), $t);
         $words = array_filter($t[0], function ($w) use ($common) { return mb_strlen($w) >= 2 && !isset($common[$w]); });
         foreach (BOT_KINDS as $en => $list) if (preg_match('/\b' . $en . '/i', $p['name'])) $words = array_merge($words, bot_words($list));
+        // Some names don't say what they are ("Ethiopia Limu"): their category does.
+        $words = array_merge($words, bot_words(BOT_CAT_WORDS[$p['cat']] ?? ''));
         $s = 0;
-        foreach (array_unique($words) as $w) if (bot_hit($norm, $w)) $s += preg_match('/^\d+$/', $w) ? 1 : 2;
+        foreach (array_unique($words) as $w) $s += bot_hit($norm, $w) ? (preg_match('/^\d+$/', $w) ? 1 : 2) : (bot_near($norm, $w) ? 1 : 0);
         if ($s) $scores[] = [$s, $p];
     }
     if (!$scores) return [];
@@ -419,6 +505,24 @@ function bot_media_id(array $photo, bool $fresh): string
     return (string) $mid['id'];
 }
 
+// "typing…" under the customer's message, then a short pause before the answer goes out, as a person would.
+// Runs after Meta has its reply (shutdown, before the messages, which are queued after it). Never fails the answer.
+function bot_typing(array $chat, string $mid): void
+{
+    register_shutdown_function(function () use ($chat, $mid) {
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        ignore_user_abort(true);
+        try {
+            if (sm_channel($chat) === 'wa') {
+                // Also shows the customer's message as read (blue ticks), like a person opening it.
+                if ($mid !== '') wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'status' => 'read', 'message_id' => $mid, 'typing_indicator' => ['type' => 'text']]);
+            } else sm_graph('POST', '/' . rawurlencode((string) sm_cfg('page_id')) . '/messages', ['recipient' => ['id' => substr((string) $chat['wa_id'], 3)], 'sender_action' => 'typing_on']);
+        } catch (Throwable $e) { /* the answer still goes */ }
+        usleep(random_int(1500, 2600) * 1000);
+    });
+}
+
 // The bot answers this one itself (not waiting, no alert); otherwise the team takes over.
 function bot_takes(?array $plan): bool
 {
@@ -433,9 +537,9 @@ function bot_sent_product(array $chat, string $pid): bool
     return (bool) $st->fetchColumn();
 }
 
-function bot_event(array $chat, string $kind, string $item, string $how): void
+function bot_event(array $chat, string $kind, string $item, string $how, string $said = ''): void
 {
-    db()->prepare("INSERT INTO bot_events (chat_id, kind, item, how, created_at) VALUES (?, ?, ?, ?, datetime('now'))")->execute([(int) $chat['id'], $kind, $item, $how]);
+    db()->prepare("INSERT INTO bot_events (chat_id, kind, item, how, said, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")->execute([(int) $chat['id'], $kind, $item, $how, mb_substr($said, 0, 200)]);
 }
 
 // The bot's messages say so in the chat ("🤖 Bot", "📦 Order update" instead of a team member's name).
@@ -519,7 +623,10 @@ function bot_settings_out(): array
     $ads = db()->query("SELECT ad_id, MAX(ad_headline) AS headline, COUNT(*) AS chats, MAX(created_at) AS last FROM wa_chats WHERE ad_id != '' GROUP BY ad_id ORDER BY last DESC LIMIT 40")->fetchAll();
     $week = db()->query("SELECT kind, COUNT(DISTINCT chat_id) AS n FROM bot_events WHERE created_at > datetime('now', '-7 days') GROUP BY kind")->fetchAll(PDO::FETCH_KEY_PAIR);
     $chats = (int) db()->query("SELECT COUNT(DISTINCT chat_id) FROM bot_events WHERE created_at > datetime('now', '-7 days')")->fetchColumn();
-    return ['cfg' => $cfg, 'defaults' => bot_defaults(), 'products' => $products, 'cats' => $cats,
+    // What customers wrote that the bot didn't understand (last 60 days, most frequent first), to teach it.
+    $missed = db()->query("SELECT said, COUNT(*) AS n, MAX(created_at) AS last FROM bot_events WHERE said != '' AND (kind = 'retry' OR (kind = 'handover' AND how = 'not understood'))
+        AND created_at > datetime('now', '-60 days') GROUP BY said ORDER BY n DESC, last DESC LIMIT 30")->fetchAll();
+    return ['cfg' => $cfg, 'defaults' => bot_defaults(), 'products' => $products, 'cats' => $cats, 'missed' => array_map(function ($m) { return ['said' => $m['said'], 'n' => (int) $m['n']]; }, $missed),
         'ads' => array_map(function ($a) { return ['id' => $a['ad_id'], 'headline' => $a['headline'], 'chats' => (int) $a['chats']]; }, $ads),
         'week' => ['chats' => $chats, 'handover' => (int) ($week['handover'] ?? 0)], 'titleMax' => BOT_TITLE_MAX, 'maxItems' => BOT_MAX_ITEMS];
 }
@@ -532,7 +639,7 @@ function bot_clean(array $b): array
     $cfg = ['on' => !empty($b['on']),
         'channels' => ['wa' => !empty($b['channels']['wa']), 'ig' => !empty($b['channels']['ig']), 'fb' => !empty($b['channels']['fb'])],
         'pause_hours' => max(1, min(72, (int) ($b['pause_hours'] ?? 12))), 'fails' => max(1, min(5, (int) ($b['fails'] ?? 2))),
-        'welcome' => $two($b['welcome'] ?? [], 900), 'menu' => $two($b['menu'] ?? [], 20), 'wa_buttons' => !empty($b['wa_buttons']), 'more' => $two($b['more'] ?? [], 20), 'retry' => $two($b['retry'] ?? [], 900),
+        'welcome' => $two($b['welcome'] ?? [], 900), 'menu' => $two($b['menu'] ?? [], 20), 'wa_buttons' => !empty($b['wa_buttons']), 'typing' => !empty($b['typing']), 'more' => $two($b['more'] ?? [], 20), 'retry' => $two($b['retry'] ?? [], 900),
         'handover' => $two($b['handover'] ?? [], 900), 'human_words' => str_in($b['human_words'] ?? '', 2000), 'items' => [], 'ads' => []];
     foreach (['welcome', 'retry', 'handover'] as $k) foreach (['ar', 'en'] as $l) if ($cfg[$k][$l] === '') fail('Write the ' . ($k === 'welcome' ? 'welcome' : ($k === 'retry' ? '“didn’t understand”' : '“handing to the team”')) . ' message in ' . ($l === 'ar' ? 'Arabic' : 'English') . '.');
     foreach (['ar', 'en'] as $l) foreach (['menu', 'more'] as $k) if ($cfg[$k][$l] === '') $cfg[$k][$l] = $d[$k][$l];
