@@ -1627,11 +1627,28 @@ try {
         $path = wa_media_dir() . '/' . $m['media_path'];
         if ($m['media_path'] === '' || strpos($m['media_path'], '..') !== false || !is_file($path)) fail('This file is no longer available.', 404);
         header('Content-Type: ' . ($m['media_mime'] ?: 'application/octet-stream'));
-        header('Content-Length: ' . filesize($path));
         header('Cache-Control: private, max-age=86400');
         header('X-Content-Type-Options: nosniff');
         $dl = !empty($_GET['download']) || !preg_match('#^(image|video|audio)/|^application/pdf$#', (string) $m['media_mime']);
         header('Content-Disposition: ' . ($dl ? 'attachment' : 'inline') . '; filename="' . rawurlencode($m['media_name'] ?: basename($m['media_path'])) . '"');
+        // Byte ranges: Safari (iPhone, Mac) only plays audio and video that can be read in parts, and every
+        // browser needs them to jump to a point in a voice note or video.
+        $size = filesize($path);
+        header('Accept-Ranges: bytes');
+        if (preg_match('/^bytes=(\d*)-(\d*)$/', (string) ($_SERVER['HTTP_RANGE'] ?? ''), $r) && ($r[1] !== '' || $r[2] !== '')) {
+            $from = $r[1] === '' ? max(0, $size - (int) $r[2]) : (int) $r[1];
+            $to = $r[1] === '' || $r[2] === '' ? $size - 1 : min((int) $r[2], $size - 1);
+            if ($from > $to || $from >= $size) { http_response_code(416); header('Content-Range: bytes */' . $size); exit; }
+            http_response_code(206);
+            header('Content-Range: bytes ' . $from . '-' . $to . '/' . $size);
+            header('Content-Length: ' . ($to - $from + 1));
+            $fh = fopen($path, 'rb');
+            fseek($fh, $from);
+            for ($left = $to - $from + 1; $left > 0 && !feof($fh); $left -= 65536) echo fread($fh, min(65536, $left));
+            fclose($fh);
+            exit;
+        }
+        header('Content-Length: ' . $size);
         readfile($path);
         exit;
 

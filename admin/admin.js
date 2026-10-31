@@ -1762,6 +1762,63 @@
     return waProductList.busy[lang];
   };
   const waPhone = () => matchMedia('(max-width:820px)').matches;
+  const VOICE_PLAY = '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+  const VOICE_PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>';
+  const waClock = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const waSpeed = () => { try { return +localStorage.getItem('wts_voice_speed') || 1; } catch (e) { return 1; } };
+  // Wires every voice note in a chat (events reach the list, so new messages work too).
+  const waVoices = (box) => {
+    if (box.dataset.voices) return; box.dataset.voices = '1';
+    const ui = (a) => a.closest('.wa-voice');
+    // A recorded Ogg file often doesn't say how long it is (Infinity) until it has been played once.
+    const dur = (a) => isFinite(a.duration) && a.duration > 0 ? a.duration : 0;
+    const draw = (a) => {
+      const v = ui(a), d = dur(a), p = d ? Math.min(1, a.currentTime / d) : 0;
+      $('.wa-vfill', v).style.width = (p * 100) + '%'; $('.wa-vdot', v).style.left = (p * 100) + '%';
+      $('.wa-vtime', v).textContent = waClock(a.paused && !a.currentTime ? d : a.currentTime);
+    };
+    box.addEventListener('loadedmetadata', (e) => { if (e.target.closest && e.target.closest('.wa-voice')) draw(e.target); }, true);
+    box.addEventListener('durationchange', (e) => { if (e.target.closest && e.target.closest('.wa-voice')) draw(e.target); }, true);
+    box.addEventListener('timeupdate', (e) => { if (e.target.closest && e.target.closest('.wa-voice')) draw(e.target); }, true);
+    box.addEventListener('play', (e) => {
+      if (!e.target.closest || !e.target.closest('.wa-voice')) return;
+      $$('audio', box).forEach((o) => { if (o !== e.target && !o.paused) o.pause(); });
+      const b = $('.wa-vplay', ui(e.target)); b.innerHTML = VOICE_PAUSE; b.setAttribute('aria-label', 'Pause');
+    }, true);
+    box.addEventListener('pause', (e) => { if (!e.target.closest || !e.target.closest('.wa-voice')) return; const b = $('.wa-vplay', ui(e.target)); b.innerHTML = VOICE_PLAY; b.setAttribute('aria-label', 'Play'); }, true);
+    box.addEventListener('ended', (e) => {
+      const a = e.target; if (!a.closest || !a.closest('.wa-voice')) return;
+      a.currentTime = 0; draw(a);
+      // The next message, if it's a voice note from the same side, plays straight after (like WhatsApp).
+      const next = a.closest('.wa-msg').nextElementSibling, na = next && next.classList.contains(a.closest('.wa-msg').classList.contains('in') ? 'in' : 'out') && $('.wa-voice audio', next);
+      if (na) { na.playbackRate = waSpeed(); na.play().catch(() => {}); }
+    }, true);
+    box.addEventListener('error', (e) => {
+      const a = e.target; if (!a.closest || !a.closest('.wa-voice') || a.tagName !== 'AUDIO') return;
+      ui(a).outerHTML = '<a class="wa-doc" href="' + a.getAttribute('src') + '&download=1">🎤 <span><b>Voice message</b><small>This browser can’t play it — tap to download</small></span></a>';
+    }, true);
+    const seek = (e, bar) => {
+      const a = $('audio', bar.closest('.wa-voice')), d = dur(a); if (!d) return;
+      const r = bar.getBoundingClientRect();
+      a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * d; draw(a);
+    };
+    box.addEventListener('pointerdown', (e) => {
+      const bar = e.target.closest('.wa-vbar'); if (!bar) return;
+      e.stopPropagation(); seek(e, bar);
+      const move = (ev) => seek(ev, bar), up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+      addEventListener('pointermove', move); addEventListener('pointerup', up);
+    }, true);
+    box.addEventListener('click', (e) => {
+      const p = e.target.closest('.wa-vplay'), sp = e.target.closest('.wa-vspeed');
+      if (p) { const a = $('audio', p.closest('.wa-voice')); if (a.paused) { a.playbackRate = waSpeed(); a.play().catch(() => toast('This voice note can’t be played here. Try another browser, or download it.', true)); } else a.pause(); }
+      if (sp) {
+        const n = { 1: 1.5, 1.5: 2, 2: 1 }[waSpeed()] || 1;
+        try { localStorage.setItem('wts_voice_speed', n); } catch (err) {}
+        $$('.wa-vspeed', box).forEach((b) => b.textContent = n + '×');
+        $$('.wa-voice audio', box).forEach((a) => a.playbackRate = n);
+      }
+    }, true);
+  };
   const waCopy = (text) => {
     const ok = () => toast('Message copied');
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, () => {});
@@ -1969,13 +2026,18 @@
       const h = reactsHtml(w); if (h) el.insertAdjacentHTML('beforeend', h);
       el.classList.toggle('has-react', !!h);
     };
+    // Voice notes like WhatsApp: a big play button, a bar to tap or drag to any point, the time, and the speed
+    // (1× 1.5× 2×, kept on this device). One plays at a time; the customer's next voice note plays after it.
+    const voiceHtml = (src, m) => '<div class="wa-voice" dir="ltr"><button class="wa-vplay" aria-label="Play">' + VOICE_PLAY + '</button>' +
+      '<div class="wa-vbar"><div class="wa-vfill"></div><div class="wa-vdot"></div></div><span class="wa-vtime">' + (m.dur ? waClock(m.dur) : '0:00') + '</span>' +
+      '<button class="wa-vspeed" aria-label="Speed">' + waSpeed() + '×</button><audio preload="metadata" src="' + src + '"></audio></div>';
     const msgHtml = (m, cont) => {
       const media = m.media ? '../api/admin.php?action=wa_media&id=' + m.id : '';
       let inner = '';
       if (m.kind === 'image' && media) inner = '<a href="' + media + '" target="_blank" rel="noopener"><img class="wa-img" src="' + media + '" alt="Photo" loading="lazy"></a>';
       else if (m.kind === 'sticker' && media) inner = '<img class="wa-sticker" src="' + media + '" alt="Sticker" loading="lazy">';
       else if (m.kind === 'video' && media) inner = '<video class="wa-img" src="' + media + '" controls preload="metadata"></video>';
-      else if (m.kind === 'audio' && media) inner = '<audio src="' + media + '" controls preload="none"></audio>';
+      else if (m.kind === 'audio' && media) inner = voiceHtml(media, m);
       else if (media) inner = '<a class="wa-doc" href="' + media + '" target="_blank" rel="noopener">' + icon('file') + '<span><b>' + esc(m.media.name || 'Document') + '</b><small>' + waSize(m.media.size) + '</small></span></a>';
       else if (['image', 'video', 'audio', 'document'].includes(m.kind)) inner = '<div class="muted small">(' + m.kind + ' not available)</div>';
       if (m.kind === 'reaction') return m.body ? '<div class="wa-sys">Reacted ' + esc(m.body) + '</div>' : '';
@@ -2054,7 +2116,7 @@
       const stop = () => { clearTimeout(t); t = null; };
       box.onpointerdown = (e) => {
         if (e.pointerType === 'mouse') return;
-        const el = e.target.closest('.wa-msg'); if (!el || e.target.closest('a,audio,video,.wa-act,.wa-quote')) return;
+        const el = e.target.closest('.wa-msg'); if (!el || e.target.closest('a,audio,video,.wa-act,.wa-quote,.wa-voice')) return;
         x0 = e.clientX; y0 = e.clientY; stop();
         t = setTimeout(() => { t = null; if (navigator.vibrate) navigator.vibrate(15); msgMenu(el); }, 450);
       };
@@ -2073,6 +2135,7 @@
     const renderMessages = () => {
       const box = $('#waMsgs'); if (!box) return;
       holdMenu(box);
+      waVoices(box);
       st.day = ''; st.prev = null;
       box.innerHTML = withDays(st.msgs) || '<div class="muted small wa-none" style="text-align:center;padding:20px">No messages yet.</div>';
       stickDown(box);
