@@ -2112,18 +2112,23 @@
       });
     };
     const holdMenu = (box) => {
-      let t = null, x0 = 0, y0 = 0;
+      let t = null, x0 = 0, y0 = 0, opened = 0;
       const stop = () => { clearTimeout(t); t = null; };
       box.onpointerdown = (e) => {
         if (e.pointerType === 'mouse') return;
         const el = e.target.closest('.wa-msg'); if (!el || e.target.closest('a,audio,video,.wa-act,.wa-quote,.wa-voice')) return;
         x0 = e.clientX; y0 = e.clientY; stop();
-        t = setTimeout(() => { t = null; if (navigator.vibrate) navigator.vibrate(15); msgMenu(el); }, 450);
+        t = setTimeout(() => { t = null; opened = Date.now(); if (navigator.vibrate) navigator.vibrate(15); msgMenu(el); }, 450);
       };
       box.onpointermove = (e) => { if (t && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); };
       box.onpointerup = box.onpointercancel = stop;
       box.addEventListener('scroll', () => { stop(); closeMenu(); }, { passive: true });
-      box.oncontextmenu = (e) => { if (matchMedia('(pointer: coarse)').matches && e.target.closest('.wa-msg')) e.preventDefault(); };
+      // Android's own long press (contextmenu) can cut the timer short: it opens the menu too, never a copy bar.
+      box.oncontextmenu = (e) => {
+        const el = matchMedia('(pointer: coarse)').matches && e.target.closest('.wa-msg'); if (!el) return;
+        e.preventDefault();
+        if (!e.target.closest('a,audio,video,.wa-voice') && Date.now() - opened > 800) { stop(); opened = Date.now(); msgMenu(el); }
+      };
       box.onclick = (e) => {
         const a = e.target.closest('.wa-act'); if (a) { msgMenu(a.closest('.wa-msg')); return; }
         // A quote jumps to the message it answers.
