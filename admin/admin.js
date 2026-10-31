@@ -2105,11 +2105,14 @@
       // Like WhatsApp on phones: the mic while the box is empty, the send button once there's text.
       const hasText = () => ta.closest('.wa-cbar').classList.toggle('has-text', !!ta.value.trim());
       ta.oninput = () => { grow(); hasText(); };
+      let busy = false;
       const send = async () => {
-        const text = ta.value.trim(); if (!text) return;
+        const text = ta.value.trim(); if (!text || busy) return;
+        busy = true; // Enter pressed twice or held down sends once
         $('#waSend').disabled = true;
         try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text } }); ta.value = ''; grow(); hasText(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
         catch (e) { toast(e.message, true); }
+        busy = false;
         $('#waSend').disabled = false; ta.focus();
       };
       $('#waSend').onclick = send;

@@ -324,6 +324,8 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     };
     // The guided price questions: a kind of product (or all prices), then one product.
     if (preg_match('/^bot:k:([\w-]+)$/', $tap, $m)) { if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang']; return $m[1] === '_all' ? $plan('allprices', $priceIt, 'tap') : $plan('kind', $priceIt, 'tap', ['kindKey' => $m[1]]); }
+    // "🛒 اطلبه" under a product card: that product's order link.
+    if ($tap === 'bot:buy') { if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang']; return !empty($ctx['last']) ? $plan('order_last', null, 'tap', ['products' => [$ctx['last']]]) : $plan('welcome', null, 'tap'); }
     if (preg_match('/^bot:p:([\w-]+)$/', $tap, $m)) { if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang']; return $plan('product', $priceIt, 'tap', ['products' => [$m[1]]]); }
     if ($tap === 'bot:_more') { if (in_array($chat['bot_lang'] ?? '', ['ar', 'en'], true)) $lang = $chat['bot_lang']; return $plan('more', null, 'tap'); }
     if (strpos($tap, 'bot:') === 0) {
@@ -456,7 +458,7 @@ function bot_reply(array $plan, array $cfg): array
             if (!$list) return ['text' => bot_fill('{prices}', $ar), 'menu' => true];
             if (count($list) === 1) return bot_product_reply($list, $ar);
             $r = bot_product_reply($list, $ar);
-            $r['text'] = (BOT_KIND_ICON[$plan['kindKey']] ?? '') . ' ' . BOT_KIND_NAMES[$plan['kindKey']][$ar ? 0 : 1] . ($ar ? ' اللي عندنا 👇' : ' we have 👇') . "\n" . $r['text'];
+            $r['text'] = (BOT_KIND_ICON[$plan['kindKey']] ?? '') . ' ' . BOT_KIND_NAMES[$plan['kindKey']][$ar ? 0 : 1] . ' 👇' . "\n" . $r['text'];
             return $r;
         case 'allprices':
             $raw = (string) ($it['answer'][$lang] ?? '');
@@ -602,7 +604,8 @@ const BOT_KINDS = ['card' => 'كارت, كارد, كروت, card', 'keychain' =>
 function bot_kind(array $p): string
 {
     foreach (['keychain', 'coaster', 'card', 'stand', 'coffee', 'blend', 'serum', 'cream', 'cleanser', 'wash', 'plan'] as $k) if (preg_match('/\b' . $k . '/i', (string) $p['name'])) return $k === 'blend' ? 'coffee' : $k;
-    return '';
+    // Names that don't say it ("Ethiopia Limu"): the category does.
+    return ['coffee' => 'coffee', 'services' => 'plan'][$p['cat']] ?? '';
 }
 const BOT_KIND_NAMES = ['card' => ['كروت NFC', 'NFC cards'], 'keychain' => ['ميداليات NFC', 'NFC keychains'], 'stand' => ['ستاندات', 'Stands'], 'coaster' => ['كوستر QR', 'QR coasters'],
     'coffee' => ['قهوة', 'Coffee'], 'serum' => ['سيروم', 'Serums'], 'cream' => ['كريمات', 'Creams'], 'cleanser' => ['غسول', 'Cleansers'], 'wash' => ['غسول', 'Cleansers'], 'plan' => ['خطط التسويق', 'Marketing plans']];
@@ -654,11 +657,23 @@ function bot_card_text(array $p, bool $ar): string
 
 // A product card: WhatsApp — its photo on top, the text, and the menu buttons, in one message.
 // Instagram / Messenger — the photo, then the text with the quick replies. $text '' = the card's own text.
+// Under a product card, the next step to a sale: order it, see the others of its kind, or ask the team.
+function bot_card_buttons(array $p, string $lang, array $cfg): array
+{
+    $ar = $lang === 'ar';
+    $b = [['id' => 'bot:buy', 'title' => $ar ? '🛒 اطلبه' : '🛒 Order it']];
+    $k = bot_kind($p);
+    if ($k !== '' && count(array_filter(load_products(true), function ($x) use ($k) { return bot_kind($x) === $k; })) > 1) $b[] = ['id' => 'bot:k:' . $k, 'title' => mb_substr((BOT_KIND_ICON[$k] ?? '🔁') . ' ' . ($ar ? 'شوف غيره' : 'See others'), 0, BOT_TITLE_MAX)];
+    foreach (bot_buttons($cfg) as $it) if ($it['action'] === 'human') { $b[] = ['id' => 'bot:' . $it['id'], 'title' => mb_substr(trim((string) $it['title'][$lang]), 0, BOT_TITLE_MAX)]; break; }
+    return $b;
+}
+
 function bot_send_card(array $chat, array $p, string $lang, array $cfg, string $text, string $skip): void
 {
     $text = $text !== '' ? $text : bot_card_text($p, $lang === 'ar');
+    $buttons = bot_card_buttons($p, $lang, $cfg);
     $photo = $p['images'] ? wa_product_photo((string) $p['images'][0]) : null;
-    if (!$photo) { bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip); return; }
+    if (!$photo) { bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip, false, null, $buttons); return; }
     if (sm_channel($chat) !== 'wa' || empty($cfg['wa_buttons'])) {
         $plain = sm_channel($chat) === 'wa' ? $text : str_replace('*', '', $text);
         $id = wa_record_out($chat, '', 'image', '', ['path' => $photo['path'], 'mime' => 'image/jpeg', 'name' => $p['id'] . '.jpg', 'size' => filesize(wa_media_dir() . '/' . $photo['path'])], null, 'sending');
@@ -667,10 +682,10 @@ function bot_send_card(array $chat, array $p, string $lang, array $cfg, string $
             if (sm_channel($chat) !== 'wa') return sm_send_file($chat, $photo['path'], 'image', '');
             return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'image', 'image' => ['id' => bot_media_id($photo, false)]]);
         });
-        bot_send($chat, $plain, true, $lang, $cfg, BOT_VIA, $skip);
+        bot_send($chat, $plain, true, $lang, $cfg, BOT_VIA, $skip, false, null, $buttons);
         return;
     }
-    bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip, false, $photo);
+    bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip, false, $photo, $buttons);
 }
 
 // The product photo's id at Meta, uploaded once and kept 20 days (Meta keeps uploads 30), like wa_send_product().
@@ -885,6 +900,6 @@ function bot_try(array $b): array
     $plan['three'] = $chat['channel'] === 'wa' && !empty($cfg['wa_buttons']);
     $r = bot_reply($plan, $cfg);
     return ['do' => $plan['do'], 'ctx' => bot_next_ctx($fresh ? [] : bot_ctx($chat), $r), 'how' => $plan['how'], 'item' => $plan['item']['id'] ?? '', 'lang' => $plan['lang'], 'text' => $r['text'], 'photo' => !empty($r['card']['images']) ? (string) $r['card']['images'][0] : '',
-        'menu' => !empty($r['buttons']) ? $r['buttons'] : ($r['menu'] ? array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_buttons($cfg)) : []),
+        'menu' => !empty($r['card']) ? bot_card_buttons($r['card'], $plan['lang'], $cfg) : (!empty($r['buttons']) ? $r['buttons'] : ($r['menu'] ? array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_buttons($cfg)) : [])),
         'fails' => $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0, 'wait' => $plan['do'] === 'ask' ? 'order' : '', 'team' => !bot_takes($plan)];
 }

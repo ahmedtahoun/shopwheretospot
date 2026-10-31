@@ -392,6 +392,12 @@ function wa_send_text(array $chat, string $text, ?int $userId, bool $preview = t
 {
     $text = trim($text);
     if ($text === '') throw new ShopError('Write a message first.');
+    // The same message from the same person a moment ago (Enter pressed twice, a double tap): not sent again.
+    if ($userId !== null) {
+        $dup = db()->prepare("SELECT id FROM wa_messages WHERE chat_id = ? AND dir = 'out' AND user_id = ? AND body = ? AND created_at > datetime('now', '-20 seconds') ORDER BY id DESC LIMIT 1");
+        $dup->execute([(int) $chat['id'], $userId, $text]);
+        if ($id = (int) $dup->fetchColumn()) return $id;
+    }
     wa_window_check($chat);
     $send = sm_channel($chat) !== 'wa' ? function () use ($chat, $text) { return sm_send_text($chat, $text); } : function () use ($chat, $text, $preview) {
         return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual',
@@ -456,10 +462,8 @@ function wa_send_product(array $chat, string $productId, bool $ar, ?int $userId)
     foreach (load_products(true) as $row) if ($row['id'] === $productId) { $p = $row; break; }
     if (!$p) throw new ShopError('That product isn’t in the shop (it may be a draft or archived).');
     $item = wa_product_brief($p, $ar);
-    $caption = '*' . $item['title'] . '*' . ($item['summary'] !== '' ? "\n" . $item['summary'] : '')
-        . "\n\n💰 " . seo_price_text($item, $ar)
-        . (!$item['inStock'] ? "\n" . ($ar ? '(غير متوفر حاليًا)' : '(out of stock right now)') : '')
-        . "\n🛒 " . ($ar ? 'اطلب من هنا: ' : 'Order here: ') . seo_product_url($p['id'], $ar);
+    // Short, like the chat bot's cards (api/bot.php): the photo says the rest, the link has the details.
+    $caption = bot_card_text($p, $ar);
     $photo = $p['images'] ? wa_product_photo((string) $p['images'][0]) : null;
     if (!$photo) return wa_send_text($chat, $caption, $userId, true, true);
     if (sm_channel($chat) !== 'wa') {

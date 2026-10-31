@@ -104,7 +104,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 56;
+const SCHEMA_VERSION = 57;
 
 function db(): PDO
 {
@@ -593,6 +593,16 @@ function migrate(PDO $pdo): void
     }
     // The shop link in the quick replies: /ar shows a proper preview card in WhatsApp (see api/share-page.php).
     $pdo->prepare('UPDATE wa_quick SET body = ? WHERE body = ?')->execute(["تقدر تشوف كل المنتجات والأسعار هنا 👇\nhttps://shop.wheretospot.com/ar", "تقدر تشوف كل المنتجات والأسعار هنا: https://shop.wheretospot.com"]);
+    // Short replies that move a chat to a sale (once; the team edits or deletes them in the inbox).
+    if (!wa_setting('quick_close')) {
+        $q = $pdo->prepare('INSERT INTO wa_quick (title, body, sort) VALUES (?, ?, (SELECT COALESCE(MAX(sort), 0) + 1 FROM wa_quick))');
+        foreach ([
+            ['❓ لنشاط إيه؟', 'تحبه لنشاط إيه؟ كافيه، مطعم، عيادة ولا محل؟ عشان أرشحلك الأنسب 😊'],
+            ['👉 أنهي واحد؟', 'أجهزلك أنهي واحد فيهم؟ 😊'],
+            ['🛒 نقفل الطلب', "تمام 👌 ابعتلي الاسم والعنوان ورقم الموبايل، وأجهزلك الطلب.\nوالدفع عند الاستلام."],
+        ] as $row) $q->execute($row);
+        wa_set_setting('quick_close', true);
+    }
     // Business tools lead the shop: NFC and stands first, coffee next, skincare last (once; the admin can reorder).
     if (!wa_setting('cats_reordered')) {
         $order = $pdo->prepare('UPDATE categories SET sort = ? WHERE key = ?');
