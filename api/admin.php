@@ -1516,6 +1516,17 @@ try {
         require_perm('backups');
         json_out(bot_try(body()));
 
+    // Settings → Chat bot → AI answers (api/ai.php): on/off and monthly limit, and a test question.
+    case 'ai_save':
+        $u = require_perm('backups');
+        ai_save(body());
+        log_activity($u, 'Updated AI answers', ai_settings()['on'] ? 'on' : 'off');
+        json_out(['ai' => ai_status()]);
+
+    case 'ai_test':
+        require_perm('backups');
+        json_out(ai_test(str_in(body()['q'] ?? '', 500)) + ['ai' => ai_status()]);
+
     case 'bot_save':
         $u = require_perm('backups');
         bot_save(body());

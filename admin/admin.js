@@ -2680,8 +2680,10 @@
         '<div class="table-wrap"><table><thead><tr><th>Ad</th><th>Chats</th><th>Product</th></tr></thead><tbody>' +
         d.ads.map((a) => '<tr><td>' + esc(a.headline || a.id) + '<div class="small muted" dir="ltr">' + esc(a.id) + '</div></td><td>' + a.chats + '</td><td><select data-ad="' + esc(a.id) + '">' + prodOpts(c.ads[a.id] || '') + '</select></td></tr>').join('') + '</tbody></table></div>' : '') +
       '<div class="row"><button class="btn primary" id="botSave">Save the chat bot</button><button class="btn" id="botReset">Start from the suggested texts</button></div>' +
+      '<div class="bot-item" id="aiBox"></div>' +
       '<h3 style="margin:6px 0 0">Try it</h3><div class="hint">Write like a customer. Nothing is sent to anyone; it uses what’s on this page, saved or not.</div>' +
       '<div class="bot-try"><div class="bot-msgs" id="botMsgs"></div><form class="row" id="botTryF"><select id="botTryCh"><option value="wa">WhatsApp</option><option value="ig">Instagram</option></select>' +
+        '<label class="row small" title="A real answer from Claude when the menus don’t understand; costs a fraction of a cent"><input type="checkbox" id="botTryAi"' + (d.ai.key && d.ai.lib && d.ai.phpOk ? ' checked' : ' disabled') + '> <span>AI</span></label>' +
         '<input type="text" id="botTryT" placeholder="e.g. بكام الكارت؟" style="flex:1;min-width:0"><button class="btn primary">Send</button><button type="button" class="btn" id="botTryNew">Start over</button></form></div>';
     const drawItems = () => {
       $('#botItems').innerHTML = c.items.map((it, i) => '<div class="bot-item" data-i="' + i + '">' +
@@ -2705,6 +2707,7 @@
       });
     };
     drawItems();
+    aiBox(d.ai);
     $$('[data-madd]', box).forEach((b) => b.onclick = () => {
       const sel = $('[data-mi="' + b.dataset.madd + '"]', box), it = c.items[+sel.value];
       if (!it) { toast('Choose the menu item first', true); return; }
@@ -2736,12 +2739,12 @@
     let t = { fresh: true, fails: 0, lang: '', wait: '', human: false, ctx: {} };
     const msgs = $('#botMsgs');
     const say = (who, html) => { msgs.insertAdjacentHTML('beforeend', '<div class="bot-b ' + who + '">' + html + '</div>'); msgs.scrollTop = msgs.scrollHeight; };
-    const NOTE = { product: 'It recognised a product in the message.', handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
+    const NOTE = { ai: '🧠 Answered by AI (Claude Haiku).', product: 'It recognised a product in the message.', handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
     const send = async (text, tap) => {
       say('in', '<div class="wa-text">' + esc(text) + '</div>');
       if (t.human) { say('note', '<span>The team has this chat now, so the bot stays quiet.</span>'); return; }
       let r;
-      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, wait: t.wait, ctx: t.ctx, channel: $('#botTryCh').value } }); }
+      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, wait: t.wait, ctx: t.ctx, ai: $('#botTryAi').checked ? 1 : 0, channel: $('#botTryCh').value } }); }
       catch (e) { say('note', esc(e.message)); return; }
       if (r.text) say('out', (r.photo ? '<img class="bot-photo" src="' + esc(thumb(r.photo, 480)) + '" alt="">' : '') + '<div class="wa-text">' + waLink(r.text) + '</div>' + (r.menu.length ? '<div class="bot-menu">' + r.menu.map((m) => '<button type="button" class="btn sm" data-tap="' + esc(m.id) + '">' + esc(m.title) + '</button>').join('') + '</div>' : ''));
       if (NOTE[r.do] || r.team) say('note', '<span>' + NOTE[r.team ? 'handover' : r.do] + '</span>');
@@ -2750,6 +2753,34 @@
     };
     $('#botTryF').onsubmit = (e) => { e.preventDefault(); const v = $('#botTryT').value.trim(); if (!v) return; $('#botTryT').value = ''; send(v); };
     $('#botTryNew').onclick = () => { t = { fresh: true, fails: 0, lang: '', wait: '', human: false, ctx: {} }; msgs.innerHTML = ''; };
+  }
+
+  // Settings → Chat bot → AI answers (api/ai.php): Claude Haiku for what the menus and keywords don't understand.
+  function aiBox(a) {
+    const box = $('#aiBox'); if (!box) return;
+    const ok = (b, yes, no) => b ? '<span class="pill good">✓ ' + yes + '</span>' : '<span class="pill bad">✕ ' + no + '</span>';
+    const usd = (n) => '$' + (+n).toFixed(n < 1 ? 3 : 2);
+    box.innerHTML = '<label class="row"><input type="checkbox" id="aiOn"' + (a.on ? ' checked' : '') + '> <b>🧠 AI answers (' + esc(a.model) + ')</b><span class="spacer"></span>' +
+        (a.paused ? '<span class="pill warn">Paused: monthly limit reached</span>' : a.ready ? '<span class="pill good">✓ Answering</span>' : '<span class="pill">Off</span>') + '</label>' +
+      '<div class="hint">When the menus and keywords don’t understand a message, Claude reads the chat and answers in one to three short lines from your products, prices and the answers above. When it doesn’t know, or the customer wants a person, a design, a big quantity or has a problem, it hands the chat to the team. Phone numbers and emails are removed before the chat is sent to Anthropic.</div>' +
+      '<div class="list">' +
+        '<div class="li"><span>Server PHP version <span class="muted small" dir="ltr">' + esc(a.php) + '</span></span>' + ok(a.phpOk, 'OK', 'Needs 8.1 or newer: cPanel → MultiPHP Manager') + '</div>' +
+        '<div class="li"><span>AI library (api/lib/vendor)</span>' + ok(a.lib, 'Installed', 'Not on the server yet') + '</div>' +
+        '<div class="li"><span>Anthropic API key (api/config.local.php → anthropic)</span>' + ok(a.key, 'Set', 'Missing') + '</div>' +
+        '<div class="li"><span>This month</span><span><b>' + usd(a.month.cost) + '</b> · ' + a.month.replies + ' <span>answers</span> · ' + a.month.handovers + ' <span>handed to the team</span>' + (a.month.errors ? ' · <span class="pill bad">' + a.month.errors + ' <span>errors</span></span>' : '') + '</span></div>' +
+      '</div>' +
+      '<div class="row" style="flex-wrap:wrap;gap:10px"><label class="field" style="max-width:220px"><span>Monthly limit (US$)</span><input type="number" id="aiLimit" min="1" max="500" step="1" value="' + a.limit + '"></label>' +
+        '<button type="button" class="btn primary" id="aiSave" style="align-self:end">Save AI settings</button></div>' +
+      '<div class="hint">At the limit the AI pauses until next month and the bot carries on without it. Set a spend limit in console.anthropic.com too.</div>' +
+      '<form class="row" id="aiTestF" style="flex-wrap:nowrap"><input type="text" id="aiQ" placeholder="e.g. عندي كافيه صغير ومحتاج حاجة الناس تقيّم بيها" style="flex:1;min-width:0"><button class="btn"' + (a.key && a.lib && a.phpOk ? '' : ' disabled') + '>Test with a question</button></form><div id="aiAns"></div>';
+    $('#aiSave').onclick = async () => { try { const r = await api('ai_save', { method: 'POST', body: { on: $('#aiOn').checked, limit: +$('#aiLimit').value } }); toast('AI settings saved'); aiBox(r.ai); } catch (e) { toast(e.message, true); } };
+    $('#aiTestF').onsubmit = async (e) => {
+      e.preventDefault(); const q = $('#aiQ').value.trim(); if (!q) return;
+      $('#aiAns').innerHTML = '<div class="muted small">Asking Claude…</div>';
+      try { const r = await api('ai_test', { method: 'POST', body: { q } }); $('#aiAns').innerHTML = '<div class="bot-b out" style="max-width:100%"><div class="wa-text">' + waLink(r.reply || '—') + '</div></div>' + (r.handover ? '<div class="small muted">→ <span>It would hand this chat to the team.</span></div>' : '') + (r.product ? '<div class="small muted"><span>Product:</span> ' + esc(r.product) + '</div>' : ''); aiBoxStats(r.ai); }
+      catch (err) { $('#aiAns').innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }
+    };
+    const aiBoxStats = (n) => { a.month = n.month; };
   }
 
   // Settings → Order updates (api/order-updates.php): WhatsApp messages when an order ships, goes out for
@@ -3069,7 +3100,7 @@
   const howLabel = (h) => {
     if (!h) return '';
     if (h.indexOf('tap: ') === 0) { const id = h.slice(5); return id === 'human' ? 'Tapped “Talk to us”' : 'Tapped ' + id; }
-    return { words: 'Asked for a person', 'not understood': 'Not understood twice', audio: 'Sent a voice note', image: 'Sent a photo', video: 'Sent a video', document: 'Sent a file', location: 'Sent a location', number: 'Order number not found', tap: 'Tapped a menu item', keyword: 'Asked about their order' }[h] || h;
+    return { ai: 'The AI passed it to the team', words: 'Asked for a person', 'not understood': 'Not understood twice', audio: 'Sent a voice note', image: 'Sent a photo', video: 'Sent a video', document: 'Sent a file', location: 'Sent a location', number: 'Order number not found', tap: 'Tapped a menu item', keyword: 'Asked about their order' }[h] || h;
   };
   const AUTO_ICON = { followup: '⏰', away: '🌙', cart: '🛒', reorder: '🔁' };
 

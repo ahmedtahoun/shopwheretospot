@@ -73,6 +73,11 @@ return [
         // 'app_secret' => '…',          // only if the Page uses a different Meta app than WhatsApp
         // 'verify_token' => '…',        // only if you want a different one than WhatsApp's
     ],
+    // AI answers for the chat bot (Settings → Chat bot → AI answers): Claude Haiku 5.5, only for messages the menus
+    // and keywords don't understand. console.anthropic.com → API keys → Create key. Set a monthly spend limit there too.
+    'anthropic' => [
+        'api_key' => 'sk-ant-…',
+    ],
     // Telegram alerts: a ping on the team's phones when a WhatsApp customer is waiting. In Telegram, message
     // @BotFather → /newbot → choose a name (e.g. Where To Spot Alerts) → copy the token it gives you here.
     // Each person then taps "Connect Telegram" in the dashboard's WhatsApp inbox. Nothing else to set up.

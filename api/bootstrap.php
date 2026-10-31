@@ -33,6 +33,7 @@ $config = [
     'google_review_url' => '', // optional: our Google review link, offered after a customer reviews their order (api/review-page.php)
     'backup_password' => '', // off-site backups: the password that locks the weekly backup sent to owners on Telegram (api/offsite.php)
     'social' => [],         // Instagram Direct + Messenger in the WhatsApp inbox; see api/social.php
+    'anthropic' => [],      // AI answers for the chat bot: the API key; see api/ai.php
     'meta' => [],           // ad tracking: Meta Pixel + Conversions API; see api/meta.php and api/config.local.example.php
     'ga4_id' => '',         // Google Analytics 4 measurement ID (G-…); see api/track.php
     'paymob' => [],         // online payments; see api/paymob.php and api/config.local.example.php          // see api/bosta.php and api/config.local.example.php         // e.g. ['host' => 'serverXXX.web-hosting.com', 'port' => 465, 'user' => 'orders@wheretospot.com', 'pass' => '…']
@@ -103,7 +104,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 55;
+const SCHEMA_VERSION = 56;
 
 function db(): PDO
 {
@@ -644,6 +645,8 @@ function migrate(PDO $pdo): void
     ou_migrate($pdo);
     // Automatic messages (follow-ups, after hours, cart and reorder reminders), one row per message sent (api/automations.php).
     au_migrate($pdo);
+    // AI answers for the chat bot: tokens and cost of each answer (api/ai.php).
+    ai_migrate($pdo);
     // Bonds' commission is 10% (agreed October 2026); only if it's still the 20% set at the start.
     $pdo->exec("UPDATE brands SET commission = 10 WHERE slug = 'bonds' AND commission = 20");
     // Quotes made before every quote's customer was kept as a lead.
@@ -832,6 +835,7 @@ require __DIR__ . '/bot.php';
 require __DIR__ . '/order-updates.php';
 require __DIR__ . '/automations.php';
 require __DIR__ . '/insights.php';
+require __DIR__ . '/ai.php';
 alerts_watch_fatal(); // a request that dies with a PHP error still alerts the owners
 
 // One-time: normalised phone/email keys for leads created before duplicate prevention existed.

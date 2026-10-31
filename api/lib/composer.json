@@ -1,0 +1,12 @@
+{
+    "description": "Libraries for the shop's server code: Anthropic's official PHP SDK for the chat bot's AI answers (api/ai.php). Installed into vendor/ with: composer install --no-dev --optimize-autoloader (vendor/ is committed, the server has no Composer).",
+    "require": {
+        "anthropic-ai/sdk": "^1.3",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "config": {
+        "platform": { "php": "8.1.0" },
+        "optimize-autoloader": true,
+        "allow-plugins": { "php-http/discovery": true }
+    }
+}

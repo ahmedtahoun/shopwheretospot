@@ -294,7 +294,8 @@ function bot_quiet(array $chat, array $cfg): bool
 // What the bot does with one incoming message, decided before it's saved (so a message the bot
 // answers never shows as waiting). Null: not the bot's, an ordinary chat.
 // $tap: the id of a menu button the customer tapped. $fresh: start of a conversation.
-function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?array $cfg = null): ?array
+// $ai: whether Claude may answer (default: when AI answers are on and ready).
+function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?array $cfg = null, ?bool $ai = null): ?array
 {
     $cfg = $cfg ?? bot_cfg();
     if (empty($cfg['on']) || empty($cfg['channels'][sm_channel($chat)]) || $kind === 'reaction' || bot_quiet($chat, $cfg)) return null;
@@ -374,7 +375,11 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     $short = count(explode(' ', $norm)) <= 4;
     // "Thanks" after an order update or an answer: nothing to add, even at the start of a conversation.
     if ($short && bot_has($norm, BOT_THANKS) && !bot_has($norm, BOT_HELLO)) return $plan('ignore', null, 'thanks');
-    if ($fresh || ($short && bot_has($norm, BOT_HELLO))) return $plan('welcome', null, $fresh ? 'first' : 'hello');
+    $hello = $short && bot_has($norm, BOT_HELLO);
+    // Not understood by the menus and keywords: Claude answers (api/ai.php), unless it's just a hello.
+    // A real question at the start of a chat goes to it too, rather than the welcome.
+    if (!$hello && ($ai ?? (function_exists('ai_ready') && ai_ready())) && (!$fresh || count(explode(' ', $norm)) >= 3)) return $plan('ai', null, 'ai');
+    if ($fresh || $hello) return $plan('welcome', null, $fresh ? 'first' : 'hello');
     if ((int) $chat['bot_fails'] + 1 >= max(1, (int) $cfg['fails'])) return $plan('handover', null, 'not understood');
     return $plan('retry', null, 'not understood');
 }
@@ -544,6 +549,13 @@ function bot_run(array $chat, array $plan): void
 {
     $cfg = bot_cfg();
     $lang = $plan['lang'];
+    if ($plan['do'] === 'ai') {
+        // Claude takes a moment anyway: "typing…" without the extra pause, then its answer (or the team).
+        bot_typing($chat, (string) ($plan['wamid'] ?? ''), false);
+        ai_reply_later($chat, $plan);
+        db()->prepare("UPDATE wa_chats SET bot = 'on', bot_at = datetime('now'), bot_fails = 0, bot_lang = ?, bot_wait = '' WHERE id = ?")->execute([$lang, (int) $chat['id']]);
+        return;
+    }
     if ($plan['do'] !== 'ignore' && !empty($cfg['typing'])) bot_typing($chat, (string) ($plan['wamid'] ?? ''));
     if ($plan['do'] !== 'ignore') {
         // A chat from an ad starts with the ad's product (Settings → Chat bot → Ads).
@@ -675,9 +687,9 @@ function bot_media_id(array $photo, bool $fresh): string
 
 // "typing…" under the customer's message, then a short pause before the answer goes out, as a person would.
 // Runs after Meta has its reply (shutdown, before the messages, which are queued after it). Never fails the answer.
-function bot_typing(array $chat, string $mid): void
+function bot_typing(array $chat, string $mid, bool $pause = true): void
 {
-    register_shutdown_function(function () use ($chat, $mid) {
+    register_shutdown_function(function () use ($chat, $mid, $pause) {
         if (function_exists('litespeed_finish_request')) litespeed_finish_request();
         elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
         ignore_user_abort(true);
@@ -687,7 +699,7 @@ function bot_typing(array $chat, string $mid): void
                 if ($mid !== '') wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'status' => 'read', 'message_id' => $mid, 'typing_indicator' => ['type' => 'text']]);
             } else sm_graph('POST', '/' . rawurlencode((string) sm_cfg('page_id')) . '/messages', ['recipient' => ['id' => substr((string) $chat['wa_id'], 3)], 'sender_action' => 'typing_on']);
         } catch (Throwable $e) { /* the answer still goes */ }
-        usleep(random_int(1500, 2600) * 1000);
+        if ($pause) usleep(random_int(1500, 2600) * 1000);
     });
 }
 
@@ -796,7 +808,7 @@ function bot_settings_out(): array
     // What customers wrote that the bot didn't understand (last 60 days, most frequent first), to teach it.
     $missed = db()->query("SELECT said, COUNT(*) AS n, MAX(created_at) AS last FROM bot_events WHERE said != '' AND (kind = 'retry' OR (kind = 'handover' AND how = 'not understood'))
         AND created_at > datetime('now', '-60 days') GROUP BY said ORDER BY n DESC, last DESC LIMIT 30")->fetchAll();
-    return ['cfg' => $cfg, 'defaults' => bot_defaults(), 'products' => $products, 'cats' => $cats, 'missed' => array_map(function ($m) { return ['said' => $m['said'], 'n' => (int) $m['n']]; }, $missed),
+    return ['cfg' => $cfg, 'ai' => ai_status(), 'defaults' => bot_defaults(), 'products' => $products, 'cats' => $cats, 'missed' => array_map(function ($m) { return ['said' => $m['said'], 'n' => (int) $m['n']]; }, $missed),
         'ads' => array_map(function ($a) { return ['id' => $a['ad_id'], 'headline' => $a['headline'], 'chats' => (int) $a['chats']]; }, $ads),
         'week' => ['chats' => $chats, 'handover' => (int) ($week['handover'] ?? 0)], 'titleMax' => BOT_TITLE_MAX, 'maxItems' => BOT_MAX_ITEMS, 'maxAll' => BOT_MAX_ALL];
 }
@@ -859,8 +871,17 @@ function bot_try(array $b): array
     // It can be tried before it's switched on.
     $cfg['on'] = true;
     $cfg['channels'][$chat['channel']] = true;
-    $plan = bot_plan($chat, (string) ($b['kind'] ?? 'text'), str_in($b['text'] ?? '', 1000), (string) ($b['tap'] ?? ''), $cfg);
+    $aiOk = function_exists('ai_key') && ai_key() !== '' && ai_lib() && !empty($b['ai']);
+    $plan = bot_plan($chat, (string) ($b['kind'] ?? 'text'), str_in($b['text'] ?? '', 1000), (string) ($b['tap'] ?? ''), $cfg, $aiOk);
     if (!$plan) return ['do' => 'none'];
+    if ($plan['do'] === 'ai') {
+        // Only this message (Try it keeps no history on the server); a real answer, costs a fraction of a cent.
+        try { $a = ai_ask([['role' => 'user', 'content' => ai_redact(str_in($b['text'] ?? '', 1000))]], null); }
+        catch (Throwable $e) { $a = ['reply' => $e->getMessage(), 'handover' => true, 'product' => '']; }
+        return ['do' => $a['handover'] ? 'handover' : 'ai', 'how' => 'ai', 'item' => '', 'lang' => $plan['lang'], 'text' => $a['reply'], 'photo' => '', 'ctx' => $a['product'] !== '' ? ['last' => $a['product']] : (object) [],
+            'menu' => $a['handover'] ? [] : array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_buttons($cfg)),
+            'fails' => 0, 'wait' => '', 'team' => $a['handover']];
+    }
     $plan['three'] = $chat['channel'] === 'wa' && !empty($cfg['wa_buttons']);
     $r = bot_reply($plan, $cfg);
     return ['do' => $plan['do'], 'ctx' => bot_next_ctx($fresh ? [] : bot_ctx($chat), $r), 'how' => $plan['how'], 'item' => $plan['item']['id'] ?? '', 'lang' => $plan['lang'], 'text' => $r['text'], 'photo' => !empty($r['card']['images']) ? (string) $r['card']['images'][0] : '',
