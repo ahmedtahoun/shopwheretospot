@@ -310,7 +310,8 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     $priceIt = bot_prices_item($items);
     $adPid = $fresh ? bot_ad_product($cfg, $chat) : '';
     $said = $tap === '' ? bot_norm($text) : '';
-    $plan = function (string $do, ?array $item, string $how, array $more = []) use ($fresh, &$lang, $said) { return ['do' => $do, 'item' => $item, 'lang' => $lang, 'how' => $how, 'fresh' => $fresh, 'said' => $said] + $more; };
+    $first = bot_first_name($chat);
+    $plan = function (string $do, ?array $item, string $how, array $more = []) use ($fresh, &$lang, $said, $first) { return ['do' => $do, 'item' => $item, 'lang' => $lang, 'how' => $how, 'fresh' => $fresh, 'said' => $said, 'first' => $first] + $more; };
     // Their orders: the status of each (with the team following up a problem one), or ask for the order number.
     $orders = function (?array $it, string $how, array $refs) use ($plan, $chat) {
         $found = ou_lookup($chat, $refs);
@@ -451,13 +452,47 @@ function bot_numbered(array $products, bool $ar): string
     return implode("\n", $out);
 }
 
+// The customer's first name from their WhatsApp / Instagram name, when it looks like a person's name
+// ("Eng. Wael Fouad" → Wael; not "amira1986", not titles). '' = none.
+function bot_first_name(array $chat): string
+{
+    foreach (preg_split('/\s+/u', trim((string) ($chat['name'] ?? ''))) as $w) {
+        $w = trim($w, ".,-_|");
+        if (preg_match('/^(dr|eng|mr|mrs|ms|د|م|ا|أ|استاذ|دكتور|مهندس)$/iu', $w)) continue;
+        if (preg_match('/^[\p{L}]{2,15}$/u', $w)) return mb_convert_case($w, MB_CASE_TITLE);
+        return '';
+    }
+    return '';
+}
+
+// The welcome's first words with their name: "أهلًا يا وائل 👋" instead of "أهلًا بيك".
+function bot_hello(string $text, array $plan): string
+{
+    if (($plan['first'] ?? '') === '') return $text;
+    return str_replace(['أهلًا بيك', 'أهلًا بحضرتك', 'Hi, welcome', 'Hi 👋'], ['أهلًا يا ' . $plan['first'], 'أهلًا يا ' . $plan['first'], 'Hi ' . $plan['first'] . ', welcome', 'Hi ' . $plan['first'] . ' 👋'], $text);
+}
+
+// A short name for a list row (WhatsApp: 24 characters): "ستاند عرض NFC + كود QR — 12×18 سم" → "ستاند عرض 12×18 سم".
+function bot_short_title(string $title): string
+{
+    $title = trim(str_replace("\u{200F}", '', $title));
+    if (strpos($title, '—') !== false) {
+        [$a, $b] = array_map('trim', explode('—', $title, 2));
+        $short = implode(' ', array_slice(preg_split('/\s+/u', $a), 0, 2)) . ' ' . $b;
+        if (mb_strlen($short) <= 24) return $short;
+    }
+    return mb_strlen($title) <= 24 ? $title : rtrim(mb_substr($title, 0, 23)) . '…';
+}
+
 // One product: its photo card. Several: a short numbered list; the customer answers with a number or a name.
 function bot_product_reply(array $found, bool $ar): array
 {
     if (count($found) === 1) return ['text' => bot_card_text($found[0], $ar), 'menu' => true, 'card' => $found[0]];
     $found = array_slice(array_values($found), 0, 9);
+    // On WhatsApp the same choice is a tap-to-choose list (name and price per row): 'pick'.
     return ['text' => bot_numbered($found, $ar) . "\n\n" . ($ar ? 'ابعتلي رقم اللي يعجبك وأبعتلك صورته 😊' : 'Send me the number you like and I’ll send its photo 😊'),
-        'menu' => true, 'list_ids' => array_column($found, 'id')];
+        'menu' => true, 'list_ids' => array_column($found, 'id'), 'pick' => $found,
+        'pickText' => ($ar ? 'عندنا ' . count($found) . ' اختيارات 👌 اختار اللي يعجبك وأبعتلك صورته وسعره' : 'We have ' . count($found) . ' options 👌 Pick one and I’ll send its photo and price')];
 }
 
 // What the bot says for a plan: the text, and whether the menu goes with it.
@@ -467,7 +502,7 @@ function bot_reply(array $plan, array $cfg): array
     $ar = $lang === 'ar';
     $it = $plan['item'];
     switch ($plan['do']) {
-        case 'welcome': return ['text' => bot_fill((string) $cfg['welcome'][$lang], $ar), 'menu' => true];
+        case 'welcome': return ['text' => bot_hello(bot_fill((string) $cfg['welcome'][$lang], $ar), $plan), 'menu' => true];
         case 'product':
         case 'product_price':
         case 'order_last':
@@ -484,7 +519,7 @@ function bot_reply(array $plan, array $cfg): array
             $found = array_values(array_filter(load_products(true), function ($p) use ($plan) { return in_array($p['id'], $plan['products'], true); }));
             if (!$found) return ['text' => bot_fill((string) $cfg['welcome'][$lang], $ar), 'menu' => true];
             $offer = trim((string) ($cfg['ad_offers'][$plan['adId'] ?? '']['' . $lang] ?? ''));
-            $t = ($ar ? 'أهلًا بيك 👋' : 'Hi 👋') . "\n" . bot_card_text($found[0], $ar, true) . ($offer !== '' ? "\n\n🔥 " . $offer : '')
+            $t = bot_hello($ar ? 'أهلًا بيك 👋' : 'Hi 👋', $plan) . "\n" . bot_card_text($found[0], $ar, true) . ($offer !== '' ? "\n\n🔥 " . $offer : '')
                 . "\n\n" . ($ar ? 'تحب أجهزلك أنهي مقاس؟ 😊' : 'Which size shall I prepare for you? 😊');
             // "Which size?" was asked: a size in the reply goes straight on to the order.
             $many = count(wa_product_brief($found[0], $ar)['sizes']) > 1;
@@ -510,6 +545,7 @@ function bot_reply(array $plan, array $cfg): array
             if (count($list) === 1) return bot_product_reply($list, $ar);
             $r = bot_product_reply($list, $ar);
             $r['text'] = (BOT_KIND_ICON[$plan['kindKey']] ?? '') . ' ' . BOT_KIND_NAMES[$plan['kindKey']][$ar ? 0 : 1] . ' 👇' . "\n" . $r['text'];
+            $r['pickTitle'] = BOT_KIND_NAMES[$plan['kindKey']][$ar ? 0 : 1];
             return $r;
         case 'allprices':
             $raw = (string) ($it['answer'][$lang] ?? '');
@@ -549,7 +585,7 @@ function bot_reply(array $plan, array $cfg): array
             }
             $t = bot_fill($raw, $ar);
             // The first message of a conversation answered straight away still gets a hello.
-            if ($plan['fresh']) $t = trim(strtok((string) $cfg['welcome'][$lang], "\n")) . "\n\n" . $t;
+            if ($plan['fresh']) $t = bot_hello(trim(strtok((string) $cfg['welcome'][$lang], "\n")), $plan) . "\n\n" . $t;
             return ['text' => $t, 'menu' => true] + ($buttons ? ['buttons' => $buttons] : []);
     }
     return ['text' => '', 'menu' => false];
@@ -629,7 +665,8 @@ function bot_run(array $chat, array $plan): void
         if (!empty($r['card'])) {
             bot_send_card($chat, $r['card'], $lang, $cfg, $r['text'], $skip);
             if ($adCard) bot_event($chat, 'ad_product', $pid, 'ad');
-        } elseif ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg, BOT_VIA, $skip, !empty($r['list']), null, $r['buttons'] ?? null);
+        } elseif (!empty($r['pick']) && sm_channel($chat) === 'wa') bot_send_pick($chat, $r, $lang);
+        elseif ($r['text'] !== '') bot_send($chat, $r['text'], $r['menu'], $lang, $cfg, BOT_VIA, $skip, !empty($r['list']), null, $r['buttons'] ?? null);
     }
     $state = bot_takes($plan) ? 'on' : 'human';
     $fails = $plan['do'] === 'retry' ? (int) $chat['bot_fails'] + 1 : 0;
@@ -747,6 +784,28 @@ function bot_send_card(array $chat, array $p, string $lang, array $cfg, string $
         return;
     }
     bot_send($chat, $text, true, $lang, $cfg, BOT_VIA, $skip, false, $photo, $buttons);
+}
+
+// Several products on WhatsApp: one short line and a "📋 اختار" button that opens a list, a row per product
+// with its short name and price; a tap sends that product's photo card (bot:p:<id>).
+function bot_send_pick(array $chat, array $r, string $lang): void
+{
+    $ar = $lang === 'ar';
+    $rows = [];
+    foreach ($r['pick'] as $p) {
+        $i = wa_product_brief($p, $ar);
+        $prices = $i['sizes'] ? array_unique(array_column($i['sizes'], 'price')) : [$i['low']];
+        $price = (count($prices) > 1 ? ($ar ? 'من ' : 'from ') : '') . ($ar ? number_format($i['low']) . ' ج.م' : 'EGP ' . number_format($i['low']));
+        $rows[] = ['id' => 'bot:p:' . $p['id'], 'title' => bot_short_title($i['title']), 'description' => mb_substr($price . ' · ' . str_replace("\u{200F}", '', $i['title']), 0, 72)];
+    }
+    $label = $ar ? '📋 اختار' : '📋 Choose';
+    $text = (string) ($r['pickText'] ?? '');
+    $body = ['messaging_product' => 'whatsapp', 'recipient_type' => 'individual', 'to' => $chat['wa_id'], 'type' => 'interactive',
+        'interactive' => ['type' => 'list', 'body' => ['text' => $text], 'action' => ['button' => $label,
+            'sections' => [['title' => mb_substr((string) ($r['pickTitle'] ?? ($ar ? 'المنتجات' : 'Products')), 0, 24), 'rows' => $rows]]]]];
+    $id = wa_record_out($chat, '', 'interactive', $text . "\n\n☰ " . implode(' · ', array_column($rows, 'title')), [], null, 'sending');
+    bot_mark($id);
+    wa_send_later($id, (int) $chat['id'], function () use ($body) { return wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', $body); });
 }
 
 // The product photo's id at Meta, uploaded once and kept 20 days (Meta keeps uploads 30), like wa_send_product().
