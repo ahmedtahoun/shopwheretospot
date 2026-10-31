@@ -74,6 +74,11 @@ function in_row(array $c, array $msgs, array $events, array $auto, array $orders
     // Topics: menu items tapped / answered, plus the keywords in what they typed.
     $topics = [];
     $handover = '';
+    // How far towards an order they got with the bot: a product shown, "order it" tapped or a size chosen, an order request sent.
+    $kinds = array_column($events, 'kind');
+    $shown = (bool) array_intersect($kinds, ['adcard', 'product', 'kind', 'product_price', 'ad_product']);
+    $started = (bool) array_intersect($kinds, ['order_last', 'co_start', 'co_details']);
+    $requested = (bool) array_filter($events, function ($e) { return $e['kind'] === 'handover' && $e['how'] === 'order'; });
     foreach ($events as $e) {
         if ($e['item'] !== '' && isset($items[$e['item']]) && in_array($e['kind'], ['answer', 'handover', 'orders', 'ask'], true)) $topics[$e['item']] = true;
         if ($e['kind'] === 'handover') $handover = $e['item'] !== '' ? 'tap: ' . $e['item'] : $e['how'];
@@ -95,7 +100,8 @@ function in_row(array $c, array $msgs, array $events, array $auto, array $orders
         'topics' => array_keys($topics), 'products' => array_values($prods), 'priceSent' => $priceSent,
         'orders' => array_map(function ($o) { return order_number((int) $o['id']); }, $mine), 'revenue' => array_sum(array_column($mine, 'total')),
         'converted' => $converted, 'leadStatus' => (string) $c['lead_status'], 'stage' => $stage, 'quiet' => $quiet, 'auto' => array_keys($auto),
-        'lastIn' => $c['last_in_at'], 'new' => $c['created_at'] >= $start];
+        'lastIn' => $c['last_in_at'], 'new' => $c['created_at'] >= $start,
+        'shown' => $shown || $priceSent || (bool) $prods, 'started' => $started || $requested, 'requested' => $requested];
 }
 
 function in_topic_title(string $id, string $lang = 'en'): string
@@ -206,6 +212,14 @@ function insights(int $days): array
         'agents' => $group(function ($r) { return $r['agent'] ?: 'Unassigned'; }), 'speed' => $speed, 'questions' => $questions,
         'handover' => array_map(function ($k, $v) { return ['how' => $k, 'n' => $v]; }, array_keys($handover), array_values($handover)),
         'heat' => $heat, 'phrases' => $phrases, 'words' => $words,
+        // The sales funnel: how many got to each step, so the step where most stop is visible.
+        'funnel' => [
+            ['key' => 'Chats', 'n' => $n],
+            ['key' => 'Saw a price or a product', 'n' => count(array_filter($rows, function ($r) { return $r['shown']; }))],
+            ['key' => 'Started ordering', 'n' => count(array_filter($rows, function ($r) { return $r['started'] || $r['converted']; }))],
+            ['key' => 'Sent an order request in the chat', 'n' => count(array_filter($rows, function ($r) { return $r['requested']; }))],
+            ['key' => 'Ordered', 'n' => $conv],
+        ],
         'quiet' => array_map(function ($r) { return ['id' => $r['id'], 'name' => $r['name'], 'channel' => $r['channel'], 'lastIn' => $r['lastIn'], 'products' => $r['products'], 'followup' => in_array('followup', $r['auto'], true)]; }, array_slice($quiet, 0, 50)),
         'weekly' => (bool) wa_setting('tg_weekly', true)];
 }

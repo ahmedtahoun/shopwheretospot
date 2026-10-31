@@ -2679,9 +2679,12 @@
       (d.missed.length ? '<h3 style="margin:6px 0 0">Messages it didn’t understand</h3><div class="hint">What customers wrote when the bot had to say “I didn’t get that” (last 60 days). Add one to a menu item and the bot understands it next time; then press Save.</div>' +
         '<div class="list" id="botMissed">' + d.missed.map((m, i) => '<div class="li"><span dir="auto">' + esc(m.said) + ' <span class="muted small">×' + m.n + '</span></span><span class="row" style="gap:6px;flex-wrap:nowrap"><select data-mi="' + i + '"><option value="">—</option>' +
           c.items.map((it, j) => '<option value="' + j + '">' + esc(it.title[AR ? 'ar' : 'en'] || it.title.en) + '</option>').join('') + '</select><button type="button" class="btn sm" data-madd="' + i + '">Add as keyword</button></span></div>').join('') + '</div>' : '') +
-      (d.ads.length ? '<h3 style="margin:6px 0 0">Ads</h3><div class="hint">A chat that comes from an ad starts with the ad’s product (photo, price, order link), then the menu.</div>' +
-        '<div class="table-wrap"><table><thead><tr><th>Ad</th><th>Chats</th><th>Product</th></tr></thead><tbody>' +
-        d.ads.map((a) => '<tr><td>' + esc(a.headline || a.id) + '<div class="small muted" dir="ltr">' + esc(a.id) + '</div></td><td>' + a.chats + '</td><td><select data-ad="' + esc(a.id) + '">' + prodOpts(c.ads[a.id] || '') + '</select></td></tr>').join('') + '</tbody></table></div>' : '') +
+      (d.ads.length ? '<h3 style="margin:6px 0 0">Ads</h3><div class="hint">Most chats start from an ad, with a ready-made question (“سعر الباكدج؟”, “الأسعار والمقاسات”). The first answer is the ad’s product: its photo, every size with its price, the offer below, and “which size?”. Choose the product of each ad (else the bot reads it from the ad’s text when it can), and write the ad’s offer.</div>' +
+        '<div class="stack" style="gap:10px">' + d.ads.map((a) => { const o = c.ad_offers[a.id] || { ar: '', en: '' }; const auto = a.auto ? (d.products.find((p) => p.id === a.auto) || {}).name : '';
+          return '<div class="bot-item"><div class="row"><b>' + esc(a.headline || a.id) + '</b><span class="spacer"></span><span class="small muted">' + a.chats + ' <span>chats</span></span></div>' +
+            (a.body ? '<div class="small muted" dir="auto">' + esc(a.body) + '</div>' : '') +
+            '<label class="field"><span>Product</span><select data-ad="' + esc(a.id) + '">' + prodOpts(c.ads[a.id] || '').replace('<option value="">—</option>', '<option value="">' + (auto ? '— (from the ad’s text: ' + esc(auto) + ')' : '—') + '</option>') + '</select></label>' +
+            '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>Offer</span> · <span>' + name + '</span></span><input type="text" data-offer="' + esc(a.id) + '" data-l="' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '" placeholder="' + (l === 'ar' ? 'مثلًا: 3 ستاندات 10×15 بـ 1,000 ج.م بدل 1,050' : 'e.g. 3 stands 10×15 for EGP 1,000 instead of 1,050') + '" value="' + esc(o[l] || '') + '"></label>').join('') + '</div></div>'; }).join('') + '</div>' : '') +
       '<div class="row"><button class="btn primary" id="botSave">Save the chat bot</button><button class="btn" id="botReset">Start from the suggested texts</button></div>' +
       '<div class="bot-item" id="aiBox"></div>' +
       '<h3 style="margin:6px 0 0">Try it</h3><div class="hint">Write like a customer. Nothing is sent to anyone; it uses what’s on this page, saved or not.</div>' +
@@ -2728,6 +2731,8 @@
       $$('[data-two]', box).forEach((x) => c[x.dataset.two][x.dataset.l] = x.value);
       c.human_words = $('#botHuman').value; c.fails = +$('#botFails').value; c.pause_hours = +$('#botPause').value;
       $$('[data-ad]', box).forEach((x) => { if (x.value) c.ads[x.dataset.ad] = x.value; else delete c.ads[x.dataset.ad]; });
+      c.ad_offers = c.ad_offers && !Array.isArray(c.ad_offers) ? c.ad_offers : {};
+      $$('[data-offer]', box).forEach((x) => { const o = c.ad_offers[x.dataset.offer] = c.ad_offers[x.dataset.offer] || {}; o[x.dataset.l] = x.value; });
       return c;
     };
     $('#botSave').onclick = async () => {
@@ -3152,6 +3157,9 @@
         '<div class="kpi"><div class="label">Answered by the bot alone</div><div class="value">' + k.botOnly + ' ' + pct(k.botRate) + '</div><div class="note"><span>' + k.handovers + '</span> <span>handed to the team</span></div></div>' +
         '<div class="kpi"><div class="label">Team’s first reply (median)</div><div class="value">' + (k.reply === null ? '—' : waAgo(Math.max(1, Math.round(k.reply)))) + '</div><div class="note">' + (d.quiet.length ? '<span>' + d.quiet.length + '</span> <span>quiet after the price</span>' : '') + '</div></div>' +
       '</div>' +
+      '<div class="card stack" style="gap:10px;margin-bottom:16px"><h2>Sales funnel</h2><div class="hint">How many chats got to each step. The biggest drop is where customers are lost.</div>' +
+        '<div class="list">' + d.funnel.map((f, i) => { const prev = i ? d.funnel[i - 1].n : 0; const drop = i && prev ? Math.round((1 - f.n / prev) * 100) : 0;
+          return '<div class="li"><span>' + esc(f.key) + '</span><span class="in-rate" style="min-width:55%">' + bar(f.n, d.funnel[0].n || 1, i === d.funnel.length - 1 ? 'good' : '') + '<b>' + f.n + '</b>' + (i ? ' <span class="small ' + (drop >= 50 ? 'bad' : 'muted') + '">−' + drop + '%</span>' : '') + '</span></div>'; }).join('') + '</div></div>' +
       '<div class="in-grid">' +
       table('Top questions', 'Menu items customers tapped, or the same question typed (the bot’s keywords). How many of those chats ordered.', d.questions, [
         ['Question', (r) => esc(AR ? r.titleAr : r.title)], ['Chats', (r) => '<div class="in-rate">' + bar(r.chats, maxQ) + '<b>' + r.chats + '</b></div>'], ['Ordered', rateCell]]) +

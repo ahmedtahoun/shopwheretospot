@@ -615,3 +615,4 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-btns{display:flex;flex-direction:column;gap:4px;margin-top:8px}
 .wa-btns span{display:block;text-align:center;background:rgba(255,255,255,.65);border-radius:8px;padding:6px 8px;color:#008069;font-weight:600;font-size:13px}
 .bot-photo{display:block;width:100%;max-width:260px;border-radius:8px;margin-bottom:6px}
+.in-rate .bad{color:var(--bad);font-weight:600}
