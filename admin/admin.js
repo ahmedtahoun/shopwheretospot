@@ -2686,11 +2686,12 @@
     const drawItems = () => {
       $('#botItems').innerHTML = c.items.map((it, i) => '<div class="bot-item" data-i="' + i + '">' +
         '<div class="row"><b>' + (i + 1) + '</b><select data-f="action">' + [['answer', 'Sends the answer'], ['orders', 'Looks up their orders'], ['human', 'Hands the chat to the team']].map(([v, l]) => '<option value="' + v + '"' + ((it.action || 'answer') === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+          '<label class="row small"><input type="checkbox" data-hid' + (it.hidden ? ' checked' : '') + '> <span>Hidden (answers when typed, no button)</span></label>' +
           '<span class="spacer"></span><button type="button" class="btn sm" data-mv="-1"' + (i ? '' : ' disabled') + ' aria-label="Up">↑</button><button type="button" class="btn sm" data-mv="1"' + (i < c.items.length - 1 ? '' : ' disabled') + ' aria-label="Down">↓</button><button type="button" class="btn sm" data-rm aria-label="Remove">✕</button></div>' +
         '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>Button</span> · <span>' + name + '</span></span><input type="text" data-f="title.' + l + '" maxlength="' + d.titleMax + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '" value="' + esc(it.title[l] || '') + '"></label>').join('') + '</div>' +
         '<div class="grid2">' + LANGS.map(([l, name]) => '<label class="field"><span><span>' + (it.action === 'human' ? 'Message before handing over (optional)' : it.action === 'orders' ? 'When it can’t find their orders, it asks' : 'Answer') + '</span> · <span>' + name + '</span></span><textarea rows="4" data-f="answer.' + l + '" dir="' + (l === 'ar' ? 'rtl' : 'ltr') + '">' + esc(it.answer[l] || '') + '</textarea></label>').join('') + '</div>' +
         '<label class="field"><span>Keywords (comma between them)</span><input type="text" data-f="keywords" value="' + esc(it.keywords || '') + '"></label></div>').join('');
-      $('#botAdd').disabled = c.items.length >= d.maxItems;
+      $('#botAdd').disabled = c.items.length >= d.maxAll;
       $$('#botItems .bot-item').forEach((el) => {
         const it = c.items[+el.dataset.i];
         $$('[data-f]', el).forEach((f) => f.oninput = f.onchange = () => {
@@ -2698,6 +2699,7 @@
           if (l) it[k][l] = f.value; else it[k] = f.value;
           if (k === 'action') drawItems();
         });
+        $('[data-hid]', el).onchange = (e) => { it.hidden = e.target.checked; };
         $$('[data-mv]', el).forEach((b) => b.onclick = () => { const i = +el.dataset.i, j = i + +b.dataset.mv; [c.items[i], c.items[j]] = [c.items[j], c.items[i]]; drawItems(); });
         $('[data-rm]', el).onclick = () => { c.items.splice(+el.dataset.i, 1); drawItems(); };
       });
@@ -2731,7 +2733,7 @@
       botSettings(Object.assign({}, d, { cfg: Object.assign({}, d.defaults, { on: $('#botOn').checked, ads: c.ads }) }));
     };
     // Try it: a pretend chat with its own state (a new conversation, failed guesses, the menu's language).
-    let t = { fresh: true, fails: 0, lang: '', wait: '', human: false };
+    let t = { fresh: true, fails: 0, lang: '', wait: '', human: false, ctx: {} };
     const msgs = $('#botMsgs');
     const say = (who, html) => { msgs.insertAdjacentHTML('beforeend', '<div class="bot-b ' + who + '">' + html + '</div>'); msgs.scrollTop = msgs.scrollHeight; };
     const NOTE = { product: 'It recognised a product in the message.', handover: 'Handed to the team: the chat now waits for a person, who gets the Telegram alert.', ignore: 'No reply needed (a thank-you or a sticker).', none: 'The bot doesn’t answer this.' };
@@ -2739,15 +2741,15 @@
       say('in', '<div class="wa-text">' + esc(text) + '</div>');
       if (t.human) { say('note', '<span>The team has this chat now, so the bot stays quiet.</span>'); return; }
       let r;
-      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, wait: t.wait, channel: $('#botTryCh').value } }); }
+      try { r = await api('bot_try', { method: 'POST', body: { cfg: collect(), text, tap: tap || '', fresh: t.fresh ? 1 : 0, fails: t.fails, lang: t.lang, wait: t.wait, ctx: t.ctx, channel: $('#botTryCh').value } }); }
       catch (e) { say('note', esc(e.message)); return; }
       if (r.text) say('out', (r.photo ? '<img class="bot-photo" src="' + esc(thumb(r.photo, 480)) + '" alt="">' : '') + '<div class="wa-text">' + waLink(r.text) + '</div>' + (r.menu.length ? '<div class="bot-menu">' + r.menu.map((m) => '<button type="button" class="btn sm" data-tap="' + esc(m.id) + '">' + esc(m.title) + '</button>').join('') + '</div>' : ''));
       if (NOTE[r.do] || r.team) say('note', '<span>' + NOTE[r.team ? 'handover' : r.do] + '</span>');
-      if (r.do !== 'none') { t.fresh = false; t.fails = r.fails; t.lang = r.lang; t.wait = r.wait; t.human = r.team; }
+      if (r.do !== 'none') { t.fresh = false; t.fails = r.fails; t.lang = r.lang; t.wait = r.wait; t.human = r.team; t.ctx = r.ctx || {}; }
       $$('[data-tap]', msgs).forEach((b) => b.onclick = () => send(b.textContent, b.dataset.tap));
     };
     $('#botTryF').onsubmit = (e) => { e.preventDefault(); const v = $('#botTryT').value.trim(); if (!v) return; $('#botTryT').value = ''; send(v); };
-    $('#botTryNew').onclick = () => { t = { fresh: true, fails: 0, lang: '', human: false }; msgs.innerHTML = ''; };
+    $('#botTryNew').onclick = () => { t = { fresh: true, fails: 0, lang: '', wait: '', human: false, ctx: {} }; msgs.innerHTML = ''; };
   }
 
   // Settings → Order updates (api/order-updates.php): WhatsApp messages when an order ships, goes out for

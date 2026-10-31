@@ -425,6 +425,8 @@
     'WhatsApp: buttons right in the chat (WhatsApp allows 3: the first two menu items and “More options”), instead of one Menu button': 'واتساب: أزرار ظاهرة في المحادثة على طول (واتساب بيسمح بـ 3: أول اختيارين في القائمة و«اختيارات تانية»)، بدل زرار قائمة واحد', '“More options” button (WhatsApp)': 'زرار «اختيارات تانية» (واتساب)',
     // Chat bot: smarter
     'Show “typing…” and wait a moment before answering, like a person': 'إظهار «بيكتب…» والانتظار لحظة قبل الرد، زي أي شخص', 'Messages it didn’t understand': 'رسايل ماقدرش يفهمها', 'What customers wrote when the bot had to say “I didn’t get that” (last 60 days). Add one to a menu item and the bot understands it next time; then press Save.': 'اللي العملاء كتبوه لما الرد الآلي قال «معلش مافهمتش» (آخر 60 يوم). أضفه لاختيار في القائمة والرد الآلي هيفهمه المرة الجاية؛ وبعدين دوس حفظ.', 'Add as keyword': 'أضفها ككلمة مفتاحية', 'Choose the menu item first': 'اختار الاختيار من القائمة الأول', 'Added — press Save': 'اتضافت — دوس حفظ', 'It recognised a product in the message.': 'فهم إن الرسالة عن منتج.',
+    // Chat bot: hidden answers
+    'Hidden (answers when typed, no button)': 'مخفي (بيرد لما يتكتب، من غير زرار)', 'At most 10 menu buttons (WhatsApp’s limit). Make some of them hidden: they still answer when typed.': 'أقصى حاجة 10 أزرار في القائمة (حد واتساب). خلّي بعضها مخفي: هيفضل يرد لما العميل يكتبه.', 'Add at least one menu item that shows as a button.': 'أضف اختيار واحد على الأقل يظهر كزرار.',
   };
 
   var PAT = [
