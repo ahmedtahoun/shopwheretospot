@@ -1,5 +1,7 @@
 # Business pages made with the review-link tool: /r/<slug> → api/qr-page.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # The folder itself has no page: home, and the query (e.g. ?NA) dropped.
+  RewriteRule ^$ /? [R=301,L]
   RewriteRule ^([a-z0-9-]+)/?$ /api/qr-page.php?slug=$1 [L,QSA]
 </IfModule>

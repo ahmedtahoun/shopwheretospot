@@ -1,3 +1,6 @@
+# No automatic folder listings ("Index of /p" and its ?NA, ?MD… sort links ended up in Google).
+Options -Indexes
+
 # Arabic versions (?lang=ar) of the homepage, the review-link tool and the information pages are built by the
 # server (api/page.php) so they reach search engines as real Arabic pages. Everything else is served as before.
 <IfModule mod_rewrite.c>

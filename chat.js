@@ -584,8 +584,8 @@
         (c.vars && canBuy ? '<select class="pc-v" aria-label="' + (ar ? 'اختار المقاس' : 'Choose a size') + '">' + c.vars.map((v) => '<option value="' + esc(v.id) + '" data-price="' + v.price + '"' +
           (v === v0 ? ' selected' : '') + (v.out ? ' disabled' : '') + '>' + esc(v.label) + ' — ' + esc(egp(v.price, ar)) + (v.out ? (ar ? ' (نفد)' : ' (sold out)') : '') + '</option>').join('') + '</select>' : '') +
         '<div class="pc-a"><a href="/p/' + encodeURIComponent(c.id) + '">' + (ar ? 'التفاصيل' : 'View') + '</a>' +
-        (canBuy ? '<a class="add" data-buy="0" href="' + esc(addHref(c.id, v0 && v0.id)) + '">' + (ar ? 'أضف للسلة' : 'Add to cart') + '</a>' +
-          '<a class="buy" data-buy="1" href="' + esc(addHref(c.id, v0 && v0.id, true)) + '">' + (ar ? 'اشتري الآن' : 'Buy now') + '</a>'
+        (canBuy ? '<a class="add" data-buy="0" rel="nofollow" href="' + esc(addHref(c.id, v0 && v0.id)) + '">' + (ar ? 'أضف للسلة' : 'Add to cart') + '</a>' +
+          '<a class="buy" data-buy="1" rel="nofollow" href="' + esc(addHref(c.id, v0 && v0.id, true)) + '">' + (ar ? 'اشتري الآن' : 'Buy now') + '</a>'
           : c.out ? '<span class="pc-out">' + (ar ? 'نفد حاليًا' : 'Sold out') + '</span>' : '') + '</div></div></div>';
     }).join('') + '</div>';
   }

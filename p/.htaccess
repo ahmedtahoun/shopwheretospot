@@ -1,5 +1,7 @@
 # Product pages for people, search engines and AI tools: /p/<product id> → api/product-page.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # The folder itself has no page: home, and the query (e.g. ?NA) dropped.
+  RewriteRule ^$ /? [R=301,L]
   RewriteRule ^([A-Za-z0-9_-]+)/?$ /api/product-page.php?id=$1 [L,QSA]
 </IfModule>

@@ -1,5 +1,7 @@
 # Review links sent after delivery: /rate/<token> → api/review-page.php (api/review-requests.php)
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # The folder itself has no page: home, and the query (e.g. ?NA) dropped.
+  RewriteRule ^$ /? [R=301,L]
   RewriteRule ^([a-f0-9]{24})/?$ /api/review-page.php?t=$1 [L,QSA]
 </IfModule>
