@@ -1952,7 +1952,7 @@
       const chs = st.data.channels || [], cb = $('#waChs');
       cb.hidden = chs.length < 2;
       cb.innerHTML = chs.length < 2 ? '' : '<button data-ch="" class="' + (!st.ch ? 'on' : '') + '"><span>All</span></button>' +
-        chs.map((k) => '<button data-ch="' + k + '" class="' + (st.ch === k ? 'on' : '') + '">' + smLogo(k) + '<span>' + SM_NAME[k] + '</span></button>').join('');
+        chs.map((k) => '<button data-ch="' + k + '" class="' + (st.ch === k ? 'on' : '') + '" title="' + SM_NAME[k] + '">' + smLogo(k) + '<span class="ch-l">' + SM_NAME[k] + '</span></button>').join('');
       $$('#waChs button').forEach((b) => b.onclick = () => { st.ch = b.dataset.ch; loadList(); });
       $('#waMe').innerHTML = (!st.data.ready ? '<span class="pill warn" title="Settings → WhatsApp">Not connected</span> ' : '') +
         (me.agent ? '<label class="row small wa-away"><input type="checkbox" id="waAway"' + (me.away ? '' : ' checked') + '> <span>Taking chats</span></label>' : '') +
@@ -1976,7 +1976,7 @@
             // The free-reply window: warn in the list before it closes, so nobody misses it.
             (left != null && left <= 360 ? '<span class="wa-win' + (left <= 120 ? ' late' : '') + '" title="Free replies end then">⌛ <span>Closes in</span> ' + waAgo(Math.max(1, left)) + '</span>'
               : wait && c.status === 'open' && !c.windowOpen ? '<span class="wa-win late">⌛ <span>Reply window closed</span></span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') + (c.bot === 'on' ? '<span class="wa-botc" title="The bot is answering this chat">🤖 <span>Bot</span></span>' : '') +
-            (st.data.me.all ? '<span class="muted">' + esc(c.agent || 'Unassigned') + '</span>' : '') + (c.leadStatus ? pill(LEAD_TONE, c.leadStatus) : '') + '</span></span></button>';
+            (st.data.me.all ? '<span class="muted">' + esc(c.agent || 'Unassigned') + '</span>' : '') + (c.leadStatus && c.leadStatus !== 'New' ? pill(LEAD_TONE, c.leadStatus) : '') + '</span></span></button>';
       }).join('') : '<div class="muted small" style="padding:16px">' + (st.view === 'mine' ? 'No chats for you right now.' : 'No chats here.') + '</div>';
       $$('#waItems [data-c]').forEach((b) => b.onclick = () => openChat(+b.dataset.c));
     };
@@ -2006,7 +2006,7 @@
       if (st.msgs.length) st.lastId = st.msgs[st.msgs.length - 1].id;
       if (isNew) { renderChat(); return; }
       // Live update: add new messages and refresh ticks without redrawing (a playing video keeps playing).
-      if (d.messages.length) appendMessages(d.messages);
+      if (d.messages.length) { appendMessages(d.messages); if (st.suggest) st.suggest(); }
       // A message sent in the background gets its WhatsApp id once sent: reactions to it can find it.
       d.ticks.forEach((t) => { const b = t.w && $('#waMsgs [data-m="' + t.id + '"]'); if (b && !b.dataset.w) b.dataset.w = t.w; });
       d.ticks.forEach((t) => { const el = $('#waMsgs [data-m="' + t.id + '"] .wa-tick'); if (el && !el.classList.contains(t.status)) { el.className = 'wa-tick ' + t.status; el.textContent = WA_TICK[t.status] || ''; el.title = t.error || t.status;
@@ -2267,6 +2267,7 @@
       const left = c.windowEnds ? Math.max(0, Math.round((new Date(c.windowEnds.replace(' ', 'T') + 'Z') - Date.now()) / 3600000)) : 0;
       $('#waCompose').innerHTML = '<div class="wa-quick" id="waQuickList" hidden></div><div class="wa-quick wa-prods" id="waProdList" hidden></div>' +
         '<div class="wa-replybar" id="waReplyBar" hidden></div>' +
+        '<div class="wa-suggest" id="waSuggest" hidden></div>' +
         '<div class="wa-botnote" id="waBotNote"' + (c.bot === 'on' ? '' : ' hidden') + '>🤖 <span>The bot is answering this chat. Writing here takes it over.</span></div>' +
         '<div class="wa-cbar' + (c.channel === 'wa' ? '' : ' no-mic') + '"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
         '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
@@ -2285,6 +2286,7 @@
       let busy = false;
       const send = async () => {
         const text = ta.value.trim(); if (!text || busy) return;
+        const sg = $('#waSuggest'); if (sg) sg.hidden = true;
         busy = true; // Enter pressed twice or held down sends once
         $('#waSend').disabled = true;
         try { const r = await api('wa_send', { method: 'POST', body: { chat_id: c.id, text, reply_to: st.reply ? st.reply.id : 0 } }); ta.value = ''; grow(); hasText(); st.reply = null; drawReply(); st.msgs.push(r.message); st.lastId = Math.max(st.lastId, r.message.id); appendMessages([r.message]); loadList(); }
@@ -2299,6 +2301,28 @@
       const pl = $('#waProdList');
       waProductList(st.prodLang || 'ar').catch(() => {}); // ready before the button is tapped
       const added = (m) => { st.msgs.push(m); st.lastId = Math.max(st.lastId, m.id); appendMessages([m]); loadList(); };
+      // 💡 Suggested replies to the customer's last message: a product goes as its photo card; a text goes
+      // into the box to edit and send. Gone once the chat is answered.
+      st.suggest = async () => {
+        const box = $('#waSuggest'); if (!box) return;
+        let r; try { r = await api('wa_suggest', { query: '&id=' + c.id }); } catch (e) { return; }
+        if (st.chatId !== c.id || !$('#waSuggest')) return;
+        const list = (r.suggest || []).filter((x) => !(x.kind === 'product' && c.bot === 'on'));
+        box.hidden = !list.length;
+        box.innerHTML = list.length ? '<span class="wa-sg-h" title="Suggested replies to the customer’s last message">💡</span>' + list.map((x, i) => '<button data-sg="' + i + '" dir="auto" title="' + esc(x.text) + '">' + esc(x.label) + '</button>').join('') : '';
+        $$('[data-sg]', box).forEach((b) => b.onclick = async () => {
+          const x = list[+b.dataset.sg];
+          if (x.kind === 'product') {
+            box.hidden = true;
+            try { const m = await api('wa_send_product', { method: 'POST', body: { chat_id: c.id, product_id: x.id, lang: x.lang } }); if (st.chatId === c.id) added(m.message); }
+            catch (err) { toast(err.message, true); box.hidden = false; }
+            return;
+          }
+          ta.value = ta.value.trim() ? ta.value.trim() + '\n' + x.text : waFillName(x.text, c.name);
+          grow(); hasText(); ta.focus();
+        });
+      };
+      st.suggest();
       const drawProducts = () => {
         const q = (st.prodQ || '').toLowerCase();
         const list = (waProds[st.prodLang] || []).filter((p) => !q || (p.name + ' ' + p.other).toLowerCase().includes(q));
@@ -2680,8 +2704,8 @@
       if (d.unknownNames.length) problems.push('Unrecognised setting name(s): ' + d.unknownNames.join(', ') + ' — check the spelling.');
       if (!problems.length && !d.phpLoaded) problems.push('The file is correct but the server still uses the old copy. Reload this page in a minute.');
     }
-    $('#main').innerHTML = header('Settings', 'Checks for the parts of the shop that are configured on the server.', '') +
-      '<div class="card stack" style="gap:14px"><h2>Online payments (Paymob)<span class="spacer"></span>' + (d.methodsOffered.length ? '<span class="pill good">✓ Active at checkout</span>' : '<span class="pill bad">✕ Not active</span>') + '</h2>' +
+    $('#main').innerHTML = header('Settings', 'Checks for the parts of the shop that are configured on the server.', '') + '<div id="setNav"' + (S.setPart ? '' : ' class="home"') + '></div>' +
+      '<div class="card stack" id="payCard" style="gap:14px"><h2>Online payments (Paymob)<span class="spacer"></span>' + (d.methodsOffered.length ? '<span class="pill good">✓ Active at checkout</span>' : '<span class="pill bad">✕ Not active</span>') + '</h2>' +
       '<div class="list">' +
         '<div class="li"><span>Settings file (api/config.local.php)</span><span>' + ok(d.fileFound && d.fileReturnsArray) + '</span></div>' +
         '<div class="li"><span>“paymob” block</span><span>' + ok(d.paymobBlock) + '</span></div>' +
@@ -2714,12 +2738,38 @@
     auSettings();
     waSettings(false);
     problemsCard();
+    // The tiles follow each part's status as it loads or changes (its pill in the title).
+    const mo = new MutationObserver((list) => {
+      if (!$('#setNav')) return mo.disconnect(); // left Settings
+      if (list.every((m) => { const t = m.target.nodeType === 1 ? m.target : m.target.parentElement; return t && t.closest('#setNav'); })) return;
+      clearTimeout(mo.f); mo.f = setTimeout(settingsNav, 60);
+    });
+    mo.observe($('#main'), { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden'] });
+    settingsNav();
+  }
+
+  // Settings is long: a grid of tiles, each with its part's status, opens one part at a time (chips to jump).
+  const SET_PARTS = [['opsCard', '🚨', 'Problems'], ['waSettings', '💬', 'WhatsApp'], ['waTpl', '📝', 'Message templates'], ['smSettings', '📸', 'Instagram & Messenger'],
+    ['botSettings', '🤖', 'Chat bot'], ['ouSettings', '📦', 'Order updates'], ['auSettings', '⏰', 'Automatic messages'], ['payCard', '💳', 'Online payments'], ['adTrack', '📈', 'Ad tracking']];
+  function settingsNav() {
+    const nav = $('#setNav'); if (!nav) return;
+    const parts = SET_PARTS.map(([id, ic, label]) => [id, ic, label, $('#' + id)]).filter((p) => p[3] && !p[3].hidden);
+    if (S.setPart && !parts.some((p) => p[0] === S.setPart) && !$('#' + S.setPart)) S.setPart = '';
+    parts.forEach(([id, , , el]) => el.classList.toggle('set-off', S.setPart !== id));
+    nav.classList.toggle('home', !S.setPart); // the overview hides every card, also one still being added
+    // The part's status: the last pill in its title; still loading: a dot.
+    const status = (el) => { const ps = el.querySelectorAll('h2 .pill'); return ps.length ? ps[ps.length - 1].outerHTML : el.querySelector('h2') ? '<span class="set-go">›</span>' : '<span class="muted small">…</span>'; };
+    const needs = (el) => !!el.querySelector('h2 .pill.bad, h2 .pill.warn');
+    nav.innerHTML = S.setPart
+      ? '<div class="set-chips"><button class="set-chip set-back" data-sp="">‹ <span>All settings</span></button>' + parts.map(([id, ic, label, el]) => '<button class="set-chip' + (id === S.setPart ? ' on' : '') + (needs(el) ? ' attn' : '') + '" data-sp="' + id + '">' + ic + ' <span>' + label + '</span></button>').join('') + '</div>'
+      : '<div class="set-grid">' + parts.map(([id, ic, label, el]) => '<button class="set-tile' + (needs(el) ? ' attn' : '') + '" data-sp="' + id + '"><span class="set-top"><span class="set-ic">' + ic + '</span><span class="spacer"></span>' + status(el) + '</span><b>' + label + '</b></button>').join('') + '</div>';
+    $$('#setNav [data-sp]').forEach((b) => b.onclick = () => { S.setPart = b.dataset.sp; settingsNav(); window.scrollTo({ top: 0 }); });
   }
 
   // Settings → Problems: things that went wrong behind the scenes; the owners also get them on Telegram (api/alerts.php).
   async function problemsCard() {
     let box = $('#opsCard');
-    if (!box) { $('#main').firstElementChild.insertAdjacentHTML('afterend', '<div class="card stack" id="opsCard" style="gap:12px;margin-bottom:16px"></div>'); box = $('#opsCard'); }
+    if (!box) { ($('#setNav') || $('#main').firstElementChild).insertAdjacentHTML('afterend', '<div class="card stack" id="opsCard" style="gap:12px;margin-bottom:16px"></div>'); box = $('#opsCard'); }
     let d;
     try { d = await api('ops_errors'); } catch (e) { box.remove(); return; }
     const list = d.problems;

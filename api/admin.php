@@ -1366,6 +1366,13 @@ try {
                 'image' => $p['images'] ? (string) $p['images'][0] : '', 'inStock' => $i['inStock']];
         }, load_products(true))]);
 
+    // Replies to suggest for the customer's last message (Chats → 💡); nothing is sent from here.
+    case 'wa_suggest':
+        $u = require_perm('whatsapp');
+        $chat = wa_chat_for_user($u, (int) ($_GET['id'] ?? 0));
+        try { $list = bot_suggest($chat); } catch (Throwable $e) { error_log('[shop] suggestions: ' . $e->getMessage()); $list = []; }
+        json_out(['suggest' => $list]);
+
     case 'wa_send_product':
         $u = require_perm('whatsapp');
         $b = body();

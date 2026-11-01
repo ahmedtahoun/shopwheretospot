@@ -635,6 +635,52 @@ function bot_fill(string $text, bool $ar): string
     }, $text));
 }
 
+// Replies to suggest to the team (Chats → 💡 above the message box) while the customer's last message is
+// unanswered: the product it names (sent as its photo card), the bot's answer that matches it, and the
+// quick replies whose words it uses. Nothing is sent: the team taps one, can edit the text, then sends it.
+function bot_suggest(array $chat): array
+{
+    $st = db()->prepare("SELECT dir, kind, body FROM wa_messages WHERE chat_id = ? AND kind NOT IN ('reaction', 'note') ORDER BY id DESC LIMIT 1");
+    $st->execute([(int) $chat['id']]);
+    $last = $st->fetch();
+    if (!$last || $last['dir'] !== 'in' || !in_array($last['kind'], ['text', 'button', 'interactive'], true)) return [];
+    $text = (string) $last['body'];
+    $norm = bot_norm($text);
+    if (mb_strlen($norm) < 2) return [];
+    $ar = !preg_match('/[a-z]{3}/i', $text) || preg_match('/\p{Arabic}/u', $text);
+    $out = [];
+    foreach (array_slice(bot_products_named($norm), 0, 2) as $p) {
+        $i = wa_product_brief($p, $ar);
+        $out[] = ['kind' => 'product', 'id' => (string) $p['id'], 'lang' => $ar ? 'ar' : 'en', 'label' => '📦 ' . bot_short_title($i['title']), 'text' => trim(bot_price_line($p, $ar), '• ')];
+    }
+    $cfg = bot_cfg();
+    $items = bot_items($cfg);
+    $it = $items ? bot_match($norm, $items) : null;
+    if ($it && ($it['action'] ?? '') === 'answer') {
+        $lang = $ar ? 'ar' : 'en';
+        $answer = (string) ($it['answer'][$lang] ?? '');
+        // The price question asks "which kind?" with buttons; for the team the price list itself is more useful.
+        // Same categories as the bot's question ({ask_kind:nfc,stands} → {prices:nfc,stands}).
+        if ($it === bot_prices_item($items) || preg_match('/\{ask_kind/', $answer)) $answer = ($ar ? 'أسعارنا 👇' : 'Our prices 👇') . "\n{prices" . (preg_match('/\{(?:ask_kind|prices):([a-z0-9_,-]+)\}/i', $answer, $k) ? ':' . $k[1] : '') . '}';
+        $answer = trim(preg_replace('/\{[a-z_]+(?::[^}]*)?\}/i', '', bot_fill($answer, $ar)));
+        if ($answer !== '') $out[] = ['kind' => 'text', 'label' => (string) ($it['title'][$lang] ?? $it['title']['ar']), 'text' => $answer];
+    }
+    // Quick replies: the words of their name count most, then the words of the message itself.
+    $scored = [];
+    foreach (db()->query('SELECT title, body FROM wa_quick ORDER BY sort, id')->fetchAll() as $q) {
+        $n = 0;
+        foreach ([[(string) $q['title'], 3], [(string) $q['body'], 1]] as [$words, $w]) {
+            preg_match_all('/[\p{L}\p{N}]{3,}/u', bot_norm($words), $m);
+            foreach (array_unique($m[0]) as $word) if (bot_hit($norm, $word)) $n += $w;
+        }
+        if ($n >= 3) $scored[] = [$n, $q];
+    }
+    usort($scored, function ($a, $b) { return $b[0] <=> $a[0]; });
+    $seen = array_column($out, 'text');
+    foreach (array_slice($scored, 0, 2) as [, $q]) if (!in_array(trim((string) $q['body']), $seen, true)) $out[] = ['kind' => 'text', 'label' => '⚡ ' . $q['title'], 'text' => trim((string) $q['body'])];
+    return array_slice($out, 0, 4);
+}
+
 // Carry out a plan once the customer's message is saved. The messages go out after Meta has its answer.
 function bot_run(array $chat, array $plan): void
 {
