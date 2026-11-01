@@ -3447,6 +3447,7 @@
     const box = $('#repMonth'); if (!box || !S.reportMonth) return;
     box.innerHTML = '<div class="muted" style="padding:20px">Loading…</div>';
     const d = await api('report_month', { query: '&month=' + S.reportMonth });
+    if (!box.isConnected) return; // another page opened while it loaded
     const r = d.report, p = d.previous;
     const mName = new Date(r.month + '-01T12:00:00').toLocaleDateString(LOC, { month: 'long', year: 'numeric' });
     const vs = (now, before) => { if (!before) return '<span class="muted">no data the month before</span>'; const pc = Math.round((now - before) / Math.abs(before) * 100); return (pc > 0 ? '<span class="up">▲' + pc + '%</span>' : pc < 0 ? '<span class="down">▼' + Math.abs(pc) + '%</span>' : '<span class="muted">same</span>') + ' <span class="muted">vs ' + egp(before) + '</span>'; };
@@ -3496,7 +3497,9 @@
   }
 
   async function pageCommissions() {
+    const route = S.route;
     const d = await api('commissions', { query: '&month=' + (S.commMonth || '') });
+    if (S.route !== route) return; // another page opened while it loaded
     S.commMonth = d.month;
     const t = d.totals;
     const ords = (n) => n + (n === 1 ? ' order' : ' orders');

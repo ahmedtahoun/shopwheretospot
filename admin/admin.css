@@ -660,7 +660,7 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .set-tile.attn{border-color:#EFC9A8;background:linear-gradient(180deg,#FFF8F2,var(--surface))}
 .set-tile b{font-size:14.5px;font-weight:600;margin-top:auto}
 .set-top{display:flex;align-items:center;gap:8px}
-.set-top .pill{font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-top .pill{font-size:11px;text-align:center;line-height:1.35}
 .set-ic{width:38px;height:38px;border-radius:11px;background:var(--surface-2);border:1px solid var(--line-2);display:grid;place-items:center;font-size:19px}
 .set-chips{display:flex;gap:8px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px;scrollbar-width:none;position:sticky;top:0;z-index:5;background:var(--bg);padding-top:6px}
 .set-chips::-webkit-scrollbar{display:none}
