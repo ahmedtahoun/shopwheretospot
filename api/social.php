@@ -531,9 +531,14 @@ function sm_status(bool $live): array
     $out = ['pageId' => !empty($c['page_id']), 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
         'verifyToken' => (bool) (($c['verify_token'] ?? '') ?: wa_cfg('verify_token')), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php',
         'lastWebhook' => wa_setting('sm_last_webhook', null), 'lastNote' => wa_setting('sm_last_note', null),
-        'last' => ['ig' => wa_setting('sm_last_webhook_ig', null), 'fb' => wa_setting('sm_last_webhook_fb', null)], 'profile' => wa_setting('sm_profile', null),
+        'last' => ['ig' => null, 'fb' => null], 'profile' => wa_setting('sm_profile', null),
         'chats' => ['ig' => 0, 'fb' => 0], 'token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
-    foreach (db()->query("SELECT channel, COUNT(*) n FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY channel") as $r) $out['chats'][$r['channel']] = (int) $r['n'];
+    foreach (db()->query("SELECT channel, COUNT(*) n, MAX(last_in_at) last FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY channel") as $r) {
+        $out['chats'][$r['channel']] = (int) $r['n'];
+        $out['last'][$r['channel']] = $r['last'];
+    }
+    // Anything Meta sent for that app, even what didn't become a message (newer than the last saved message).
+    foreach (['ig', 'fb'] as $chn) $out['last'][$chn] = max((string) $out['last'][$chn], (string) wa_setting('sm_last_webhook_' . $chn, '')) ?: null;
     if (!$live || !sm_ready()) return $out;
     // The test also asks Meta again for chats still without a name or photo (the newest few).
     foreach (db()->query("SELECT * FROM wa_chats WHERE channel IN ('ig', 'fb') AND (COALESCE(name, '') = '' OR COALESCE(avatar, '') = '') ORDER BY last_at DESC LIMIT 10")->fetchAll() as $ch) {
