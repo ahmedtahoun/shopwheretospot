@@ -196,6 +196,20 @@ function sm_profile(string $channel, string $person): array
             return ['name' => $name, 'handle' => $channel === 'ig' ? (string) ($p['username'] ?? '') : '', 'pic' => (string) ($p['profile_pic'] ?? '')];
         } catch (Throwable $e) { if ($err === '') $err = $e->getMessage(); }
     }
+    // Refused (no "Business Asset User Profile Access" yet): the Page's conversation with them still names
+    // them (Messenger: name; Instagram: username), with only the messaging permission. No photo this way.
+    try {
+        $conv = sm_graph('GET', '/' . rawurlencode((string) sm_cfg('page_id')) . '/conversations?platform=' . ($channel === 'ig' ? 'instagram' : 'messenger')
+            . '&user_id=' . rawurlencode($person) . '&fields=participants')['data'][0]['participants']['data'] ?? [];
+        foreach ((array) $conv as $who) {
+            if ((string) ($who['id'] ?? '') !== $person) continue;
+            $name = trim((string) ($who['name'] ?? ''));
+            $handle = $channel === 'ig' ? (string) ($who['username'] ?? $name) : '';
+            if ($name === '' && $handle === '') break;
+            wa_set_setting('sm_profile', ['at' => gmdate('Y-m-d H:i:s'), 'ok' => true, 'channel' => $channel, 'pic' => false, 'via' => 'conversation']);
+            return ['name' => $channel === 'ig' ? '' : $name, 'handle' => $handle, 'pic' => ''];
+        }
+    } catch (Throwable $e) {}
     wa_set_setting('sm_profile', ['at' => gmdate('Y-m-d H:i:s'), 'ok' => false, 'channel' => $channel, 'error' => mb_substr($err, 0, 400)]);
     return ['name' => '', 'handle' => '', 'pic' => ''];
 }
