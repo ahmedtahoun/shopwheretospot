@@ -104,7 +104,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 57;
+const SCHEMA_VERSION = 58;
 
 function db(): PDO
 {
