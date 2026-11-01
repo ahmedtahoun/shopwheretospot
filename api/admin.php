@@ -727,6 +727,8 @@ try {
         $args = [];
         if (!empty($_GET['status'])) { $where[] = 'o.status = ?'; $args[] = $_GET['status']; }
         else $where[] = "o.status != 'Awaiting payment'"; // unpaid online checkouts only show under their own tab
+        // Money still to collect: open orders whose payments don't cover the total (the dashboard's "To collect").
+        if (!empty($_GET['due'])) $where[] = "o.status NOT IN ('Cancelled','Returned','Awaiting payment') AND o.total - (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.order_id = o.id) > 0.5";
         if (!empty($_GET['q'])) {
             $q = '%' . $_GET['q'] . '%';
             $where[] = '(o.customer LIKE ? OR o.email LIKE ? OR o.phone LIKE ? OR (\'WTS-\' || (1000 + o.id)) LIKE ?)';
@@ -753,7 +755,7 @@ try {
         $o = $st->fetch();
         if (!$o) fail('Order not found.', 404);
         assert_order_access($u, $o);
-        set_order_status($id, (string) ($b['status'] ?? $o['status']), str_in($b['notes'] ?? $o['notes'], 2000));
+        set_order_status($id, (string) ($b['status'] ?? $o['status']), str_in($b['notes'] ?? $o['notes'], 2000), !empty($b['quiet']));
         if (array_key_exists('prep_notes', $b)) $pdo->prepare('UPDATE orders SET prep_notes = ? WHERE id = ?')->execute([str_in($b['prep_notes'], 500), $id]);
         if (array_key_exists('business_name', $b)) {
             $pdo->prepare('UPDATE orders SET business_name = ?, review_link = ?, links = ?, design_notes = ? WHERE id = ?')

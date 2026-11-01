@@ -1029,7 +1029,8 @@ function sale_price(array $p): float
 }
 
 // Change an order's status. Cancelling or returning puts stock back; reopening takes it again.
-function set_order_status(int $id, string $status, ?string $notes = null): array
+// $quiet: no WhatsApp update or review request (closing old orders that were finished long ago).
+function set_order_status(int $id, string $status, ?string $notes = null, bool $quiet = false): array
 {
     $pdo = db();
     $st = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
@@ -1051,11 +1052,11 @@ function set_order_status(int $id, string $status, ?string $notes = null): array
     $pdo->prepare("UPDATE orders SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?")
         ->execute([$status, $notes === null ? $o['notes'] : $notes, $id]);
     // Shipped / delivered: the customer hears on WhatsApp (api/order-updates.php), after this is saved.
-    if ($status !== $o['status'] && in_array($status, ['Shipped', 'Delivered'], true) && function_exists('order_update_queue')) order_update_queue($id, strtolower($status));
+    if (!$quiet && $status !== $o['status'] && in_array($status, ['Shipped', 'Delivered'], true) && function_exists('order_update_queue')) order_update_queue($id, strtolower($status));
     // The delivery date decides which month's commission the order counts toward.
     if ($status === 'Delivered' && $o['status'] !== 'Delivered') {
         $pdo->prepare("UPDATE orders SET delivered_at = datetime('now') WHERE id = ?")->execute([$id]);
-        if (function_exists('review_request_queue')) review_request_queue($id); // ask the customer for a review (api/review-requests.php)
+        if (!$quiet && function_exists('review_request_queue')) review_request_queue($id); // ask the customer for a review (api/review-requests.php)
     }
     // Moved back by mistake: no longer delivered. Returned/cancelled after delivery keeps the date, so a return in a
     // later month can come off that month's commission.

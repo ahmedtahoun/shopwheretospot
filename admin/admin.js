@@ -327,7 +327,7 @@
       (money && !d.own ? '' : kpi('Shipped', k.shipped, 'on the way now') + kpi('Delivered', k.delivered, 'all time') + kpi('Cancelled / returned', k.lost, 'all time')) +
       (d.spent ? kpi('Expenses', egp(d.spent.total), periodShort + ' · <a href="#expenses">Open →</a>') : '') +
       (d.spent && d.spent.owed > 0 ? kpi('Owed to suppliers', egp(d.spent.owed), '<a href="#expenses" data-xsup>View suppliers →</a>') : '') +
-      (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance' : 'everything is paid') : '') +
+      (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? '<a href="#orders" data-xdue>' + d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance →</a>' : 'everything is paid') : '') +
       (d.openQuotes ? kpi('Open quotes', d.openQuotes.n, d.openQuotes.n ? (money ? egp(d.openQuotes.value) + ' waiting · ' : '') + '<a href="#quotes">View →</a>' : '<a href="#quotes">Make a quote →</a>') : '') +
       (money ? kpi('Waiting to confirm', k.pending, can('orders') ? '<a href="#orders" data-status="Pending">View pending →</a>' : 'orders') : '') +
       (can('leads') ? kpi('New leads', k.newLeads, '<a href="#leads">Open leads →</a>') : '') +
@@ -375,6 +375,7 @@
     const rl = $('[data-rm]'); if (rl) rl.onclick = () => { S.reportMonth = rl.dataset.rm; };
     const dn = $('#dashNew'); if (dn) dn.onclick = () => newOrderDrawer();
     const xsu = $('[data-xsup]'); if (xsu) xsu.onclick = () => { S.expTab = 'suppliers'; };
+    const xdu = $('[data-xdue]'); if (xdu) xdu.onclick = () => { S.orderDue = true; S.orderStatus = ''; S.orderQ = ''; S.orderView = 'list'; };
     const tb = $('#setTargets'); if (tb) tb.onclick = () => targetsDrawer(perf.month);
     const pend = $('[data-status=Pending]'); if (pend) pend.onclick = () => { S.orderStatus = 'Pending'; };
     drawChart($('#chart'), money ? d.series : d.series.map((x) => ({ ...x, revenue: x.orders })), !money);
@@ -481,20 +482,28 @@
   async function pageOrders() {
     const status = S.orderStatus || '';
     const q = S.orderQ || '';
-    const [d, bosta] = await Promise.all([api('orders', { query: '&status=' + encodeURIComponent(status) + '&q=' + encodeURIComponent(q) }), bostaInfo()]);
+    const [d, bosta] = await Promise.all([api('orders', { query: '&status=' + encodeURIComponent(status) + '&q=' + encodeURIComponent(q) + (S.orderDue ? '&due=1' : '') }), bostaInfo()]);
     S.orders = d.orders;
     S.sel = new Set();
     if (S.orderView === 'board') return pageBoard(d.orders, bosta);
     const tabs = [''].concat(S.meta.orderStatuses);
-    const selectable = bosta.enabled || can('team'); // row checkboxes: Bosta bulk actions, and Delete for the owner
+    const due = !!S.orderDue;
+    const selectable = bosta.enabled || can('team') || due; // row checkboxes: Bosta bulk actions, Delivered & paid, and Delete for the owner
+    // Still with Bosta: the courier collects and Bosta's sync marks it delivered, so it's left out of "Delivered & paid".
+    const withBosta = (o) => !!o.tracking && o.bostaState !== 45;
+    const dueSum = d.orders.reduce((a, o) => a + Math.max(0, o.due || 0), 0);
     $('#main').innerHTML = header('Orders', d.orders.length + ' shown' + (can('own_orders') ? ' · only orders credited to you' : ''),
       '<div class="seg" id="view"><button data-v="list" class="' + (S.orderView !== 'board' ? 'on' : '') + '">List</button><button data-v="board" class="' + (S.orderView === 'board' ? 'on' : '') + '">Production board</button></div>' +
       (S.bosta && S.bosta.enabled ? '<button class="btn" id="bSync" title="Ask Bosta for the latest state of every open shipment">↻ Sync Bosta</button>' : '') +
       '<a class="btn" href="' + API + '?action=orders&format=csv&status=' + encodeURIComponent(status) + '">Export CSV</a>' + (can('sell') ? '<button class="btn primary" id="newOrder">+ New order</button>' : '')) +
-      '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
+      '<div class="row" style="margin-bottom:14px"><div class="seg" id="tabs">' + tabs.map((t) => '<button data-s="' + t + '" class="' + (t === status && !due ? 'on' : '') + '">' + (t || 'All') + '</button>').join('') + '</div>' +
       '<span class="spacer"></span><input type="search" id="q" placeholder="Search name, phone, email or WTS-…" value="' + esc(q) + '" style="max-width:300px"></div>' +
+      (due ? '<div class="row card" style="margin-bottom:14px;padding:12px 16px;gap:10px;flex-wrap:wrap"><b>💰 <span>To collect</span> · ' + egp(dueSum) + '</b>' +
+        '<span class="small muted">Orders not delivered yet with money still unpaid. Already delivered and paid? Select them and press “Delivered & paid”. Orders still with Bosta update by themselves.</span>' +
+        '<span class="spacer"></span><button class="btn sm" id="dueOff">✕ <span>Show all orders</span></button></div>' : '') +
       (selectable ? '<div class="row card" id="bulk" style="display:none;margin-bottom:14px;padding:12px 16px"><b id="selCount"></b><span class="spacer"></span>' +
-        (bosta.enabled ? '<button class="btn primary sm" id="bulkShip">🚚 Create Bosta shipments</button><button class="btn sm" id="bulkAwb">🖨 Print waybills</button>' : '') +
+        (due ? '<button class="btn primary sm" id="bulkDone" title="Mark Delivered; the balance is recorded as collected">✓ Delivered & paid</button>' : '') +
+        (bosta.enabled && !due ? '<button class="btn primary sm" id="bulkShip">🚚 Create Bosta shipments</button><button class="btn sm" id="bulkAwb">🖨 Print waybills</button>' : '') +
         (can('team') ? '<button class="btn sm danger" id="bulkDel" title="Delete test or mistaken orders for good">Delete</button>' : '') + '</div>' : '') +
       (d.orders.length ? '<div class="table-wrap"><table class="otable"><thead><tr>' + (selectable ? '<th style="width:34px"><input type="checkbox" id="selAll" aria-label="Select all"></th>' : '') +
         '<th>Order</th><th>Customer</th><th>Items</th><th>Status</th>' + (bosta.enabled ? '<th>Bosta</th>' : '') + '<th>Date</th><th class="num">Total</th></tr></thead><tbody>' +
@@ -504,7 +513,8 @@
           (bosta.enabled ? '<td class="o-bosta">' + bostaPill(o) + '</td>' : '') +
           '<td class="small muted o-date">' + dateTime(o.createdAt) + '</td><td class="num o-tot"><b>' + egp(o.total) + '</b>' + payState(o) + '</td></tr>').join('') +
         '</tbody></table></div>' : '<div class="card empty">No orders match.</div>');
-    $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; pageOrders(); });
+    $$('#tabs button').forEach((b) => b.onclick = () => { S.orderStatus = b.dataset.s; S.orderDue = false; pageOrders(); });
+    const dOff = $('#dueOff'); if (dOff) dOff.onclick = () => { S.orderDue = false; pageOrders(); };
     const nb = $('#newOrder'); if (nb) nb.onclick = () => newOrderDrawer();
     const bs = $('#bSync'); if (bs) bs.onclick = async () => {
       bs.disabled = true; bs.textContent = 'Syncing…';
@@ -522,7 +532,24 @@
     };
     $$('.sel').forEach((c) => c.onchange = sync);
     const all = $('#selAll'); if (all) all.onchange = () => { $$('.sel').forEach((c) => { c.checked = all.checked; }); sync(); };
-    if (bosta.enabled) {
+    const done = $('#bulkDone');
+    if (done) done.onclick = async () => {
+      const picked = S.orders.filter((o) => S.sel.has(o.id));
+      const go = picked.filter((o) => !withBosta(o));
+      const skip = picked.length - go.length;
+      if (!go.length) return toast('These orders are still with Bosta: they update by themselves once Bosta delivers them.', true);
+      if (!confirm('Mark ' + go.length + ' order' + (go.length > 1 ? 's' : '') + ' as Delivered and paid?\n\n' + go.map((o) => o.number + ' · ' + egp(o.due)).join('\n') +
+        (skip ? '\n\n' + skip + ' still with Bosta are left as they are.' : '') + '\n\nThe balance is recorded as collected. Customers get no message.')) return;
+      done.disabled = true;
+      let ok = 0;
+      for (const o of go) {
+        try { await api('order_update', { method: 'POST', body: { id: o.id, status: 'Delivered', quiet: true } }); ok++; }
+        catch (e) { toast(o.number + ': ' + e.message, true); }
+      }
+      if (ok) toast(ok + ' orders marked delivered & paid');
+      render();
+    };
+    if (bosta.enabled && !due) {
       $('#bulkAwb').onclick = () => window.open(API + '?action=bosta_awb&ids=' + [...S.sel].join(','), '_blank');
       $('#bulkShip').onclick = () => bulkShip([...S.sel]);
     }
