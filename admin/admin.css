@@ -671,7 +671,7 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .set-back{font-weight:600;color:var(--ink)}
 .set-go{font-size:20px;line-height:1;color:var(--ink-3)}
 .set-off,#setNav.home~.card{display:none!important}
-@media (max-width:560px){.set-grid{grid-template-columns:1fr 1fr;gap:10px}.set-tile{padding:13px;min-height:96px}.set-top .pill{max-width:92px}}
+@media (max-width:560px){.set-grid{grid-template-columns:1fr 1fr;gap:10px}.set-tile{padding:13px;min-height:96px}}
 
 /* ---------- chats: suggested replies, compact app filter ---------- */
 .wa-suggest{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:0 0 8px;scrollbar-width:none}
