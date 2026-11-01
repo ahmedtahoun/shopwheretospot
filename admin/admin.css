@@ -683,3 +683,4 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 #waChs .ch-l{display:none}
 #waChs button.on .ch-l{display:inline}
 #waChs button{display:inline-flex;align-items:center;gap:6px}
+.wa-del{align-self:flex-start;margin-top:6px}

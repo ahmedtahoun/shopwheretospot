@@ -1367,6 +1367,25 @@ try {
         }, load_products(true))]);
 
     // Replies to suggest for the customer's last message (Chats → 💡); nothing is sent from here.
+    // A customer asked to delete their data (privacy policy → Deleting your data): the chat, its messages and
+    // files, the profile photo and its lead. Orders stay (tax records); logs keep only the chat's number.
+    case 'wa_chat_delete':
+        $u = require_perm('team');
+        $c = wa_chat_row((int) (body()['id'] ?? 0));
+        $pdo = db();
+        $st = $pdo->prepare("SELECT media_path FROM wa_messages WHERE chat_id = ? AND media_path != ''");
+        $st->execute([$c['id']]);
+        $files = array_merge($st->fetchAll(PDO::FETCH_COLUMN), [(string) ($c['avatar'] ?? '')]);
+        $pdo->beginTransaction();
+        $pdo->prepare('DELETE FROM wa_messages WHERE chat_id = ?')->execute([$c['id']]);
+        $pdo->prepare('DELETE FROM bot_events WHERE chat_id = ?')->execute([$c['id']]);
+        $pdo->prepare('DELETE FROM wa_chats WHERE id = ?')->execute([$c['id']]);
+        if ($c['lead_id']) $pdo->prepare('DELETE FROM leads WHERE id = ?')->execute([(int) $c['lead_id']]);
+        $pdo->commit();
+        foreach ($files as $f) if ($f !== '' && strpos($f, '..') === false) @unlink(wa_media_dir() . '/' . $f);
+        log_activity($u, 'Deleted a chat and its data (customer’s request)', SM_NAMES[sm_channel($c)] . ' #' . (int) $c['id']);
+        json_out(['ok' => true]);
+
     case 'wa_suggest':
         $u = require_perm('whatsapp');
         $chat = wa_chat_for_user($u, (int) ($_GET['id'] ?? 0));

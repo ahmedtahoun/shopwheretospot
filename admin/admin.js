@@ -2206,7 +2206,16 @@
           // Still to pay: one tap sends the customer a payment link (card or wallet) in this chat.
           (o.due <= 0 && o.paid > 0 && !['Cancelled', 'Returned'].includes(o.status) ? '<span class="wa-paid">✓ <span>Paid</span></span>' : '') +
           (o.due > 0 && !['Cancelled', 'Returned'].includes(o.status) ? (o.paid > 0 ? '<span class="muted">' + egp(o.paid) + ' <span>paid</span> · </span>' : '') + '<span class="wa-due">' + egp(o.due) + ' <span>due</span></span>' + (o.payable && c.windowOpen ? '<button class="btn sm" data-pay="' + o.id + '">💳 <span>Send payment link</span></button>' : '') : '') +
-          '</div>').join('') + '</div></div>' : '') + '</div>';
+          '</div>').join('') + '</div></div>' : '') +
+        // A customer asked to delete their data (privacy policy → Deleting your data): owners only.
+        (can('team') ? '<button class="btn sm danger wa-del" id="waDelete" title="When the customer asks to delete their data">Delete chat and data</button>' : '') + '</div>';
+      const del = $('#waDelete');
+      if (del) del.onclick = async () => {
+        if (!confirm('Delete this chat for good?\n\nIts messages, photos, files and the customer’s profile photo are deleted' + (l ? ', and its lead' : '') + '. Orders stay (tax records).\n\nUse this when the customer asks to delete their data. It can’t be undone.')) return;
+        del.disabled = true;
+        try { await api('wa_chat_delete', { method: 'POST', body: { id: c.id } }); toast('Chat and data deleted'); closeChat(); loadList(); }
+        catch (e) { toast(e.message, true); del.disabled = false; }
+      };
       const save = $('#waLeadSave');
       if (save) save.onclick = async () => {
         try {
