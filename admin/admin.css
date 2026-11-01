@@ -394,6 +394,9 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-item.on{background:var(--accent-soft)}
 .wa-av{flex:none;width:38px;height:38px;border-radius:50%;background:#DCEFE3;color:#1F7A4D;display:grid;place-items:center;font-weight:700;font-size:14px;position:relative}
 .wa-av .ic{width:18px;height:18px}
+.wa-av-pic>img,.wa-av-pic>.wa-avst{position:absolute;inset:0;width:100%;height:100%;border-radius:50%}
+.wa-av-pic>img{object-fit:cover}
+.wa-avst{display:grid;place-items:center;font-size:21px;line-height:1}
 .wa-badge{position:absolute;bottom:-3px;inset-inline-end:-4px;font-size:12px;line-height:1;background:var(--surface);border-radius:50%;padding:2px;box-shadow:0 0 0 1px var(--line-2)}
 .wa-it{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .wa-row{display:flex;gap:8px;align-items:center;justify-content:space-between;min-width:0}

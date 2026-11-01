@@ -48,6 +48,9 @@ function sm_migrate(PDO $pdo): void
     $cols = array_column($pdo->query('PRAGMA table_info(wa_chats)')->fetchAll(), 'name');
     if (!in_array('channel', $cols, true)) $pdo->exec("ALTER TABLE wa_chats ADD COLUMN channel TEXT NOT NULL DEFAULT 'wa'");
     if (!in_array('handle', $cols, true)) $pdo->exec("ALTER TABLE wa_chats ADD COLUMN handle TEXT DEFAULT ''");
+    // The customer's profile photo (a file next to chat media) and when Meta was last asked for name and photo.
+    if (!in_array('avatar', $cols, true)) $pdo->exec("ALTER TABLE wa_chats ADD COLUMN avatar TEXT NOT NULL DEFAULT ''");
+    if (!in_array('profile_at', $cols, true)) $pdo->exec('ALTER TABLE wa_chats ADD COLUMN profile_at TEXT');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_wa_chats_channel ON wa_chats(channel, last_at)');
 }
 
@@ -131,6 +134,7 @@ function sm_handle_webhook(array $payload): void
 {
     $channel = ($payload['object'] ?? '') === 'instagram' ? 'ig' : 'fb';
     wa_set_setting('sm_last_webhook', gmdate('Y-m-d H:i:s'));
+    wa_set_setting('sm_last_webhook_' . $channel, gmdate('Y-m-d H:i:s')); // per app: shows whether Instagram sends anything at all
     foreach ((array) ($payload['entry'] ?? []) as $entry) {
         $own = (string) ($entry['id'] ?? ''); // our Page id or Instagram account id
         foreach ((array) ($entry['messaging'] ?? []) as $ev) {
@@ -177,19 +181,56 @@ function sm_handle_event(string $channel, string $own, array $ev): void
     if (isset($ev['read'])) { sm_mark_status($waId, 'read', array_filter([(string) ($ev['read']['mid'] ?? '')]), (int) ($ev['read']['watermark'] ?? 0)); return; }
 }
 
-// What the customer is called: their name (and @username on Instagram), asked from Meta once per chat.
+// What the customer is called and looks like: their name (and @username on Instagram) and profile photo.
+// Meta only answers for people who messaged us; for everyone outside the app's roles that needs App Review
+// (Messenger: "Business Asset User Profile Access"). The last answer is kept for Settings.
 function sm_profile(string $channel, string $person): array
 {
-    try {
-        if ($channel === 'ig') {
-            $p = sm_graph('GET', '/' . rawurlencode($person) . '?fields=name,username');
-            return ['name' => trim((string) ($p['name'] ?? '')), 'handle' => (string) ($p['username'] ?? '')];
-        }
-        $p = sm_graph('GET', '/' . rawurlencode($person) . '?fields=first_name,last_name');
-        return ['name' => trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? '')), 'handle' => ''];
-    } catch (Throwable $e) {
-        return ['name' => '', 'handle' => ''];
+    $tries = $channel === 'ig' ? ['name,username,profile_pic', 'username'] : ['first_name,last_name,profile_pic', 'first_name,last_name'];
+    $err = '';
+    foreach ($tries as $fields) { // the photo can be refused while the name isn't: then ask for the name alone
+        try {
+            $p = sm_graph('GET', '/' . rawurlencode($person) . '?fields=' . $fields);
+            wa_set_setting('sm_profile', ['at' => gmdate('Y-m-d H:i:s'), 'ok' => true, 'channel' => $channel, 'pic' => !empty($p['profile_pic'])]);
+            $name = $channel === 'ig' ? trim((string) ($p['name'] ?? '')) : trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
+            return ['name' => $name, 'handle' => $channel === 'ig' ? (string) ($p['username'] ?? '') : '', 'pic' => (string) ($p['profile_pic'] ?? '')];
+        } catch (Throwable $e) { if ($err === '') $err = $e->getMessage(); }
     }
+    wa_set_setting('sm_profile', ['at' => gmdate('Y-m-d H:i:s'), 'ok' => false, 'channel' => $channel, 'error' => mb_substr($err, 0, 400)]);
+    return ['name' => '', 'handle' => '', 'pic' => ''];
+}
+
+// Saves what Meta told us on the chat: name, @username, and the photo as our own copy (Meta's photo links
+// expire). The lead keeps its "Messenger customer" placeholder only until the real name is known.
+function sm_save_profile(array $chat, array $p): void
+{
+    $ch = sm_channel($chat);
+    $name = $p['name'] !== '' ? $p['name'] : (string) $chat['name'];
+    $handle = $p['handle'] !== '' ? $p['handle'] : (string) $chat['handle'];
+    $avatar = (string) ($chat['avatar'] ?? '');
+    if ($p['pic'] !== '') {
+        try {
+            $f = sm_download($p['pic'], 'avatar', '');
+            if (strpos($f['mime'], 'image/') === 0) {
+                if ($avatar !== '' && strpos($avatar, '..') === false) @unlink(wa_media_dir() . '/' . $avatar);
+                $avatar = $f['path'];
+            } else @unlink(wa_media_dir() . '/' . $f['path']);
+        } catch (Throwable $e) { error_log('[' . SM_NAMES[$ch] . '] profile photo: ' . $e->getMessage()); }
+    }
+    db()->prepare('UPDATE wa_chats SET name = ?, handle = ?, avatar = ? WHERE id = ?')->execute([$name, $handle, $avatar, $chat['id']]);
+    if ($chat['lead_id'] && ($name !== '' || $handle !== '')) {
+        db()->prepare('UPDATE leads SET name = ? WHERE id = ? AND name = ?')->execute([$name !== '' ? $name : '@' . $handle, $chat['lead_id'], SM_NAMES[$ch] . ' customer']);
+        if ($handle !== '') db()->prepare('UPDATE leads SET contact = ? WHERE id = ? AND contact = ?')->execute(['Instagram @' . $handle, $chat['lead_id'], SM_NAMES[$ch]]);
+    }
+}
+
+// Asks Meta again for a chat still missing its name or photo: at most once a day per chat, unless forced.
+function sm_fill_profile(array $chat, bool $force = false): void
+{
+    if (sm_channel($chat) === 'wa' || ((string) $chat['name'] !== '' && (string) ($chat['avatar'] ?? '') !== '')) return;
+    if (!$force && !empty($chat['profile_at']) && strtotime($chat['profile_at'] . ' UTC') > time() - 86400) return;
+    db()->prepare("UPDATE wa_chats SET profile_at = datetime('now') WHERE id = ?")->execute([$chat['id']]);
+    sm_save_profile($chat, sm_profile(sm_channel($chat), substr((string) $chat['wa_id'], 3)));
 }
 
 // The ad a chat came from, in the same shape as WhatsApp's (headline, link, id).
@@ -225,10 +266,7 @@ function sm_open_chat(string $channel, string $waId, string $person, ?array $ad,
             if ($lead) touch_lead($lead, date('Y-m-d') . ' · ' . $label . ': ' . mb_substr($firstText, 0, 160), null, null);
         }
         if (!$chat['assigned_to']) { $agent = wa_pick_agent($lead); if ($agent) wa_assign((int) $chat['id'], $agent); }
-        if ($chat['name'] === '' && $chat['handle'] === '') {
-            $p = sm_profile($channel, $person);
-            db()->prepare('UPDATE wa_chats SET name = ?, handle = ? WHERE id = ?')->execute([$p['name'], $p['handle'], $chat['id']]);
-        }
+        sm_fill_profile($chat);
         return wa_chat_by_wa_id($waId);
     }
     $p = sm_profile($channel, $person);
@@ -244,6 +282,8 @@ function sm_open_chat(string $channel, string $waId, string $person, ?array $ad,
     db()->prepare("INSERT INTO wa_chats (wa_id, channel, name, handle, lead_id, status, ad_id, ad_headline, ad_url, ad_body, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, '', datetime('now'))")
         ->execute([$waId, $channel, $p['name'], $p['handle'], $leadId, $ad['source_id'] ?? '', $adHeadline, $ad['source_url'] ?? '']);
     $chatId = (int) db()->lastInsertId();
+    db()->prepare("UPDATE wa_chats SET profile_at = datetime('now') WHERE id = ?")->execute([$chatId]);
+    if ($p['pic'] !== '') sm_save_profile(wa_chat_by_wa_id($waId), $p);
     if ($agent) wa_assign($chatId, $agent);
     log_activity(null, 'New ' . $label . ' chat', $who . ($adHeadline !== '' ? ' · ad: ' . $adHeadline : ''));
     return wa_chat_by_wa_id($waId);
@@ -491,9 +531,15 @@ function sm_status(bool $live): array
     $out = ['pageId' => !empty($c['page_id']), 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
         'verifyToken' => (bool) (($c['verify_token'] ?? '') ?: wa_cfg('verify_token')), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php',
         'lastWebhook' => wa_setting('sm_last_webhook', null), 'lastNote' => wa_setting('sm_last_note', null),
+        'last' => ['ig' => wa_setting('sm_last_webhook_ig', null), 'fb' => wa_setting('sm_last_webhook_fb', null)], 'profile' => wa_setting('sm_profile', null),
         'chats' => ['ig' => 0, 'fb' => 0], 'token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
     foreach (db()->query("SELECT channel, COUNT(*) n FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY channel") as $r) $out['chats'][$r['channel']] = (int) $r['n'];
     if (!$live || !sm_ready()) return $out;
+    // The test also asks Meta again for chats still without a name or photo (the newest few).
+    foreach (db()->query("SELECT * FROM wa_chats WHERE channel IN ('ig', 'fb') AND (COALESCE(name, '') = '' OR COALESCE(avatar, '') = '') ORDER BY last_at DESC LIMIT 10")->fetchAll() as $ch) {
+        try { sm_fill_profile($ch, true); } catch (Throwable $e) {}
+    }
+    $out['profile'] = wa_setting('sm_profile', null);
     // What the key in config.local.php is allowed to do, so a missing permission is named, not guessed.
     // pages_read_engagement isn't needed for messages (only for the Page's name), so it's not required.
     $igIds = [];

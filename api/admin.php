@@ -1622,6 +1622,19 @@ try {
         json_out(['ok' => true]);
 
     // A photo, video, voice note or document from a chat — only for the team, never public.
+    // An Instagram / Messenger customer's profile photo (our copy).
+    case 'wa_avatar':
+        $u = require_perm('whatsapp');
+        $c = wa_chat_for_user($u, (int) ($_GET['id'] ?? 0));
+        $path = wa_media_dir() . '/' . (string) ($c['avatar'] ?? '');
+        if (($c['avatar'] ?? '') === '' || strpos((string) $c['avatar'], '..') !== false || !is_file($path)) fail('No photo.', 404);
+        header('Content-Type: ' . ((new finfo(FILEINFO_MIME_TYPE))->file($path) ?: 'image/jpeg'));
+        header('Cache-Control: private, max-age=2592000');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . filesize($path));
+        readfile($path);
+        exit;
+
     case 'wa_media':
         $u = require_perm('whatsapp');
         $m = wa_message_row((int) ($_GET['id'] ?? 0));
@@ -2333,7 +2346,9 @@ function wa_chat_out(array $c): array
         'unread' => (int) $c['unread'], 'lastAt' => $c['last_at'], 'lastText' => $c['last_text'], 'lastDir' => $c['last_dir'], 'waitingSince' => $c['waiting_since'],
         'lastInAt' => $c['last_in_at'], 'windowOpen' => wa_window_open($c), 'windowEnds' => $c['last_in_at'] ? gmdate('Y-m-d H:i:s', strtotime($c['last_in_at'] . ' UTC') + 86400) : null,
         'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at'],
-        'returning' => $ch === 'wa' && isset(wa_customer_keys()[phone_key($phone) ?? '']), 'bot' => (string) ($c['bot'] ?? '')];
+        'returning' => $ch === 'wa' && isset(wa_customer_keys()[phone_key($phone) ?? '']), 'bot' => (string) ($c['bot'] ?? ''),
+        // Instagram / Messenger profile photo (a version string, so a new photo isn't served from the cache).
+        'avatar' => ($c['avatar'] ?? '') !== '' ? substr(md5((string) $c['avatar']), 0, 8) : null];
 }
 
 function wa_message_out(array $m): array

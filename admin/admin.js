@@ -1759,6 +1759,7 @@
   // same, from their number) and initials, with a small badge: 📣 came from an ad, ⭐ has bought before,
   // 🆕 first message in the last 24 hours.
   const WA_AV = [['#DCEFE3', '#1F7A4D'], ['#E3ECFB', '#2C5DA8'], ['#FCE8DC', '#A8512A'], ['#F3E3F7', '#7D3C93'], ['#FFF1C9', '#8A6400'], ['#DDF2F3', '#1E7178'], ['#FBE3E8', '#A33650'], ['#E8E6F9', '#4B44A0']];
+  const WA_STICKERS = ['🦊', '🐼', '🐨', '🐯', '🦁', '🐸', '🐵', '🐧', '🐙', '🦄', '🐻', '🐰', '🐱', '🐶', '🦉', '🐢'];
   const waAvatar = (c) => {
     // From the last digits of the number (spread evenly across customers), else from the name.
     const digits = String(c.waId || c.phone || '').replace(/\D/g, '');
@@ -1770,6 +1771,13 @@
     const ini = !words.length ? '' : /[\u0600-\u06FF]/.test(words[0][0]) ? words[0][0] : (words[0][0] + (words.length > 1 ? words[1][0] : '')).toUpperCase();
     const isNew = c.createdAt && Date.now() - new Date(c.createdAt.replace(' ', 'T') + 'Z') < 86400000;
     const badge = c.returning ? ['⭐', 'Has bought before'] : c.ad ? ['📣', 'Came from an ad'] : isNew ? ['🆕', 'New customer (first message in the last 24 hours)'] : null;
+    const extra = (badge ? '<span class="wa-badge" title="' + badge[1] + '">' + badge[0] + '</span>' : '') + smLogo(c.channel, 'wa-chn');
+    // Instagram / Messenger: their profile photo when Meta shares it; otherwise a sticker, always the same one
+    // for that person (WhatsApp never shares photos, so its customers keep their initials).
+    if (c.channel && c.channel !== 'wa') {
+      return '<span class="wa-av wa-av-pic" style="background:' + bg + '"><span class="wa-avst">' + WA_STICKERS[h % WA_STICKERS.length] + '</span>' +
+        (c.avatar ? '<img src="' + API + '?action=wa_avatar&id=' + c.id + '&v=' + c.avatar + '" alt="" loading="lazy" onerror="this.remove()">' : '') + extra + '</span>';
+    }
     return '<span class="wa-av" style="background:' + bg + ';color:' + fg + '">' + (ini ? esc(ini) : icon('person')) +
       (badge ? '<span class="wa-badge" title="' + badge[1] + '">' + badge[0] + '</span>' : '') + smLogo(c.channel, 'wa-chn') + '</span>';
   };
@@ -3073,7 +3081,14 @@
         (live && s.ready ? '<div class="li"><span>Instagram account linked to the Page</span><span>' + (s.instagram ? '<b dir="ltr">@' + esc(s.instagram) + '</b>' : '<span class="pill bad">✕ None</span>') + '</span></div>' : '') +
         // Meta's errors can be long: shown under the label, wrapping, instead of in a one-line pill.
         s.errors.map((e) => '<div class="li" style="align-items:flex-start"><span>Connection<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(e) + '</div></span><span class="pill bad">✕</span></div>').join('') +
-        '<div class="li"><span>Last message from Instagram or Messenger</span><span>' + (s.lastWebhook ? dateTime(s.lastWebhook) : '<span class="muted">none yet</span>') + '</span></div>' +
+        // Per app: if Instagram stays "none yet" while Messenger works, Meta isn't sending Instagram's messages to us.
+        '<div class="li"><span>' + smLogo('fb') + ' <span>Last message from Messenger</span></span><span>' + (s.last && s.last.fb ? dateTime(s.last.fb) : '<span class="muted">none yet</span>') + '</span></div>' +
+        '<div class="li" style="align-items:flex-start"><span>' + smLogo('ig') + ' <span>Last message from Instagram</span>' + (s.last && !s.last.ig && s.last.fb ? '<div class="small muted" style="margin-top:3px">Meta hasn’t sent any Instagram message yet. Until App Review, only Instagram accounts with a role on the app (App roles → Instagram testers, invite accepted) reach us.</div>' : '') + '</span><span>' + (s.last && s.last.ig ? dateTime(s.last.ig) : '<span class="muted">none yet</span>') + '</span></div>' +
+        // Names and photos: Meta's last answer, so a refusal is explained instead of showing "Messenger customer".
+        (s.profile ? '<div class="li" style="align-items:flex-start"><span>Customers’ names and photos · ' + dateTime(s.profile.at) +
+          (s.profile.ok ? (s.profile.pic ? '' : '<div class="small muted" style="margin-top:3px">Meta gave the name but no photo, so a sticker is shown instead.</div>')
+            : '<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(s.profile.error || '') + '</div><div class="small muted" style="margin-top:3px">Meta → your app → Messenger use case → Permissions and features: add “Business Asset User Profile Access”. For customers outside the app’s roles it needs Advanced access (App Review). Press Test again to retry.</div>') + '</span>' +
+          (s.profile.ok ? '<span class="pill good">✓ OK</span>' : '<span class="pill bad">✕ Refused</span>') + '</div>' : '') +
         (note ? '<div class="li"><span>Last message result · ' + dateTime(note.at) + (note.kind === 'error' ? '<div class="small muted">' + esc(note.error || '') + '</div>' : '') + '</span>' +
           (note.kind === 'saved' ? '<span class="pill good">✓ Saved · ' + esc(SM_NAME[note.channel] || '') + '</span>' : '<span class="pill bad">✕ Couldn’t save</span>') + '</div>' : '') +
         '<div class="li"><span>Chats so far</span><span>' + smLogo('ig') + ' ' + s.chats.ig + ' · ' + smLogo('fb') + ' ' + s.chats.fb + '</span></div>' +
