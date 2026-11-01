@@ -501,7 +501,7 @@ function sm_status(bool $live): array
         $given = (string) $c['page_token'];
         $t = sm_call('GET', '/debug_token?input_token=' . rawurlencode($given), null, $given)['data'] ?? [];
         $scopes = array_values((array) ($t['scopes'] ?? []));
-        $need = ['pages_messaging', 'pages_manage_metadata', 'pages_show_list', 'instagram_basic', 'instagram_manage_messages'];
+        $need = ['pages_messaging', 'pages_manage_metadata', 'pages_show_list', 'pages_read_engagement', 'instagram_basic', 'instagram_manage_messages'];
         $pages = [];
         foreach ((array) ($t['granular_scopes'] ?? []) as $g) {
             if (($g['scope'] ?? '') === 'pages_messaging') $pages = array_map('strval', (array) ($g['target_ids'] ?? []));
