@@ -3147,7 +3147,10 @@
         '<div class="li" style="align-items:flex-start"><span>' + smLogo('ig') + ' <span>Last message from Instagram</span>' + (s.last && !s.last.ig && s.last.fb ? '<div class="small muted" style="margin-top:3px">Meta hasn’t sent any Instagram message yet. Until App Review, only Instagram accounts with a role on the app (App roles → Instagram testers, invite accepted) reach us.</div>' : '') + '</span><span>' + (s.last && s.last.ig ? dateTime(s.last.ig) : '<span class="muted">none yet</span>') + '</span></div>' +
         // Names and photos: Meta's last answer, so a refusal is explained instead of showing "Messenger customer".
         (s.profile ? '<div class="li" style="align-items:flex-start"><span>Customers’ names and photos · ' + dateTime(s.profile.at) +
-          (s.profile.ok ? (s.profile.pic ? '' : '<div class="small muted" style="margin-top:3px">Meta gave the name but no photo, so a sticker is shown instead.</div>')
+          (s.profile.ok ? (s.profile.pic ? '' : '<div class="small muted" style="margin-top:3px">' + (s.profile.via === 'conversation'
+              // Names from the Page's conversation (the profile lookup still needs App Review): no photos that way.
+              ? 'Names come from the conversation while Meta reviews “Business Asset User Profile Access”. Photos arrive once it’s approved; until then each customer gets a sticker.'
+              : 'Meta gave the name but no photo, so a sticker is shown instead.') + '</div>')
             : '<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(s.profile.error || '') + '</div><div class="small muted" style="margin-top:3px">Meta → your app → Messenger use case → Permissions and features: add “Business Asset User Profile Access”. For customers outside the app’s roles it needs Advanced access (App Review). Press Test again to retry.</div>') + '</span>' +
           (s.profile.ok ? '<span class="pill good">✓ OK</span>' : '<span class="pill bad">✕ Refused</span>') + '</div>' : '') +
         (note ? '<div class="li"><span>Last message result · ' + dateTime(note.at) + (note.kind === 'error' ? '<div class="small muted">' + esc(note.error || '') + '</div>' : '') + '</span>' +
