@@ -1,6 +1,11 @@
 # No automatic folder listings ("Index of /p" and its ?NA, ?MD… sort links ended up in Google).
 Options -Indexes
 
+# Notes for developers (README and other Markdown files) stay on GitHub: never served from the website.
+<FilesMatch "\.(md|markdown)$">
+  Require all denied
+</FilesMatch>
+
 # Arabic versions (?lang=ar) of the homepage, the review-link tool and the information pages are built by the
 # server (api/page.php) so they reach search engines as real Arabic pages. Everything else is served as before.
 <IfModule mod_rewrite.c>
