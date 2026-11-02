@@ -2796,7 +2796,9 @@
     let d;
     try { d = await api('meta_status'); } catch (e) { box.innerHTML = '<h2>Ad tracking</h2><div class="err">' + esc(e.message) + '</div>'; return; }
     const on = (v, text) => v ? '<span class="pill good">✓ ' + esc(text) + '</span>' : '<span class="pill bad">✕ Not set</span>';
-    box.innerHTML = '<h2>Ad tracking</h2>' +
+    // Its status at a glance (also on the Settings tile): all three on, some, or none.
+    const n = [d.pixel, d.capi, d.ga4].filter(Boolean).length;
+    box.innerHTML = '<h2>Ad tracking<span class="spacer"></span>' + (n === 3 ? '<span class="pill good">✓ All on</span>' : n ? '<span class="pill warn">' + n + ' of 3 on</span>' : '<span class="pill bad">✕ Off</span>') + '</h2>' +
       '<div class="list">' +
         '<div class="li"><span>Meta Pixel <small class="muted">(in the browser: views, add to cart, checkout, purchases, leads)</small></span><span>' + on(d.pixel, d.pixel) + '</span></div>' +
         '<div class="li"><span>Meta Conversions API <small class="muted">(purchases sent from our server)</small></span><span>' + on(d.capi, 'On') + (d.testCode ? ' <span class="pill warn">Test code on</span>' : '') + '</span></div>' +
