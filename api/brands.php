@@ -15,7 +15,8 @@ function brand_row(array $b, bool $admin = false): array
         'about' => (string) $b['about'], 'aboutAr' => (string) $b['about_ar'],
         'logo' => (string) $b['logo'], 'link' => (string) $b['link'],
     ];
-    if ($admin) $out += ['commission' => (float) $b['commission'], 'margin' => (float) ($b['margin'] ?? 0), 'active' => (bool) $b['active'], 'sort' => (int) $b['sort']];
+    if ($admin) $out += ['commission' => (float) $b['commission'], 'margin' => (float) ($b['margin'] ?? 0), 'active' => (bool) $b['active'], 'sort' => (int) $b['sort'],
+        'commissionB2b' => isset($b['commission_b2b']) ? (float) $b['commission_b2b'] : null, 'b2bMinQty' => isset($b['b2b_min_qty']) ? (int) $b['b2b_min_qty'] : null];
     return $out;
 }
 
@@ -80,7 +81,7 @@ function brand_lines(int $brandId, ?string $month = null): array
             $comm = round($base * $pct / 100, 2);
             $out[] = ['orderId' => (int) $o['id'], 'number' => order_number((int) $o['id']), 'customer' => $o['customer'], 'status' => $o['status'],
                 'at' => $o['created_at'], 'name' => $it['name'], 'qty' => (int) $it['qty'], 'sales' => $sales, 'base' => $base, 'pct' => $pct,
-                'commission' => $comm, 'margin' => round($sales - $base, 2), 'due' => round($base - $comm, 2), 'delivered' => $o['status'] === 'Delivered'];
+                'commission' => $comm, 'margin' => round($sales - $base, 2), 'due' => round($base - $comm, 2), 'delivered' => $o['status'] === 'Delivered', 'b2b' => !empty($it['b2b'])];
         }
     }
     return $out;

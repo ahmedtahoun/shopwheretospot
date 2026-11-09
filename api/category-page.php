@@ -67,7 +67,7 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
 <link rel="alternate" hreflang="x-default" href="<?= $e($page['en']) ?>">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Where To Spot">
 <meta property="og:title" content="<?= $e($page['title']) ?>"><meta property="og:description" content="<?= $e($desc) ?>"><meta property="og:url" content="<?= $e($page['url']) ?>">
-<meta property="og:image" content="<?= $e($page['products'][0]['imageUrls'][0] ?? seo_base() . '/images/share-card.jpg') ?>"><meta property="og:locale" content="<?= $ar ? 'ar_EG' : 'en_US' ?>">
+<meta property="og:image" content="<?= $e($page['products'][0]['imageUrls'][0] ?? seo_base() . '/images/share-card.jpg') ?>"><meta property="og:locale" content="<?= $ar ? market('og_locale_ar') : 'en_US' ?>">
 <link rel="icon" href="/favicon.ico?v=3" sizes="48x48"><link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-192.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -96,7 +96,7 @@ $img = function ($p) { $src = $p['images'][0] ?? ''; return $src ? '/api/img.php
 <h1><?= $e($page['title']) ?></h1>
 <p><?= $e($page['intro']) ?></p>
 <ul class="facts">
-<?php if ($page['products']): ?><li>✓ <?= count($page['products']) ?> <?= $L('products', 'منتج') ?> · <?= $L('from', 'من') ?> <?= $ar ? number_format($lowest) . ' ج.م' : 'EGP ' . number_format($lowest) ?></li><?php endif; ?>
+<?php if ($page['products']): ?><li>✓ <?= count($page['products']) ?> <?= $L('products', 'منتج') ?> · <?= $L('from', 'من') ?> <?= $e(money($lowest, $ar)) ?></li><?php endif; ?>
 <li>✓ <?= $L('Delivery across Egypt in 2–5 days', 'توصيل لكل مصر خلال 2–5 أيام') ?></li><li>✓ <?= $L('Cash on delivery, card or wallet', 'الدفع عند الاستلام أو بالبطاقة أو المحفظة') ?></li><li>✓ <?= $L('14-day returns', 'استرجاع خلال 14 يوم') ?></li>
 </ul>
 <h2><?= $L('Products', 'المنتجات') ?></h2>

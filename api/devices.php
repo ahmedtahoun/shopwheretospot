@@ -310,7 +310,7 @@ function device_ping(int $uid): void
     if (($now - (int) ($_SESSION['ping'] ?? 0)) < 60) return;
     $prev = (int) ($_SESSION['ping'] ?? 0);
     $_SESSION['ping'] = $now;
-    $tz = new DateTimeZone('Africa/Cairo');
+    $tz = market_tz();
     $day = (new DateTime('@' . $now))->setTimezone($tz)->format('Y-m-d');
     $at = gmdate('Y-m-d H:i:s', $now);
     $gap = $prev && $now - $prev <= 900 ? ($now - $prev) / 60 : 0;

@@ -3687,6 +3687,8 @@
       '<label class="field">Name in Arabic<input name="nameAr" dir="rtl" maxlength="80" value="' + esc(b.nameAr) + '"></label></div>' +
       '<div class="grid2"><label class="field">Commission (%) <span class="hint">Your share of each item’s price</span><input name="commission" type="number" min="0" max="100" step="0.5" value="' + esc(b.commission) + '" placeholder="e.g. 20"></label>' +
       '<label class="field">Your margin (%) <span class="hint">Added on top of the brand’s price for all its products (a product can have its own)</span><input name="margin" type="number" min="0" max="500" step="0.5" value="' + esc(b.margin || '') + '" placeholder="e.g. 25"></label></div>' +
+      '<div class="grid2"><label class="field">B2B commission (%) <span class="hint">Optional: your share on business quantities, if it’s different</span><input name="commissionB2b" type="number" min="0" max="100" step="0.5" value="' + esc(b.commissionB2b ?? '') + '" placeholder="e.g. 20"></label>' +
+      '<label class="field">B2B from (pieces) <span class="hint">An order with this many of the brand’s pieces or more gets the B2B commission</span><input name="b2bMinQty" type="number" min="1" step="1" value="' + esc(b.b2bMinQty ?? '') + '" placeholder="e.g. 10"></label></div>' +
       '<label class="field">Instagram or website<input name="link" type="url" value="' + esc(b.link) + '" placeholder="https://instagram.com/…"></label>' +
       '<div class="grid2"><label class="field">Short line <span class="hint">Under the name, e.g. Specialty coffee roasters</span><input name="tagline" maxlength="120" value="' + esc(b.tagline) + '"></label>' +
       '<label class="field">Short line in Arabic<input name="taglineAr" dir="rtl" maxlength="120" value="' + esc(b.taglineAr) + '"></label></div>' +
@@ -3703,9 +3705,11 @@
     const f = $('#brf');
     const preview = () => {
       const c = +f.elements.commission.value || 0, m = +f.elements.margin.value || 0, sell = Math.round(1000 * (1 + m / 100));
-      $('#brPreview').textContent = c || m ? 'Example: the brand’s price is ' + egp(1000) + ' → the shop sells it for ' + egp(sell) + '. You keep ' + egp(sell - 1000 + 1000 * c / 100) + ' and owe the brand ' + egp(1000 - 1000 * c / 100) + '.' : '';
+      const bc = f.elements.commissionB2b.value === '' ? null : +f.elements.commissionB2b.value || 0, bq = +f.elements.b2bMinQty.value || 0;
+      $('#brPreview').textContent = (c || m ? 'Example: the brand’s price is ' + egp(1000) + ' → the shop sells it for ' + egp(sell) + '. You keep ' + egp(sell - 1000 + 1000 * c / 100) + ' and owe the brand ' + egp(1000 - 1000 * c / 100) + '.' : '') +
+        (bc !== null && bq ? ' From ' + bq + ' pieces in one order (B2B): you keep ' + egp(sell - 1000 + 1000 * bc / 100) + ' and owe the brand ' + egp(1000 - 1000 * bc / 100) + '.' : '');
     };
-    f.elements.commission.oninput = preview; f.elements.margin.oninput = preview; preview();
+    ['commission', 'margin', 'commissionB2b', 'b2bMinQty'].forEach((n) => { f.elements[n].oninput = preview; }); preview();
     f.onsubmit = async (e) => {
       e.preventDefault();
       const data = formData(f); data.id = b.id || 0;
@@ -3736,7 +3740,7 @@
         '<div class="kpi"><div class="label">You keep</div><div class="value">' + egp(t.commission + t.margin) + '</div><div class="note">' + egp(t.commission) + ' commission + ' + egp(t.margin) + ' margin</div></div>' +
         '<div class="kpi"><div class="label">Brand’s share</div><div class="value">' + egp(t.due) + '</div><div class="note">' + egp(t.deliveredDue) + ' delivered</div></div></div>' +
       '<div class="card"><h2>Items sold in ' + esc(monthLabel(d.month)) + '</h2>' + (d.lines.length ? '<div class="list">' + d.lines.map((l) =>
-        '<div class="li"><span><b>' + esc(l.number) + '</b> · ' + esc(l.qty + '× ' + l.name) + '<div class="small muted">' + esc(l.customer) + ' · ' + dateTime(l.at) + '</div></span>' +
+        '<div class="li"><span><b>' + esc(l.number) + '</b> · ' + esc(l.qty + '× ' + l.name) + '<div class="small muted">' + esc(l.customer) + ' · ' + dateTime(l.at) + ' · ' + l.pct + '% commission' + (l.b2b ? ' (B2B)' : '') + '</div></span>' +
         '<span style="text-align:right">' + pill(ORDER_TONE, l.status) + '<div class="small">Sold <b>' + egp(l.sales) + '</b> · brand price ' + egp(l.base) + '</div><div class="small pay-ok">You keep ' + egp(l.commission + l.margin) + ' · brand ' + egp(l.due) + '</div></span></div>').join('') + '</div>'
         : '<div class="small muted">Nothing sold this month.</div>') + '</div>' +
       '<div class="card"><h2>Payments to the brand<span class="spacer"></span>' + (bal.owed > 0 ? '<span class="pill warn">' + egp(bal.owed) + ' owed</span>' : '<span class="pill good">✓ Nothing owed</span>') + '</h2>' +

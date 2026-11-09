@@ -54,7 +54,7 @@ function ops_error(string $area, string $message, ?Throwable $e = null): void
 
 function ops_notify(string $area, string $message, int $times): void
 {
-    $when = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('j M, H:i');
+    $when = (new DateTime('now', market_tz()))->format('j M, H:i');
     $more = $times > 1 ? ' · ' . $times . '× in the last hour' : '';
     $owners = db()->query("SELECT id, name, email, tg_chat_id FROM users WHERE active = 1 AND role = 'owner'")->fetchAll();
     $url = rtrim((string) cfg('site_url'), '/') . '/admin/#settings';

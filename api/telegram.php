@@ -281,7 +281,7 @@ const TG_DAILY_HOUR = 21;
 function tg_daily_due(): void
 {
     if (!wa_setting('tg_daily', true)) return;
-    $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+    $now = new DateTime('now', market_tz());
     if ((int) $now->format('G') < TG_DAILY_HOUR || wa_setting('tg_daily_sent') === $now->format('Y-m-d')) return;
     wa_set_setting('tg_daily_sent', $now->format('Y-m-d'));
     $text = tg_daily_summary();
@@ -291,7 +291,7 @@ function tg_daily_due(): void
 // Today in Cairo, as UTC times (the database keeps UTC).
 function tg_day_range(): array
 {
-    $tz = new DateTimeZone('Africa/Cairo');
+    $tz = market_tz();
     $start = new DateTime('today', $tz);
     $end = (clone $start)->modify('+1 day');
     $utc = new DateTimeZone('UTC');
@@ -379,7 +379,7 @@ function tg_daily_summary(): string
 
 function tg_monthly_due(): void
 {
-    $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+    $now = new DateTime('now', market_tz());
     if ((int) $now->format('j') !== 1 || (int) $now->format('G') < 9) return;
     $month = (clone $now)->modify('first day of last month')->format('Y-m');
     if (wa_setting('tg_monthly_sent') === $month) return;

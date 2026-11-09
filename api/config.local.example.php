@@ -2,6 +2,12 @@
 // Copy this file to api/config.local.php ON THE SERVER (cPanel → File Manager) and fill it in.
 // config.local.php is never committed to git and cannot be opened from the web.
 return [
+    // Which country this copy of the shop sells in (api/market.php). Leave it out for Egypt (shop.wheretospot.com).
+    // For the UAE shop: 'market' => 'AE', its own database folder, and the AED → EGP rate Paymob Egypt charges at
+    // (how many EGP one dirham costs; card payments stay off until it's set). Update the rate when it moves.
+    // 'market' => 'AE',
+    // 'market_settings' => ['charge_rate' => 13.6, 'phone_display' => '+971 …'],
+    // 'data_dir' => '/home/<user>/wts-shop-data-ae',
     // Send order alerts through a real mailbox for reliable delivery (recommended).
     // Create it in cPanel → Email Accounts, e.g. orders@wheretospot.com.
     'smtp' => [

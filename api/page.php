@@ -46,7 +46,7 @@ $html = $set($html, '/<title>.*?<\/title>/s', '<title>' . $e($page['title']) . '
 foreach (['name="description"', 'property="og:description"', 'name="twitter:description"'] as $m) $html = $set($html, '/<meta ' . preg_quote($m, '/') . ' content="[^"]*">/', '<meta ' . $m . ' content="' . $e($page['desc']) . '">');
 foreach (['property="og:title"', 'name="twitter:title"'] as $m) $html = $set($html, '/<meta ' . preg_quote($m, '/') . ' content="[^"]*">/', '<meta ' . $m . ' content="' . $e($page['title']) . '">');
 $html = $set($html, '/<meta property="og:url" content="[^"]*">/', '<meta property="og:url" content="' . $e($url) . '">');
-$html = $set($html, '/<meta property="og:locale" content="[^"]*">/', '<meta property="og:locale" content="ar_EG">');
+$html = $set($html, '/<meta property="og:locale" content="[^"]*">/', '<meta property="og:locale" content="' . market('og_locale_ar') . '">');
 $html = $set($html, '/<link rel="canonical" href="[^"]*">/', '<link rel="canonical" href="' . $e($url) . '">');
 
 // Only the Arabic text: take out each English-only block whose inside holds no other block of the same kind

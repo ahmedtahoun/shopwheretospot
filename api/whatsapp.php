@@ -107,20 +107,19 @@ function wa_set_setting(string $key, $value): void
     db()->prepare('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')->execute(['wa.' . $key, json_encode($value)]);
 }
 
-// "201012345678" (WhatsApp's form) -> "01012345678" for Egyptian numbers; others as +country number.
+// "201012345678" (WhatsApp's form) -> "01012345678" for the shop's own country (api/market.php); others as +country number.
 function wa_local_phone(string $waId): string
 {
-    return preg_match('/^20(1\d{9})$/', $waId, $m) ? '0' . $m[1] : '+' . $waId;
+    return preg_match((string) market('wa_local'), $waId, $m) ? '0' . $m[1] : '+' . $waId;
 }
 
-// Any phone the team types -> WhatsApp's form (Egypt by default).
+// Any phone the team types -> WhatsApp's form (the shop's own country by default).
 function wa_id_from_phone(string $phone): ?string
 {
     $d = preg_replace('/\D/', '', strtr($phone, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']));
     if ($d === '') return null;
-    if (strpos($d, '00') === 0) $d = substr($d, 2);
-    if (preg_match('/^01\d{9}$/', $d)) $d = '2' . $d;
-    if (preg_match('/^1\d{9}$/', $d)) $d = '20' . $d;
+    $d = market_intl_digits($d);
+    if (preg_match((string) market('mobile_bare'), $d)) $d = market('phone_cc') . $d;
     return strlen($d) >= 10 ? $d : null;
 }
 
@@ -614,9 +613,9 @@ function wa_payment_received(int $orderId, float $amount): void
             $waId = wa_id_from_phone((string) $o['phone']);
             $chat = $waId ? wa_chat_by_wa_id($waId) : null;
             if ($chat && wa_ready() && wa_window_open($chat)) {
-                $text = '✅ تم استلام دفعتك ' . $fmt($amount) . ' ج.م لطلب ' . $num . '. شكرًا لك!'
-                    . ($due > 0 ? "\n" . 'المتبقي: ' . $fmt($due) . ' ج.م' : "\n" . 'طلبك مدفوع بالكامل، وهنتواصل معاك بخصوص التنفيذ والتوصيل.')
-                    . "\n\n" . 'Payment received: EGP ' . $fmt($amount) . ' for order ' . $num . '. Thank you!' . ($due > 0 ? ' Remaining: EGP ' . $fmt($due) . '.' : '');
+                $text = '✅ تم استلام دفعتك ' . $fmt($amount) . ' ' . market('cur_ar') . ' لطلب ' . $num . '. شكرًا لك!'
+                    . ($due > 0 ? "\n" . 'المتبقي: ' . $fmt($due) . ' ' . market('cur_ar') : "\n" . 'طلبك مدفوع بالكامل، وهنتواصل معاك بخصوص التنفيذ والتوصيل.')
+                    . "\n\n" . 'Payment received: ' . market('cur_en') . ' ' . $fmt($amount) . ' for order ' . $num . '. Thank you!' . ($due > 0 ? ' Remaining: ' . market('cur_en') . ' ' . $fmt($due) . '.' : '');
                 try { wa_send_text($chat, $text, null, false); } catch (Throwable $e) { ops_error('WhatsApp', 'The payment thank-you message could not be sent', $e); }
             }
             if (!function_exists('tg_ready') || !tg_ready()) return;
@@ -624,8 +623,8 @@ function wa_payment_received(int $orderId, float $amount): void
             $who = $chat && $chat['assigned_to'] ? (int) $chat['assigned_to'] : ($o['rep_id'] ? (int) $o['rep_id'] : 0);
             if ($who) { $u = db()->prepare('SELECT id, name, tg_chat_id FROM users WHERE id = ? AND active = 1 AND tg_chat_id IS NOT NULL'); $u->execute([$who]); $to = $u->fetchAll(); }
             else $to = tg_managers();
-            $msg = '💳 <b>Payment received · تم الدفع</b>' . "\n" . tg_h((string) $o['customer']) . ' paid <b>EGP ' . $fmt($amount) . '</b> for ' . $num
-                . "\n" . ($due > 0 ? 'Still due · المتبقي: EGP ' . $fmt($due) : '✓ Fully paid · مدفوع بالكامل');
+            $msg = '💳 <b>Payment received · تم الدفع</b>' . "\n" . tg_h((string) $o['customer']) . ' paid <b>' . market('cur_en') . ' ' . $fmt($amount) . '</b> for ' . $num
+                . "\n" . ($due > 0 ? 'Still due · المتبقي: ' . market('cur_en') . ' ' . $fmt($due) : '✓ Fully paid · مدفوع بالكامل');
             $button = $chat ? tg_open_button($chat) : ['Open order · افتح الطلب', rtrim((string) cfg('site_url'), '/') . '/admin/#orders'];
             foreach ($to as $user) tg_send_user($user, $msg, $button);
         } catch (Throwable $e) {

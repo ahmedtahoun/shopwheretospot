@@ -98,7 +98,7 @@ try {
         // The period: this month or last month (Cairo calendar months), or the last 7/30/90 days.
         $period = in_array($_GET['period'] ?? '', ['month', 'last'], true) ? $_GET['period'] : 'days';
         if ($revenue) { try { report_close_months(); } catch (Throwable $e) { error_log('[shop] closing months: ' . $e->getMessage()); } }
-        $tzC = new DateTimeZone('Africa/Cairo');
+        $tzC = market_tz();
         if ($period === 'days') {
             $days = max(7, min(365, (int) ($_GET['days'] ?? 30)));
             $startDay = new DateTime('today', $tzC); $startDay->modify('-' . ($days - 1) . ' days');
@@ -161,11 +161,11 @@ try {
             usort($lowStock, function ($a, $b) { return $a['stock'] <=> $b['stock']; });
         }
         $recent = array_map('order_out', $pdo->query('SELECT o.*, u.name AS rep_name FROM orders o LEFT JOIN users u ON u.id = o.rep_id WHERE o.status != \'Awaiting payment\'' . str_replace('rep_id', 'o.rep_id', $scope) . ' ORDER BY o.id DESC LIMIT 6')->fetchAll());
-        $month = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m');
+        $month = (new DateTime('now', market_tz()))->format('Y-m');
         // Leads due a follow-up today or earlier (sales people: theirs and unassigned ones).
         $followUps = [];
         if (in_array('leads', $u['perms'], true)) {
-            $today = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+            $today = (new DateTime('now', market_tz()))->format('Y-m-d');
             $st = $pdo->prepare("SELECT l.id, l.name, l.contact, l.cat, l.notes, l.status, l.follow_up, u.name AS assigned_name FROM leads l LEFT JOIN users u ON u.id = l.assigned_to
                 WHERE l.follow_up IS NOT NULL AND l.follow_up <= ? AND l.status NOT IN ('Won','Lost')" . ($own ? ' AND (l.assigned_to = ' . (int) $u['id'] . ' OR l.assigned_to IS NULL)' : '') . '
                 ORDER BY l.follow_up, l.id LIMIT 12');
@@ -177,7 +177,7 @@ try {
         $openQuotes = null;
         if (in_array('sell', $u['perms'], true) && !$ordersOnly) {
             $st = $pdo->prepare("SELECT COUNT(*) n, COALESCE(SUM(total), 0) v FROM quotes WHERE status IN ('Draft','Sent') AND (valid_until IS NULL OR valid_until >= ?)" . str_replace('rep_id', 'quotes.rep_id', $scope));
-            $st->execute([(new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d')]);
+            $st->execute([(new DateTime('now', market_tz()))->format('Y-m-d')]);
             $oq = $st->fetch();
             $openQuotes = ['n' => (int) $oq['n'], 'value' => round((float) $oq['v'])];
         }
@@ -1756,11 +1756,15 @@ try {
         if ($link !== '' && !preg_match('~^https?://~i', $link)) $link = 'https://' . $link;
         $vals = [':name' => $name, ':name_ar' => str_in($b['nameAr'] ?? '', 80), ':tagline' => str_in($b['tagline'] ?? '', 120), ':tagline_ar' => str_in($b['taglineAr'] ?? '', 120),
             ':about' => str_in($b['about'] ?? '', 1000), ':about_ar' => str_in($b['aboutAr'] ?? '', 1000), ':link' => $link,
-            ':commission' => max(0, min(100, (float) ($b['commission'] ?? 0))), ':margin' => max(0, min(500, (float) ($b['margin'] ?? 0))), ':active' => empty($b['active']) ? 0 : 1];
+            ':commission' => max(0, min(100, (float) ($b['commission'] ?? 0))), ':margin' => max(0, min(500, (float) ($b['margin'] ?? 0))), ':active' => empty($b['active']) ? 0 : 1,
+            // B2B: both or neither (an empty box = one commission for every order).
+            ':commission_b2b' => ($b['commissionB2b'] ?? '') === '' || ($b['commissionB2b'] ?? null) === null ? null : max(0, min(100, (float) $b['commissionB2b'])),
+            ':b2b_min_qty' => (int) ($b['b2bMinQty'] ?? 0) > 0 ? min(100000, (int) $b['b2bMinQty']) : null];
+        if (($vals[':commission_b2b'] === null) !== ($vals[':b2b_min_qty'] === null)) fail('For a B2B commission, fill in both the B2B commission and from how many pieces it applies (or leave both empty).');
         $pdo = db();
         if ($id) {
             $vals[':id'] = $id;
-            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, margin=:margin, active=:active WHERE id=:id');
+            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, margin=:margin, commission_b2b=:commission_b2b, b2b_min_qty=:b2b_min_qty, active=:active WHERE id=:id');
             $st->execute($vals);
             if (!$st->rowCount() && !brand_get($id)) fail('Brand not found.', 404);
         } else {
@@ -1770,7 +1774,7 @@ try {
             while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn()) break; $slug = $base . '-' . (++$n); }
             $vals[':slug'] = $slug;
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM brands')->fetchColumn();
-            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, margin, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :margin, :active, :sort)')->execute($vals);
+            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, margin, commission_b2b, b2b_min_qty, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :margin, :commission_b2b, :b2b_min_qty, :active, :sort)')->execute($vals);
             $id = (int) $pdo->lastInsertId();
         }
         $repriced = reprice_brand_products($id); // a new margin changes its products' shop prices
@@ -2088,14 +2092,14 @@ try {
     case 'person_activity':
         require_perm('team');
         $id = (int) ($_GET['user'] ?? 0);
-        $since = (new DateTime('-13 days', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+        $since = (new DateTime('-13 days', market_tz()))->format('Y-m-d');
         json_out(['logins' => login_list($id, 20), 'days' => working_hours($since, $id)]);
 
     // Everyone's working hours for the last 7, 14 or 30 days.
     case 'team_hours':
         require_perm('team');
         $days = in_array((int) ($_GET['days'] ?? 7), [7, 14, 30], true) ? (int) $_GET['days'] : 7;
-        $since = (new DateTime('-' . ($days - 1) . ' days', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+        $since = (new DateTime('-' . ($days - 1) . ' days', market_tz()))->format('Y-m-d');
         json_out(['days' => $days, 'since' => $since, 'rows' => working_hours($since)]);
 
     case 'devices':
@@ -2171,7 +2175,7 @@ function assert_quote_access(array $u, array $q): void
 
 function quote_out(array $q): array
 {
-    $today = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+    $today = (new DateTime('now', market_tz()))->format('Y-m-d');
     $expired = in_array($q['status'], ['Draft', 'Sent'], true) && $q['valid_until'] && $q['valid_until'] < $today;
     return [
         'id' => (int) $q['id'], 'number' => quote_number((int) $q['id']), 'leadId' => $q['lead_id'] === null ? null : (int) $q['lead_id'],

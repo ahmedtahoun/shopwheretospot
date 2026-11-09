@@ -111,7 +111,7 @@ function h($v): string
 function wa_link(string $phone): string
 {
     $digits = preg_replace('/\D/', '', $phone);
-    if (strpos($digits, '0') === 0) $digits = '20' . substr($digits, 1); // Egyptian local 01x… → 201x…
+    if (strpos($digits, '0') === 0) $digits = market('phone_cc') . substr($digits, 1); // local 01x… → 201x… (the shop's country)
     return 'https://wa.me/' . $digits;
 }
 
@@ -122,7 +122,7 @@ function email_shell(string $title, string $inner, string $for = 'team'): string
         . '<div style="max-width:560px;margin:0 auto;padding:24px 16px"><div style="background:#fff;border:1px solid #DDD6CC;border-radius:14px;padding:24px">'
         . '<div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#A8552F;font-weight:bold">Where To Spot shop</div>'
         . '<h1 style="font-size:22px;margin:6px 0 16px">' . h($title) . '</h1>' . $inner
-        . '</div><p style="font-size:12px;color:#8A8478;text-align:center">' . ($for === 'customer' ? 'Where To Spot · shop.wheretospot.com · +20 127 766 0666' : 'Sent automatically by your shop. Change who receives these in Dashboard → Team.') . '</p></div></body></html>';
+        . '</div><p style="font-size:12px;color:#8A8478;text-align:center">' . ($for === 'customer' ? 'Where To Spot · ' . preg_replace('#^https?://#', '', rtrim((string) cfg('site_url'), '/')) . ' · ' . market('phone_display') : 'Sent automatically by your shop. Change who receives these in Dashboard → Team.') . '</p></div></body></html>';
 }
 
 function btn(string $href, string $label, string $bg = '#A8552F'): string
@@ -134,7 +134,7 @@ function notify_new_order(string $number, array $o, array $lines): void
 {
     $to = alert_recipients();
     if (!$to) return;
-    $egp = function ($n) { return 'EGP ' . number_format((float) $n); };
+    $egp = function ($n) { return money($n); };
     $rows = '';
     $textItems = '';
     foreach ($lines as $l) {

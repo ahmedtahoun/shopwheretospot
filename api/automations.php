@@ -63,7 +63,7 @@ function au_was_sent(string $kind, string $ref, string $since = ''): bool
 
 function au_cairo(): DateTime
 {
-    return new DateTime('now', new DateTimeZone('Africa/Cairo'));
+    return new DateTime('now', market_tz());
 }
 
 // Everything due right now (cheap when there's nothing to do).

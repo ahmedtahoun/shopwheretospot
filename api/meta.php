@@ -44,8 +44,7 @@ function meta_hash(string $v): string
 function meta_phone(string $phone): string
 {
     $d = preg_replace('/\D/', '', $phone);
-    if (strpos($d, '00') === 0) $d = substr($d, 2);
-    if (preg_match('/^01\d{9}$/', $d)) $d = '2' . $d;   // 010… → 2010… (Egypt)
+    $d = market_intl_digits($d);   // 010… → 2010… (the shop's country, api/market.php)
     return strlen($d) >= 8 ? $d : '';
 }
 
@@ -60,7 +59,7 @@ function meta_purchase_event(array $o): array
         'fn' => [meta_hash((string) ($parts[0] ?? ''))],
         'ln' => [meta_hash(count($parts) > 1 ? (string) end($parts) : '')],
         'ct' => [meta_hash(preg_replace('/[^a-z]/', '', mb_strtolower((string) $o['city'])))],
-        'country' => [meta_hash('eg')],
+        'country' => [meta_hash(strtolower((string) market('code')))],
         'external_id' => [meta_hash((string) (phone_key((string) $o['phone']) ?: ''))],
         'client_ip_address' => $t['ip'] ?? '',
         'client_user_agent' => $t['ua'] ?? '',
@@ -81,7 +80,7 @@ function meta_purchase_event(array $o): array
         'action_source' => 'website',
         'event_source_url' => rtrim((string) cfg('site_url'), '/') . '/index.html',
         'user_data' => $u,
-        'custom_data' => ['currency' => 'EGP', 'value' => round((float) $o['total'], 2), 'order_id' => $number, 'content_type' => 'product',
+        'custom_data' => ['currency' => market('currency'), 'value' => round((float) $o['total'], 2), 'order_id' => $number, 'content_type' => 'product',
             'content_ids' => array_column($contents, 'id'), 'contents' => $contents, 'num_items' => array_sum(array_column($contents, 'quantity'))],
     ];
 }

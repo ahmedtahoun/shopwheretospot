@@ -193,7 +193,7 @@ function insights(int $days): array
     arsort($handover);
     // Busy hours: customer messages by Cairo weekday and hour.
     $heat = array_fill(0, 7, array_fill(0, 24, 0));
-    $tz = new DateTimeZone('Africa/Cairo');
+    $tz = market_tz();
     $cache = [];
     foreach ($msgs as $list) foreach ($list as $m) {
         if ($m['dir'] !== 'in') continue;
@@ -284,7 +284,7 @@ function in_workbook(int $days): string
 {
     [$from, $to, $days] = in_range($days);
     [$rows, $msgs] = in_collect($from, $to);
-    $cairo = function ($utc) { if (!$utc) return ''; $d = new DateTime($utc, new DateTimeZone('UTC')); $d->setTimezone(new DateTimeZone('Africa/Cairo')); return $d->format('Y-m-d H:i'); };
+    $cairo = function ($utc) { if (!$utc) return ''; $d = new DateTime($utc, new DateTimeZone('UTC')); $d->setTimezone(market_tz()); return $d->format('Y-m-d H:i'); };
     $chats = [['Chat', 'App · التطبيق', 'Customer · العميل', 'Phone / username', 'Agent · الموظف', 'Ad · الإعلان', 'Started (Cairo) · البداية', 'Last message', 'Customer messages', 'Our messages',
         'First reply from the team (min)', 'Bot only · الرد الآلي فقط', 'Handed to the team because', 'Asked about · سأل عن', 'Products sent', 'Price sent', 'Stage · المرحلة', 'Orders · الطلبات', 'Order value (EGP)', 'Lead status', 'Automatic messages']];
     usort($rows, function ($a, $b) { return strcmp((string) $b['start'], (string) $a['start']); });
@@ -312,7 +312,7 @@ function in_workbook(int $days): string
 function in_weekly_due(): void
 {
     if (!wa_setting('tg_weekly', true)) return;
-    $now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+    $now = new DateTime('now', market_tz());
     if ((int) $now->format('w') !== 6 || (int) $now->format('G') < 10 || wa_setting('tg_weekly_sent') === $now->format('Y-m-d')) return;
     wa_set_setting('tg_weekly_sent', $now->format('Y-m-d'));
     if (!db()->query("SELECT 1 FROM wa_messages WHERE created_at > datetime('now', '-7 days') LIMIT 1")->fetchColumn()) return;

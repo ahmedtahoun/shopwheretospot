@@ -49,7 +49,7 @@ function expense_day($v): string
 {
     $v = (string) $v;
     return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) && checkdate((int) substr($v, 5, 2), (int) substr($v, 8, 2), (int) substr($v, 0, 4))
-        ? $v : (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+        ? $v : (new DateTime('now', market_tz()))->format('Y-m-d');
 }
 
 // "WTS-1015", "1015" or "" → the order's id (or null).

@@ -52,7 +52,7 @@ $meta = function (string $html, string $attr, string $key, string $value): strin
 };
 $html = preg_replace_callback('/<title>.*?<\/title>/s', function () use ($title) { return '<title>' . seo_esc($title) . '</title>'; }, $html, 1);
 foreach (['description' => $desc, 'twitter:title' => $title, 'twitter:description' => $desc, 'twitter:image' => $image] as $k => $v) $html = $meta($html, 'name', $k, $v);
-foreach (['og:title' => $title, 'og:description' => $desc, 'og:image' => $image, 'og:type' => 'product', 'og:url' => $product['url'], 'og:locale' => $ar ? 'ar_EG' : 'en_US'] as $k => $v) $html = $meta($html, 'property', $k, $v);
+foreach (['og:title' => $title, 'og:description' => $desc, 'og:image' => $image, 'og:type' => 'product', 'og:url' => $product['url'], 'og:locale' => $ar ? market('og_locale_ar') : 'en_US'] as $k => $v) $html = $meta($html, 'property', $k, $v);
 $html = preg_replace('/<meta property="og:image:(width|height)" content="[^"]*">\s*/', '', $html);
 
 $breadcrumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => [
@@ -84,7 +84,7 @@ $html = replace_once($html, '</head>', $head . '</head>');
 $sizes = '';
 if (count($product['sizes']) > 1) {
     $sizes = '<ul>' . implode('', array_map(function ($s) use ($ar) {
-        return '<li>' . seo_esc($s['label']) . ': ' . seo_esc($ar ? number_format($s['price']) . ' ج.م' : 'EGP ' . number_format($s['price'])) . ($s['stock'] > 0 ? '' : ($ar ? ' (نفد)' : ' (sold out)')) . '</li>';
+        return '<li>' . seo_esc($s['label']) . ': ' . seo_esc(money($s['price'], $ar)) . ($s['stock'] > 0 ? '' : ($ar ? ' (نفد)' : ' (sold out)')) . '</li>';
     }, $product['sizes'])) . '</ul>';
 }
 $reviewsHtml = $reviewStats['count'] ? '<h2>' . ($ar ? 'التقييمات' : 'Reviews') . ' (' . $reviewStats['count'] . ', ' . $reviewStats['avg'] . '/5)</h2>' .

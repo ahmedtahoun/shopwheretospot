@@ -7,7 +7,7 @@ const PAYMENT_METHODS = ['cod' => 'Cash on delivery', 'bank' => 'Paid — bank t
     'paymob_card' => 'Online — card (Paymob)', 'paymob_wallet' => 'Online — mobile wallet (Paymob)'];
 
 // $in: name, email, phone, address, city, city_id, district_id, items[{id, qty}], promo, ref
-// $opts: by_team (bool), rep_id, created_by, source, payment, status, discount (EGP), shipping (EGP override), notes
+// $opts: by_team (bool), rep_id, created_by, source, payment, status, discount, shipping (override), in the shop's currency, notes
 function create_order(array $in, array $opts = []): array
 {
     $team = !empty($opts['by_team']);
@@ -85,6 +85,17 @@ function create_order(array $in, array $opts = []): array
             if ($p['cat'] !== 'services') $physical += $lineTotal;
             if (!empty($p['personalized'])) $personalized = true;
         }
+        // Business quantities: a brand with a B2B commission (Partner brands) gets it on its lines when this order
+        // has at least its B2B number of pieces from that brand. Kept on each line, like the normal commission.
+        $brandQty = [];
+        foreach ($lines as $l) if (isset($l['brand'])) $brandQty[$l['brand']] = ($brandQty[$l['brand']] ?? 0) + (int) $l['qty'];
+        foreach ($lines as &$l) {
+            if (!isset($l['brand'])) continue;
+            $br = brand_get((int) $l['brand']);
+            $min = (int) ($br['b2b_min_qty'] ?? 0);
+            if ($br && ($br['commission_b2b'] ?? null) !== null && $min > 0 && $brandQty[$l['brand']] >= $min) { $l['comm'] = (float) $br['commission_b2b']; $l['b2b'] = 1; }
+        }
+        unset($l);
         $biz = str_in($in['business_name'] ?? '', 120);
         if ($personalized && !$team && $biz === '') throw new ShopError('Please enter the business or brand name to print on your items.');
         if ($physical > 0 && mb_strlen($address) < 6) throw new ShopError($team ? 'Enter the delivery address.' : 'Please enter your delivery address.');
@@ -176,13 +187,13 @@ function confirm_online_order(int $id, string $why, string $status = 'Pending'):
     // An order placed before payments were held back (already announced as Pending) just moves on to Confirmed.
     if ($o['status'] === 'Pending' && $status === 'Confirmed') {
         set_order_status($id, 'Confirmed');
-        log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
+        log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · ' . money($o['total']));
         return;
     }
     $expired = $o['status'] === 'Cancelled' && strpos((string) $o['notes'], UNPAID_EXPIRED_NOTE) !== false;
     if ($o['status'] !== 'Awaiting payment' && !$expired) return;
     set_order_status($id, $status, $expired ? trim(str_replace(UNPAID_EXPIRED_NOTE, '', (string) $o['notes'])) : null);
-    log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · EGP ' . number_format((float) $o['total']));
+    log_activity(null, $why, order_number($id) . ' · ' . $o['customer'] . ' · ' . money($o['total']));
     notify_order($id);
     try { meta_purchase($id); } catch (Throwable $e) { ops_error('Ad tracking', 'Purchase ' . order_number($id) . ' was not sent to Meta', $e); } // ad tracking (api/meta.php)
     try {
@@ -201,7 +212,7 @@ function expire_unpaid_orders(): void
         try {
             set_order_status((int) $o['id'], 'Cancelled', trim(UNPAID_EXPIRED_NOTE . ' ' . (string) $o['notes']));
             $items = implode(', ', array_map(function ($i) { return $i['qty'] . '× ' . $i['name']; }, json_decode($o['items'], true) ?: []));
-            $note = date('Y-m-d') . ' · Started checkout (' . order_number((int) $o['id']) . ', EGP ' . number_format((float) $o['total']) . ') but didn’t finish paying online · ' . $items;
+            $note = date('Y-m-d') . ' · Started checkout (' . order_number((int) $o['id']) . ', ' . money($o['total']) . ') but didn’t finish paying online · ' . $items;
             $contact = trim($o['phone'] . ($o['email'] !== '' ? ' · ' . $o['email'] : ''), ' ·');
             $lead = find_lead(phone_key((string) $o['phone']), email_key((string) $o['email']));
             if ($lead) touch_lead($lead, $note, $lead['status'] === 'Won' ? null : 'New', $o['rep_id'] ? (int) $o['rep_id'] : null, $contact);
@@ -215,8 +226,8 @@ function expire_unpaid_orders(): void
 
 function cairo_month_bounds(string $month): array
 {
-    if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m');
-    $tz = new DateTimeZone('Africa/Cairo');
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = (new DateTime('now', market_tz()))->format('Y-m');
+    $tz = market_tz();
     $start = new DateTime($month . '-01 00:00:00', $tz);
     $end = (clone $start)->modify('+1 month');
     $utc = new DateTimeZone('UTC');
@@ -390,7 +401,7 @@ function lead_from_order(array $in, array $order, ?int $repId, string $channel =
     $st->execute([$order['id']]);
     $items = json_decode((string) $st->fetchColumn(), true) ?: [];
     $what = implode(', ', array_map(function ($i) { return $i['qty'] . '× ' . $i['name']; }, $items));
-    $note = date('Y-m-d') . ' · Order ' . $order['number'] . ' (' . $channel . ') · EGP ' . number_format($order['total']) . ' · ' . $what;
+    $note = date('Y-m-d') . ' · Order ' . $order['number'] . ' (' . $channel . ') · ' . money($order['total']) . ' · ' . $what;
 
     $existing = find_lead(phone_key($phone), email_key($email));
     if (!$existing && !empty($in['lead_id'])) {
@@ -424,7 +435,7 @@ function link_quote_lead(int $quoteId): void
         $has->execute([(int) $q['lead_id']]);
         if ($has->fetchColumn()) return;
     }
-    $note = substr((string) $q['created_at'], 0, 10) . ' · Quote ' . quote_number($quoteId) . ' · EGP ' . number_format((float) $q['total']);
+    $note = substr((string) $q['created_at'], 0, 10) . ' · Quote ' . quote_number($quoteId) . ' · ' . money($q['total']);
     $contact = trim($q['phone'] . ($q['email'] !== '' ? ' · ' . $q['email'] : ''), ' ·');
     $lead = find_lead(phone_key((string) $q['phone']), email_key((string) $q['email']));
     if ($lead) {

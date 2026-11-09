@@ -19,7 +19,7 @@ function reports_migrate(PDO $pdo): void
     $pdo->exec("CREATE TABLE IF NOT EXISTS month_reports (month TEXT PRIMARY KEY, data TEXT NOT NULL, saved_at TEXT NOT NULL DEFAULT (datetime('now')))");
 }
 
-function report_cairo_now(): DateTime { return new DateTime('now', new DateTimeZone('Africa/Cairo')); }
+function report_cairo_now(): DateTime { return new DateTime('now', market_tz()); }
 
 // One month's numbers.
 function month_report(string $month): array
@@ -28,7 +28,7 @@ function month_report(string $month): array
     $pdo = db();
     $valid = "status NOT IN ('Cancelled','Returned','Awaiting payment')";
     $now = report_cairo_now();
-    $first = new DateTime($month . '-01', new DateTimeZone('Africa/Cairo'));
+    $first = new DateTime($month . '-01', market_tz());
     $daysIn = (int) $first->format('t');
     $isCurrent = $now->format('Y-m') === $month;
     $daysSoFar = $isCurrent ? (int) $now->format('j') : $daysIn;

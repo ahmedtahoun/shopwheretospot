@@ -53,7 +53,10 @@ function paymob_checkout_url(int $orderId, string $method): string
     if (!$o) throw new ShopError('Order not found.');
     $due = round((float) $o['total'] - order_paid($orderId), 2);
     if ($due <= 0) throw new ShopError('This order is already paid.');
-    $cents = (int) round($due * 100);
+    // Paymob Egypt charges in EGP: outside Egypt the amount due is converted at the market's rate (api/market.php).
+    $rate = market_charge_rate();
+    if ($rate <= 0) throw new ShopError('Online payment is not available right now. Please choose cash on delivery.');
+    $cents = market_charge_cents($due, $rate);
 
     $parts = preg_split('/\s+/', trim((string) $o['customer'])) ?: [];
     $first = mb_substr($parts[0] ?? 'Customer', 0, 50);
@@ -62,7 +65,7 @@ function paymob_checkout_url(int $orderId, string $method): string
     $number = order_number($orderId);
     $body = [
         'amount' => $cents,
-        'currency' => 'EGP',
+        'currency' => market('charge_currency'),
         'payment_methods' => [$methods[$method]],
         // One line for the whole order, so discounts and delivery always add up to the amount.
         'items' => [['name' => mb_substr('Where To Spot order ' . $number, 0, 50), 'amount' => $cents, 'quantity' => 1,
@@ -70,7 +73,7 @@ function paymob_checkout_url(int $orderId, string $method): string
         'billing_data' => [
             'first_name' => $first, 'last_name' => $last, 'email' => $o['email'] ?: 'orders@wheretospot.com',
             'phone_number' => $o['phone'] ?: 'NA', 'street' => mb_substr($o['address'] ?: 'NA', 0, 200), 'building' => 'NA', 'floor' => 'NA',
-            'apartment' => 'NA', 'city' => $o['district'] ?: ($o['city'] ?: 'NA'), 'state' => $o['city'] ?: 'NA', 'country' => 'EG',
+            'apartment' => 'NA', 'city' => $o['district'] ?: ($o['city'] ?: 'NA'), 'state' => $o['city'] ?: 'NA', 'country' => market('code'),
         ],
         // Unique per attempt (Paymob refuses a reused reference); the order id is the part before the dash.
         'special_reference' => $ref = $number . '-' . bin2hex(random_bytes(3)),
@@ -81,6 +84,7 @@ function paymob_checkout_url(int $orderId, string $method): string
     // Remember the reference: order numbers can be reused after test orders are deleted, so a payment
     // only counts for the order whose own payment session it came from.
     db()->prepare("UPDATE orders SET pay_refs = TRIM(COALESCE(pay_refs, '') || ' ' || ?) WHERE id = ?")->execute([$ref, $orderId]);
+    market_remember_rate($ref, $rate);
     $res = paymob_request('POST', '/v1/intention/', $body);
     if (empty($res['client_secret'])) throw new ShopError('Paymob did not start the payment. Please try again or choose cash on delivery.');
     return $c['base_url'] . '/unifiedcheckout/?publicKey=' . rawurlencode($c['public_key']) . '&clientSecret=' . rawurlencode($res['client_secret']);
@@ -172,8 +176,8 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
     // online-payment orders (a reused number always gets references, and a cash order never takes Paymob money).
     $legacy = trim((string) $o['pay_refs']) === '' && strpos((string) $o['payment'], 'paymob_') === 0;
     if (!$legacy && ($ref === '' || !in_array($ref, preg_split('/\s+/', trim((string) $o['pay_refs'])), true))) {
-        log_activity(null, 'Online payment not matched', 'Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · EGP ' . number_format($amountCents / 100) . ' — check in Paymob');
-        ops_error('Paymob', 'Money received that doesn’t match an order: Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · EGP ' . number_format($amountCents / 100) . ' — check it in Paymob');
+        log_activity(null, 'Online payment not matched', 'Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · ' . market('charge_currency') . ' ' . number_format($amountCents / 100) . ' — check in Paymob');
+        ops_error('Paymob', 'Money received that doesn’t match an order: Paymob ' . ($ref ?: '(no reference)') . ' · txn ' . $txnId . ' · ' . market('charge_currency') . ' ' . number_format($amountCents / 100) . ' — check it in Paymob');
         return false;
     }
     tx_begin();
@@ -181,10 +185,12 @@ function paymob_record(int $orderId, string $txnId, int $amountCents, string $la
         $dupe = $pdo->prepare("SELECT 1 FROM payments WHERE order_id = ? AND method = 'paymob' AND note LIKE ?");
         $dupe->execute([$orderId, '%txn ' . $txnId]);
         if (!$dupe->fetchColumn()) {
-            add_payment($orderId, $amountCents / 100, 'paymob', mb_substr($label, 0, 120) . ' · txn ' . $txnId, null);
-            log_activity(null, 'Online payment received', order_number($orderId) . ' · EGP ' . number_format($amountCents / 100) . ' · ' . $label);
+            // In the shop's currency, at the rate this payment was started with (the same amount in Egypt).
+            $amount = market_received_amount($amountCents, $ref);
+            add_payment($orderId, $amount, 'paymob', mb_substr($label, 0, 120) . ' · txn ' . $txnId, null);
+            log_activity(null, 'Online payment received', order_number($orderId) . ' · ' . money($amount) . ' · ' . $label);
             // Thank the customer on WhatsApp and tell the team on Telegram (api/whatsapp.php), once per payment.
-            wa_payment_received($orderId, $amountCents / 100);
+            wa_payment_received($orderId, $amount);
         }
         tx_commit();
     } catch (Throwable $e) {

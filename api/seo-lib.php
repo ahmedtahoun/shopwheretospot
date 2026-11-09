@@ -87,7 +87,7 @@ function seo_auto_title(array $p, bool $ar): string
 // the product text fills any room left.
 function seo_auto_desc(array $p, bool $ar): string
 {
-    $money = function ($n) use ($ar) { return $ar ? number_format($n) . ' ج.م' : 'EGP ' . number_format($n); };
+    $money = function ($n) use ($ar) { return money($n, $ar); };
     $size = function ($l) use ($ar) { return $ar ? preg_replace(['/^Without NFC$/u', '/^With NFC$/u', '/\bkg\b/u', '/\bg\b/u', '/\bml\b/u', '/\bcm\b/u'], ['بدون NFC', 'مع NFC', 'كجم', 'جم', 'مل', 'سم'], $l) : $l; };
     $by = $p['brand'] !== SEO_SITE && mb_stripos($p['title'], $p['brand']) === false ? ($ar ? ' من ' : ' by ') . $p['brand'] : '';
     $lead = $p['title'] . $by;
@@ -108,7 +108,7 @@ function seo_auto_desc(array $p, bool $ar): string
             usort($sizes, function ($x, $y) { return $x['price'] <=> $y['price']; });
             // Two sizes: both prices. More: the range (the short line or description names the sizes).
             $price = count($sizes) > 2
-                ? ($ar ? 'من ' . number_format($p['low']) . ' إلى ' . $money($p['high']) : 'EGP ' . number_format($p['low']) . '–' . number_format($p['high']))
+                ? ($ar ? 'من ' . number_format($p['low']) . ' إلى ' . $money($p['high']) : market('cur_en') . ' ' . number_format($p['low']) . '–' . number_format($p['high']))
                 : implode(' · ', array_map(function ($s) use ($money, $size) { return $size($s['label']) . ' ' . $money($s['price']); }, $sizes));
         } else {
             $price = $p['was'] ? ($ar ? 'الآن ' . $money($p['low']) . ' بدلًا من ' . $money($p['was']) : 'Now ' . $money($p['low']) . ' (was ' . $money($p['was']) . ')') : $money($p['low']);
@@ -148,16 +148,16 @@ function seo_product_jsonld(array $p): array
     $seller = ['@type' => 'Organization', 'name' => SEO_SITE, 'url' => seo_base()];
     $shipping = [
         '@type' => 'OfferShippingDetails',
-        'shippingRate' => ['@type' => 'MonetaryAmount', 'value' => (float) cfg('shipping_fee'), 'currency' => 'EGP'],
-        'shippingDestination' => ['@type' => 'DefinedRegion', 'addressCountry' => 'EG'],
+        'shippingRate' => ['@type' => 'MonetaryAmount', 'value' => (float) cfg('shipping_fee'), 'currency' => market('currency')],
+        'shippingDestination' => ['@type' => 'DefinedRegion', 'addressCountry' => market('code')],
         'deliveryTime' => ['@type' => 'ShippingDeliveryTime',
             'handlingTime' => ['@type' => 'QuantitativeValue', 'minValue' => 0, 'maxValue' => 2, 'unitCode' => 'DAY'],
             'transitTime' => ['@type' => 'QuantitativeValue', 'minValue' => 1, 'maxValue' => 5, 'unitCode' => 'DAY']],
     ];
-    $returns = ['@type' => 'MerchantReturnPolicy', 'applicableCountry' => 'EG', 'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    $returns = ['@type' => 'MerchantReturnPolicy', 'applicableCountry' => market('code'), 'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
         'merchantReturnDays' => 14, 'returnMethod' => 'https://schema.org/ReturnByMail', 'returnFees' => 'https://schema.org/ReturnFeesCustomerResponsibility'];
     $offer = function (float $price, string $name = '', string $sku = '') use ($p, $avail, $seller, $shipping, $returns) {
-        return array_filter(['@type' => 'Offer', 'name' => $name ?: null, 'sku' => $sku ?: null, 'price' => $price, 'priceCurrency' => 'EGP',
+        return array_filter(['@type' => 'Offer', 'name' => $name ?: null, 'sku' => $sku ?: null, 'price' => $price, 'priceCurrency' => market('currency'),
             'availability' => $avail, 'itemCondition' => 'https://schema.org/NewCondition', 'url' => $p['url'], 'seller' => $seller,
             'shippingDetails' => $shipping, 'hasMerchantReturnPolicy' => $returns]);
     };
@@ -167,7 +167,7 @@ function seo_product_jsonld(array $p): array
         'brand' => ['@type' => 'Brand', 'name' => $p['brand']], 'url' => $p['url'],
     ];
     if (count($p['sizes']) > 1) {
-        $data['offers'] = ['@type' => 'AggregateOffer', 'priceCurrency' => 'EGP', 'lowPrice' => $p['low'], 'highPrice' => $p['high'],
+        $data['offers'] = ['@type' => 'AggregateOffer', 'priceCurrency' => market('currency'), 'lowPrice' => $p['low'], 'highPrice' => $p['high'],
             'offerCount' => count($p['sizes']), 'availability' => $avail,
             'offers' => array_map(function ($s) use ($offer, $p) { return $offer($s['price'], $p['title'] . ' — ' . $s['label'], $s['sku']); }, $p['sizes'])];
     } else {
@@ -179,7 +179,7 @@ function seo_product_jsonld(array $p): array
 // Plain-text facts used by the static product page, the feed and llms.txt.
 function seo_price_text(array $p, bool $ar = false): string
 {
-    $fmt = function ($n) use ($ar) { return $ar ? number_format($n) . ' ج.م' : 'EGP ' . number_format($n); };
+    $fmt = function ($n) use ($ar) { return money($n, $ar); };
     if (count($p['sizes']) > 1) return implode(' · ', array_map(function ($s) use ($fmt) { return $s['label'] . ': ' . $fmt($s['price']); }, $p['sizes']));
     return $fmt($p['low']) . ($p['cat'] === 'services' ? ($ar ? ' / شهريًا' : ' / month') : '');
 }
@@ -188,7 +188,7 @@ function seo_price_text(array $p, bool $ar = false): string
 function seo_org_jsonld(): array
 {
     return ['@context' => 'https://schema.org', '@type' => 'OnlineStore', 'name' => SEO_SITE, 'url' => seo_base(), 'logo' => seo_abs('images/logo-round.png?v=3'),
-        'email' => 'info@wheretospot.com', 'telephone' => '+20 127 766 0666', 'currenciesAccepted' => 'EGP', 'areaServed' => 'EG',
+        'email' => 'info@wheretospot.com', 'telephone' => market('phone_display'), 'currenciesAccepted' => market('currency'), 'areaServed' => market('code'),
         'address' => ['@type' => 'PostalAddress', 'streetAddress' => 'MQR, El Wahat Road', 'addressLocality' => '6th of October City', 'addressRegion' => 'Giza', 'addressCountry' => 'EG'],
         'sameAs' => ['https://instagram.com/wheretospot', 'https://facebook.com/wheretospot', 'https://tiktok.com/@wheretospot']];
 }
@@ -216,7 +216,7 @@ function seo_sitemap(): string
 function seo_feed(): string
 {
     $x = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0"><channel>' . "\n" .
-        '<title>' . SEO_SITE . '</title><link>' . seo_esc(seo_base()) . '</link><description>Where To Spot shop, Egypt. Prices in EGP.</description>' . "\n";
+        '<title>' . SEO_SITE . '</title><link>' . seo_esc(seo_base()) . '</link><description>Where To Spot shop, ' . market('country_en') . '. Prices in ' . market('currency') . '.</description>' . "\n";
     foreach (seo_products() as $p) {
         if ($p['cat'] === 'services') continue;
         $rows = count($p['sizes']) > 1 ? $p['sizes'] : [['label' => '', 'price' => $p['low'], 'stock' => $p['stock'], 'sku' => '']];
@@ -226,10 +226,10 @@ function seo_feed(): string
                 '<g:link>' . seo_esc($p['url']) . '</g:link>' . ($p['imageUrls'] ? '<g:image_link>' . seo_esc($p['imageUrls'][0]) . '</g:image_link>' : '') .
                 implode('', array_map(function ($u) { return '<g:additional_image_link>' . seo_esc($u) . '</g:additional_image_link>'; }, array_slice($p['imageUrls'], 1, 5))) .
                 '<g:availability>' . (($p['cat'] === 'services' || (count($p['sizes']) > 1 ? $s['stock'] : $p['stock']) > 0) ? 'in_stock' : 'out_of_stock') . '</g:availability>' .
-                '<g:price>' . number_format($s['price'], 2, '.', '') . ' EGP</g:price><g:condition>new</g:condition><g:brand>' . seo_esc($p['brand']) . '</g:brand>' .
+                '<g:price>' . number_format($s['price'], 2, '.', '') . ' ' . market('currency') . '</g:price><g:condition>new</g:condition><g:brand>' . seo_esc($p['brand']) . '</g:brand>' .
                 '<g:identifier_exists>no</g:identifier_exists><g:product_type>' . seo_esc($p['catLabel']) . '</g:product_type>' .
                 // Same as checkout: free delivery from the free-shipping amount, otherwise the delivery fee.
-                '<g:shipping><g:country>EG</g:country><g:price>' . number_format($s['price'] >= (float) cfg('free_shipping_threshold') ? 0 : (float) cfg('shipping_fee'), 2, '.', '') . ' EGP</g:price></g:shipping></item>' . "\n";
+                '<g:shipping><g:country>' . market('code') . '</g:country><g:price>' . number_format($s['price'] >= (float) cfg('free_shipping_threshold') ? 0 : (float) cfg('shipping_fee'), 2, '.', '') . ' ' . market('currency') . '</g:price></g:shipping></item>' . "\n";
         }
     }
     return $x . '</channel></rss>' . "\n";
@@ -244,7 +244,7 @@ function seo_llms(): string
         "acrylic display stands, Korean skincare, specialty coffee from partner roasters, and monthly lead-generation marketing plans. " .
         "All prices are in Egyptian Pounds (EGP). Delivery across Egypt in 2–5 days; cash on delivery, cards and mobile wallets accepted; 14-day returns.\n\n" .
         "- Shop: " . seo_base() . "/\n- Arabic shop: " . seo_base() . "/?lang=ar\n- Contact: info@wheretospot.com · +20 127 766 0666 · WhatsApp +20 127 766 0666\n" .
-        "- Delivery: EGP " . number_format($ship) . " across Egypt, free on orders over EGP " . number_format($free) . " (" . seo_base() . "/shipping-policy.html)\n" .
+        "- Delivery: " . money($ship) . " across " . market('country_en') . ", free on orders over " . money($free) . " (" . seo_base() . "/shipping-policy.html)\n" .
         "- Returns: 14 days (" . seo_base() . "/refund-policy.html)\n- Free tool: Google review link and QR code generator (" . seo_base() . "/google-review-link.html, Arabic: ?lang=ar). Paste any Google Maps link to get the business's official review link (g.page/r/…/review), checked with Google. Free: the review link and a review button for websites. QR cards: 2 free with an account, then 5 for EGP 300, 15 for EGP 750, 40 for EGP 1,600; each QR includes a business page (shop.wheretospot.com/r/…) with WhatsApp, Instagram, Facebook, TikTok, menu and location links.\n- Product feed: " . seo_base() . "/api/seo.php?f=feed\n\n";
     $byCat = [];
     foreach (seo_products() as $p) $byCat[$p['catLabel']][] = $p;

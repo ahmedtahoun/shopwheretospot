@@ -104,7 +104,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 58;
+const SCHEMA_VERSION = 59;
 
 function db(): PDO
 {
@@ -120,6 +120,9 @@ function db(): PDO
     // ("database is locked" was the intermittent "couldn't load data" error).
     $pdo->setAttribute(PDO::ATTR_TIMEOUT, 8);
     $pdo->exec('PRAGMA busy_timeout = 8000; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;');
+    // Each database belongs to one market (api/market.php): a shop never opens another country's data,
+    // e.g. the UAE shop before its own data_dir is set would otherwise fall back to Egypt's folder.
+    market_check_database($pdo, $dir);
     // Schema changes only run when the stored version is older than this code.
     if ((int) $pdo->query('PRAGMA user_version')->fetchColumn() < SCHEMA_VERSION) {
         $pdo->exec('PRAGMA journal_mode = WAL;');
@@ -409,7 +412,9 @@ function migrate(PDO $pdo): void
         revenue_target REAL NOT NULL DEFAULT 0,
         PRIMARY KEY (user_id, month)
     )");
-    if ((int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
+    // Egypt's starter catalogue, products and quick replies only go into Egypt's database; another market's shop
+    // (api/market.php) starts empty and the team adds its own.
+    if (market_is('EG') && (int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn() === 0) {
         seed_catalog($pdo);
     }
     // Partner brands: products another brand supplies; we sell them under their logo and keep a commission.
@@ -441,7 +446,7 @@ function migrate(PDO $pdo): void
     )");
     $prodCols = $pdo->query('PRAGMA table_info(products)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('brand_id', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN brand_id INTEGER DEFAULT NULL');
-    if (!(int) $pdo->query("SELECT COUNT(*) FROM brands WHERE slug = 'bonds'")->fetchColumn()) {
+    if (market_is('EG') && !(int) $pdo->query("SELECT COUNT(*) FROM brands WHERE slug = 'bonds'")->fetchColumn()) {
         $pdo->prepare("INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, logo, link, commission, sort) VALUES ('bonds', 'Bonds Coffee Roasters', 'بوندز لتحميص القهوة', 'Coffee roasters', 'محمصة قهوة', 'images/brands/bonds.png', 'https://www.instagram.com/bondscoffeeroasters', 20, 1)")->execute();
     }
     // Agreed commission with Bonds: 20% (only fills it in if it was never set).
@@ -471,7 +476,7 @@ function migrate(PDO $pdo): void
     $addCoffee = $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
         VALUES (?, ?, ?, 'coffee', 'Bonds Coffee Roasters', ?, 0, 10, 'Active', ?, ?, '[]', (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, ?, ?, (SELECT id FROM brands WHERE slug = 'bonds'))");
     $addPhoto = $pdo->prepare('INSERT INTO product_images (product_id, path, sort) VALUES (?, ?, 0)');
-    foreach ($bondsCoffees as [$id, $sku, $name, $price, $notes, $body, $nameAr, $notesAr, $bodyAr]) {
+    foreach (market_is('EG') ? $bondsCoffees : [] as [$id, $sku, $name, $price, $notes, $body, $nameAr, $notesAr, $bodyAr]) {
         $hasProduct->execute([$id]);
         if ((int) $hasProduct->fetchColumn()) continue;
         if (!(int) $pdo->query("SELECT COUNT(*) FROM categories WHERE key = 'coffee'")->fetchColumn()) {
@@ -484,7 +489,7 @@ function migrate(PDO $pdo): void
     }
     $addOrigin = $pdo->prepare("INSERT INTO products (id, sku, name, cat, vendor, price, cost, stock, status, sub, descr, features, sort, name_ar, sub_ar, desc_ar, brand_id)
         VALUES (?, ?, ?, 'coffee', 'Bonds Coffee Roasters', ?, 0, 10, 'Active', ?, ?, ?, (SELECT COALESCE(MAX(sort),0)+1 FROM products), ?, ?, ?, (SELECT id FROM brands WHERE slug = 'bonds'))");
-    foreach ($bondsOrigins as [$id, $sku, $name, $price, $notes, $region, $variety, $process, $nameAr, $notesAr, $regionAr, $varietyAr, $processAr]) {
+    foreach (market_is('EG') ? $bondsOrigins : [] as [$id, $sku, $name, $price, $notes, $region, $variety, $process, $nameAr, $notesAr, $regionAr, $varietyAr, $processAr]) {
         $hasProduct->execute([$id]);
         if ((int) $hasProduct->fetchColumn()) continue;
         $addOrigin->execute([$id, $sku, $name . ' — 1 kg', $price, '1 kg single-origin coffee beans · ' . $notes,
@@ -514,6 +519,10 @@ function migrate(PDO $pdo): void
     if (!in_array('margin_pct', $prodCols, true)) $pdo->exec('ALTER TABLE products ADD COLUMN margin_pct REAL DEFAULT NULL');
     $brandCols = $pdo->query('PRAGMA table_info(brands)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('margin', $brandCols, true)) $pdo->exec('ALTER TABLE brands ADD COLUMN margin REAL NOT NULL DEFAULT 0');
+    // A second commission for business quantities (e.g. Heff: 40% normally, 20% from 10 pieces in one order).
+    // Empty = one commission for every order, as before.
+    if (!in_array('commission_b2b', $brandCols, true)) $pdo->exec('ALTER TABLE brands ADD COLUMN commission_b2b REAL DEFAULT NULL');
+    if (!in_array('b2b_min_qty', $brandCols, true)) $pdo->exec('ALTER TABLE brands ADD COLUMN b2b_min_qty INTEGER DEFAULT NULL');
     // Bonds coffees: today's 1 kg price becomes the Bonds price; 250 g follows it as a quarter.
     foreach ($pdo->query("SELECT id, variants FROM products WHERE id LIKE 'bonds-%' AND brand_price = 0")->fetchAll() as $p) {
         $vs = json_decode((string) $p['variants'], true) ?: [];
@@ -537,9 +546,11 @@ function migrate(PDO $pdo): void
         if (!in_array($col, $prodCols, true)) $pdo->exec("ALTER TABLE products ADD COLUMN $col TEXT DEFAULT ''");
     }
     seed_product_texts($pdo);
-    seed_a_stand($pdo);
-    seed_qr_coasters($pdo);
-    seed_nfc_qr_stand($pdo);
+    if (market_is('EG')) {
+        seed_a_stand($pdo);
+        seed_qr_coasters($pdo);
+        seed_nfc_qr_stand($pdo);
+    }
     // WhatsApp inbox: chats (one per customer number), their messages, quick replies, small settings.
     $pdo->exec("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS wa_chats (
@@ -581,7 +592,7 @@ function migrate(PDO $pdo): void
     foreach (['wa_agent' => 'INTEGER NOT NULL DEFAULT 0', 'wa_away' => 'INTEGER NOT NULL DEFAULT 0', 'wa_last_assigned' => 'TEXT'] as $col => $type) {
         if (!in_array($col, $userCols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN $col $type");
     }
-    if (!(int) $pdo->query('SELECT COUNT(*) FROM wa_quick')->fetchColumn()) {
+    if (market_is('EG') && !(int) $pdo->query('SELECT COUNT(*) FROM wa_quick')->fetchColumn()) {
         $q = $pdo->prepare('INSERT INTO wa_quick (title, body, sort) VALUES (?, ?, ?)');
         foreach ([
             ['ترحيب', "أهلًا بحضرتك في Where To Spot 👋\nإزاي أقدر أساعدك؟", 1],
@@ -594,7 +605,7 @@ function migrate(PDO $pdo): void
     // The shop link in the quick replies: /ar shows a proper preview card in WhatsApp (see api/share-page.php).
     $pdo->prepare('UPDATE wa_quick SET body = ? WHERE body = ?')->execute(["تقدر تشوف كل المنتجات والأسعار هنا 👇\nhttps://shop.wheretospot.com/ar", "تقدر تشوف كل المنتجات والأسعار هنا: https://shop.wheretospot.com"]);
     // Short replies that move a chat to a sale (once; the team edits or deletes them in the inbox).
-    if (!wa_setting('quick_close')) {
+    if (market_is('EG') && !wa_setting('quick_close')) {
         $q = $pdo->prepare('INSERT INTO wa_quick (title, body, sort) VALUES (?, ?, (SELECT COALESCE(MAX(sort), 0) + 1 FROM wa_quick))');
         foreach ([
             ['❓ لنشاط إيه؟', 'تحبه لنشاط إيه؟ كافيه، مطعم، عيادة ولا محل؟ عشان أرشحلك الأنسب 😊'],
@@ -818,6 +829,7 @@ function seed_catalog(PDO $pdo): void
     }
 }
 
+require __DIR__ . '/market.php';
 require __DIR__ . '/mailer.php';
 require __DIR__ . '/pricing.php';
 require __DIR__ . '/bosta.php';
@@ -1093,12 +1105,12 @@ function promo_check(string $code, float $subtotal): array
     $st->execute([$code]);
     $p = $st->fetch();
     if (!$p || !(int) $p['active']) throw new ShopError('This promo code is not valid.');
-    $today = (new DateTime('now', new DateTimeZone('Africa/Cairo')))->format('Y-m-d');
+    $today = (new DateTime('now', market_tz()))->format('Y-m-d');
     if ($p['starts_at'] && $today < $p['starts_at']) throw new ShopError('This promo code is not active yet.');
     if ($p['expires_at'] && $today > $p['expires_at']) throw new ShopError('This promo code has expired.');
     if ($p['max_uses'] !== null && promo_uses($p['code']) >= (int) $p['max_uses']) throw new ShopError('This promo code has been fully used.');
     if ((float) $p['min_order'] > 0 && $subtotal > 0 && $subtotal < (float) $p['min_order'])
-        throw new ShopError('This code needs an order of EGP ' . number_format((float) $p['min_order']) . ' or more.');
+        throw new ShopError('This code needs an order of ' . money($p['min_order']) . ' or more.');
     if ($p['kind'] === 'shipping') return [$p, 0.0]; // free delivery: the order drops the delivery fee instead
     $discount = $p['kind'] === 'fixed' ? min($subtotal, (float) $p['value']) : round($subtotal * min(100, (float) $p['value']) / 100, 2);
     return [$p, round($discount, 2)];
@@ -1107,7 +1119,7 @@ function promo_check(string $code, float $subtotal): array
 function promo_label(array $p): string
 {
     if ($p['kind'] === 'shipping') return 'Free delivery';
-    return $p['kind'] === 'fixed' ? 'EGP ' . number_format((float) $p['value']) . ' off' : rtrim(rtrim(number_format((float) $p['value'], 2), '0'), '.') . '% off';
+    return $p['kind'] === 'fixed' ? money($p['value']) . ' off' : rtrim(rtrim(number_format((float) $p['value'], 2), '0'), '.') . '% off';
 }
 
 // ---------- payments ----------
