@@ -104,7 +104,7 @@ function tx_rollback(): void { if (!empty($GLOBALS['wts_tx'])) { $GLOBALS['wts_t
 function tx_active(): bool { return !empty($GLOBALS['wts_tx']); }
 
 // Bump whenever migrate() gains a new table/column so existing databases upgrade once.
-const SCHEMA_VERSION = 59;
+const SCHEMA_VERSION = 60;
 
 function db(): PDO
 {
@@ -523,6 +523,9 @@ function migrate(PDO $pdo): void
     // Empty = one commission for every order, as before.
     if (!in_array('commission_b2b', $brandCols, true)) $pdo->exec('ALTER TABLE brands ADD COLUMN commission_b2b REAL DEFAULT NULL');
     if (!in_array('b2b_min_qty', $brandCols, true)) $pdo->exec('ALTER TABLE brands ADD COLUMN b2b_min_qty INTEGER DEFAULT NULL');
+    // Where a brand that delivers its own orders hears about them (api/brands.php → brand_notify_order).
+    if (!in_array('order_emails', $brandCols, true)) $pdo->exec("ALTER TABLE brands ADD COLUMN order_emails TEXT DEFAULT ''");
+    if (!in_array('order_whatsapp', $brandCols, true)) $pdo->exec("ALTER TABLE brands ADD COLUMN order_whatsapp TEXT DEFAULT ''");
     // Bonds coffees: today's 1 kg price becomes the Bonds price; 250 g follows it as a quarter.
     foreach ($pdo->query("SELECT id, variants FROM products WHERE id LIKE 'bonds-%' AND brand_price = 0")->fetchAll() as $p) {
         $vs = json_decode((string) $p['variants'], true) ?: [];

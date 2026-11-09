@@ -173,6 +173,8 @@ function notify_order(int $id): void
         'subtotal' => (float) $o['subtotal'], 'discount' => (float) $o['discount'], 'promo' => $o['promo'], 'shipping' => (float) $o['shipping'],
         'total' => (float) $o['total'], 'rep' => $o['rep_name'] ?: null, 'source' => $o['source'], 'payment' => PAYMENT_METHODS[$o['payment']] ?? $o['payment'],
     ], json_decode($o['items'], true) ?: []);
+    // Partner brands that deliver themselves get their part of the order (api/brands.php).
+    try { brand_notify_order($o); } catch (Throwable $e) { ops_error('Partner brands', 'A brand wasn’t emailed about ' . order_number($id), $e); }
 }
 
 // The customer paid online (or switched to cash on delivery): the order becomes a normal new order,

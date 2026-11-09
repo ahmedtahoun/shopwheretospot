@@ -16,7 +16,8 @@ function brand_row(array $b, bool $admin = false): array
         'logo' => (string) $b['logo'], 'link' => (string) $b['link'],
     ];
     if ($admin) $out += ['commission' => (float) $b['commission'], 'margin' => (float) ($b['margin'] ?? 0), 'active' => (bool) $b['active'], 'sort' => (int) $b['sort'],
-        'commissionB2b' => isset($b['commission_b2b']) ? (float) $b['commission_b2b'] : null, 'b2bMinQty' => isset($b['b2b_min_qty']) ? (int) $b['b2b_min_qty'] : null];
+        'commissionB2b' => isset($b['commission_b2b']) ? (float) $b['commission_b2b'] : null, 'b2bMinQty' => isset($b['b2b_min_qty']) ? (int) $b['b2b_min_qty'] : null,
+        'orderEmails' => (string) ($b['order_emails'] ?? ''), 'orderWhatsapp' => (string) ($b['order_whatsapp'] ?? '')];
     return $out;
 }
 
@@ -116,4 +117,104 @@ function brand_balance(int $brandId): array
     $paid = brand_paid_out($brandId);
     return ['earned' => $all['deliveredDue'], 'paid' => $paid, 'owed' => round($all['deliveredDue'] - $paid, 2),
         'pending' => round($all['due'] - $all['deliveredDue'], 2), 'commissionAllTime' => $all['deliveredCommission']];
+}
+
+// ---------- telling a brand about its orders (partner brands that deliver themselves, e.g. Heff in the UAE) ----------
+// Each brand can have order emails (one or more) and a WhatsApp number (Partner brands → Edit brand). When an order
+// is confirmed (cash on delivery: when placed; online: once paid), each brand in it gets an email with only its
+// items, the customer, the address and what to collect. The order page also has "Send to <brand> on WhatsApp".
+
+function brand_contacts(array $b): array
+{
+    $emails = array_values(array_filter(array_map('trim', preg_split('/[\s,;]+/', (string) ($b['order_emails'] ?? ''))), function ($e) { return filter_var($e, FILTER_VALIDATE_EMAIL); }));
+    $wa = preg_replace('/\D/', '', (string) ($b['order_whatsapp'] ?? ''));
+    return ['emails' => $emails, 'whatsapp' => strlen($wa) >= 8 ? market_intl_digits($wa) : ''];
+}
+
+// The brands in an order, each with its own lines. 'only': every product in the order is this brand's.
+function brand_order_parts(array $o): array
+{
+    static $brands = [];
+    $lines = is_array($o['items']) ? $o['items'] : (json_decode((string) $o['items'], true) ?: []);
+    $parts = [];
+    $products = 0;
+    foreach ($lines as $l) {
+        if (($l['cat'] ?? '') === 'services' || ($l['id'] ?? '') === 'custom') continue;
+        $products++;
+        if (empty($l['brand'])) continue;
+        $id = (int) $l['brand'];
+        if (!array_key_exists($id, $brands)) $brands[$id] = brand_get($id);
+        if (!$brands[$id]) continue;
+        $parts[$id] = $parts[$id] ?? ['brand' => $brands[$id], 'lines' => [], 'pieces' => 0, 'value' => 0.0];
+        $parts[$id]['lines'][] = $l;
+        $parts[$id]['pieces'] += (int) $l['qty'];
+        $parts[$id]['value'] += (float) ($l['total'] ?? ((float) $l['price'] * (int) $l['qty']));
+    }
+    foreach ($parts as &$p) { $p['only'] = $p['pieces'] > 0 && count($p['lines']) === $products; $p['value'] = round($p['value'], 2); }
+    unset($p);
+    return array_values($parts);
+}
+
+// What the brand's courier collects: the order's balance when it's all theirs, else their items' value (mixed orders);
+// nothing when the order is paid.
+function brand_order_collect(array $o, array $part): float
+{
+    $due = max(0, round((float) $o['total'] - order_paid((int) $o['id']), 2));
+    if ($due <= 0) return 0.0;
+    return $part['only'] ? $due : min($due, $part['value']);
+}
+
+// The message for the brand (email text and WhatsApp), in English.
+function brand_order_text(array $o, array $part): string
+{
+    $number = order_number((int) $o['id']);
+    $collect = brand_order_collect($o, $part);
+    $where = trim(implode(', ', array_filter([(string) $o['address'], (string) ($o['district'] ?? ''), (string) $o['city']])));
+    $items = implode("\n", array_map(function ($l) { return '• ' . (int) $l['qty'] . '× ' . $l['name']; }, $part['lines']));
+    return 'New order ' . $number . ' from Where To Spot for ' . $part['brand']['name'] . "\n\n"
+        . $items . "\n\n"
+        . 'Customer: ' . $o['customer'] . "\n"
+        . 'Phone: ' . $o['phone'] . "\n"
+        . 'Address: ' . ($where ?: '—') . "\n"
+        . ($collect > 0 ? 'Collect on delivery: ' . money($collect) . ($part['only'] ? '' : ' (for these items; the order also has items from another seller)') : 'Paid online: collect nothing') . "\n"
+        . (trim((string) ($o['notes'] ?? '')) !== '' ? 'Note: ' . trim((string) $o['notes']) . "\n" : '')
+        . "\nPlease confirm, and tell us when it ships. Thank you!";
+}
+
+function brand_notify_order(array $o): void
+{
+    foreach (brand_order_parts($o) as $part) {
+        $to = brand_contacts($part['brand'])['emails'];
+        if (!$to) continue;
+        $number = order_number((int) $o['id']);
+        $collect = brand_order_collect($o, $part);
+        $where = trim(implode(', ', array_filter([(string) $o['address'], (string) ($o['district'] ?? ''), (string) $o['city']])));
+        $rows = implode('', array_map(function ($l) {
+            return '<tr><td style="padding:6px 0;border-bottom:1px solid #EFEAE3">' . (int) $l['qty'] . '× ' . h($l['name']) . '</td></tr>';
+        }, $part['lines']));
+        $html = email_shell('New order ' . $number . ' for ' . $part['brand']['name'],
+            '<p style="margin:0 0 4px"><b>' . h($o['customer']) . '</b></p>'
+            . '<p style="margin:0 0 4px"><a href="tel:' . h($o['phone']) . '" style="color:#22201D">' . h($o['phone']) . '</a></p>'
+            . '<p style="margin:0 0 16px;color:#6B6660">' . h($where ?: '—') . '</p>'
+            . '<table style="width:100%;border-collapse:collapse;font-size:14px">' . $rows . '</table>'
+            . '<p style="margin:16px 0 0;font-size:15px"><b>' . ($collect > 0 ? 'Collect on delivery: ' . h(money($collect)) : 'Paid online: collect nothing') . '</b>'
+            . ($collect > 0 && !$part['only'] ? '<br><span style="color:#6B6660;font-size:13px">For these items; the order also has items from another seller.</span>' : '') . '</p>'
+            . (trim((string) ($o['notes'] ?? '')) !== '' ? '<p style="margin:12px 0 0;white-space:pre-line;background:#F7F3ED;border-radius:10px;padding:12px 14px">' . h(trim((string) $o['notes'])) . '</p>' : '')
+            . '<p style="margin:18px 0 0">' . btn(wa_link((string) $o['phone']), 'WhatsApp customer', '#1F7A4D') . '</p>'
+            . '<p style="color:#6B6660;font-size:13px;margin:16px 0 0">Please confirm, and tell us when it ships. Thank you!</p>', 'brand');
+        send_mail_later($to, 'New order ' . $number . ' · ' . $part['pieces'] . ($part['pieces'] === 1 ? ' item' : ' items') . ' · ' . ($collect > 0 ? 'collect ' . money($collect) : 'paid'),
+            $html, brand_order_text($o, $part));
+    }
+}
+
+// For the order page: a WhatsApp link per brand that has a number, with the order's message ready to send.
+function brand_order_share(array $o): array
+{
+    $out = [];
+    foreach (brand_order_parts($o) as $part) {
+        $wa = brand_contacts($part['brand'])['whatsapp'];
+        if ($wa === '') continue;
+        $out[] = ['brand' => $part['brand']['name'], 'url' => 'https://wa.me/' . $wa . '?text=' . rawurlencode(brand_order_text($o, $part))];
+    }
+    return $out;
 }

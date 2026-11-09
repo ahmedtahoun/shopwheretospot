@@ -1760,11 +1760,16 @@ try {
             // B2B: both or neither (an empty box = one commission for every order).
             ':commission_b2b' => ($b['commissionB2b'] ?? '') === '' || ($b['commissionB2b'] ?? null) === null ? null : max(0, min(100, (float) $b['commissionB2b'])),
             ':b2b_min_qty' => (int) ($b['b2bMinQty'] ?? 0) > 0 ? min(100000, (int) $b['b2bMinQty']) : null];
+        $emails = array_values(array_filter(array_map('trim', preg_split('/[\s,;]+/', str_in($b['orderEmails'] ?? '', 300)))));
+        foreach ($emails as $em) if (!filter_var($em, FILTER_VALIDATE_EMAIL)) fail('“' . $em . '” isn’t a valid email address.');
+        $vals[':order_emails'] = implode(', ', $emails);
+        $vals[':order_whatsapp'] = str_in($b['orderWhatsapp'] ?? '', 40);
+        if ($vals[':order_whatsapp'] !== '' && strlen(preg_replace('/\D/', '', $vals[':order_whatsapp'])) < 8) fail('Enter the brand’s WhatsApp number with its country code, e.g. +971 50 123 4567.');
         if (($vals[':commission_b2b'] === null) !== ($vals[':b2b_min_qty'] === null)) fail('For a B2B commission, fill in both the B2B commission and from how many pieces it applies (or leave both empty).');
         $pdo = db();
         if ($id) {
             $vals[':id'] = $id;
-            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, margin=:margin, commission_b2b=:commission_b2b, b2b_min_qty=:b2b_min_qty, active=:active WHERE id=:id');
+            $st = $pdo->prepare('UPDATE brands SET name=:name, name_ar=:name_ar, tagline=:tagline, tagline_ar=:tagline_ar, about=:about, about_ar=:about_ar, link=:link, commission=:commission, margin=:margin, commission_b2b=:commission_b2b, b2b_min_qty=:b2b_min_qty, order_emails=:order_emails, order_whatsapp=:order_whatsapp, active=:active WHERE id=:id');
             $st->execute($vals);
             if (!$st->rowCount() && !brand_get($id)) fail('Brand not found.', 404);
         } else {
@@ -1774,7 +1779,7 @@ try {
             while (true) { $chk->execute([$slug]); if (!$chk->fetchColumn()) break; $slug = $base . '-' . (++$n); }
             $vals[':slug'] = $slug;
             $vals[':sort'] = (int) $pdo->query('SELECT COALESCE(MAX(sort),0)+1 FROM brands')->fetchColumn();
-            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, margin, commission_b2b, b2b_min_qty, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :margin, :commission_b2b, :b2b_min_qty, :active, :sort)')->execute($vals);
+            $pdo->prepare('INSERT INTO brands (slug, name, name_ar, tagline, tagline_ar, about, about_ar, link, commission, margin, commission_b2b, b2b_min_qty, order_emails, order_whatsapp, active, sort) VALUES (:slug, :name, :name_ar, :tagline, :tagline_ar, :about, :about_ar, :link, :commission, :margin, :commission_b2b, :b2b_min_qty, :order_emails, :order_whatsapp, :active, :sort)')->execute($vals);
             $id = (int) $pdo->lastInsertId();
         }
         $repriced = reprice_brand_products($id); // a new margin changes its products' shop prices
@@ -2239,6 +2244,8 @@ function order_out(array $o): array
         'bostaCod' => $o['bosta_cod'] === null ? null : (float) $o['bosta_cod'], 'bostaUpdatedAt' => $o['bosta_updated_at'],
         // Review request after delivery (api/review-requests.php).
         'rateUrl' => $o['status'] === 'Delivered' ? review_url($o) : null, 'reviewAskedAt' => $o['review_asked_at'] ?? null, 'lang' => (string) ($o['lang'] ?? ''),
+        // Partner brands that deliver this order themselves: "Send to <brand> on WhatsApp" (api/brands.php).
+        'brandShare' => strpos((string) $o['items'], '"brand"') !== false ? brand_order_share($o) : [],
     ];
 }
 

@@ -122,7 +122,7 @@ function email_shell(string $title, string $inner, string $for = 'team'): string
         . '<div style="max-width:560px;margin:0 auto;padding:24px 16px"><div style="background:#fff;border:1px solid #DDD6CC;border-radius:14px;padding:24px">'
         . '<div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#A8552F;font-weight:bold">Where To Spot shop</div>'
         . '<h1 style="font-size:22px;margin:6px 0 16px">' . h($title) . '</h1>' . $inner
-        . '</div><p style="font-size:12px;color:#8A8478;text-align:center">' . ($for === 'customer' ? 'Where To Spot · ' . preg_replace('#^https?://#', '', rtrim((string) cfg('site_url'), '/')) . ' · ' . market('phone_display') : 'Sent automatically by your shop. Change who receives these in Dashboard → Team.') . '</p></div></body></html>';
+        . '</div><p style="font-size:12px;color:#8A8478;text-align:center">' . ($for === 'brand' ? 'Where To Spot · ' . preg_replace('#^https?://#', '', rtrim((string) cfg('site_url'), '/')) . ' · an order you deliver for us. Reply to this email with any question.' : '') . ($for === 'customer' ? 'Where To Spot · ' . preg_replace('#^https?://#', '', rtrim((string) cfg('site_url'), '/')) . ' · ' . market('phone_display') : ($for === 'brand' ? '' : 'Sent automatically by your shop. Change who receives these in Dashboard → Team.')) . '</p></div></body></html>';
 }
 
 function btn(string $href, string $label, string $bg = '#A8552F'): string

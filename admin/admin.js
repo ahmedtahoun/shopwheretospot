@@ -723,6 +723,9 @@
           : 'أهلًا ' + o.customer.split(/\s+/)[0] + ' 👋 معاك ' + S.user.name.split(' ')[0] + ' من Where To Spot. نتمنى يكون طلبك ' + o.number + ' وصل وعجبك! لو عندك دقيقة قيّمه من هنا ⭐ ' + o.rateUrl) + '">' + icon('chat') + 'Ask on WhatsApp</a>' : '') +
         '<button type="button" class="btn sm" id="oRateCopy">Copy link</button></div>' : '') +
       bostaSection(o, bosta) +
+      // Partner brands that deliver this order themselves: their part, ready to send on WhatsApp (they also get it by email).
+      ((o.brandShare || []).length ? '<div class="card row" style="gap:10px;flex-wrap:wrap"><span><b>🤝 Brand delivers</b> <span class="small muted">their items, the customer, the address and what to collect</span></span><span class="spacer"></span>' +
+        o.brandShare.map((s) => '<a class="btn sm wa" target="_blank" rel="noopener" href="' + esc(s.url) + '">Send to ' + esc(s.brand) + ' on WhatsApp</a>').join('') + '</div>' : '') +
       ((o.businessName || o.reviewLink || o.links || o.designNotes) ? '<div class="card small"><b>Print details from the customer</b><div class="muted" style="white-space:pre-line;margin-top:4px">' +
         esc([o.businessName, o.reviewLink, o.links, o.designNotes].filter(Boolean).join('\n')) + '</div></div>' : '') +
       '<form id="of" class="stack">' +
@@ -3691,6 +3694,8 @@
       '<label class="field">Your margin (%) <span class="hint">Added on top of the brand’s price for all its products (a product can have its own)</span><input name="margin" type="number" min="0" max="500" step="0.5" value="' + esc(b.margin || '') + '" placeholder="e.g. 25"></label></div>' +
       '<div class="grid2"><label class="field">B2B commission (%) <span class="hint">Optional: your share on business quantities, if it’s different</span><input name="commissionB2b" type="number" min="0" max="100" step="0.5" value="' + esc(b.commissionB2b ?? '') + '" placeholder="e.g. 20"></label>' +
       '<label class="field">B2B from (pieces) <span class="hint">An order with this many of the brand’s pieces or more gets the B2B commission</span><input name="b2bMinQty" type="number" min="1" step="1" value="' + esc(b.b2bMinQty ?? '') + '" placeholder="e.g. 10"></label></div>' +
+      '<div class="grid2"><label class="field">Order emails <span class="hint">If the brand delivers its own orders: each confirmed order with its items goes here (several: separate with commas)</span><input name="orderEmails" maxlength="300" dir="ltr" value="' + esc(b.orderEmails || '') + '" placeholder="orders@brand.com"></label>' +
+      '<label class="field">Order WhatsApp <span class="hint">Adds “Send to the brand on WhatsApp” to its orders</span><input name="orderWhatsapp" maxlength="40" dir="ltr" value="' + esc(b.orderWhatsapp || '') + '" placeholder="+971 50 123 4567"></label></div>' +
       '<label class="field">Instagram or website<input name="link" type="url" value="' + esc(b.link) + '" placeholder="https://instagram.com/…"></label>' +
       '<div class="grid2"><label class="field">Short line <span class="hint">Under the name, e.g. Specialty coffee roasters</span><input name="tagline" maxlength="120" value="' + esc(b.tagline) + '"></label>' +
       '<label class="field">Short line in Arabic<input name="taglineAr" dir="rtl" maxlength="120" value="' + esc(b.taglineAr) + '"></label></div>' +
