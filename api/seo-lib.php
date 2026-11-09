@@ -232,7 +232,7 @@ function seo_feed(): string
                 '<g:shipping><g:country>' . market('code') . '</g:country><g:price>' . number_format($s['price'] >= (float) cfg('free_shipping_threshold') ? 0 : (float) cfg('shipping_fee'), 2, '.', '') . ' ' . market('currency') . '</g:price></g:shipping></item>' . "\n";
         }
     }
-    return $x . '</channel></rss>' . "\n";
+    return market_text($x . '</channel></rss>' . "\n"); // another market's wording (api/market-pages.php)
 }
 
 // llms.txt: what the shop is and sells, in plain words, with links — for ChatGPT, Claude, Perplexity etc.
@@ -262,7 +262,7 @@ function seo_llms(): string
         foreach ($brands as $b) $t .= "- " . $b['name'] . ": " . trim($b['about'] ?: $b['tagline']) . " Products: " . seo_base() . "/?brand=" . $b['slug'] . "\n";
         $t .= "\n";
     }
-    return $t;
+    return market_text($t); // another market's wording (api/market-pages.php)
 }
 
 // Keep /sitemap.xml and /llms.txt at the site root up to date (called after catalog changes).

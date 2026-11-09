@@ -833,6 +833,7 @@ function seed_catalog(PDO $pdo): void
 }
 
 require __DIR__ . '/market.php';
+require __DIR__ . '/market-pages.php';
 require __DIR__ . '/mailer.php';
 require __DIR__ . '/pricing.php';
 require __DIR__ . '/bosta.php';

@@ -32,8 +32,18 @@ const PAGE_AR = [
 
 $key = preg_replace('/[^a-z-]/', '', (string) ($_GET['f'] ?? ''));
 $page = PAGE_AR[$key] ?? null;
-$html = $page ? @file_get_contents(dirname(__DIR__) . '/' . $page['file']) : false;
+// Another market's shop (api/market-pages.php): a page written for it if there is one, and the English pages
+// come here too (see the main .htaccess), so they get its wording.
+$own = market_file($key);
+$html = $own ? @file_get_contents($own) : ($page ? @file_get_contents(dirname(__DIR__) . '/' . $page['file']) : false);
 if ($html === false) { http_response_code(404); exit('Not found'); }
+if (($_GET['lang'] ?? '') !== 'ar') {
+    if (market_is('EG')) { header('Location: /' . ($key === 'index' ? '' : $page['file']), true, 301); exit; }
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: public, max-age=300');
+    echo market_page($html, $key, false);
+    exit;
+}
 
 $base = rtrim((string) cfg('site_url'), '/') . '/' . ($key === 'index' ? '' : $page['file']);
 $url = $base . '?lang=ar';
@@ -61,4 +71,4 @@ if ($key === 'index') $html = preg_replace('/<section lang="en">.*?<\/section>/s
 header('Content-Type: text/html; charset=utf-8');
 header('Content-Language: ar');
 header('Cache-Control: public, max-age=300');
-echo $html;
+echo market_page($html, $key, true);

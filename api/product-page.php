@@ -9,6 +9,7 @@ require __DIR__ . '/bootstrap.php';
 
 $id = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($_GET['id'] ?? ''));
 $ar = ($_GET['lang'] ?? '') === 'ar';
+market_buffer_page('product', $ar); // another market's wording (api/market-pages.php); nothing in Egypt
 $product = null;
 foreach (seo_products($ar) as $p) if ($p['id'] === $id) { $product = $p; break; }
 

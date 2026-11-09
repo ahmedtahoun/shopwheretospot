@@ -7,6 +7,7 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
 $ar = ($_GET['lang'] ?? '') === 'ar';
+market_buffer_page('category', $ar); // another market's wording (api/market-pages.php); nothing in Egypt
 $catKey = preg_replace('/[^a-z0-9_-]/', '', (string) ($_GET['c'] ?? ''));
 $brandSlug = preg_replace('/[^a-z0-9_-]/', '', (string) ($_GET['b'] ?? ''));
 $L = function ($en, $arText) use ($ar) { return $ar ? $arText : $en; };

@@ -21,7 +21,7 @@ try {
         $en = seo_lookups(false); $arL = seo_lookups(true);
         $products = array_map(function ($p) use ($en, $arL) {
             $e = seo_item($p, false, ...$en); $a = seo_item($p, true, ...$arL);
-            $p['seo'] = ['en' => [$e['seoTitle'], $e['seoDesc']], 'ar' => [$a['seoTitle'], $a['seoDesc']]];
+            $p['seo'] = ['en' => [market_text($e['seoTitle']), market_text($e['seoDesc'])], 'ar' => [market_text($a['seoTitle']), market_text($a['seoDesc'])]];
             unset($p['cost'], $p['createdAt'], $p['updatedAt'], $p['brandPrice'], $p['marginPct'], $p['seoTitle'], $p['seoTitleAr'], $p['seoDesc'], $p['seoDescAr']);
             $p['variants'] = array_map(function ($v) { unset($v['brandPrice']); return $v; }, $p['variants']);
             return $p;

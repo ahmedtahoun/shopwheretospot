@@ -10,6 +10,14 @@ Options -Indexes
 # server (api/page.php) so they reach search engines as real Arabic pages. Everything else is served as before.
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # The UAE shop (uae.wheretospot.com, api/market.php): its pages go through api/page.php for the UAE wording,
+  # in English too; Egypt-only pages send UAE visitors to the shop. shop.wheretospot.com never matches these.
+  RewriteCond %{HTTP_HOST} ^uae\. [NC]
+  RewriteRule ^(plans|google-review-link)\.html$ / [R=302,L]
+  RewriteCond %{HTTP_HOST} ^uae\. [NC]
+  RewriteRule ^(index\.html)?$ /api/page.php?f=index [L,QSA]
+  RewriteCond %{HTTP_HOST} ^uae\. [NC]
+  RewriteRule ^(about|contact|sell|privacy-policy|refund-policy|shipping-policy|terms)\.html$ /api/page.php?f=$1 [L,QSA]
   RewriteCond %{QUERY_STRING} (^|&)lang=ar(&|$)
   RewriteRule ^(index\.html)?$ /api/page.php?f=index [L,QSA]
   RewriteCond %{QUERY_STRING} (^|&)lang=ar(&|$)
