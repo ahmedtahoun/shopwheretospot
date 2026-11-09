@@ -414,7 +414,7 @@ class Component extends DCLogic {
     this.setState({ product, related, inventory: inv, variantId, ...(first ? { wishlist: mod.loadWishlist(), recent: mod.pushRecent(product.id) } : {}) });
     if (first) this.loadReviews(product.id);
     // Ad tracking (api/track.php): the product was seen.
-    if (first) { const pr = mod.salePrice ? mod.salePrice(product) : product.price; (window.wtsQ = window.wtsQ || []).push(['ViewContent', { currency: 'EGP', value: pr, content_category: product.cat, contents: [{ id: product.id, name: product.name, quantity: 1, item_price: pr }] }]); }
+    if (first) { const pr = mod.salePrice ? mod.salePrice(product) : product.price; (window.wtsQ = window.wtsQ || []).push(['ViewContent', { currency: mod.shopCurrency ? mod.shopCurrency() : 'EGP', value: pr, content_category: product.cat, contents: [{ id: product.id, name: product.name, quantity: 1, item_price: pr }] }]); }
     if (first || final) this.updateShareMeta(product, mod);
     return true;
   }
@@ -481,7 +481,7 @@ class Component extends DCLogic {
     this._sd.saveCart(priced);
     const line = priced.find(i => (i.key || this._sd.lineKey(i.id, i.variant, i.addons)) === key);
     const unit = line ? line.price : p.price;
-    (window.wtsQ = window.wtsQ || []).push(['AddToCart', { currency: 'EGP', value: Math.round(unit * this.state.qty * 100) / 100, contents: [{ id: p.id, name: p.name, quantity: this.state.qty, item_price: unit }] }]);
+    (window.wtsQ = window.wtsQ || []).push(['AddToCart', { currency: this._sd && this._sd.shopCurrency ? this._sd.shopCurrency() : 'EGP', value: Math.round(unit * this.state.qty * 100) / 100, contents: [{ id: p.id, name: p.name, quantity: this.state.qty, item_price: unit }] }]);
     this.setState({ added: true });
     this.showToast('Added to cart ✓');
     setTimeout(() => this.setState({ added: false }), 2400);

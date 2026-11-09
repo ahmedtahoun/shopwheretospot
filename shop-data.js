@@ -30,9 +30,10 @@ export const SEED_PRODUCTS = [
 const DAY = 86400000;
 export const EGYPT_CITIES = ['Cairo', 'Giza', 'Alexandria', 'Qalyubia', 'Dakahlia', 'Sharqia', 'Gharbia', 'Monufia', 'Beheira', 'Kafr El Sheikh', 'Damietta', 'Port Said', 'Ismailia', 'Suez', 'Fayoum', 'Beni Suef', 'Minya', 'Assiut', 'Sohag', 'Qena', 'Luxor', 'Aswan', 'Red Sea', 'New Valley', 'Matrouh', 'North Sinai', 'South Sinai'];
 
-// Delivery — keep in sync with shipping-policy.html
-export const SHIPPING_FEE = 75;
-export const FREE_SHIPPING_THRESHOLD = 1500;
+// Delivery — keep in sync with shipping-policy.html. Another market's shop sends its own with the catalog
+// (see setShopCurrency below); the server always works out the real fee at checkout.
+export let SHIPPING_FEE = 75;
+export let FREE_SHIPPING_THRESHOLD = 1500;
 export function isPhysical(item) { return item.cat !== 'services'; }
 export function shippingFor(cart) {
   const physical = cart.filter(isPhysical).reduce((sum, i) => sum + i.price * i.qty, 0);
@@ -81,7 +82,22 @@ export function saveCurrencyCode(code) {
 // Arabic shop (see i18n.js): Arabic names from the dashboard, prices as "1,650 ج.م".
 export const LANG = (typeof window !== 'undefined' && window.WTS_LANG) || 'en';
 export const AR = LANG === 'ar';
+// The shop's own currency (api/market.php). shop.wheretospot.com is in EGP; another market's shop (the UAE: AED)
+// sends its currency with the catalog, and prices there show as "AED 60" / "60 د.إ".
+let SHOP_CUR = null;
+export function shopCurrency() { return SHOP_CUR ? SHOP_CUR.code : 'EGP'; }
+function setShopCurrency(m) {
+  if (!m || !m.currency) return;
+  SHOP_CUR = { code: m.currency, en: m.cur_en || m.currency, ar: m.cur_ar || m.currency };
+  if (typeof m.shipping_fee === 'number') SHIPPING_FEE = m.shipping_fee;
+  if (typeof m.free_over === 'number') FREE_SHIPPING_THRESHOLD = m.free_over;
+  if (typeof window !== 'undefined') window.WTS_SHOP_CUR = SHOP_CUR; // for chat.js
+}
 export function fmtPrice(n, code) {
+  if (SHOP_CUR && (!code || code === SHOP_CUR.code)) {
+    const v = Math.round(n || 0).toLocaleString('en-US');
+    return AR ? v + ' ' + SHOP_CUR.ar : SHOP_CUR.en + ' ' + v;
+  }
   // Storefront always shows EGP; only the admin passes another code explicitly.
   const cc = code || 'EGP';
   const cur = CURRENCIES.find(c => c.code === cc) || CURRENCIES[0];
@@ -356,6 +372,7 @@ export let BRANDS = [];
 // and the fresh one replaces it a moment later.
 const CATALOG_KEY = 'wts_catalog_v1';
 function applyCatalog(data) {
+  setShopCurrency(data.market);
   // In Arabic, use the Arabic names where the team filled them in; keep the English ones for search.
   CATEGORIES = data.categories.map(c => AR ? { ...c, labelEn: c.label, label: c.labelAr || c.label, desc: c.descAr || c.desc } : c);
   if (data.payments) PAYMENTS = data.payments;

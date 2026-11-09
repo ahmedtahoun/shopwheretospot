@@ -1755,7 +1755,7 @@ class Component extends DCLogic {
   // Ad tracking (api/track.php): events in Meta's names, passed on to GA4 there.
   track = (ev, p, id) => { (window.wtsQ = window.wtsQ || []).push([ev, p || {}, id || '']); };
   trackLines = (lines) => lines.filter(i => i.id && i.id !== 'custom').map(i => ({ id: i.id, name: i.name, quantity: i.qty, item_price: i.price }));
-  trackCart = (lines) => ({ currency: 'EGP', value: Math.round(lines.reduce((t, i) => t + (i.total != null ? i.total : i.price * i.qty), 0) * 100) / 100, contents: this.trackLines(lines), num_items: lines.reduce((t, i) => t + i.qty, 0) });
+  trackCart = (lines) => ({ currency: this._sd ? this._sd.shopCurrency() : 'EGP', value: Math.round(lines.reduce((t, i) => t + (i.total != null ? i.total : i.price * i.qty), 0) * 100) / 100, contents: this.trackLines(lines), num_items: lines.reduce((t, i) => t + i.qty, 0) });
   _persistCart = (cart) => {
     if (!this._sd) return cart;
     const priced = this.state.inventory.length ? this._sd.repriceCart(cart, this.state.inventory) : cart;
@@ -1772,7 +1772,7 @@ class Component extends DCLogic {
       const cart = existing ? s.cart.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i) : [...s.cart, { key, id: p.id, variant, addons: [], name: p.name, price: p.price, cat: p.cat, qty: 1 }];
       return { cart: this._persistCart(cart), cartOpen: true, checkoutStep: 'cart' };
     });
-    this.track('AddToCart', { currency: 'EGP', value: p.price, contents: [{ id: p.id, name: p.name, quantity: 1, item_price: p.price }] });
+    this.track('AddToCart', { currency: this._sd ? this._sd.shopCurrency() : 'EGP', value: p.price, contents: [{ id: p.id, name: p.name, quantity: 1, item_price: p.price }] });
   };
   incItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i)) }));
   decItem = (key) => () => this.setState(s => ({ cart: this._persistCart(s.cart.map(i => i.key === key ? { ...i, qty: Math.max(1, i.qty - 1) } : i)) }));
@@ -1961,7 +1961,7 @@ class Component extends DCLogic {
       const r = await this._sd.postJSON('pay_cod', { number, contact });
       this.setState({ placing: false, payResult: 'cod', orderNumber: r.number, orderTotal: r.total });
       let pp = null; try { pp = JSON.parse(sessionStorage.getItem('wts_purchase') || 'null'); sessionStorage.removeItem('wts_purchase'); } catch (e) {}
-      this.track('Purchase', { ...(pp && pp.number === r.number ? pp.data : { currency: 'EGP' }), value: r.total }, 'order-' + r.number);
+      this.track('Purchase', { ...(pp && pp.number === r.number ? pp.data : { currency: this._sd ? this._sd.shopCurrency() : 'EGP' }), value: r.total }, 'order-' + r.number);
     } catch (err) { this.setState({ placing: false }); this.showToast(err.message); }
   };
   submitInfo = async (e) => {

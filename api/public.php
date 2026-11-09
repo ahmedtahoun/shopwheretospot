@@ -29,7 +29,10 @@ try {
         // Partner brands that have something on sale (logo + name show on their products).
         $used = array_flip(array_filter(array_map(function ($p) { return $p['brandId']; }, $products)));
         $brands = array_values(array_filter(load_brands(true), function ($b) use ($used) { return isset($used[$b['id']]); }));
-        json_out(['categories' => $cats, 'products' => $products, 'brands' => $brands, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]], 200, paymob_is_test() ? 0 : 60);
+        json_out(['categories' => $cats, 'products' => $products, 'brands' => $brands, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]]
+            // Outside Egypt the storefront shows the shop's own currency (shop-data.js → fmtPrice).
+            + (market_is('EG') ? [] : ['market' => ['currency' => market('currency'), 'cur_en' => market('cur_en'), 'cur_ar' => market('cur_ar'),
+                'shipping_fee' => (float) cfg('shipping_fee'), 'free_over' => (float) cfg('free_shipping_threshold')]]), 200, paymob_is_test() ? 0 : 60);
     }
 
     // The cart behind a "complete your order" link (?restore=…): products only (api/abandoned.php).
