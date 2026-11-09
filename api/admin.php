@@ -807,7 +807,7 @@ try {
 
     case 'bosta_info':
         require_perm('orders');
-        if (!bosta_enabled()) json_out(['enabled' => false]);
+        if (!bosta_enabled()) json_out(['enabled' => false, 'market' => market('code')]);
         $locations = [];
         $locError = null;
         try { $locations = bosta_locations(); } catch (Throwable $e) { $locError = $e->getMessage(); }

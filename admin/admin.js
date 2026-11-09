@@ -626,6 +626,8 @@
   }
 
   function bostaSection(o, bosta) {
+    // Outside Egypt there's no Bosta: partner brands deliver, and the team updates the status by hand.
+    if (!bosta.enabled && bosta.market && bosta.market !== 'EG') return '<div class="card small muted">🚚 Delivered by the brand. Change the status here when it’s shipped and when it’s delivered.</div>';
     if (!bosta.enabled) return '<div class="card small muted">🚚 Bosta shipping isn’t connected yet — add your Bosta API key in <code>api/config.local.php</code>.</div>';
     const physical = o.items.some((it) => it.cat !== 'services');
     if (o.tracking) {

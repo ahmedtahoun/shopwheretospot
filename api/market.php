@@ -72,6 +72,17 @@ function money($amount, bool $ar = false): string
     return $ar ? number_format((float) $amount) . ' ' . market('cur_ar') : market('cur_en') . ' ' . number_format((float) $amount);
 }
 
+// Delivery areas outside Egypt (Egypt uses Bosta's list, api/bosta.php): api/areas-<code>.php, in Bosta's shape.
+function market_areas(): array
+{
+    static $areas = null;
+    if ($areas === null) {
+        $file = __DIR__ . '/areas-' . strtolower((string) market('code')) . '.php';
+        $areas = is_file($file) ? (array) require $file : [];
+    }
+    return $areas;
+}
+
 function market_tz(): DateTimeZone
 {
     return new DateTimeZone((string) market('timezone'));

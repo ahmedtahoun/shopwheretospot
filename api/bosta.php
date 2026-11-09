@@ -77,6 +77,8 @@ function bosta_cache(string $name, int $ttl, callable $load)
 // Cities and districts Bosta delivers to. Public endpoint, cached for a day.
 function bosta_areas(): array
 {
+    // Another market's shop has its own delivery list (api/market.php), not Bosta's Egyptian one.
+    if (!market_is('EG')) return market_areas();
     return bosta_cache('areas-v2', 86400, function () {
         $res = bosta_request('GET', '/cities/getAllDistricts?countryId=' . BOSTA_EGYPT, null, false);
         $out = [];
