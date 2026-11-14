@@ -27,7 +27,8 @@
     clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = ''; }, Math.max(2600, String(msg).length * 55)); // longer messages stay longer
   }
 
-  async function api(action, { method = 'GET', body, query = '', form } = {}) {
+  // wait: how long a read may take (ms); a long one (the Instagram & Messenger test) isn't retried, so it never runs twice.
+  async function api(action, { method = 'GET', body, query = '', form, wait = 20000 } = {}) {
     const opts = { method, credentials: 'same-origin', headers: {} };
     if (method !== 'GET') opts.headers['X-CSRF-Token'] = S.csrf || '';
     if (form) opts.body = form;
@@ -38,12 +39,12 @@
       try {
         // A read gives up after 20 s, so one left hanging while the phone slept can't freeze a page that refreshes itself.
         const ctl = method === 'GET' && window.AbortController ? new AbortController() : null;
-        const tm = ctl ? setTimeout(() => ctl.abort(), 20000) : 0;
+        const tm = ctl ? setTimeout(() => ctl.abort(), wait) : 0;
         try { res = await fetch(API + '?action=' + action + query, ctl ? { ...opts, signal: ctl.signal } : opts); } finally { clearTimeout(tm); }
-        if (method === 'GET' && res.status >= 500 && attempt === 0) { await new Promise((r) => setTimeout(r, 700)); continue; }
+        if (method === 'GET' && res.status >= 500 && attempt === 0 && wait <= 20000) { await new Promise((r) => setTimeout(r, 700)); continue; }
         break;
       } catch (e) {
-        if (method !== 'GET' || attempt > 0) throw new Error('Could not reach the server — check your internet connection and try again.');
+        if (method !== 'GET' || attempt > 0 || wait > 20000) throw new Error(wait > 20000 ? 'No answer from the server in time. Try again in a minute.' : 'Could not reach the server — check your internet connection and try again.');
         await new Promise((r) => setTimeout(r, 700));
       }
     }
@@ -2882,7 +2883,13 @@
   async function waSettings(test) {
     const box = $('#waSettings'); if (!box) return;
     let d;
-    try { d = await api('wa_settings', { query: test ? '&test=1' : '' }); } catch (e) { box.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+    try { d = await api('wa_settings', { query: test ? '&test=1' : '', wait: test ? 150000 : 20000 }); } catch (e) {
+      box.innerHTML = '<div class="err">' + esc(e.message) + '</div>';
+      // The Instagram & Messenger tab shows the WhatsApp box hidden: put the button back and say what went wrong there too.
+      const t = $('#smTest'); if (t) { t.disabled = false; t.textContent = 'Test Instagram & Messenger'; }
+      if (test) toast('The test didn’t finish: ' + e.message, true);
+      return;
+    }
     const ok = (b) => b ? '<span class="pill good">✓</span>' : '<span class="pill bad">✕ Missing</span>';
     const mb = (b) => b == null ? '—' : b > 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : Math.round(b / 1048576) + ' MB';
     box.innerHTML = '<h2>WhatsApp<span class="spacer"></span>' + (d.ready ? '<span class="pill good">✓ Connected</span>' : '<span class="pill warn">Not connected yet</span>') + '</h2>' +

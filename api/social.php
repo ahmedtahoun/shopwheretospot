@@ -164,7 +164,7 @@ function sm_call(string $method, string $path, ?array $body, string $token): arr
     $ch = curl_init($base . $path);
     $headers = ['Authorization: Bearer ' . $token, 'Accept: application/json'];
     if ($body !== null) $headers[] = 'Content-Type: application/json';
-    curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 40, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_HTTPHEADER => $headers,
+    curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => (int) ($GLOBALS['sm_timeout'] ?? 40), CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_HTTPHEADER => $headers,
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_UNICODE));
     $raw = curl_exec($ch);
@@ -684,6 +684,11 @@ function sm_status(bool $live): array
 {
     $c = sm_cfg();
     $main = sm_main_page();
+    // The test asks Meta several questions per Page: room to finish, and no single slow answer holds it up.
+    if ($live) {
+        if (function_exists('set_time_limit')) @set_time_limit(120);
+        $GLOBALS['sm_timeout'] = 12;
+    }
     $out = ['pageId' => $main !== null, 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
         'verifyToken' => (bool) (($c['verify_token'] ?? '') ?: wa_cfg('verify_token')), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php',
         'lastWebhook' => wa_setting('sm_last_webhook', null), 'lastNote' => wa_setting('sm_last_note', null),
@@ -714,8 +719,9 @@ function sm_status(bool $live): array
         $out['pages'][] = $row;
     }
     if (!$live || !sm_ready()) return $out;
-    // The test also asks Meta again for chats still without a name or photo (the newest few).
-    foreach (db()->query("SELECT * FROM wa_chats WHERE channel IN ('ig', 'fb') AND (COALESCE(name, '') = '' OR COALESCE(avatar, '') = '') ORDER BY last_at DESC LIMIT 10")->fetchAll() as $ch) {
+    // The test also asks Meta again for chats still without a name or photo: only the newest 3, since until
+    // Meta shares photos every chat lacks one and each costs up to three calls.
+    foreach (db()->query("SELECT * FROM wa_chats WHERE channel IN ('ig', 'fb') AND (COALESCE(name, '') = '' OR COALESCE(avatar, '') = '') ORDER BY last_at DESC LIMIT 3")->fetchAll() as $ch) {
         try { sm_fill_profile($ch, true); } catch (Throwable $e) {}
     }
     $out['profile'] = wa_setting('sm_profile', null);
