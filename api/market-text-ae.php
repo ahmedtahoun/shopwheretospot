@@ -59,6 +59,39 @@ return [
         'Delivery across Egypt takes 2–5 working days, with cash on delivery, card or mobile wallet.' => 'The brand delivers across the UAE, with cash on delivery or card.',
         'التوصيل لكل مصر خلال 2–5 أيام عمل، والدفع عند الاستلام أو بالبطاقة أو المحفظة.' => 'العلامة بتوصّل لكل الإمارات، والدفع عند الاستلام أو بالبطاقة.',
 
+        // Privacy policy: the same practices as Egypt's page, plus where UAE customers' data is processed and that the
+        // delivering brand receives the delivery details.
+        'We process personal data in line with Egypt’s Personal Data Protection Law No. 151 of 2020.' => 'We process personal data in line with Egypt’s Personal Data Protection Law No. 151 of 2020. Where To Spot is based in Egypt, so the data of our UAE shop’s customers is processed there; we also respect your rights under the UAE’s Personal Data Protection Law (Federal Decree-Law No. 45 of 2021).',
+        'نعالج البيانات الشخصية وفقًا لقانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020.' => 'نعالج البيانات الشخصية وفقًا لقانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020. مقر Where To Spot في مصر، لذلك تتم معالجة بيانات عملاء متجرنا في الإمارات هناك، ونحترم أيضًا حقوقك وفق قانون حماية البيانات الشخصية الإماراتي (المرسوم بقانون اتحادي رقم 45 لسنة 2021).',
+        'delivery address, governorate and the items you order' => 'delivery address, emirate and area, and the items you order',
+        'عنوان التوصيل، المحافظة والمنتجات التي تطلبها' => 'عنوان التوصيل، الإمارة والمنطقة، والمنتجات التي تطلبها',
+        '<li>Delivery companies, to deliver your order.</li>' => '<li>The partner brand that makes your product, which prepares and delivers your order: it receives your name, phone number, delivery address and the items you ordered from it, and uses them only for that order.</li>',
+        '<li>شركات التوصيل، لتوصيل طلبك.</li>' => '<li>العلامة الشريكة التي تصنع منتجك، والتي تجهّز طلبك وتوصّله: تستلم اسمك ورقم هاتفك وعنوان التوصيل والمنتجات التي طلبتها منها، وتستخدمها لهذا الطلب فقط.</li>',
+
+        // About: the company as it is (a studio in Giza, Egypt), without the EGP prices of its Egypt services
+        'Tap-to-review Google cards, keychains and countertop NFC + QR stands from EGP 200.' => 'Tap-to-review Google cards, keychains and countertop NFC + QR stands.',
+        'Monthly marketing plans from EGP 299 to EGP 1,499: ad campaigns, landing pages, funnels, CRM and automation.' => 'Monthly marketing plans: ad campaigns, landing pages, funnels, CRM and automation.',
+        'Printing, signage, acrylic displays, event booths, video, websites and AI tools — quoted per project in EGP.' => 'Printing, signage, acrylic displays, event booths, video, websites and AI tools — quoted per project.',
+        'Clear prices in Egyptian Pounds, with no hidden fees.' => 'Clear prices, with no hidden fees.',
+        'كروت جوجل للتقييم باللمس، وميداليات، وستاندات NFC + QR للكاونتر تبدأ من 200 ج.م.' => 'كروت جوجل للتقييم باللمس، وميداليات، وستاندات NFC + QR للكاونتر.',
+        'خطط تسويق شهرية من 299 ج.م إلى 1,499 ج.م: حملات إعلانية، صفحات هبوط، مسارات تحويل، CRM وأتمتة.' => 'خطط تسويق شهرية: حملات إعلانية، صفحات هبوط، مسارات تحويل، CRM وأتمتة.',
+        'طباعة، لافتات، ستاندات أكريليك، أجنحة معارض، فيديو، مواقع وأدوات ذكاء اصطناعي — بعرض سعر لكل مشروع بالجنيه المصري.' => 'طباعة، لافتات، ستاندات أكريليك، أجنحة معارض، فيديو، مواقع وأدوات ذكاء اصطناعي — بعرض سعر لكل مشروع.',
+        'أسعار واضحة بالجنيه المصري، بدون رسوم خفية.' => 'أسعار واضحة، بدون رسوم خفية.',
+        // About and contact: their search data (the shop in the UAE, in AED)
+        '"priceRange": "EGP"' => '"priceRange": "AED"',
+        '"areaServed": {"@type": "Country", "name": "Egypt"}' => '"areaServed": {"@type": "Country", "name": "United Arab Emirates"}',
+        // Home and sell pages: their search data (what Google reads about the shop)
+        '"description": "Online shop and marketing studio in Egypt: NFC Google-review cards and stands, acrylic display stands, Korean skincare, specialty coffee from partner roasters, and monthly lead-generation plans. Prices in EGP, delivery across Egypt, cash on delivery."'
+            => '"description": "Where To Spot’s UAE online shop: chef tools and kitchen essentials from partner brands, such as plating tweezers, quenelle spoons, chef knives and complete sets. Prices in AED, delivered across the UAE, cash on delivery."',
+        '"currenciesAccepted": "EGP", "areaServed": "EG"' => '"currenciesAccepted": "AED", "areaServed": "AE"',
+        '"description": "Brands and makers in Egypt: send us your products and we market and sell them in our shop, ads and social media for an agreed commission."'
+            => '"description": "Brands in the UAE: send us your products and we sell them in our UAE shop, ads and social media for an agreed commission. You deliver, we bring the orders."',
+        // Sell with us: brands in the UAE, prices in AED
+        'Price (EGP)' => 'Price (AED)',
+        'السعر (ج.م)' => 'السعر (درهم)',
+        '<span>EGP 450</span>' => '<span>AED 45</span>',
+        '<span>450 ج.م</span>' => '<span>45 د.إ</span>',
+
         // llms.txt (what AI tools read about the shop)
         '> Online shop and marketing studio in Egypt (6th of October City, Giza). Sells NFC Google-review cards and stands, acrylic display stands, Korean skincare, specialty coffee from partner roasters, and monthly lead-generation marketing plans. All prices are in Egyptian Pounds (EGP). Delivery across Egypt in 2–5 days; cash on delivery, cards and mobile wallets accepted; 14-day returns.'
             => '> The UAE online shop of Where To Spot (a marketing studio based in Giza, Egypt). Sells chef tools and kitchen essentials from partner brands: plating tweezers, quenelle and saucier spoons, chef knives and complete sets. All prices are in UAE Dirhams (AED). Delivered across the UAE by the brands; cash on delivery or card; 7-day returns.',
@@ -85,6 +118,22 @@ return [
             'en' => ['Delivery & shipping (UAE) — Where To Spot', 'Delivery across the UAE by our partner brands: AED 25, free on orders over AED 250, cash on delivery or card.'],
             'ar' => ['التوصيل والشحن (الإمارات) — Where To Spot', 'التوصيل لكل الإمارات عن طريق العلامات الشريكة: 25 درهم، ومجاني للطلبات فوق 250 درهم، والدفع عند الاستلام أو بالبطاقة.'],
         ],
+        'terms' => [
+            'en' => ['Terms & conditions (UAE) — Where To Spot', 'Terms for buying from Where To Spot’s UAE shop: prices in AED, card payments charged in EGP, delivery by our partner brands, returns and governing law.'],
+            'ar' => ['الشروط والأحكام (الإمارات) — Where To Spot', 'شروط الشراء من متجر Where To Spot في الإمارات: الأسعار بالدرهم، الدفع بالبطاقة بالجنيه المصري، التوصيل عن طريق العلامات الشريكة، والاسترجاع والقانون الحاكم.'],
+        ],
+        'privacy-policy' => [
+            'en' => ['Privacy policy — Where To Spot UAE', 'How Where To Spot collects, uses and protects your data when you shop in our UAE shop, and what the partner brand that delivers your order receives.'],
+            'ar' => ['سياسة الخصوصية — Where To Spot الإمارات', 'إزاي Where To Spot بتجمع بياناتك وتستخدمها وتحميها لما تشتري من متجرنا في الإمارات، وإيه اللي بتستلمه العلامة اللي بتوصّل طلبك.'],
+        ],
+        'sell' => [
+            'en' => ['Sell your brand in the UAE with Where To Spot', 'Brands in the UAE: send us your products and we sell them in our UAE shop, ads and social media for an agreed commission. You deliver, we bring the orders.'],
+            'ar' => ['بيع علامتك في الإمارات مع Where To Spot', 'لو عندك علامة في الإمارات: ابعتلنا منتجاتك ونبيعها في متجرنا بالإمارات وبالإعلانات والسوشيال ميديا مقابل عمولة متفق عليها. إنت بتوصّل، وإحنا بنجيب الطلبات.'],
+        ],
+        'contact' => [
+            'en' => ['Contact us — Where To Spot UAE', 'Contact Where To Spot’s UAE shop on WhatsApp +20 127 766 0666 or info@wheretospot.com. We answer within one working day.'],
+            'ar' => ['تواصل معنا — Where To Spot الإمارات', 'تواصل مع متجر Where To Spot في الإمارات على واتساب +20 127 766 0666 أو info@wheretospot.com. بنرد خلال يوم عمل.'],
+        ],
         'refund-policy' => [
             'en' => ['Returns & refunds (UAE) — Where To Spot', 'Return unused items within 7 days of delivery in their original packaging. Report a damaged or wrong item straight away.'],
             'ar' => ['الاسترجاع والاسترداد (الإمارات) — Where To Spot', 'ترجّع المنتجات غير المستخدمة خلال 7 أيام من الاستلام في تغليفها الأصلي. بلّغنا فورًا عن أي منتج تالف أو غلط.'],
@@ -92,5 +141,5 @@ return [
     ],
 
     // Pages written for the UAE (markets/ae/<name>.html) instead of Egypt's.
-    'files' => ['shipping-policy', 'refund-policy'],
+    'files' => ['shipping-policy', 'refund-policy', 'terms'],
 ];
