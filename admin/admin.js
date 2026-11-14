@@ -1867,6 +1867,33 @@
   // The voice-note format this browser records that WhatsApp accepts: Ogg/Opus (Firefox), WebM/Opus rewrapped
   // as Ogg below (Chrome, Android, Edge), or M4A (iPhone Safari).
   const waVoiceType = () => ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/mp4;codecs=mp4a.40.2'].find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  // A photo for a chat, made small before it's uploaded, like WhatsApp does: at most 1600 px on its longest side,
+  // a good-quality JPEG (white behind transparent parts). A phone photo of 3–8 MB becomes about 200–400 KB, so
+  // it uploads to us and on to WhatsApp many times faster. Photos already small, GIFs, other files, and anything
+  // the browser can't read are sent as they are.
+  const WA_PHOTO_MAX = 1600, WA_PHOTO_SMALL = 400 * 1024;
+  async function waShrinkPhoto(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+    let img;
+    try { img = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (e) {
+      try {
+        img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(file); });
+      } catch (e2) { return file; }
+    }
+    const w0 = img.width || img.naturalWidth, h0 = img.height || img.naturalHeight;
+    if (!w0 || !h0 || (file.size <= WA_PHOTO_SMALL && Math.max(w0, h0) <= WA_PHOTO_MAX)) { if (img.close) img.close(); return file; }
+    const k = Math.min(1, WA_PHOTO_MAX / Math.max(w0, h0)), w = Math.round(w0 * k), h = Math.round(h0 * k);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d');
+    cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(img, 0, 0, w, h);
+    if (img.close) img.close(); else if (img.src) URL.revokeObjectURL(img.src);
+    const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], (file.name || 'photo').replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg', lastModified: file.lastModified || Date.now() });
+  }
   // WebM (what Chrome records) → Ogg, the same Opus sound in the box WhatsApp plays as a voice note. Nothing is re-encoded.
   function waWebmToOgg(b) {
     let p = 0, head = null, channels = 1;
@@ -2376,7 +2403,8 @@
         const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
         let caption = ta.value.trim(), reply = st.reply ? st.reply.id : 0, sent = 0;
         toast(files.length > 1 ? 'Sending ' + files.length + ' files…' : 'Sending ' + files[0].name + '…');
-        for (const file of files) {
+        for (const picked of files) {
+          const file = await waShrinkPhoto(picked);
           const cap = file.type.startsWith('audio') ? '' : caption;
           const fd = new FormData(); fd.append('chat_id', c.id); fd.append('file', file); fd.append('caption', cap); fd.append('reply_to', reply);
           try {
