@@ -33,6 +33,7 @@ return [
         'Choose your governorate' => 'Choose your emirate',
         'Governorate' => 'Emirate',
         'Type your area — e.g. Nasr City or مدينة نصر' => 'Type your area — e.g. Dubai Marina or دبي مارينا',
+        'e.g. 12 Abbas El Akkad St, building 4, floor 2' => 'e.g. Marina Gate 1, apartment 1204, Dubai Marina',
 
         // Checkout and account: UAE phone code (+971) and country by default
         "form: { name: '', email: '', phone: '', phoneCc: '+20', address: '', city: 'Cairo', country: 'Egypt', payment: 'cod' }" => "form: { name: '', email: '', phone: '', phoneCc: '+971', address: '', city: '', country: 'United Arab Emirates', payment: 'cod' }",
@@ -40,6 +41,14 @@ return [
         "if (raw.charAt(0) !== '+') return { phoneCc: '+20', phone: raw };" => "if (raw.charAt(0) !== '+') return { phoneCc: '+971', phone: raw };",
         "if (!hit) return { phoneCc: '+20', phone: raw };" => "if (!hit) return { phoneCc: '+971', phone: raw };",
         "if ((cc || '+20') === '+20')" => "if ((cc || '+971') === '+20')",
+        // Checkout, card payment: what it will be charged in EGP by Paymob Egypt, before paying (the amount from the
+        // cart total and the rate the server charges at; shown only when a rate is set).
+        '      ...this.payView(s, fmt),' => "      ...this.payView(s, fmt),\n      showCardCharge: s.form.payment === 'paymob_card' && !!(window.WTS_SHOP_CUR && window.WTS_SHOP_CUR.rate > 0),\n      cardChargeNote: window.WTS_SHOP_CUR && window.WTS_SHOP_CUR.rate > 0 ? 'Charged in Egyptian Pounds by Paymob: about EGP ' + Math.round(cartTotal * window.WTS_SHOP_CUR.rate).toLocaleString('en-US') + ' (1 AED = ' + window.WTS_SHOP_CUR.rate + ' EGP). Your bank may add a foreign-currency fee.' : '',",
+        '<sc-if value="{{ payTestMode }}" hint-placeholder-val="{{ false }}">' => '<sc-if value="{{ showCardCharge }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12.5px;line-height:1.45;color:#5C4330;background:#FBF3EE;border:1px solid #EAD9CC;border-radius:8px;padding:9px 11px">💳 {{ cardChargeNote }}</div>
+            </sc-if>
+            <sc-if value="{{ payTestMode }}" hint-placeholder-val="{{ false }}">',
+        'Visa, Mastercard or Meeza · secure Paymob page' => 'Visa or Mastercard · secure Paymob page',
         // "Ordering for a team" form: the shop's categories, without Egypt's studio services
         "...this.customServices.map(cs => ({ value: cs.name, label: cs.name })), { value: 'services', label: 'Marketing plans / other' }]" => "{ value: 'services', label: 'Other' }]",
 

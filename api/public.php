@@ -32,7 +32,9 @@ try {
         json_out(['categories' => $cats, 'products' => $products, 'brands' => $brands, 'payments' => ['online' => array_keys(paymob_visible_methods()), 'test' => paymob_is_test()]]
             // Outside Egypt the storefront shows the shop's own currency (shop-data.js → fmtPrice).
             + (market_is('EG') ? [] : ['market' => ['currency' => market('currency'), 'cur_en' => market('cur_en'), 'cur_ar' => market('cur_ar'),
-                'shipping_fee' => (float) cfg('shipping_fee'), 'free_over' => (float) cfg('free_shipping_threshold')]]), 200, paymob_is_test() ? 0 : 60);
+                'shipping_fee' => (float) cfg('shipping_fee'), 'free_over' => (float) cfg('free_shipping_threshold'),
+                // Card payments go through Paymob Egypt: the checkout says what they'll be charged, in EGP.
+                'charge_currency' => market('charge_currency'), 'charge_rate' => market_charge_rate()]]), 200, paymob_is_test() ? 0 : 60);
     }
 
     // The cart behind a "complete your order" link (?restore=…): products only (api/abandoned.php).

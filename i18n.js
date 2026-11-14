@@ -249,12 +249,15 @@
     'Original products, supplied and delivered directly by the brand, with cash on delivery across the UAE.': 'منتجات أصلية، تجهّزها وتوصّلها العلامة مباشرة، مع الدفع عند الاستلام في كل الإمارات.',
     'Price in UAE Dirhams (AED) · pay online by card, or cash on delivery': 'السعر بالدرهم الإماراتي · ادفع أونلاين بالبطاقة، أو عند الاستلام',
     'Delivered across the UAE by the brand —': 'توصّله العلامة لكل الإمارات —', 'Other': 'أخرى',
+    'Visa or Mastercard · secure Paymob page': 'فيزا أو ماستركارد · صفحة دفع آمنة من Paymob',
+    'e.g. Marina Gate 1, apartment 1204, Dubai Marina': 'مثال: مارينا جيت 1، شقة 1204، دبي مارينا',
   };
 
   // Text that contains numbers, prices or names.
   var P = [
     [/^Free delivery across Egypt on orders over (.+) · All prices in Egyptian Pounds \(EGP\)$/, 'توصيل مجاني لكل مصر للطلبات فوق $1 · كل الأسعار بالجنيه المصري'],
     [/^Free delivery across the UAE on orders over (.+) · All prices in UAE Dirhams \(AED\)$/, 'توصيل مجاني لكل الإمارات للطلبات فوق $1 · كل الأسعار بالدرهم الإماراتي'],
+    [/^(💳 )?Charged in Egyptian Pounds by Paymob: about EGP ([\d,]+) \(1 AED = ([\d.]+) EGP\)\. Your bank may add a foreign-currency fee\.$/, '$1بيتخصم بالجنيه المصري عن طريق Paymob: حوالي $2 ج.م (1 درهم = $3 ج.م). وممكن البنك يضيف رسوم عملة أجنبية.'],
     [/^Wishlist \((\d+)\)$/, 'المفضلة ($1)'],
     [/^From (.+)$/, 'يبدأ من $1'],
     [/^(\d+) products?$/, function (m, n) { return arCount(+n); }],

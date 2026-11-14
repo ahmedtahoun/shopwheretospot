@@ -88,7 +88,8 @@ let SHOP_CUR = null;
 export function shopCurrency() { return SHOP_CUR ? SHOP_CUR.code : 'EGP'; }
 function setShopCurrency(m) {
   if (!m || !m.currency) return;
-  SHOP_CUR = { code: m.currency, en: m.cur_en || m.currency, ar: m.cur_ar || m.currency };
+  SHOP_CUR = { code: m.currency, en: m.cur_en || m.currency, ar: m.cur_ar || m.currency,
+    chargeCur: m.charge_currency || '', rate: +m.charge_rate || 0 }; // card payments are charged in chargeCur at this rate
   if (typeof m.shipping_fee === 'number') SHIPPING_FEE = m.shipping_fee;
   if (typeof m.free_over === 'number') FREE_SHIPPING_THRESHOLD = m.free_over;
   if (typeof window !== 'undefined') window.WTS_SHOP_CUR = SHOP_CUR; // for chat.js
