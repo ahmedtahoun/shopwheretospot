@@ -3221,7 +3221,7 @@
     if (!ps.length) return '';
     const yes = (v, okText, badText) => v ? '<span class="pill good">✓ ' + okText + '</span>' : v === false ? '<span class="pill bad">✕ ' + badText + '</span>' : '<span class="pill">Press Test</span>';
     return '<h3 style="margin:10px 0 0">Other Pages in this inbox</h3>' +
-      '<div class="hint">Main Page: <b>' + esc(s.label || '') + '</b>. Chats from each Page below are marked with its name in Chats, and replies go out from that Page. The chat bot, after-hours reply, follow-ups and the product button stay on the main Page' +
+      '<div class="hint">Main Page: <b>' + esc(s.label || 'not found: check page_id') + '</b>. Chats from each Page below are marked with its name in Chats, and replies go out from that Page. The chat bot, after-hours reply, follow-ups and the product button stay on the main Page' +
         ' (add <code>\'bot\' => true</code> to a Page to change that).</div>' +
       ps.map((p) => '<div class="list">' +
         '<div class="li"><span><b>' + esc(p.label) + '</b> <span class="small muted" dir="ltr">· ' + esc(p.id) + '</span></span><span>' + (p.page ? esc(p.page) : '') + '</span></div>' +

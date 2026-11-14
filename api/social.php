@@ -88,7 +88,8 @@ function sm_shop_chat(array $chat): bool
 // The Page's access key and id are all that's needed; the app secret is WhatsApp's unless the Page uses another Meta app.
 function sm_ready(): bool
 {
-    return sm_cfg('page_token') && sm_cfg('page_id') && sm_app_secret() !== '';
+    $main = sm_main_page(); // null when page_id isn't the Page's number (e.g. a placeholder left in)
+    return $main && $main['token'] !== '' && sm_app_secret() !== '';
 }
 
 function sm_app_secret(): string
@@ -683,7 +684,7 @@ function sm_status(bool $live): array
 {
     $c = sm_cfg();
     $main = sm_main_page();
-    $out = ['pageId' => !empty($c['page_id']), 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
+    $out = ['pageId' => $main !== null, 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
         'verifyToken' => (bool) (($c['verify_token'] ?? '') ?: wa_cfg('verify_token')), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php',
         'lastWebhook' => wa_setting('sm_last_webhook', null), 'lastNote' => wa_setting('sm_last_note', null),
         'last' => ['ig' => null, 'fb' => null], 'profile' => wa_setting('sm_profile', null), 'label' => $main ? $main['label'] : '',
@@ -694,6 +695,8 @@ function sm_status(bool $live): array
         $byPage[$pid]['chats'][$r['channel']] = ($byPage[$pid]['chats'][$r['channel']] ?? 0) + (int) $r['n'];
         $byPage[$pid]['last'][$r['channel']] = max((string) ($byPage[$pid]['last'][$r['channel']] ?? ''), (string) $r['last']) ?: null;
     }
+    // Something is written as page_id, but not the Page's number: say so instead of "not connected".
+    if (!$main && trim((string) ($c['page_id'] ?? '')) !== '') $out['errors'][] = 'page_id in the “social” block of api/config.local.php must be the Page’s number (digits only), e.g. \'page_id\' => \'123456789012345\'. Right now it isn’t, so the main Page’s messages can’t be saved or answered.';
     if ($main) {
         $out['chats'] = array_merge($out['chats'], $byPage[$main['id']]['chats'] ?? []);
         $out['last'] = array_merge($out['last'], $byPage[$main['id']]['last'] ?? []);
