@@ -1962,12 +1962,12 @@
     const st = waInbox;
     if (!st.view) st.view = can('whatsapp_all') ? 'all' : 'mine';
     $('#main').innerHTML = '<div class="wa" id="wa"><section class="wa-list"><div class="wa-lh"><div class="row"><h1>Chats</h1><span class="spacer"></span><span id="waMe"></span></div>' +
-      '<div class="seg wa-tabs" id="waTabs"></div><div class="wa-chs" id="waChs" hidden></div><input type="search" id="waQ" placeholder="Search name, number or @username" value="' + esc(st.q) + '"></div><div class="wa-items" id="waItems"><div class="muted small" style="padding:16px">Loading…</div></div></section>' +
+      '<div class="seg wa-tabs" id="waTabs"></div><div class="wa-chs" id="waChs" hidden></div><div class="wa-chs wa-pgs" id="waPgs" hidden></div><input type="search" id="waQ" placeholder="Search name, number or @username" value="' + esc(st.q) + '"></div><div class="wa-items" id="waItems"><div class="muted small" style="padding:16px">Loading…</div></div></section>' +
       '<section class="wa-chat" id="waChat"><div class="wa-empty">' + icon('chat') + '<div>Choose a chat</div></div></section></div>';
     let qt;
     $('#waQ').oninput = (e) => { clearTimeout(qt); qt = setTimeout(() => { st.q = e.target.value; loadList(); }, 300); };
     const loadList = async () => {
-      const d = await api('wa_chats', { query: '&view=' + st.view + '&q=' + encodeURIComponent(st.q) + '&ch=' + (st.ch || '') });
+      const d = await api('wa_chats', { query: '&view=' + st.view + '&q=' + encodeURIComponent(st.q) + '&ch=' + (st.ch || '') + '&pg=' + (st.pg || '') });
       if (S.route !== 'inbox') return;
       st.data = d;
       renderTabs(); renderList();
@@ -1986,6 +1986,12 @@
       cb.innerHTML = chs.length < 2 ? '' : '<button data-ch="" class="' + (!st.ch ? 'on' : '') + '"><span>All</span></button>' +
         chs.map((k) => '<button data-ch="' + k + '" class="' + (st.ch === k ? 'on' : '') + '" title="' + SM_NAME[k] + '">' + smLogo(k) + '<span class="ch-l">' + SM_NAME[k] + '</span></button>').join('');
       $$('#waChs button').forEach((b) => b.onclick = () => { st.ch = b.dataset.ch; loadList(); });
+      // Our Pages (brands): their Instagram and Messenger chats, once there's more than one Page.
+      const pgs = st.data.pages || [], pb = $('#waPgs');
+      pb.hidden = pgs.length < 2;
+      pb.innerHTML = pgs.length < 2 ? '' : '<button data-pg="" class="' + (!st.pg ? 'on' : '') + '"><span>All pages</span></button>' +
+        pgs.map((p) => '<button data-pg="' + esc(p.id) + '" class="' + (st.pg === p.id ? 'on' : '') + '"><span>' + esc(p.label) + '</span></button>').join('');
+      $$('#waPgs button').forEach((b) => b.onclick = () => { st.pg = b.dataset.pg; loadList(); });
       $('#waMe').innerHTML = (!st.data.ready ? '<span class="pill warn" title="Settings → WhatsApp">Not connected</span> ' : '') +
         (me.agent ? '<label class="row small wa-away"><input type="checkbox" id="waAway"' + (me.away ? '' : ' checked') + '> <span>Taking chats</span></label>' : '') +
         (window.Notification && Notification.permission === 'default' ? ' <button class="btn sm" id="waNotif" title="Get a notification for new messages">🔔</button>' : '') +
@@ -2007,7 +2013,7 @@
           '<span class="wa-tags">' + (wait ? '<span class="wa-wait' + (wait >= 60 ? ' late' : wait >= 15 ? ' warn' : '') + '">⏱ <span>Waiting</span> ' + waAgo(wait) + '</span>' : '') +
             // The free-reply window: warn in the list before it closes, so nobody misses it.
             (left != null && left <= 360 ? '<span class="wa-win' + (left <= 120 ? ' late' : '') + '" title="Free replies end then">⌛ <span>Closes in</span> ' + waAgo(Math.max(1, left)) + '</span>'
-              : wait && c.status === 'open' && !c.windowOpen ? '<span class="wa-win late">⌛ <span>Reply window closed</span></span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') + (c.bot === 'on' ? '<span class="wa-botc" title="The bot is answering this chat">🤖 <span>Bot</span></span>' : '') +
+              : wait && c.status === 'open' && !c.windowOpen ? '<span class="wa-win late">⌛ <span>Reply window closed</span></span>' : '') + (c.brand ? '<span class="wa-brand" title="Came in through this Page">' + esc(c.brand) + '</span>' : '') + (c.ad ? '<span class="wa-ad" title="' + esc(c.ad.headline) + '">Ad</span>' : '') + (c.bot === 'on' ? '<span class="wa-botc" title="The bot is answering this chat">🤖 <span>Bot</span></span>' : '') +
             (st.data.me.all ? '<span class="muted">' + esc(c.agent || 'Unassigned') + '</span>' : '') + (c.leadStatus && c.leadStatus !== 'New' ? pill(LEAD_TONE, c.leadStatus) : '') + '</span></span></button>';
       }).join('') : '<div class="muted small" style="padding:16px">' + (st.view === 'mine' ? 'No chats for you right now.' : 'No chats here.') + '</div>';
       $$('#waItems [data-c]').forEach((b) => b.onclick = () => openChat(+b.dataset.c));
@@ -2060,7 +2066,7 @@
       $('#waHead').innerHTML = '<button class="btn sm wa-back" id="waBack" aria-label="Back">' + icon('back') + '</button>' +
         waAvatar(c) + '<div class="wa-who"><b>' + esc(c.name) + '</b><small class="wa-via">' + smLogo(c.channel) +
           (c.channel === 'wa' ? '<span dir="ltr">' + esc(c.phone) + '</span>' + (c.profileName && c.profileName !== c.name ? ' · <span>WhatsApp name:</span> ' + esc(c.profileName) : '')
-            : '<span>' + SM_NAME[c.channel] + '</span>' + (c.handle ? ' · <a dir="ltr" href="https://instagram.com/' + encodeURIComponent(c.handle) + '" target="_blank" rel="noopener">@' + esc(c.handle) + '</a>' : '') + (c.profileName && c.profileName !== c.name ? ' · ' + esc(c.profileName) : '')) + '</small></div>' +
+            : '<span>' + SM_NAME[c.channel] + '</span>' + (c.brand ? ' · <span class="wa-brand">' + esc(c.brand) + '</span>' : '') + (c.handle ? ' · <a dir="ltr" href="https://instagram.com/' + encodeURIComponent(c.handle) + '" target="_blank" rel="noopener">@' + esc(c.handle) + '</a>' : '') + (c.profileName && c.profileName !== c.name ? ' · ' + esc(c.profileName) : '')) + '</small></div>' +
         '<span class="spacer"></span>' +
         (all ? '<label class="wa-handled"><span>Handled by</span><select id="waAssign" title="Who handles this chat"><option value="">Unassigned</option>' + agents.map((a) => '<option value="' + a.id + '"' + (a.id === c.assignedTo ? ' selected' : '') + '>' + esc(a.name) + (a.away ? ' (away)' : '') + '</option>').join('') +
             (c.assignedTo && !agents.some((a) => a.id === c.assignedTo) ? '<option value="' + c.assignedTo + '" selected>' + esc(c.agent || '') + '</option>' : '') + '</select></label>'
@@ -2311,7 +2317,8 @@
         '<div class="wa-suggest" id="waSuggest" hidden></div>' +
         '<div class="wa-botnote" id="waBotNote"' + (c.bot === 'on' ? '' : ' hidden') + '>🤖 <span>The bot is answering this chat. Writing here takes it over.</span></div>' +
         '<div class="wa-cbar' + (c.channel === 'wa' ? '' : ' no-mic') + '"><button class="btn sm" id="waQuickBtn" title="Quick replies">' + icon('bolt') + '</button>' +
-        '<button class="btn sm" id="waProdBtn" title="Send a product">' + icon('box') + '</button>' +
+        // The shop's products only in the shop's own chats, not on our other brands' Pages.
+        '<button class="btn sm" id="waProdBtn" title="Send a product"' + (c.shop === false ? ' style="display:none"' : '') + '>' + icon('box') + '</button>' +
         '<label class="btn sm" title="Send a photo, video or file">' + icon('clip') + '<input type="file" id="waFile" multiple hidden accept="' + (c.channel === 'ig' ? 'image/jpeg,image/png,image/gif,video/mp4,video/quicktime,.pdf' : 'image/jpeg,image/png,video/mp4,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt') + '"></label>' +
         '<textarea id="waText" rows="1" dir="auto" placeholder="Write a message" enterkeyhint="enter"' + (touchKeys ? '' : ' title="Enter sends · Shift+Enter adds a new line"') + '></textarea>' +
         // Voice notes are recorded in WhatsApp's format, which Instagram and Messenger don't play.
@@ -2348,7 +2355,8 @@
         const box = $('#waSuggest'); if (!box) return;
         let r; try { r = await api('wa_suggest', { query: '&id=' + c.id }); } catch (e) { return; }
         if (st.chatId !== c.id || !$('#waSuggest')) return;
-        const list = (r.suggest || []).filter((x) => !(x.kind === 'product' && c.bot === 'on'));
+        // No shop products suggested in our other brands' chats (Cairo Roast …).
+        const list = (r.suggest || []).filter((x) => !(x.kind === 'product' && (c.bot === 'on' || c.shop === false)));
         box.hidden = !list.length;
         box.innerHTML = list.length ? '<span class="wa-sg-h" title="Suggested replies to the customer’s last message">💡</span>' + list.map((x, i) => '<button data-sg="' + i + '" dir="auto" title="' + esc(x.text) + '">' + esc(x.label) + '</button>').join('') : '';
         $$('[data-sg]', box).forEach((b) => b.onclick = async () => {
@@ -3187,7 +3195,7 @@
             : '<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(s.profile.error || '') + '</div><div class="small muted" style="margin-top:3px">Meta → your app → Messenger use case → Permissions and features: add “Business Asset User Profile Access”. For customers outside the app’s roles it needs Advanced access (App Review). Press Test again to retry.</div>') + '</span>' +
           (s.profile.ok ? '<span class="pill good">✓ OK</span>' : '<span class="pill bad">✕ Refused</span>') + '</div>' : '') +
         (note ? '<div class="li"><span>Last message result · ' + dateTime(note.at) + (note.kind === 'error' ? '<div class="small muted">' + esc(note.error || '') + '</div>' : '') + '</span>' +
-          (note.kind === 'saved' ? '<span class="pill good">✓ Saved · ' + esc(SM_NAME[note.channel] || '') + '</span>' : '<span class="pill bad">✕ Couldn’t save</span>') + '</div>' : '') +
+          (note.kind === 'saved' ? '<span class="pill good">✓ Saved · ' + esc(SM_NAME[note.channel] || '') + (note.page ? ' · ' + esc(note.page) : '') + '</span>' : '<span class="pill bad">✕ Couldn’t save</span>') + '</div>' : '') +
         '<div class="li"><span>Chats so far</span><span>' + smLogo('ig') + ' ' + s.chats.ig + ' · ' + smLogo('fb') + ' ' + s.chats.fb + '</span></div>' +
       '</div>' +
       (live && s.ready ? '<h3 style="margin:10px 0 0">Go-live checklist</h3><div class="list">' +
@@ -3197,12 +3205,36 @@
           '<div class="row" style="margin-top:6px"><button class="btn sm" id="smSub">Connect</button></div>') +
         step(s.lastWebhook ? true : null, 'A real message arrived', 'Message the Page on Messenger and the Instagram account from your own phone, then press Check again. They should appear in Chats with their logos.') +
       '</div>' : '') +
+      smPagesHtml(s, live) +
       '<div class="list"><div class="li"><span>Webhook address (Meta → your app → Webhooks → Page and Instagram)</span><span><code dir="ltr">' + esc(s.webhook) + '</code></span></div></div>' +
       '<div class="row"><button class="btn" id="smTest"' + (s.ready ? '' : ' disabled title="Add the Page ID and access key first"') + '>Test Instagram &amp; Messenger</button></div>' +
       '<div class="hint">' + (s.ready ? 'The test asks Meta about your Page, Instagram account and webhook. Nothing is sent to customers.'
         : 'Add the “social” block to api/config.local.php on the server (see config.local.example.php): the Page ID and a Page access key with pages_messaging, pages_manage_metadata, instagram_basic and instagram_manage_messages. Meta must approve the app for these before customers’ messages arrive.') + '</div>';
     const t = $('#smTest'); if (t) t.onclick = async () => { t.disabled = true; t.textContent = 'Checking…'; await waSettings(true); };
     const sb = $('#smSub'); if (sb) sb.onclick = async () => { sb.disabled = true; try { await api('sm_subscribe', { method: 'POST' }); toast('Connected'); await waSettings(true); } catch (e) { toast(e.message, true); sb.disabled = false; } };
+    $$('[data-smsub]', box).forEach((b) => b.onclick = async () => { b.disabled = true; try { await api('sm_subscribe', { method: 'POST', body: { page: b.dataset.smsub } }); toast('Connected'); await waSettings(true); } catch (e) { toast(e.message, true); b.disabled = false; } });
+  }
+
+  // Our other Pages (brands, e.g. Cairo Roast) in the same inbox: 'pages' in the 'social' block of api/config.local.php.
+  function smPagesHtml(s, live) {
+    const ps = s.pages || [];
+    if (!ps.length) return '';
+    const yes = (v, okText, badText) => v ? '<span class="pill good">✓ ' + okText + '</span>' : v === false ? '<span class="pill bad">✕ ' + badText + '</span>' : '<span class="pill">Press Test</span>';
+    return '<h3 style="margin:10px 0 0">Other Pages in this inbox</h3>' +
+      '<div class="hint">Main Page: <b>' + esc(s.label || '') + '</b>. Chats from each Page below are marked with its name in Chats, and replies go out from that Page. The chat bot, after-hours reply, follow-ups and the product button stay on the main Page' +
+        ' (add <code>\'bot\' => true</code> to a Page to change that).</div>' +
+      ps.map((p) => '<div class="list">' +
+        '<div class="li"><span><b>' + esc(p.label) + '</b> <span class="small muted" dir="ltr">· ' + esc(p.id) + '</span></span><span>' + (p.page ? esc(p.page) : '') + '</span></div>' +
+        '<div class="li"><span>Access key' + (p.ownToken ? ' (its own)' : ' (the main Page’s key)') + '</span><span>' + (!p.pageToken ? '<span class="pill bad">✕ Missing</span>' : !p.token ? '<span class="pill">Press Test</span>'
+          : p.token.valid && !p.token.missing.length && p.token.pageAllowed ? '<span class="pill good">✓ All set</span>' : '<span class="pill bad">✕ Fix</span>') + '</span></div>' +
+        (p.token && p.token.missing.length ? '<div class="li"><span class="small err">Missing: <b>' + p.token.missing.map(esc).join(', ') + '</b></span><span></span></div>' : '') +
+        (p.token && !p.token.pageAllowed ? '<div class="li"><span class="small err">This key can’t message this Page: give the system user the Page (Assign assets → Pages → Full control) and generate the key again.</span><span></span></div>' : '') +
+        (live ? '<div class="li"><span>Instagram account linked to the Page</span><span>' + (p.instagram ? '<b dir="ltr">@' + esc(p.instagram) + '</b>' : '<span class="pill bad">✕ None</span>') + '</span></div>' +
+          '<div class="li"><span>Messages are sent to this dashboard</span><span class="row">' + yes(p.subscribed, 'Done', 'To do') + ' <button class="btn sm" data-smsub="' + esc(p.id) + '">Connect</button></span></div>' : '') +
+        (p.errors || []).map((e) => '<div class="li" style="align-items:flex-start"><span>Connection<div class="small err" style="margin-top:3px;overflow-wrap:anywhere">' + esc(e) + '</div></span><span class="pill bad">✕</span></div>').join('') +
+        '<div class="li"><span>Last message</span><span>' + smLogo('fb') + ' ' + (p.last.fb ? dateTime(p.last.fb) : '<span class="muted">none yet</span>') + ' · ' + smLogo('ig') + ' ' + (p.last.ig ? dateTime(p.last.ig) : '<span class="muted">none yet</span>') + '</span></div>' +
+        '<div class="li"><span>Chats so far</span><span>' + smLogo('ig') + ' ' + p.chats.ig + ' · ' + smLogo('fb') + ' ' + p.chats.fb + '</span></div>' +
+      '</div>').join('');
   }
 
   // What still stands between the number and real customer chats, in order, each with what to do.

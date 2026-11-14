@@ -103,6 +103,7 @@ function au_followups_due(array $c): void
 // '' = send. Only once per conversation, after we talked prices, never after they ordered or the lead was closed.
 function au_followup_skip(array $chat, array $c): string
 {
+    if (!sm_shop_chat($chat)) return 'other brand'; // the follow-up talks about the shop's prices
     if (au_was_sent('followup', (string) $chat['id'], (string) $chat['last_in_at'])) return 'sent';
     if ($chat['bot'] !== 'on' && empty($c['team'])) return 'team chat';
     $last = db()->prepare("SELECT meta FROM wa_messages WHERE chat_id = ? AND dir = 'out' ORDER BY id DESC LIMIT 1");
@@ -158,6 +159,7 @@ function au_hours_text(array $h, bool $ar): string
 function au_after_hours(array $chat): void
 {
     $h = au_cfg()['hours'];
+    if (!sm_shop_chat($chat)) return; // the shop's hours and wording, not our other brands'
     if (!au_closed($h) || !wa_window_open($chat)) return;
     if (au_was_sent('away', (string) $chat['id'], gmdate('Y-m-d H:i:s', time() - 12 * 3600))) return;
     // Someone from the team is answering anyway (late shift).

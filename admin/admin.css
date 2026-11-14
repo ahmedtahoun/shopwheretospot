@@ -411,6 +411,9 @@ body.in-inbox .main{padding:0;max-width:none;height:100vh;overflow:hidden}
 .wa-win{color:var(--warn);font-weight:600}.wa-win.late{color:var(--bad)}
 .wa-handled{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3);white-space:nowrap}
 .wa-ad{background:var(--info-soft);color:var(--info);border-radius:6px;padding:0 6px;font-weight:600}
+/* Which of our Pages (brands) an Instagram / Messenger chat came through */
+.wa-brand{background:var(--warn-soft,#fff4e0);color:var(--warn,#9a5b00);border-radius:6px;padding:0 6px;font-weight:600;white-space:nowrap}
+.wa-pgs{margin-top:6px}
 .wa-chat{display:flex;flex-direction:column;min-height:0;min-width:0;background:#EFEAE2}
 .wa-empty{margin:auto;color:var(--ink-3);display:flex;flex-direction:column;align-items:center;gap:8px}
 .wa-empty .ic{width:36px;height:36px}

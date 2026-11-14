@@ -1201,6 +1201,12 @@ try {
         $args = [];
         if (!$all) { $where[] = '(c.assigned_to = ? OR c.assigned_to IS NULL)'; $args[] = (int) $u['id']; }
         if (isset(SM_NAMES[$channel])) { $where[] = 'c.channel = ?'; $args[] = $channel; }
+        // One of our Pages (brands): its Instagram and Messenger chats. '' = all.
+        $pg = preg_replace('/\D/', '', (string) ($_GET['pg'] ?? ''));
+        if ($pg !== '' && isset(sm_pages()[$pg])) {
+            $where[] = sm_pages()[$pg]['main'] ? "c.channel != 'wa' AND c.page IN ('', ?)" : "c.channel != 'wa' AND c.page = ?";
+            $args[] = $pg;
+        }
         // Chats the bot is answering (api/bot.php) have their own tab, out of everyone's way until handed over.
         if ($view === 'mine') { $where[] = 'c.assigned_to = ?'; $args[] = (int) $u['id']; $where[] = "c.status = 'open'"; $where[] = "c.bot != 'on'"; }
         elseif ($view === 'unassigned') { $where[] = 'c.assigned_to IS NULL'; $where[] = "c.status = 'open'"; $where[] = "c.bot != 'on'"; }
@@ -1230,7 +1236,9 @@ try {
         // Which apps have chats (the inbox shows the WhatsApp / Instagram / Messenger filter once there's more than one).
         $channels = db()->query('SELECT DISTINCT channel FROM wa_chats')->fetchAll(PDO::FETCH_COLUMN);
         if (sm_ready()) $channels = array_unique(array_merge($channels, ['wa', 'ig', 'fb']));
-        json_out(['chats' => $chats, 'counts' => $counts, 'channels' => array_values(array_intersect(array_keys(SM_NAMES), $channels)), 'social' => sm_ready(), 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
+        json_out(['chats' => $chats, 'counts' => $counts, 'channels' => array_values(array_intersect(array_keys(SM_NAMES), $channels)), 'social' => sm_ready(),
+            // Our Pages, for the inbox's brand filter (only once there's more than one).
+            'pages' => sm_multi() ? array_values(array_map(function ($p) { return ['id' => $p['id'], 'label' => $p['label']]; }, sm_pages())) : [], 'agents' => array_map(function ($a) { return ['id' => (int) $a['id'], 'name' => $a['name'], 'away' => (bool) $a['wa_away']]; }, $agents),
             'quick' => $quick, 'ready' => wa_ready(), 'bot' => !empty(bot_cfg()['on']), 'me' => ['id' => (int) $u['id'], 'agent' => (bool) ($u['wa_agent'] ?? 0), 'away' => (bool) ($u['wa_away'] ?? 0), 'all' => $all, 'telegram' => !empty($u['tg_chat_id'])]]);
 
     // Small and frequent: the unread badge and new-message sound on every page.
@@ -1540,8 +1548,8 @@ try {
     case 'sm_subscribe':
         $u = require_perm('backups');
         if (!sm_ready()) fail('Add the Page id and Page access key to api/config.local.php first.');
-        sm_subscribe();
-        log_activity($u, 'Connected Instagram and Messenger messages');
+        $pg = sm_subscribe(preg_replace('/\D/', '', (string) (body()['page'] ?? '')));
+        log_activity($u, 'Connected Instagram and Messenger messages', $pg['label']);
         json_out(['social' => sm_status(true)]);
 
     // Settings → Chat bot (api/bot.php): its menu and answers, trying it, saving.
@@ -2384,6 +2392,8 @@ function wa_chat_out(array $c): array
         'lastInAt' => $c['last_in_at'], 'windowOpen' => wa_window_open($c), 'windowEnds' => $c['last_in_at'] ? gmdate('Y-m-d H:i:s', strtotime($c['last_in_at'] . ' UTC') + 86400) : null,
         'ad' => $c['ad_id'] || $c['ad_headline'] ? ['id' => $c['ad_id'], 'headline' => $c['ad_headline'], 'url' => $c['ad_url'], 'body' => $c['ad_body']] : null, 'createdAt' => $c['created_at'],
         'returning' => $ch === 'wa' && isset(wa_customer_keys()[phone_key($phone) ?? '']), 'bot' => (string) ($c['bot'] ?? ''),
+        // Which of our Pages (brands) it came through, once there's more than one; 'shop' = the shop's products and bot belong here.
+        'brand' => sm_brand($c), 'shop' => sm_shop_chat($c),
         // Instagram / Messenger profile photo (a version string, so a new photo isn't served from the cache).
         'avatar' => ($c['avatar'] ?? '') !== '' ? substr(md5((string) $c['avatar']), 0, 8) : null];
 }

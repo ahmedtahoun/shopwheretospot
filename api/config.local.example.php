@@ -78,6 +78,17 @@ return [
         'page_token' => 'EAAG…',
         // 'app_secret' => '…',          // only if the Page uses a different Meta app than WhatsApp
         // 'verify_token' => '…',        // only if you want a different one than WhatsApp's
+        // 'label' => 'Where To Spot',   // the main Page's name in the inbox (shown once there are more Pages)
+        // Our other brands' Pages in the same inbox. Each chat is marked with its Page's name and answered from
+        // that Page. Give the same system user the Page (and its Instagram account), then Settings →
+        // Instagram & Messenger → Test → Connect for that Page. The shop's bot, after-hours reply, follow-ups
+        // and product button stay off there unless 'bot' => true.
+        // 'pages' => [
+        //     ['label' => 'Cairo Roast', 'page_id' => '…',
+        //      // 'page_token' => 'EAAG…',  // only if the main page_token (system user) can't reach this Page
+        //      // 'ig_id' => '…',           // only if the linked Instagram account can't be found from the Page
+        //     ],
+        // ],
     ],
     // AI answers for the chat bot (Settings → Chat bot → AI answers): Claude Haiku 5.5, only for messages the menus
     // and keywords don't understand. console.anthropic.com → API keys → Create key. Set a monthly spend limit there too.

@@ -1,12 +1,18 @@
 <?php
 // Instagram Direct and Facebook Messenger in the same inbox as WhatsApp (Meta's Messenger Platform, through
-// our Facebook Page and the Instagram account linked to it).
+// our Facebook Pages and the Instagram accounts linked to them).
 //
 // Their chats live in wa_chats / wa_messages next to WhatsApp's, told apart by `channel` ('ig' or 'fb') and
 // a wa_id of 'ig:<id>' / 'fb:<id>' (Meta's id for that person on our Page or account; there's no phone
 // number). Everything else — handing chats out, waiting times, Telegram alerts, leads, quick replies,
 // products — works the same. Meta sends both to api/whatsapp-webhook.php (objects 'page' and 'instagram').
 // Settings: 'social' block in api/config.local.php (see config.local.example.php).
+//
+// More than one Page (our other brands, e.g. Cairo Roast): listed under 'pages' in the 'social' block. Each
+// chat remembers its Page in wa_chats.page ('' = the main Page), Meta's messages are matched to a Page by the
+// entry id it sends (the Page id, or the linked Instagram account's id), and every reply goes out through
+// that chat's own Page and key. The shop's bot, after-hours reply and follow-ups only run on the main Page
+// (and on pages with 'bot' => true), since they talk about the shop's products.
 
 declare(strict_types=1);
 
@@ -16,6 +22,67 @@ function sm_cfg(string $key = '', $default = null)
 {
     $c = (array) (cfg('social') ?: []);
     return $key === '' ? $c : ($c[$key] ?? $default);
+}
+
+// Every Page in the inbox, by Page id: the main one first (the top of the 'social' block), then 'pages'.
+// A page without its own 'page_token' uses the main one (a system user's key can reach several Pages).
+function sm_pages(): array
+{
+    static $memo = [];
+    $c = sm_cfg();
+    $tag = md5(serialize($c));
+    if (isset($memo[$tag])) return $memo[$tag];
+    $pages = [];
+    $main = preg_replace('/\D/', '', (string) ($c['page_id'] ?? ''));
+    if ($main !== '') $pages[$main] = ['id' => $main, 'label' => trim((string) ($c['label'] ?? '')) ?: 'Where To Spot', 'token' => (string) ($c['page_token'] ?? ''),
+        'ig_id' => preg_replace('/\D/', '', (string) ($c['ig_id'] ?? '')), 'shop' => true, 'main' => true];
+    foreach ((array) ($c['pages'] ?? []) as $p) {
+        $id = preg_replace('/\D/', '', (string) ($p['page_id'] ?? ''));
+        if ($id === '' || isset($pages[$id])) continue;
+        $pages[$id] = ['id' => $id, 'label' => trim((string) ($p['label'] ?? '')) ?: 'Page ' . $id, 'token' => (string) (($p['page_token'] ?? '') ?: ($c['page_token'] ?? '')),
+            'ig_id' => preg_replace('/\D/', '', (string) ($p['ig_id'] ?? '')), 'shop' => !empty($p['bot']), 'main' => false];
+    }
+    return $memo[$tag] = $pages;
+}
+
+function sm_main_page(): ?array
+{
+    foreach (sm_pages() as $p) if ($p['main']) return $p;
+    return null;
+}
+
+function sm_multi(): bool
+{
+    return count(sm_pages()) > 1;
+}
+
+// The Page a chat belongs to ('' = the main Page). Strict: a Page taken out of config.local.php is an error,
+// so a reply never goes out from another brand's Page.
+function sm_chat_page(array $chat, bool $strict = true): ?array
+{
+    $id = (string) ($chat['page'] ?? '');
+    $pages = sm_pages();
+    if ($id !== '' && isset($pages[$id])) return $pages[$id];
+    if ($id === '' || !$strict) return sm_main_page();
+    throw new ShopError('This chat came in through Page ' . $id . ', which isn’t in api/config.local.php any more, so it can’t be answered from here.');
+}
+
+// The brand name shown on a chat: only once there's more than one Page, and only for chats on a Page.
+function sm_brand(array $chat): string
+{
+    if (sm_channel($chat) === 'wa' || !sm_multi()) return '';
+    $p = sm_chat_page($chat, false);
+    return $p ? $p['label'] : '';
+}
+
+// The shop's own chats (WhatsApp and the main Page): where the bot, after-hours reply and follow-ups may answer.
+function sm_shop_chat(array $chat): bool
+{
+    if (sm_channel($chat) === 'wa') return true;
+    $id = (string) ($chat['page'] ?? '');
+    if ($id === '') return true;
+    $pages = sm_pages();
+    return isset($pages[$id]) ? $pages[$id]['shop'] : false;
 }
 
 // The Page's access key and id are all that's needed; the app secret is WhatsApp's unless the Page uses another Meta app.
@@ -34,13 +101,15 @@ function sm_channel(array $chat): string
     return (string) ($chat['channel'] ?? '') ?: (preg_match('/^(ig|fb):/', (string) $chat['wa_id'], $m) ? $m[1] : 'wa');
 }
 
-// How a chat is named in the activity log and on Telegram: the phone number, or @handle / "Messenger".
+// How a chat is named in the activity log and on Telegram: the phone number, or @handle / "Messenger"
+// (with the brand when it came in through one of our other Pages).
 function sm_label(array $chat): string
 {
     $ch = sm_channel($chat);
     if ($ch === 'wa') return wa_local_phone($chat['wa_id']);
     $who = ($chat['handle'] ?? '') !== '' ? '@' . $chat['handle'] : trim((string) $chat['name']);
-    return trim(($who !== '' ? $who . ' · ' : '') . SM_NAMES[$ch]);
+    $brand = sm_brand($chat);
+    return trim(($who !== '' ? $who . ' · ' : '') . SM_NAMES[$ch] . ($brand !== '' ? ' · ' . $brand : ''));
 }
 
 function sm_migrate(PDO $pdo): void
@@ -51,34 +120,41 @@ function sm_migrate(PDO $pdo): void
     // The customer's profile photo (a file next to chat media) and when Meta was last asked for name and photo.
     if (!in_array('avatar', $cols, true)) $pdo->exec("ALTER TABLE wa_chats ADD COLUMN avatar TEXT NOT NULL DEFAULT ''");
     if (!in_array('profile_at', $cols, true)) $pdo->exec('ALTER TABLE wa_chats ADD COLUMN profile_at TEXT');
+    // Which of our Pages the chat came in through ('' = the main one, as every chat before there were more).
+    if (!in_array('page', $cols, true)) $pdo->exec("ALTER TABLE wa_chats ADD COLUMN page TEXT NOT NULL DEFAULT ''");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_wa_chats_channel ON wa_chats(channel, last_at)');
 }
 
-function sm_graph(string $method, string $path, ?array $body = null): array
+function sm_graph(string $method, string $path, ?array $body = null, ?array $page = null): array
 {
-    if (!sm_cfg('page_token')) throw new ShopError('Instagram and Messenger aren’t connected yet (no Page access key in api/config.local.php).');
-    return sm_call($method, $path, $body, sm_token());
+    $page = $page ?: sm_main_page();
+    if (!$page || $page['token'] === '') throw new ShopError('Instagram and Messenger aren’t connected yet (no Page access key in api/config.local.php).');
+    return sm_call($method, $path, $body, sm_token($page));
 }
 
 // The Page's own key. The key in config.local.php can be a system user's (Business settings → System users →
 // Generate token): Meta then hands us the Page's key for it once, kept until the configured key changes.
-function sm_token(): string
+function sm_token(?array $page = null): string
 {
-    static $done = null;
-    if ($done !== null) return $done;
-    $given = (string) sm_cfg('page_token');
-    $tag = substr(hash('sha256', $given), 0, 16);
-    $kept = wa_setting('sm_ptok');
-    if (is_array($kept) && ($kept['k'] ?? '') === $tag) return $done = (string) $kept['t'];
+    static $done = [];
+    $page = $page ?: sm_main_page();
+    if (!$page) return '';
+    $given = (string) $page['token'];
+    $tag = substr(hash('sha256', $page['id'] . '|' . $given), 0, 16);
+    if (isset($done[$tag])) return $done[$tag];
+    $key = $page['main'] ? 'sm_ptok' : 'sm_ptok_' . $page['id'];
+    $kept = wa_setting($key);
+    // The main Page's kept key was tagged by the key alone before there were more Pages.
+    if (is_array($kept) && in_array($kept['k'] ?? '', [$tag, $page['main'] ? substr(hash('sha256', $given), 0, 16) : ''], true)) return $done[$tag] = (string) $kept['t'];
     try {
-        $r = sm_call('GET', '/' . rawurlencode((string) sm_cfg('page_id')) . '?fields=access_token', null, $given);
-        $page = (string) ($r['access_token'] ?? '');
+        $r = sm_call('GET', '/' . rawurlencode($page['id']) . '?fields=access_token', null, $given);
+        $own = (string) ($r['access_token'] ?? '');
     } catch (ShopError $e) {
         if (strpos($e->getMessage(), 'Could not reach') === 0) return $given; // offline for a moment: ask again next time
-        $page = '';
+        $own = '';
     }
-    wa_set_setting('sm_ptok', ['k' => $tag, 't' => $page !== '' ? $page : $given]);
-    return $done = $page !== '' ? $page : $given;
+    wa_set_setting($key, ['k' => $tag, 't' => $own !== '' ? $own : $given]);
+    return $done[$tag] = $own !== '' ? $own : $given;
 }
 
 function sm_call(string $method, string $path, ?array $body, string $token): array
@@ -129,7 +205,52 @@ function sm_app_id(): string
 
 // ---------- receiving ----------
 
-// Everything Meta sends for the Page ('page': Messenger) and the Instagram account ('instagram').
+// Each Page's linked Instagram account id: from config.local.php ('ig_id'), else asked from Meta and kept.
+function sm_ig_ids(bool $refresh = false): array
+{
+    $kept = (array) wa_setting('sm_ig_ids', []);
+    $out = [];
+    $ask = false;
+    foreach (sm_pages() as $p) {
+        $id = $p['id']; // the keys are numbers to PHP: the Page's id is the string
+        if ($p['ig_id'] !== '') $out[$id] = $p['ig_id'];
+        elseif (isset($kept[$id]) && $kept[$id] !== '') $out[$id] = (string) $kept[$id];
+        else $ask = true;
+    }
+    if (!$ask && !$refresh) return $out;
+    // At most every 10 minutes, so a message from an unknown account doesn't ask Meta each time.
+    if ((int) wa_setting('sm_ig_ids_try', 0) > time() - 600) return $out;
+    wa_set_setting('sm_ig_ids_try', time());
+    foreach (sm_pages() as $p) {
+        $id = $p['id'];
+        if ($p['ig_id'] !== '' || $p['token'] === '') continue;
+        try {
+            $ig = (string) (sm_graph('GET', '/' . rawurlencode($id) . '?fields=instagram_business_account', null, $p)['instagram_business_account']['id'] ?? '');
+            if ($ig !== '') { $kept[$id] = $ig; $out[$id] = $ig; }
+        } catch (Throwable $e) {}
+    }
+    wa_set_setting('sm_ig_ids', $kept);
+    return $out;
+}
+
+// Which of our Pages a webhook entry is for: Messenger sends the Page id, Instagram the account's id.
+// With one Page everything is that Page's, as before. null = not one of ours (left out, noted in Settings).
+function sm_entry_page(string $channel, string $own): ?array
+{
+    $pages = sm_pages();
+    if (count($pages) <= 1) return sm_main_page();
+    if ($channel === 'fb') return $pages[$own] ?? null;
+    foreach ([false, true] as $refresh) {
+        $ids = sm_ig_ids($refresh);
+        $hit = array_search($own, $ids, true);
+        if ($hit !== false) return $pages[$hit] ?? null;
+    }
+    // The main Page's Instagram account couldn't be read from Meta: keep its messages coming, as before there were more Pages.
+    $main = sm_main_page();
+    return $main && !isset($ids[$main['id']]) ? $main : null;
+}
+
+// Everything Meta sends for the Pages ('page': Messenger) and their Instagram accounts ('instagram').
 function sm_handle_webhook(array $payload): void
 {
     $channel = ($payload['object'] ?? '') === 'instagram' ? 'ig' : 'fb';
@@ -137,10 +258,17 @@ function sm_handle_webhook(array $payload): void
     wa_set_setting('sm_last_webhook_' . $channel, gmdate('Y-m-d H:i:s')); // per app: shows whether Instagram sends anything at all
     foreach ((array) ($payload['entry'] ?? []) as $entry) {
         $own = (string) ($entry['id'] ?? ''); // our Page id or Instagram account id
+        $page = sm_entry_page($channel, $own);
+        if (!$page) {
+            wa_set_setting('sm_last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'error', 'channel' => $channel,
+                'error' => 'A message came for ' . SM_NAMES[$channel] . ' account ' . $own . ', which isn’t one of the Pages in api/config.local.php (or its Instagram account), so it was left out.']);
+            continue;
+        }
+        wa_set_setting('sm_last_webhook_' . $channel . '_' . $page['id'], gmdate('Y-m-d H:i:s'));
         foreach ((array) ($entry['messaging'] ?? []) as $ev) {
             try {
-                sm_handle_event($channel, $own, (array) $ev);
-                wa_set_setting('sm_last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'saved', 'channel' => $channel]);
+                sm_handle_event($channel, $own, (array) $ev, $page);
+                wa_set_setting('sm_last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'saved', 'channel' => $channel, 'page' => $page['main'] ? '' : $page['label']]);
             } catch (Throwable $e) {
                 ops_error(SM_NAMES[$channel], 'An incoming ' . SM_NAMES[$channel] . ' message could not be saved', $e);
                 wa_set_setting('sm_last_note', ['at' => gmdate('Y-m-d H:i:s'), 'kind' => 'error', 'channel' => $channel, 'error' => mb_substr($e->getMessage(), 0, 300)]);
@@ -149,7 +277,7 @@ function sm_handle_webhook(array $payload): void
     }
 }
 
-function sm_handle_event(string $channel, string $own, array $ev): void
+function sm_handle_event(string $channel, string $own, array $ev, ?array $page = null): void
 {
     $sender = (string) ($ev['sender']['id'] ?? '');
     $recipient = (string) ($ev['recipient']['id'] ?? '');
@@ -158,17 +286,18 @@ function sm_handle_event(string $channel, string $own, array $ev): void
     $person = $mine ? $recipient : $sender;
     if ($person === '' || $person === $own) return;
     $waId = $channel . ':' . preg_replace('/[^\w-]/', '', $person);
+    $page = $page ?: sm_main_page();
 
     if (isset($ev['message'])) {
         $m = (array) $ev['message'];
         if (!empty($m['is_deleted'])) { sm_mark_deleted((string) ($m['mid'] ?? '')); return; }
         if ($mine) sm_store_echo($channel, $waId, $m, $at);
-        else sm_store_incoming($channel, $waId, $person, $m, $ev['referral'] ?? ($m['referral'] ?? null), $at);
+        else sm_store_incoming($channel, $waId, $person, $m, $ev['referral'] ?? ($m['referral'] ?? null), $at, $page);
         return;
     }
     if (isset($ev['postback'])) { // a button the customer tapped (e.g. "Get started" on Messenger)
         $p = (array) $ev['postback'];
-        sm_store_incoming($channel, $waId, $person, ['mid' => (string) ($p['mid'] ?? ''), 'text' => (string) ($p['title'] ?? ''), '_kind' => 'button', '_tap' => (string) ($p['payload'] ?? '')], $p['referral'] ?? null, $at);
+        sm_store_incoming($channel, $waId, $person, ['mid' => (string) ($p['mid'] ?? ''), 'text' => (string) ($p['title'] ?? ''), '_kind' => 'button', '_tap' => (string) ($p['payload'] ?? '')], $p['referral'] ?? null, $at, $page);
         return;
     }
     if (isset($ev['referral']) && !$mine) { // opened the chat from an ad without writing yet: remember the ad
@@ -184,13 +313,13 @@ function sm_handle_event(string $channel, string $own, array $ev): void
 // What the customer is called and looks like: their name (and @username on Instagram) and profile photo.
 // Meta only answers for people who messaged us; for everyone outside the app's roles that needs App Review
 // (Messenger: "Business Asset User Profile Access"). The last answer is kept for Settings.
-function sm_profile(string $channel, string $person): array
+function sm_profile(string $channel, string $person, ?array $page = null): array
 {
     $tries = $channel === 'ig' ? ['name,username,profile_pic', 'username'] : ['first_name,last_name,profile_pic', 'first_name,last_name'];
     $err = '';
     foreach ($tries as $fields) { // the photo can be refused while the name isn't: then ask for the name alone
         try {
-            $p = sm_graph('GET', '/' . rawurlencode($person) . '?fields=' . $fields);
+            $p = sm_graph('GET', '/' . rawurlencode($person) . '?fields=' . $fields, null, $page);
             wa_set_setting('sm_profile', ['at' => gmdate('Y-m-d H:i:s'), 'ok' => true, 'channel' => $channel, 'pic' => !empty($p['profile_pic'])]);
             $name = $channel === 'ig' ? trim((string) ($p['name'] ?? '')) : trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
             return ['name' => $name, 'handle' => $channel === 'ig' ? (string) ($p['username'] ?? '') : '', 'pic' => (string) ($p['profile_pic'] ?? '')];
@@ -199,8 +328,9 @@ function sm_profile(string $channel, string $person): array
     // Refused (no "Business Asset User Profile Access" yet): the Page's conversation with them still names
     // them (Messenger: name; Instagram: username), with only the messaging permission. No photo this way.
     try {
-        $conv = sm_graph('GET', '/' . rawurlencode((string) sm_cfg('page_id')) . '/conversations?platform=' . ($channel === 'ig' ? 'instagram' : 'messenger')
-            . '&user_id=' . rawurlencode($person) . '&fields=participants')['data'][0]['participants']['data'] ?? [];
+        $pid = $page ? $page['id'] : (string) sm_cfg('page_id');
+        $conv = sm_graph('GET', '/' . rawurlencode($pid) . '/conversations?platform=' . ($channel === 'ig' ? 'instagram' : 'messenger')
+            . '&user_id=' . rawurlencode($person) . '&fields=participants', null, $page)['data'][0]['participants']['data'] ?? [];
         foreach ((array) $conv as $who) {
             if ((string) ($who['id'] ?? '') !== $person) continue;
             $name = trim((string) ($who['name'] ?? ''));
@@ -244,7 +374,7 @@ function sm_fill_profile(array $chat, bool $force = false): void
     if (sm_channel($chat) === 'wa' || ((string) $chat['name'] !== '' && (string) ($chat['avatar'] ?? '') !== '')) return;
     if (!$force && !empty($chat['profile_at']) && strtotime($chat['profile_at'] . ' UTC') > time() - 86400) return;
     db()->prepare("UPDATE wa_chats SET profile_at = datetime('now') WHERE id = ?")->execute([$chat['id']]);
-    sm_save_profile($chat, sm_profile(sm_channel($chat), substr((string) $chat['wa_id'], 3)));
+    sm_save_profile($chat, sm_profile(sm_channel($chat), substr((string) $chat['wa_id'], 3), sm_chat_page($chat)));
 }
 
 // The ad a chat came from, in the same shape as WhatsApp's (headline, link, id).
@@ -263,7 +393,7 @@ function sm_remember_ad(array $chat, array $r): void
 }
 
 // The chat for a person, created on first contact with its lead (no phone number, so one lead per chat).
-function sm_open_chat(string $channel, string $waId, string $person, ?array $ad, string $firstText): array
+function sm_open_chat(string $channel, string $waId, string $person, ?array $ad, string $firstText, ?array $page = null): array
 {
     $chat = wa_chat_by_wa_id($waId);
     $lead = null;
@@ -272,7 +402,9 @@ function sm_open_chat(string $channel, string $waId, string $person, ?array $ad,
         $st->execute([(int) $chat['lead_id']]);
         $lead = $st->fetch() ?: null;
     }
-    $label = SM_NAMES[$channel];
+    $page = $page ?: sm_main_page();
+    // The brand goes in front for our other Pages ("Cairo Roast · Instagram"), so leads and the log say where it came from.
+    $label = ($page && !$page['main'] ? $page['label'] . ' · ' : '') . SM_NAMES[$channel];
     if ($chat) {
         $quiet = !$chat['last_in_at'] || strtotime($chat['last_in_at'] . ' UTC') < time() - 86400;
         if ($chat['status'] !== 'open' || $quiet) {
@@ -283,9 +415,9 @@ function sm_open_chat(string $channel, string $waId, string $person, ?array $ad,
         sm_fill_profile($chat);
         return wa_chat_by_wa_id($waId);
     }
-    $p = sm_profile($channel, $person);
-    $who = $p['name'] !== '' ? $p['name'] : ($p['handle'] !== '' ? '@' . $p['handle'] : $label . ' customer');
-    $contact = $p['handle'] !== '' ? 'Instagram @' . $p['handle'] : $label;
+    $p = sm_profile($channel, $person, $page);
+    $who = $p['name'] !== '' ? $p['name'] : ($p['handle'] !== '' ? '@' . $p['handle'] : SM_NAMES[$channel] . ' customer');
+    $contact = $p['handle'] !== '' ? 'Instagram @' . $p['handle'] : SM_NAMES[$channel];
     $adHeadline = $ad ? trim($ad['headline']) : '';
     $agent = wa_pick_agent(null);
     $note = date('Y-m-d') . ' · ' . $label . ($ad ? ' (from ad' . ($adHeadline !== '' ? ': ' . $adHeadline : '') . ')' : '') . ': ' . mb_substr($firstText, 0, 300);
@@ -293,8 +425,8 @@ function sm_open_chat(string $channel, string $waId, string $person, ?array $ad,
         'source' => $ad ? $label . ' ad' . ($adHeadline !== '' ? ': ' . mb_substr($adHeadline, 0, 80) : '') : $label, 'status' => 'New', 'notes' => $note, 'assigned_to' => $agent]);
     // A username can hold digits; it's not a phone number, so it must never match someone's orders.
     db()->prepare('UPDATE leads SET phone_key = NULL, email_key = NULL WHERE id = ?')->execute([$leadId]);
-    db()->prepare("INSERT INTO wa_chats (wa_id, channel, name, handle, lead_id, status, ad_id, ad_headline, ad_url, ad_body, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, '', datetime('now'))")
-        ->execute([$waId, $channel, $p['name'], $p['handle'], $leadId, $ad['source_id'] ?? '', $adHeadline, $ad['source_url'] ?? '']);
+    db()->prepare("INSERT INTO wa_chats (wa_id, channel, page, name, handle, lead_id, status, ad_id, ad_headline, ad_url, ad_body, created_at) VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, '', datetime('now'))")
+        ->execute([$waId, $channel, $page && !$page['main'] ? $page['id'] : '', $p['name'], $p['handle'], $leadId, $ad['source_id'] ?? '', $adHeadline, $ad['source_url'] ?? '']);
     $chatId = (int) db()->lastInsertId();
     db()->prepare("UPDATE wa_chats SET profile_at = datetime('now') WHERE id = ?")->execute([$chatId]);
     if ($p['pic'] !== '') sm_save_profile(wa_chat_by_wa_id($waId), $p);
@@ -356,7 +488,7 @@ function sm_seen(string $mid): bool
     return (bool) $st->fetchColumn();
 }
 
-function sm_store_incoming(string $channel, string $waId, string $person, array $m, $referral, string $at): void
+function sm_store_incoming(string $channel, string $waId, string $person, array $m, $referral, string $at, ?array $page = null): void
 {
     $mid = (string) ($m['mid'] ?? '');
     if (sm_seen($mid)) return; // Meta can deliver the same message twice
@@ -365,7 +497,7 @@ function sm_store_incoming(string $channel, string $waId, string $person, array 
     $ad = sm_referral(is_array($referral) ? $referral : null);
     $first = $files ? $files[0]['kind'] : (($m['_kind'] ?? '') ?: 'text');
     $preview = $text !== '' ? $text : ['image' => '📷 Photo', 'video' => '🎥 Video', 'audio' => '🎤 Voice message', 'document' => '📄 Document', 'sticker' => 'Sticker'][$first] ?? '';
-    $chat = sm_open_chat($channel, $waId, $person, $ad, $preview);
+    $chat = sm_open_chat($channel, $waId, $person, $ad, $preview, $page);
     if ($ad) sm_remember_ad($chat, (array) $referral);
     $meta = array_filter(['referral' => $ad, 'context' => $m['reply_to']['mid'] ?? null]);
     $ins = db()->prepare("INSERT INTO wa_messages (chat_id, wamid, dir, kind, body, media_path, media_mime, media_name, media_size, status, meta, created_at) VALUES (?, ?, 'in', ?, ?, ?, ?, ?, ?, 'received', ?, ?)");
@@ -393,7 +525,7 @@ function sm_store_incoming(string $channel, string $waId, string $person, array 
     if ($bot) return;
     try { tg_alert_message(wa_chat_by_wa_id($waId)); }
     catch (Throwable $e) { error_log('[shop] telegram alert: ' . $e->getMessage()); }
-    au_after_hours_safe(wa_chat_by_wa_id($waId)); // "we'll reply at 10" outside working hours (api/automations.php)
+    if (sm_shop_chat($chat)) au_after_hours_safe(wa_chat_by_wa_id($waId)); // "we'll reply at 10" outside working hours (api/automations.php); the shop's text, so not on other brands' Pages
 }
 
 // A message the business sent. Ours (from this dashboard) are already saved; one written in the Instagram
@@ -487,7 +619,8 @@ function sm_chunks(string $text, string $channel): array
 function sm_send(array $chat, array $message): array
 {
     $person = substr((string) $chat['wa_id'], 3);
-    $r = sm_graph('POST', '/' . rawurlencode((string) sm_cfg('page_id')) . '/messages', ['recipient' => ['id' => $person], 'messaging_type' => 'RESPONSE', 'message' => $message]);
+    $page = sm_chat_page($chat); // always from the Page the customer wrote to
+    $r = sm_graph('POST', '/' . rawurlencode($page['id']) . '/messages', ['recipient' => ['id' => $person], 'messaging_type' => 'RESPONSE', 'message' => $message], $page);
     return ['messages' => [['id' => (string) ($r['message_id'] ?? '')]]];
 }
 
@@ -532,38 +665,69 @@ function sm_send_file(array $chat, string $rel, string $kind, string $caption): 
 // Seen ✓ for the customer once the team opens the chat (best effort).
 function sm_mark_seen(array $chat): void
 {
+    sm_action($chat, 'mark_seen');
+}
+
+// "Seen" / "typing…" on the chat's own Page (best effort).
+function sm_action(array $chat, string $action): void
+{
     if (!sm_ready()) return;
-    try { sm_graph('POST', '/' . rawurlencode((string) sm_cfg('page_id')) . '/messages', ['recipient' => ['id' => substr((string) $chat['wa_id'], 3)], 'sender_action' => 'mark_seen']); }
+    try { $page = sm_chat_page($chat); sm_graph('POST', '/' . rawurlencode($page['id']) . '/messages', ['recipient' => ['id' => substr((string) $chat['wa_id'], 3)], 'sender_action' => $action], $page); }
     catch (Throwable $e) {}
 }
 
 // ---------- Settings → Instagram & Messenger ----------
 
+// The main Page's status as before, plus 'pages': the same for each of our other Pages.
 function sm_status(bool $live): array
 {
     $c = sm_cfg();
+    $main = sm_main_page();
     $out = ['pageId' => !empty($c['page_id']), 'pageToken' => !empty($c['page_token']), 'appSecret' => sm_app_secret() !== '', 'ready' => sm_ready(),
         'verifyToken' => (bool) (($c['verify_token'] ?? '') ?: wa_cfg('verify_token')), 'webhook' => rtrim((string) cfg('site_url'), '/') . '/api/whatsapp-webhook.php',
         'lastWebhook' => wa_setting('sm_last_webhook', null), 'lastNote' => wa_setting('sm_last_note', null),
-        'last' => ['ig' => null, 'fb' => null], 'profile' => wa_setting('sm_profile', null),
-        'chats' => ['ig' => 0, 'fb' => 0], 'token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
-    foreach (db()->query("SELECT channel, COUNT(*) n, MAX(last_in_at) last FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY channel") as $r) {
-        $out['chats'][$r['channel']] = (int) $r['n'];
-        $out['last'][$r['channel']] = $r['last'];
+        'last' => ['ig' => null, 'fb' => null], 'profile' => wa_setting('sm_profile', null), 'label' => $main ? $main['label'] : '',
+        'chats' => ['ig' => 0, 'fb' => 0], 'token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => [], 'pages' => []];
+    $byPage = [];
+    foreach (db()->query("SELECT page, channel, COUNT(*) n, MAX(last_in_at) last FROM wa_chats WHERE channel IN ('ig', 'fb') GROUP BY page, channel") as $r) {
+        $pid = (string) $r['page'] === '' && $main ? $main['id'] : (string) $r['page'];
+        $byPage[$pid]['chats'][$r['channel']] = ($byPage[$pid]['chats'][$r['channel']] ?? 0) + (int) $r['n'];
+        $byPage[$pid]['last'][$r['channel']] = max((string) ($byPage[$pid]['last'][$r['channel']] ?? ''), (string) $r['last']) ?: null;
+    }
+    if ($main) {
+        $out['chats'] = array_merge($out['chats'], $byPage[$main['id']]['chats'] ?? []);
+        $out['last'] = array_merge($out['last'], $byPage[$main['id']]['last'] ?? []);
     }
     // Anything Meta sent for that app, even what didn't become a message (newer than the last saved message).
-    foreach (['ig', 'fb'] as $chn) $out['last'][$chn] = max((string) $out['last'][$chn], (string) wa_setting('sm_last_webhook_' . $chn, '')) ?: null;
+    foreach (['ig', 'fb'] as $chn) $out['last'][$chn] = max((string) $out['last'][$chn], (string) wa_setting(sm_multi() && $main ? 'sm_last_webhook_' . $chn . '_' . $main['id'] : 'sm_last_webhook_' . $chn, '')) ?: null;
+    foreach (sm_pages() as $p) {
+        $id = $p['id'];
+        if ($p['main']) continue;
+        $row = ['id' => $id, 'label' => $p['label'], 'pageToken' => $p['token'] !== '', 'ownToken' => $p['token'] !== (string) ($c['page_token'] ?? ''), 'bot' => $p['shop'],
+            'chats' => array_merge(['ig' => 0, 'fb' => 0], $byPage[$id]['chats'] ?? []), 'last' => array_merge(['ig' => null, 'fb' => null], $byPage[$id]['last'] ?? []),
+            'token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
+        foreach (['ig', 'fb'] as $chn) $row['last'][$chn] = max((string) $row['last'][$chn], (string) wa_setting('sm_last_webhook_' . $chn . '_' . $id, '')) ?: null;
+        if ($live && $p['token'] !== '' && sm_app_secret() !== '') $row = array_merge($row, sm_page_live($p));
+        $out['pages'][] = $row;
+    }
     if (!$live || !sm_ready()) return $out;
     // The test also asks Meta again for chats still without a name or photo (the newest few).
     foreach (db()->query("SELECT * FROM wa_chats WHERE channel IN ('ig', 'fb') AND (COALESCE(name, '') = '' OR COALESCE(avatar, '') = '') ORDER BY last_at DESC LIMIT 10")->fetchAll() as $ch) {
         try { sm_fill_profile($ch, true); } catch (Throwable $e) {}
     }
     $out['profile'] = wa_setting('sm_profile', null);
+    return array_merge($out, sm_page_live($main));
+}
+
+// What Meta says about one Page: its key's permissions, name, linked Instagram account and webhook subscription.
+function sm_page_live(array $page): array
+{
+    $out = ['token' => null, 'page' => null, 'instagram' => null, 'subscribed' => null, 'errors' => []];
     // What the key in config.local.php is allowed to do, so a missing permission is named, not guessed.
     // pages_read_engagement isn't needed for messages (only for the Page's name), so it's not required.
     $igIds = [];
     try {
-        $given = (string) $c['page_token'];
+        $given = (string) $page['token'];
         $t = sm_call('GET', '/debug_token?input_token=' . rawurlencode($given), null, $given)['data'] ?? [];
         $scopes = array_values((array) ($t['scopes'] ?? []));
         $need = ['pages_messaging', 'pages_manage_metadata', 'pages_show_list', 'pages_read_engagement', 'instagram_basic', 'instagram_manage_messages'];
@@ -574,24 +738,29 @@ function sm_status(bool $live): array
             if (in_array($g['scope'] ?? '', ['instagram_manage_messages', 'instagram_basic'], true)) $igIds = array_merge($igIds, array_map('strval', (array) ($g['target_ids'] ?? [])));
         }
         $out['token'] = ['type' => (string) ($t['type'] ?? ''), 'valid' => !empty($t['is_valid']), 'expires' => (int) ($t['expires_at'] ?? 0),
-            'missing' => array_values(array_diff($need, $scopes)), 'pageAllowed' => !$pages || in_array((string) $c['page_id'], $pages, true), 'app' => (string) ($t['application'] ?? '')];
+            'missing' => array_values(array_diff($need, $scopes)), 'pageAllowed' => !$pages || in_array($page['id'], $pages, true), 'app' => (string) ($t['application'] ?? '')];
     } catch (Throwable $e) { $out['errors'][] = 'Token check: ' . $e->getMessage(); }
-    // The Page's name and linked Instagram account: from the Page when allowed, else from the Instagram account(s) on the key.
+    // The Page's name and linked Instagram account: from the Page when allowed, else from the Instagram account(s) on the key
+    // (only with one Page: a system user's key can hold several Pages' accounts, and then it can't tell which is whose).
     try {
-        $p = sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '?fields=name,instagram_business_account{username,name}');
+        $p = sm_graph('GET', '/' . rawurlencode($page['id']) . '?fields=name,instagram_business_account{id,username,name}', null, $page);
         $out['page'] = (string) ($p['name'] ?? '');
         $out['instagram'] = isset($p['instagram_business_account']['username']) ? (string) $p['instagram_business_account']['username'] : null;
+        $ig = (string) ($p['instagram_business_account']['id'] ?? '');
+        if ($ig !== '') { $kept = (array) wa_setting('sm_ig_ids', []); if (($kept[$page['id']] ?? '') !== $ig) { $kept[$page['id']] = $ig; wa_set_setting('sm_ig_ids', $kept); } }
     } catch (Throwable $e) {
-        try { $out['page'] = (string) (sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '?fields=name')['name'] ?? ''); } catch (Throwable $e2) {}
+        try { $out['page'] = (string) (sm_graph('GET', '/' . rawurlencode($page['id']) . '?fields=name', null, $page)['name'] ?? ''); } catch (Throwable $e2) {}
     }
+    if ($out['instagram'] === null && $page['ig_id'] !== '') $igIds = [$page['ig_id']];
+    elseif ($out['instagram'] === null && sm_multi()) $igIds = [];
     if ($out['instagram'] === null) {
         foreach (array_unique($igIds) as $id) {
-            try { $u = (string) (sm_graph('GET', '/' . rawurlencode($id) . '?fields=username')['username'] ?? ''); if ($u !== '') { $out['instagram'] = $u; break; } }
+            try { $u = (string) (sm_graph('GET', '/' . rawurlencode($id) . '?fields=username', null, $page)['username'] ?? ''); if ($u !== '') { $out['instagram'] = $u; break; } }
             catch (Throwable $e) { $out['errors'][] = 'Instagram account: ' . $e->getMessage(); }
         }
     }
     try {
-        $apps = sm_graph('GET', '/' . rawurlencode((string) $c['page_id']) . '/subscribed_apps')['data'] ?? [];
+        $apps = sm_graph('GET', '/' . rawurlencode($page['id']) . '/subscribed_apps', null, $page)['data'] ?? [];
         $fields = [];
         foreach ($apps as $a) if (sm_app_id() === '' || (string) ($a['id'] ?? '') === sm_app_id()) $fields = array_merge($fields, (array) ($a['subscribed_fields'] ?? []));
         $out['subscribed'] = in_array('messages', $fields, true);
@@ -599,8 +768,12 @@ function sm_status(bool $live): array
     return $out;
 }
 
-// Tell Meta to send this Page's (and its Instagram account's) messages to our webhook.
-function sm_subscribe(): void
+// Tell Meta to send this Page's (and its Instagram account's) messages to our webhook. '' = the main Page.
+function sm_subscribe(string $pageId = ''): array
 {
-    sm_graph('POST', '/' . rawurlencode((string) sm_cfg('page_id')) . '/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,message_reads,message_echoes,messaging_referrals,message_reactions');
+    $pages = sm_pages();
+    $page = $pageId === '' ? sm_main_page() : ($pages[$pageId] ?? null);
+    if (!$page) throw new ShopError('That Page isn’t in api/config.local.php.');
+    sm_graph('POST', '/' . rawurlencode($page['id']) . '/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_deliveries,message_reads,message_echoes,messaging_referrals,message_reactions', null, $page);
+    return $page;
 }

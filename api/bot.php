@@ -299,7 +299,8 @@ function bot_quiet(array $chat, array $cfg): bool
 function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?array $cfg = null, ?bool $ai = null): ?array
 {
     $cfg = $cfg ?? bot_cfg();
-    if (empty($cfg['on']) || empty($cfg['channels'][sm_channel($chat)]) || $kind === 'reaction' || bot_quiet($chat, $cfg)) return null;
+    // Not on our other brands' Pages: the bot talks about the shop's products.
+    if (empty($cfg['on']) || empty($cfg['channels'][sm_channel($chat)]) || !sm_shop_chat($chat) || $kind === 'reaction' || bot_quiet($chat, $cfg)) return null;
     $items = bot_items($cfg);
     if (!$items) return null;
     $since = time() - max(1, (int) $cfg['pause_hours']) * 3600;
@@ -878,7 +879,7 @@ function bot_typing(array $chat, string $mid, bool $pause = true): void
             if (sm_channel($chat) === 'wa') {
                 // Also shows the customer's message as read (blue ticks), like a person opening it.
                 if ($mid !== '') wa_graph('POST', '/' . wa_cfg('phone_number_id') . '/messages', ['messaging_product' => 'whatsapp', 'status' => 'read', 'message_id' => $mid, 'typing_indicator' => ['type' => 'text']]);
-            } else sm_graph('POST', '/' . rawurlencode((string) sm_cfg('page_id')) . '/messages', ['recipient' => ['id' => substr((string) $chat['wa_id'], 3)], 'sender_action' => 'typing_on']);
+            } else sm_action($chat, 'typing_on');
         } catch (Throwable $e) { /* the answer still goes */ }
         if ($pause) usleep(random_int(1500, 2600) * 1000);
     });
