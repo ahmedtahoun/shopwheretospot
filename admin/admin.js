@@ -2348,7 +2348,8 @@
       // Send a product: its photo with name, price and the link to order, in Arabic or English.
       const pl = $('#waProdList');
       waProductList(st.prodLang || 'ar').catch(() => {}); // ready before the button is tapped
-      const added = (m) => { st.msgs.push(m); st.lastId = Math.max(st.lastId, m.id); appendMessages([m]); loadList(); };
+      // Just sent (🕓): the next check comes in 1.5 seconds instead of up to 5.
+      const added = (m) => { st.msgs.push(m); st.lastId = Math.max(st.lastId, m.id); appendMessages([m]); loadList(); if (m.status === 'sending') poll(); };
       // 💡 Suggested replies to the customer's last message: a product goes as its photo card; a text goes
       // into the box to edit and send. Gone once the chat is answered.
       st.suggest = async () => {
@@ -2481,7 +2482,8 @@
         if (S.route !== 'inbox' || !S.user) { st.timer = null; return; }
         try { await loadList(); if (st.chatId) await loadChat(true); } catch (e) {}
         poll();
-      }, 5000);
+      // Every 5 seconds; every 1.5 while one of our messages is still 🕓, so ✓ (or the error) shows straight away.
+      }, (st.msgs || []).some((m) => m.dir === 'out' && m.status === 'sending') ? 1500 : 5000);
     };
     // Back on screen (the app was in the background): fetch what came in meanwhile and restart the refresh.
     st.wake = async () => { clearTimeout(st.timer); st.timer = null; try { await loadList(); if (st.chatId) await loadChat(true); } catch (e) {} if (S.route === 'inbox') poll(); };
