@@ -130,21 +130,32 @@ function sm_graph(string $method, string $path, ?array $body = null, ?array $pag
 {
     $page = $page ?: sm_main_page();
     if (!$page || $page['token'] === '') throw new ShopError('Instagram and Messenger aren’t connected yet (no Page access key in api/config.local.php).');
-    return sm_call($method, $path, $body, sm_token($page));
+    $token = sm_token($page);
+    try {
+        return sm_call($method, $path, $body, $token);
+    } catch (ShopError $e) {
+        // The Page's key we kept from Meta stopped working (e.g. the Page moved to another business portfolio,
+        // which cancels its keys): ask Meta for a fresh one with the configured key, once, and try again.
+        if ($e->getCode() !== 190 || $token === (string) $page['token']) throw $e;
+        $fresh = sm_token($page, true);
+        if ($fresh === $token) throw $e;
+        return sm_call($method, $path, $body, $fresh);
+    }
 }
 
 // The Page's own key. The key in config.local.php can be a system user's (Business settings → System users →
-// Generate token): Meta then hands us the Page's key for it once, kept until the configured key changes.
-function sm_token(?array $page = null): string
+// Generate token): Meta then hands us the Page's key for it once, kept until the configured key changes
+// or Meta says the kept one has expired ($fresh, from sm_graph).
+function sm_token(?array $page = null, bool $fresh = false): string
 {
     static $done = [];
     $page = $page ?: sm_main_page();
     if (!$page) return '';
     $given = (string) $page['token'];
     $tag = substr(hash('sha256', $page['id'] . '|' . $given), 0, 16);
-    if (isset($done[$tag])) return $done[$tag];
+    if (isset($done[$tag]) && !$fresh) return $done[$tag];
     $key = $page['main'] ? 'sm_ptok' : 'sm_ptok_' . $page['id'];
-    $kept = wa_setting($key);
+    $kept = $fresh ? null : wa_setting($key);
     // The main Page's kept key was tagged by the key alone before there were more Pages.
     if (is_array($kept) && in_array($kept['k'] ?? '', [$tag, $page['main'] ? substr(hash('sha256', $given), 0, 16) : ''], true)) return $done[$tag] = (string) $kept['t'];
     try {
@@ -172,7 +183,7 @@ function sm_call(string $method, string $path, ?array $body, string $token): arr
     if ($raw === false) throw new ShopError('Could not reach Meta: ' . curl_error($ch));
     $json = json_decode((string) $raw, true);
     if (!is_array($json)) throw new ShopError('Unexpected reply from Meta (HTTP ' . $code . ').');
-    if ($code >= 400 || isset($json['error'])) throw new ShopError(sm_error_text((array) ($json['error'] ?? []), $code));
+    if ($code >= 400 || isset($json['error'])) throw new ShopError(sm_error_text((array) ($json['error'] ?? []), $code), (int) ($json['error']['code'] ?? 0)); // Meta's code: 190 = key expired
     return $json;
 }
 
