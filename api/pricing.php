@@ -129,6 +129,9 @@ function clean_variants($variants): array
             'price' => max(0, round((float) ($v['price'] ?? 0), 2)), 'tiers' => clean_tiers($v['tiers'] ?? []),
             // Price rule: a share of the product's main price (1 = same, 0.25 = a quarter); 0 = its own price.
             'ratio' => max(0, min(10, round((float) ($v['ratio'] ?? 0), 4)))];
+        // A size with its own price can have its own brand price too, typed in the dashboard (0 = worked out).
+        $own = round((float) ($v['brandOwn'] ?? 0), 2);
+        if ($own > 0) $out[count($out) - 1]['brandOwn'] = $own;
     }
     return $out;
 }
@@ -141,7 +144,9 @@ function apply_size_prices(float $main, array $variants, float $brandPrice = 0):
     foreach ($variants as &$v) {
         $ratio = (float) ($v['ratio'] ?? 0);
         if ($ratio > 0 && $main > 0) $v['price'] = round($main * $ratio);
-        if ($brandPrice > 0) {
+        if ($brandPrice > 0 && $ratio <= 0 && (float) ($v['brandOwn'] ?? 0) > 0) {
+            $v['brandPrice'] = round((float) $v['brandOwn'], 2); // its own price and its own brand price
+        } elseif ($brandPrice > 0) {
             $v['brandPrice'] = round($ratio > 0 ? $brandPrice * $ratio : ($main > 0 && $v['price'] > 0 ? $brandPrice * $v['price'] / $main : $brandPrice), 2);
         } else {
             unset($v['brandPrice']);

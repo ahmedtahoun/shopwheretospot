@@ -193,7 +193,7 @@
     // product page
     '← Shop': '→ المتجر', 'Product not found': 'المنتج غير موجود', 'This product may have been removed or the link is incorrect.': 'ربما تم حذف هذا المنتج أو الرابط غير صحيح.',
     'Back to shop': 'العودة للمتجر', 'Size': 'المقاس', 'Buy more, pay less per piece': 'اشترِ أكثر وادفع أقل للقطعة', 'Added ✓': 'تمت الإضافة ✓',
-    'Out of stock': 'نفد المخزون', 'Buy now': 'اشترِ الآن', 'View cart →': 'عرض السلة ←', 'Quantity': 'الكمية',
+    'Out of stock': 'نفد المخزون', 'Sold out': 'نفد', 'Out of stock for now': 'غير متوفر حاليًا', 'This size is out of stock': 'هذا الحجم غير متوفر حاليًا', 'Buy now': 'اشترِ الآن', 'View cart →': 'عرض السلة ←', 'Quantity': 'الكمية',
     'Price in Egyptian Pounds (EGP) · pay online by card or wallet, or cash on delivery': 'السعر بالجنيه المصري · ادفع أونلاين بالبطاقة أو المحفظة، أو عند الاستلام',
     'Delivery across Egypt: 1–3 business days in Cairo & Giza, 3–7 elsewhere —': 'التوصيل لكل مصر: 1–3 أيام عمل في القاهرة والجيزة، و3–7 لباقي المحافظات —',
     'delivery policy': 'سياسة التوصيل', '14-day returns on unused items —': 'استرجاع خلال 14 يوم للمنتجات غير المستخدمة —', 'refund policy': 'سياسة الاسترجاع',

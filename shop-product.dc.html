@@ -607,7 +607,7 @@ class Component extends DCLogic {
       buyBtnBg: accent,
       atStockLimit: qty >= stock, incQtyOpacity: qty >= stock ? 0.4 : 1,
       outOfStock: stock <= 0, addBtnOpacity: stock <= 0 ? 0.5 : 1,
-      stockNote: stock > 0 && stock <= 5 ? 'Only ' + stock + ' left' : '',
+      stockNote: p.cat === 'services' ? '' : stock <= 0 ? ((p.variants || []).some(v => v.stock > 0) ? 'This size is out of stock' : 'Out of stock for now') : stock <= 5 ? 'Only ' + stock + ' left' : '',
       toast: this.state.toast,
       toggleWish: this.toggleWish, wishBorder: isWished ? accent : '#DDD6CC', wishBg: isWished ? accent : '#fff', wishFg: isWished ? '#fff' : '#22201D',
       starsFmt: this.stars(stats.avg || 0), hasReviews: stats.count > 0, noReviews: stats.count === 0, ratingAvg: stats.avg, ratingCount: stats.count,

@@ -1303,7 +1303,7 @@
         '<option value="">Where To Spot (our own product)</option>' + (S.brands || []).map((b) => '<option value="' + b.id + '"' + (b.id === p.brandId ? ' selected' : '') + '>' + esc(b.name) + (b.commission ? ' · ' + b.commission + '% commission' : '') + (b.active ? '' : ' (off)') + '</option>').join('') + '</select></label>' +
       '<div class="card stack brand-pricing" id="brandPricing"><b>Price from the brand</b>' +
         '<div class="grid2"><label class="field">Brand’s price (EGP) <span class="hint">What the brand charges for the main size, before your commission</span><input type="number" name="brandPrice" min="0" step="0.01" value="' + esc(p.brandPrice || '') + '" placeholder="e.g. 750"></label>' +
-        '<label class="field">Your margin (%) <span class="hint" id="marginHint"></span><input type="number" name="marginPct" min="0" max="500" step="0.5" value="' + esc(p.marginPct == null ? '' : p.marginPct) + '"></label></div>' +
+        '<label class="field">Your margin (%) <span class="hint" id="marginHint"></span><input type="number" name="marginPct" min="0" max="500" step="any" value="' + esc(p.marginPct == null ? '' : p.marginPct) + '"></label></div>' +
         '<div class="small" id="brandPriceInfo"></div></div>' +
       '<div class="card stack" id="optCard"></div>' +
       '<label class="row" style="font-weight:600"><input type="checkbox" name="personalized" ' + (p.personalized ? 'checked' : '') + '> Needs personalisation <span class="hint" style="font-weight:400">Checkout asks for business name, review link, logo and design notes</span></label>' +
@@ -1339,6 +1339,7 @@
       if (br && bp > 0) return Math.round(bp * (1 + (pf.marginPct.value === '' ? br.margin || 0 : +pf.marginPct.value) / 100));
       return +pf.price.value || 0;
     };
+    opt.brandBp = () => (brandOfForm() ? +pf.brandPrice.value || 0 : 0);
     const syncBrandPricing = () => {
       const br = brandOfForm(), bp = +pf.brandPrice.value || 0;
       $('#brandPricing').style.display = br ? '' : 'none';
@@ -1404,6 +1405,7 @@
     if (!card) return;
     const hasSizes = opt.variants.length > 0;
     const main = opt.mainPrice ? opt.mainPrice() : 0;
+    const brandBp = opt.brandBp ? opt.brandBp() : 0; // partner brand's price for the main size, if any
     card.innerHTML = '<div class="row"><b>Sizes &amp; prices</b><span class="spacer"></span>' +
       '<label class="row small" style="font-weight:600"><input type="checkbox" id="optSizes" ' + (hasSizes ? 'checked' : '') + '> Comes in sizes</label></div>' +
       (hasSizes ? opt.variants.map((v, i) => '<div class="card" style="padding:12px;background:#FBF8F4">' +
@@ -1415,7 +1417,8 @@
             [[1, 'Same as the main price'], [0.5, '½ of the main price'], [0.3333, '⅓ of the main price'], [0.25, '¼ of the main price'], [2, '2× the main price'], [0, 'Its own price']]
               .map(([r, l]) => '<option value="' + r + '"' + (Math.abs((+v.ratio || 0) - r) < 0.001 ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
             (+v.ratio > 0 ? '<b class="small">= ' + egp(Math.round(main * +v.ratio)) + '</b>'
-              : '<input type="number" min="0" step="0.01" style="width:110px" data-path="variants.' + i + '.price" value="' + esc(v.price || '') + '" placeholder="EGP" aria-label="Price of this size">') + '</div>' +
+              : '<input type="number" min="0" step="0.01" style="width:110px" data-path="variants.' + i + '.price" value="' + esc(v.price || '') + '" placeholder="EGP" aria-label="Price of this size">' +
+                (brandBp > 0 ? '<span class="small">Brand’s price</span><input type="number" min="0" step="0.01" style="width:110px" data-path="variants.' + i + '.brandOwn" value="' + esc(v.brandOwn || '') + '" placeholder="' + esc(main > 0 && +v.price > 0 ? Math.round(brandBp * v.price / main * 100) / 100 : '') + '" aria-label="Brand’s price for this size" title="What the brand gets for this size before your commission. Empty: worked out from the main size.">' : '')) + '</div>' +
           tierEditor(v.tiers || [], 'variants.' + i + '.tiers') + '</div>').join('') +
         '<button type="button" class="btn sm" data-add-size>+ Add size</button>'
         : tierEditor(opt.tiers, 'tiers')) +
