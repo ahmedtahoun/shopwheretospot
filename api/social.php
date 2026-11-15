@@ -134,9 +134,10 @@ function sm_graph(string $method, string $path, ?array $body = null, ?array $pag
     try {
         return sm_call($method, $path, $body, $token);
     } catch (ShopError $e) {
-        // The Page's key we kept from Meta stopped working (e.g. the Page moved to another business portfolio,
-        // which cancels its keys): ask Meta for a fresh one with the configured key, once, and try again.
-        if ($e->getCode() !== 190 || $token === (string) $page['token']) throw $e;
+        // The key we used stopped working (190: expired, e.g. the Page moved to another business portfolio,
+        // which cancels its keys) or isn't a Page key (210: e.g. the system user's own key, kept because Meta
+        // wouldn't hand out the Page's key at the time): ask Meta for the Page's key again, once, and try again.
+        if (!in_array($e->getCode(), [190, 210], true)) throw $e;
         $fresh = sm_token($page, true);
         if ($fresh === $token) throw $e;
         return sm_call($method, $path, $body, $fresh);
@@ -156,8 +157,10 @@ function sm_token(?array $page = null, bool $fresh = false): string
     if (isset($done[$tag]) && !$fresh) return $done[$tag];
     $key = $page['main'] ? 'sm_ptok' : 'sm_ptok_' . $page['id'];
     $kept = $fresh ? null : wa_setting($key);
-    // The main Page's kept key was tagged by the key alone before there were more Pages.
-    if (is_array($kept) && in_array($kept['k'] ?? '', [$tag, $page['main'] ? substr(hash('sha256', $given), 0, 16) : ''], true)) return $done[$tag] = (string) $kept['t'];
+    // The main Page's kept key was tagged by the key alone before there were more Pages. When Meta wouldn't
+    // hand out the Page's key ('f': when we last asked), the configured key is used and Meta is asked again an hour later.
+    if (is_array($kept) && in_array($kept['k'] ?? '', [$tag, $page['main'] ? substr(hash('sha256', $given), 0, 16) : ''], true)
+        && (empty($kept['f']) || (int) $kept['f'] > time() - 3600)) return $done[$tag] = (string) $kept['t'];
     try {
         $r = sm_call('GET', '/' . rawurlencode($page['id']) . '?fields=access_token', null, $given);
         $own = (string) ($r['access_token'] ?? '');
@@ -165,7 +168,7 @@ function sm_token(?array $page = null, bool $fresh = false): string
         if (strpos($e->getMessage(), 'Could not reach') === 0) return $given; // offline for a moment: ask again next time
         $own = '';
     }
-    wa_set_setting($key, ['k' => $tag, 't' => $own !== '' ? $own : $given]);
+    wa_set_setting($key, $own !== '' ? ['k' => $tag, 't' => $own] : ['k' => $tag, 't' => $given, 'f' => time()]);
     return $done[$tag] = $own !== '' ? $own : $given;
 }
 
