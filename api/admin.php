@@ -410,7 +410,7 @@ try {
         $rows = array_map(function ($p) {
             return ['id' => $p['id'], 'name' => $p['name'], 'nameAr' => $p['nameAr'], 'brandId' => $p['brandId'], 'cat' => $p['cat'], 'price' => $p['discountPct'] ? round($p['price'] * (1 - $p['discountPct'] / 100), 2) : $p['price'],
                 'discountPct' => $p['discountPct'], 'stock' => $p['stock'], 'image' => $p['images'][0] ?? '', 'sub' => $p['sub'],
-                'variants' => array_map(function ($v) { unset($v['sku'], $v['brandPrice']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
+                'variants' => array_map(function ($v) { unset($v['sku'], $v['brandPrice'], $v['brandOwn']); return $v; }, $p['variants']), 'tiers' => $p['tiers'], 'addons' => $p['addons'],
                 'personalized' => $p['personalized'], 'fromPrice' => $p['fromPrice']];
         }, load_products(true));
         $reps = db()->query("SELECT id, name, role FROM users WHERE active = 1 ORDER BY name")->fetchAll();
