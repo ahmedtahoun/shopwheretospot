@@ -1169,6 +1169,9 @@
           </label>
           </details>
           <sc-if value="{{ acctSignedOut }}"><label class="co-check"><input type="checkbox" checked="{{ rememberMe }}" onChange="{{ toggleRemember }}"/><span>Remember my details on this device</span></label></sc-if>
+          <sc-if value="{{ cartHasCoffee }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12.5px;color:#7A4A2A;background:#FBF1E8;border:1px solid #E8C9AE;border-radius:10px;padding:9px 12px">Coffee: opened bags and coffee bought on an offer can’t be returned or exchanged. Roast level and taste aren’t defects.</div>
+          </sc-if>
           <label class="co-check">
             <input type="checkbox" required="{{ true }}" />
             <span>I agree to the <a href="terms.html" target="_blank" style="text-decoration:underline">Terms</a>, <a href="refund-policy.html" target="_blank" style="text-decoration:underline">Refund & Cancellation</a>, <a href="shipping-policy.html" target="_blank" style="text-decoration:underline">Delivery</a> and <a href="privacy-policy.html" target="_blank" style="text-decoration:underline">Privacy</a> policies.</span>
@@ -2221,6 +2224,7 @@ class Component extends DCLogic {
       }),
       cartOpen: s.cartOpen, toggleCart: this.toggleCart, closeCart: this.closeCart, stockWarning: s.stockWarning,
       cartCount: cartCount || null,
+      cartHasCoffee: s.cart.some(i => i.cat === 'coffee'),
       cartTitle: s.checkoutStep === 'success' ? 'Your order' : s.checkoutStep === 'info' ? 'Checkout' : 'Your cart',
       isStepCart: s.checkoutStep === 'cart', isStepInfo: s.checkoutStep === 'info', isStepSuccess: s.checkoutStep === 'success',
       cartEmpty: s.cart.length === 0,
