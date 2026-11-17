@@ -110,7 +110,7 @@ $static = '<article id="seo-product" style="max-width:760px;margin:24px auto;pad
     ($product['imageUrls'] ? '<img src="' . seo_esc($product['imageUrls'][0]) . '" alt="' . seo_esc($product['title'] . ($product['brand'] !== SEO_SITE ? ' – ' . $product['brand'] : '')) . '" width="480" style="max-width:100%;height:auto">' : '') .
     '<p><strong>' . seo_esc(seo_price_text($product, $ar)) . '</strong> · ' . ($product['inStock'] ? ($ar ? 'متوفر' : 'In stock') : ($ar ? 'غير متوفر حاليًا' : 'Out of stock')) . '</p>' . $sizes .
     ($product['summary'] ? '<p>' . seo_esc($product['summary']) . '</p>' : '') . ($product['text'] ? '<p>' . nl2br(seo_esc($product['text'])) . '</p>' : '') . $features .
-    '<p>' . ($ar ? 'توصيل لكل مصر خلال 2–5 أيام · الدفع عند الاستلام أو بالبطاقة أو المحفظة · استرجاع خلال 14 يوم.' : 'Delivery across Egypt in 2–5 days · cash on delivery, card or mobile wallet · 14-day returns.') .
+    '<p>' . ($ar ? 'توصيل لكل مصر خلال 2–5 أيام · الدفع عند الاستلام أو بالبطاقة أو المحفظة · استرجاع خلال 14 يوم' . ($product['cat'] === 'coffee' ? ' للأكياس المقفولة فقط.' : '.') : 'Delivery across Egypt in 2–5 days · cash on delivery, card or mobile wallet · 14-day returns' . ($product['cat'] === 'coffee' ? ' on unopened bags only.' : '.')) .
     ' <a href="/shipping-policy.html">' . ($ar ? 'التوصيل' : 'Delivery') . '</a> · <a href="/refund-policy.html">' . ($ar ? 'الاسترجاع' : 'Returns') . '</a></p>' . $reviewsHtml . $faq . $related . '</article>';
 $html = replace_once($html, '<body>', "<body>\n" . $static);
 
