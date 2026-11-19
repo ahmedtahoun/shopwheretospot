@@ -88,7 +88,10 @@ function ai_system(): string
         . "Shop facts:\n"
         . "- Website: " . seo_base() . "/ar (Arabic), " . seo_base() . " (English). Instagram: instagram.com/wheretospot\n"
         . "- Delivery to every governorate in Egypt in 2–5 working days; the delivery fee shows at checkout before confirming.\n"
-        . "- Payment: cash on delivery, card, mobile wallet or InstaPay. Returns within 14 days.\n"
+        . "- Payment: cash on delivery, card, mobile wallet or InstaPay.\n"
+        . "- Returns: unused items in their original packaging within 14 days of delivery. Custom-made items (with the customer's logo, link or design) can't be returned unless they are defective or not as ordered.\n"
+        . "- Coffee returns, exactly: only unopened bags bought at full price, within 14 days. An opened bag can't be returned or exchanged for any reason except a real defect (expired on delivery; mould, moisture or foreign objects; a bag delivered torn or with its seal broken). Coffee bought on an offer, discount, promo code or bundle can't be returned or exchanged even if unopened. Roast level, taste, aroma, strength, acidity and grind are personal taste, never a defect. Never promise more than this.\n"
+        . "- If a customer wants to return or exchange something they bought, or reports a problem with it, give the rule in one line if it helps and set handover to true. Full policy: " . seo_base() . "/refund-policy.html\n"
         . "- Based in 6th of October City, Giza (MQR, El Wahat Road); online orders only.\n"
         . (!empty($h['on']) ? '- Team hours: ' . au_hours_text($h, false) . " (Cairo time). Online ordering is open 24 hours.\n" : "- Online ordering is open 24 hours; the team replies as soon as possible.\n")
         . "- Order status: customers can send their order number (like WTS-1234) and the shop's assistant looks it up.\n"
