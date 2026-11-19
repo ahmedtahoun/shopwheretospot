@@ -764,7 +764,8 @@ function bot_products_named(string $norm): array
     if ($norm === '') return [];
     $common = array_flip(bot_words(BOT_PRODUCT_COMMON));
     // Typos are only looked for in the other words: a shop word like "جوجل" is never a misspelt product ("جوجي").
-    $loose = implode(' ', array_filter(preg_split('/\s+/u', $norm), function ($w) use ($common) { return !isset($common[$w]); }));
+    // With or without "ال", "لل", "بـ"… in front: "الجوجل", "للجوجل", "بجوجل".
+    $loose = implode(' ', array_filter(preg_split('/\s+/u', $norm), function ($w) use ($common) { return !isset($common[$w]) && !isset($common[preg_replace('/^(?:وال|بال|فال|كال|لل|ال|[وبلفك])/u', '', $w)]); }));
     $scores = [];
     foreach (load_products(true) as $p) {
         preg_match_all('/[\p{L}\p{N}]+/u', bot_norm($p['name'] . ' ' . $p['nameAr']), $t);
