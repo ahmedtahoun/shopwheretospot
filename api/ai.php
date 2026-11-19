@@ -130,14 +130,15 @@ function ai_redact(string $s): string
 
 // One answer: ['reply' => text, 'handover' => bool, 'product' => id or '']. Logs tokens and cost.
 // $turns: the conversation (ai_history), ending with the customer's message.
-function ai_ask(array $turns, ?int $chatId): array
+// $system: another brand's instructions (api/brand-bot.php); null = the shop's.
+function ai_ask(array $turns, ?int $chatId, ?string $system = null): array
 {
     if (!$turns || end($turns)['role'] !== 'user') throw new ShopError('Nothing to answer.');
     if (!ai_lib()) throw new ShopError('The AI needs PHP 8.1+ and the library in api/lib/vendor.');
     // The call itself is in api/ai-claude.php (PHP 8 syntax), loaded only here, so older PHP still runs the shop.
     require_once __DIR__ . '/ai-claude.php';
     try {
-        $msg = ai_claude_call(ai_key(), AI_MODEL, ai_system(), $turns);
+        $msg = ai_claude_call(ai_key(), AI_MODEL, $system ?? ai_system(), $turns);
     } catch (Throwable $e) {
         ai_log($chatId, null, true, mb_substr($e->getMessage(), 0, 200));
         throw new ShopError('Claude didn’t answer: ' . $e->getMessage());
@@ -152,7 +153,7 @@ function ai_ask(array $turns, ?int $chatId): array
         return ['reply' => '', 'handover' => true, 'product' => ''];
     }
     $ids = array_column(load_products(true), 'id');
-    $res = ['reply' => trim((string) $out['reply']), 'handover' => !empty($out['handover']), 'product' => in_array($out['product_id'] ?? '', $ids, true) ? $out['product_id'] : ''];
+    $res = ['reply' => trim((string) $out['reply']), 'handover' => !empty($out['handover']), 'product' => $system === null && in_array($out['product_id'] ?? '', $ids, true) ? $out['product_id'] : ''];
     ai_log($chatId, $msg->usage, $res['handover'], '');
     return $res;
 }
@@ -180,7 +181,7 @@ function ai_reply_later(array $chat, array $plan): void
         $lang = $plan['lang'];
         try {
             $chat = wa_chat_row_by_id((int) $chat['id']);
-            $r = ai_ask(ai_history($chat), (int) $chat['id']);
+            $r = ai_ask(ai_history($chat), (int) $chat['id'], !empty($plan['site']) ? brand_ai_system((string) $plan['site']) : null);
         } catch (Throwable $e) {
             error_log('[shop] AI answer: ' . $e->getMessage());
             $r = ['reply' => '', 'handover' => true, 'product' => ''];
@@ -191,7 +192,7 @@ function ai_reply_later(array $chat, array $plan): void
             bot_event($chat, 'handover', '', 'ai', (string) ($plan['said'] ?? ''));
             return;
         }
-        bot_send($chat, $r['reply'], true, $lang, $cfg);
+        bot_send($chat, $r['reply'], empty($plan['site']), $lang, $cfg); // a brand Page: no shop menu under it
         // Remembered like the bot's own cards, so "اطلبه" or "بكام ده؟" next works.
         if ($r['product'] !== '') db()->prepare('UPDATE wa_chats SET bot_ctx = ? WHERE id = ?')->execute([json_encode(['last' => $r['product']]), (int) $chat['id']]);
         bot_event($chat, 'ai', $r['product'], 'ai', (string) ($plan['said'] ?? ''));

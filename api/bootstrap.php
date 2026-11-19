@@ -858,6 +858,7 @@ require __DIR__ . '/abandoned.php';
 require __DIR__ . '/review-requests.php';
 require __DIR__ . '/social.php';
 require __DIR__ . '/bot.php';
+require __DIR__ . '/brand-bot.php';
 require __DIR__ . '/order-updates.php';
 require __DIR__ . '/automations.php';
 require __DIR__ . '/insights.php';
