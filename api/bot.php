@@ -346,6 +346,8 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
     if (!in_array($kind, ['text', 'button', 'interactive'], true)) return $plan('handover', null, $kind);
     $norm = bot_norm($text);
     if ($norm === '') return $fresh ? $plan('welcome', null, 'first') : null;
+    // Returns and exchanges (even with an order number): the refund policy, then the team reviews it.
+    if (bot_has($norm, BOT_RETURNS)) return $plan('handover', null, 'returns', ['say' => 'returns']);
     // An order number (or, once asked, a phone number): straight to its status.
     $refs = ou_refs($text);
     $track = null;
@@ -560,6 +562,7 @@ function bot_reply(array $plan, array $cfg): array
         case 'handover':
             if (($plan['say'] ?? '') === 'ordered') return ['text' => $ar ? "تمام ✅ سجلنا طلبك.\nحد من الفريق هيكلمك دلوقتي يأكده معاك ويقولك مصاريف الشحن 🙏" : "Done ✅ We’ve got your order.\nSomeone from the team will contact you now to confirm it and the delivery fee 🙏", 'menu' => false];
             if (($plan['say'] ?? '') === 'unknown') return ['text' => $ar ? "سؤال حلو 👌 هسأل الفريق عن ده ويردوا عليك في أقرب وقت.\nوعلى ما يردوا، دي كل منتجاتنا: " . seo_base() . '/ar' : "Good question 👌 I’ll check with the team and they’ll reply shortly.\nMeanwhile, here’s everything we sell: " . seo_base(), 'menu' => false];
+            if (($plan['say'] ?? '') === 'returns') return ['text' => $ar ? "بخصوص الاسترجاع أو الاستبدال 🙏 برجاء مراجعة سياسة الاسترجاع والاستبدال من هنا:\n" . seo_base() . "/refund-policy.html?lang=ar\nوحد من فريقنا هيراجع طلبك ويرد عليك." : "About returns and exchanges 🙏 please review our returns & refund policy here:\n" . seo_base() . "/refund-policy.html\nSomeone from our team will review your request and reply.", 'menu' => false];
             if (($plan['say'] ?? '') === 'notfound') return ['text' => $ar ? 'مالقيناش طلب بالرقم ده 🤔 حد من فريقنا هيراجع ويرد عليك.' : 'We couldn’t find an order with that number 🤔 Someone from our team will check and reply.', 'menu' => false];
             $t = $it && $it['action'] === 'human' ? trim((string) ($it['answer'][$lang] ?? '')) : '';
             return ['text' => bot_fill($t !== '' ? $t : (string) $cfg['handover'][$lang], $ar), 'menu' => false];
@@ -903,6 +906,8 @@ function bot_ad_product(array $cfg, array $chat): string
     return count($found) === 1 ? $found[0]['id'] : '';
 }
 
+// A return or an exchange: the bot never decides it. It sends the refund policy and the team reviews the request.
+const BOT_RETURNS = 'مرتجع, استرجاع, ارجاع, ارجعه, ارجعها, ارجعهم, ارجع ال, ترجيع, رجعه, رجعها, رجع الطلب, رجع الكيس, استبدال, استبدل, ابدل, تبديل, بدله, بدلها, refund, return, returns, exchange';
 // Questions about something we may not sell ("بتعملوا علب؟", "عندكم …؟").
 const BOT_ASK_HAVE = 'بتعملوا, تعملوا, بتعمل, بتعملو, عندكم, عندك, بتبيعوا, بتصنعوا, في عندكم, فيه عندكم, do you have, do you make, do you sell';
 
