@@ -40,7 +40,9 @@ function sm_pages(): array
         $id = preg_replace('/\D/', '', (string) ($p['page_id'] ?? ''));
         if ($id === '' || isset($pages[$id])) continue;
         $pages[$id] = ['id' => $id, 'label' => trim((string) ($p['label'] ?? '')) ?: 'Page ' . $id, 'token' => (string) (($p['page_token'] ?? '') ?: ($c['page_token'] ?? '')),
-            'ig_id' => preg_replace('/\D/', '', (string) ($p['ig_id'] ?? '')), 'shop' => !empty($p['bot']), 'main' => false];
+            'ig_id' => preg_replace('/\D/', '', (string) ($p['ig_id'] ?? '')), 'shop' => !empty($p['bot']), 'main' => false,
+            // 'assistant' => the brand's website (https://…): its own assistant answers on this Page (api/brand-bot.php).
+            'site' => preg_match('~^https://[a-z0-9.-]+\.[a-z]{2,}$~i', $s = rtrim(trim((string) ($p['assistant'] ?? '')), '/')) ? strtolower($s) : ''];
     }
     return $memo[$tag] = $pages;
 }

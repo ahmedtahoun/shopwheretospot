@@ -299,6 +299,8 @@ function bot_quiet(array $chat, array $cfg): bool
 function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?array $cfg = null, ?bool $ai = null): ?array
 {
     $cfg = $cfg ?? bot_cfg();
+    // A brand Page with an assistant (e.g. Cairo Roast): its own small assistant (api/brand-bot.php).
+    if ($site = brand_site($chat)) return empty($cfg['on']) || empty($cfg['channels'][sm_channel($chat)]) || $kind === 'reaction' || bot_quiet($chat, $cfg) ? null : brand_plan($chat, $kind, $text, $tap, $cfg, $ai, $site);
     // Not on our other brands' Pages: the bot talks about the shop's products.
     if (empty($cfg['on']) || empty($cfg['channels'][sm_channel($chat)]) || !sm_shop_chat($chat) || $kind === 'reaction' || bot_quiet($chat, $cfg)) return null;
     $items = bot_items($cfg);
@@ -562,6 +564,7 @@ function bot_reply(array $plan, array $cfg): array
         case 'handover':
             if (($plan['say'] ?? '') === 'ordered') return ['text' => $ar ? "تمام ✅ سجلنا طلبك.\nحد من الفريق هيكلمك دلوقتي يأكده معاك ويقولك مصاريف الشحن 🙏" : "Done ✅ We’ve got your order.\nSomeone from the team will contact you now to confirm it and the delivery fee 🙏", 'menu' => false];
             if (($plan['say'] ?? '') === 'unknown') return ['text' => $ar ? "سؤال حلو 👌 هسأل الفريق عن ده ويردوا عليك في أقرب وقت.\nوعلى ما يردوا، دي كل منتجاتنا: " . seo_base() . '/ar' : "Good question 👌 I’ll check with the team and they’ll reply shortly.\nMeanwhile, here’s everything we sell: " . seo_base(), 'menu' => false];
+            if (($plan['say'] ?? '') === 'brand_returns') return ['text' => brand_returns_text((string) $plan['site'], $ar), 'menu' => false];
             if (($plan['say'] ?? '') === 'returns') return ['text' => $ar ? "بخصوص الاسترجاع أو الاستبدال 🙏 برجاء مراجعة سياسة الاسترجاع والاستبدال من هنا:\n" . seo_base() . "/refund-policy.html?lang=ar\nوحد من فريقنا هيراجع طلبك ويرد عليك." : "About returns and exchanges 🙏 please review our returns & refund policy here:\n" . seo_base() . "/refund-policy.html\nSomeone from our team will review your request and reply.", 'menu' => false];
             if (($plan['say'] ?? '') === 'notfound') return ['text' => $ar ? 'مالقيناش طلب بالرقم ده 🤔 حد من فريقنا هيراجع ويرد عليك.' : 'We couldn’t find an order with that number 🤔 Someone from our team will check and reply.', 'menu' => false];
             $t = $it && $it['action'] === 'human' ? trim((string) ($it['answer'][$lang] ?? '')) : '';
@@ -1109,6 +1112,9 @@ function bot_try(array $b): array
     $chat = ['id' => 0, 'channel' => in_array($b['channel'] ?? '', ['wa', 'ig', 'fb'], true) ? $b['channel'] : 'wa', 'wa_id' => '', 'waiting_since' => null,
         'bot' => $fresh ? '' : 'on', 'bot_at' => gmdate('Y-m-d H:i:s'), 'bot_fails' => (int) ($b['fails'] ?? 0), 'bot_lang' => (string) ($b['lang'] ?? ''), 'bot_wait' => (string) ($b['wait'] ?? ''),
         'bot_ctx' => is_array($b['ctx'] ?? null) ? json_encode($b['ctx']) : '', 'last_in_at' => $fresh ? null : gmdate('Y-m-d H:i:s'), 'ad_id' => ''];
+    // A brand Page's assistant: 'site' => its website, as set for the Page.
+    $site = '';
+    if (!empty($b['site'])) foreach (sm_pages() as $pg) if ($pg['site'] !== '' && $pg['site'] === rtrim(strtolower((string) $b['site']), '/')) { $site = $pg['site']; $chat['page'] = $pg['id']; if ($chat['channel'] === 'wa') $chat['channel'] = 'fb'; }
     // It can be tried before it's switched on.
     $cfg['on'] = true;
     $cfg['channels'][$chat['channel']] = true;
@@ -1117,10 +1123,10 @@ function bot_try(array $b): array
     if (!$plan) return ['do' => 'none'];
     if ($plan['do'] === 'ai') {
         // Only this message (Try it keeps no history on the server); a real answer, costs a fraction of a cent.
-        try { $a = ai_ask([['role' => 'user', 'content' => ai_redact(str_in($b['text'] ?? '', 1000))]], null); }
+        try { $a = ai_ask([['role' => 'user', 'content' => ai_redact(str_in($b['text'] ?? '', 1000))]], null, $site !== '' ? brand_ai_system($site) : null); }
         catch (Throwable $e) { $a = ['reply' => $e->getMessage(), 'handover' => true, 'product' => '']; }
         return ['do' => $a['handover'] ? 'handover' : 'ai', 'how' => 'ai', 'item' => '', 'lang' => $plan['lang'], 'text' => $a['reply'], 'photo' => '', 'ctx' => $a['product'] !== '' ? ['last' => $a['product']] : (object) [],
-            'menu' => $a['handover'] ? [] : array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_buttons($cfg)),
+            'menu' => $a['handover'] || $site !== '' ? [] : array_map(function ($it) use ($plan) { return ['id' => 'bot:' . $it['id'], 'title' => $it['title'][$plan['lang']]]; }, bot_buttons($cfg)),
             'fails' => 0, 'wait' => '', 'team' => $a['handover']];
     }
     $plan['three'] = $chat['channel'] === 'wa' && !empty($cfg['wa_buttons']);
