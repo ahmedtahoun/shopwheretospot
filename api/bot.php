@@ -380,6 +380,9 @@ function bot_plan(array $chat, string $kind, string $text, string $tap = '', ?ar
         $named = array_column(bot_products_named($norm), 'id');
         if (!$named || in_array($adPid, $named, true)) return $plan('adcard', $priceIt, 'ad', ['products' => [$adPid], 'adId' => (string) $chat['ad_id']]);
     }
+    // A real question that only mentions a product ("الستاند بيستحمل الشمس؟", "عندي كافيه، أختار إيه؟"), with no topic the
+    // bot knows (prices, ordering, delivery…): Claude answers it, rather than a product card that doesn't answer it.
+    if (!$it && count(explode(' ', $norm)) >= 5 && ($ai ?? (function_exists('ai_ready') && ai_ready()))) return $plan('ai', null, 'ai');
     // A product named ("كارت", "عايز ستاند A5", "الأبيض"), unless they asked something else about it (how it
     // works, delivery…): its photo card or its price, like a salesperson would answer. Several match: the ones
     // it just showed come first ("الأبيض" after the two cards).
@@ -760,6 +763,8 @@ function bot_products_named(string $norm): array
 {
     if ($norm === '') return [];
     $common = array_flip(bot_words(BOT_PRODUCT_COMMON));
+    // Typos are only looked for in the other words: a shop word like "جوجل" is never a misspelt product ("جوجي").
+    $loose = implode(' ', array_filter(preg_split('/\s+/u', $norm), function ($w) use ($common) { return !isset($common[$w]); }));
     $scores = [];
     foreach (load_products(true) as $p) {
         preg_match_all('/[\p{L}\p{N}]+/u', bot_norm($p['name'] . ' ' . $p['nameAr']), $t);
@@ -768,7 +773,7 @@ function bot_products_named(string $norm): array
         // Some names don't say what they are ("Ethiopia Limu"): their category does.
         $words = array_merge($words, bot_words(BOT_CAT_WORDS[$p['cat']] ?? ''));
         $s = 0;
-        foreach (array_unique($words) as $w) $s += bot_hit($norm, $w) ? (preg_match('/^\d+$/', $w) ? 1 : 2) : (bot_near($norm, $w) ? 1 : 0);
+        foreach (array_unique($words) as $w) $s += bot_hit($norm, $w) ? (preg_match('/^\d+$/', $w) ? 1 : 2) : (bot_near($loose, $w) ? 1 : 0);
         if ($s) $scores[] = [$s, $p];
     }
     if (!$scores) return [];
