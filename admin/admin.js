@@ -173,13 +173,18 @@
     render();
   }
 
+  // Dashboard sections switched off for now: gone from the menu, their links and tiles, and an old link to one
+  // opens the dashboard instead. Their records stay on the server; take a name out of this list to bring it back.
+  const HIDDEN_PAGES = ['commissions', 'expenses']; // Salaries & commissions, Expenses & suppliers
+  const shown = (page) => !HIDDEN_PAGES.includes(page);
+
   function render() {
     closeDrawer();
     if (!S.user) return S.meta.needsSetup ? renderSetup() : renderLogin();
     const nav = [
       ['dashboard', 'Dashboard', 'home'], ['inbox', 'Chats', 'chat'], ['insights', 'Chat insights', 'chart'], ['orders', 'Orders', 'bag'], ['quotes', 'Quotes', 'file'], ['customers', 'Customers', 'person'], ['products', 'Products', 'box'], ['brands', 'Partner brands', 'star'], ['promos', 'Promo codes', 'tag'],
       ['leads', 'Leads', 'inbox'], ['reports', 'Monthly reports', 'chart'], ['commissions', 'Salaries & commissions', 'coins'], ['expenses', 'Expenses & suppliers', 'receipt'], ['team', 'Team', 'users'], ['activity', 'Activity', 'pulse'], ['backups', 'Backups', 'shield'], ['settings', 'Settings', 'key'],
-    ].filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'insights' ? can('whatsapp_all') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' || k === 'reports' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
+    ].filter(([k]) => shown(k)).filter(([k]) => k === 'inbox' ? can('whatsapp') : k === 'insights' ? can('whatsapp_all') : k === 'commissions' ? can('targets') && can('revenue') : k === 'expenses' || k === 'reports' ? can('revenue') : can('orders_only') ? k === 'dashboard' || k === 'orders' : can(k === 'customers' ? 'orders' : k === 'quotes' ? 'sell' : k === 'settings' ? 'backups' : k === 'promos' || k === 'brands' ? 'products' : k));
     const initials = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     if (!nav.some(([k]) => k === S.route)) S.route = nav[0][0];
     app.innerHTML =
@@ -326,8 +331,8 @@
       (money ? kpi('Revenue', egp(k.revenue), 'excl. cancelled & returned') : kpi('Waiting to confirm', k.pending, '<a href="#orders" data-status="Pending">Call them now →</a>')) +
       kpi('Orders', k.orders, money ? 'avg ' + egp(k.aov) : periodShort + ', excl. cancelled') +
       (money && !d.own ? '' : kpi('Shipped', k.shipped, 'on the way now') + kpi('Delivered', k.delivered, 'all time') + kpi('Cancelled / returned', k.lost, 'all time')) +
-      (d.spent ? kpi('Expenses', egp(d.spent.total), periodShort + ' · <a href="#expenses">Open →</a>') : '') +
-      (d.spent && d.spent.owed > 0 ? kpi('Owed to suppliers', egp(d.spent.owed), '<a href="#expenses" data-xsup>View suppliers →</a>') : '') +
+      (d.spent && shown('expenses') ? kpi('Expenses', egp(d.spent.total), periodShort + ' · <a href="#expenses">Open →</a>') : '') +
+      (d.spent && shown('expenses') && d.spent.owed > 0 ? kpi('Owed to suppliers', egp(d.spent.owed), '<a href="#expenses" data-xsup>View suppliers →</a>') : '') +
       (d.toCollect ? kpi('To collect', egp(d.toCollect.amount), d.toCollect.orders ? '<a href="#orders" data-xdue>' + d.toCollect.orders + ' order' + (d.toCollect.orders > 1 ? 's' : '') + ' with a balance →</a>' : 'everything is paid') : '') +
       (d.openQuotes ? kpi('Open quotes', d.openQuotes.n, d.openQuotes.n ? (money ? egp(d.openQuotes.value) + ' waiting · ' : '') + '<a href="#quotes">View →</a>' : '<a href="#quotes">Make a quote →</a>') : '') +
       (money ? kpi('Waiting to confirm', k.pending, can('orders') ? '<a href="#orders" data-status="Pending">View pending →</a>' : 'orders') : '') +
@@ -401,7 +406,7 @@
   function teamPerformanceCard(perf, monthName, money) {
     const rows = perf.members.filter((m) => m.orders || m.orders_target || m.revenue_target || m.role === 'sales' || m.role === 'telesales');
     return '<div class="card" style="margin-top:16px"><h2>Team this month · ' + esc(monthName) + '<span class="spacer"></span>' +
-      (can('targets') && money ? '<a class="btn sm" href="#commissions">' + icon('coins') + 'Commissions</a>' : '') + (can('targets') ? '<button class="btn sm" id="setTargets">🎯 Set targets</button>' : '') + '</h2>' +
+      (can('targets') && money && shown('commissions') ? '<a class="btn sm" href="#commissions">' + icon('coins') + 'Commissions</a>' : '') + (can('targets') ? '<button class="btn sm" id="setTargets">🎯 Set targets</button>' : '') + '</h2>' +
       (rows.length ? '<div class="table-wrap" style="border:none"><table class="perf"><thead><tr><th>Team member</th><th>Orders</th>' + (money ? '<th>Sales (EGP)</th>' : '') + '<th class="num">Delivered</th><th class="num">Cancelled / returned</th><th>Last order</th></tr></thead><tbody>' +
         rows.map((m) => '<tr><td><b>' + esc(m.name) + '</b><div class="small muted">' + esc(m.role) + '</div></td>' +
           '<td>' + m.orders + (m.orders_target ? ' <span class="muted">/ ' + m.orders_target + '</span>' : '') + progress(m.orders, m.orders_target) + '</td>' +
