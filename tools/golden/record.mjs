@@ -45,6 +45,7 @@ const adminReads = adminActions.map((a) => `/api/admin.php?action=${a}${extra[a]
 // ---- normalising: remove what changes on every request ------------------------------------------------
 function normalise(text) {
   return text
+    .replace(/https?:\/\/(localhost:\d+|127\.0\.0\.1:\d+|shop\.wheretospot\.com|shop\.wheretospot\.workers\.dev)/g, '<site>')
     .replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?/g, '<datetime>')
     .replace(/"csrf"\s*:\s*"[a-f0-9]+"/g, '"csrf":"<csrf>"')
     .replace(/\b1[6-9]\d{8}(\.\d+)?\b/g, '<unixtime>')
@@ -59,7 +60,8 @@ async function get(path) {
   const type = r.headers.get('content-type') ?? '';
   const buf = Buffer.from(await r.arrayBuffer());
   const textual = /text|json|xml|javascript/.test(type) || buf.length === 0;
-  return { status: r.status, type: type.split(';')[0], location: r.headers.get('location') ?? undefined,
+  const loc = r.headers.get('location');
+  return { status: r.status, type: type.split(';')[0], location: loc ? normalise(loc) : undefined,
     body: textual ? normalise(buf.toString('utf8')) : undefined, sha256: textual ? undefined : createHash('sha256').update(buf).digest('hex'), bytes: buf.length };
 }
 async function login() {
@@ -83,7 +85,7 @@ async function record(group, list) {
 }
 await record('page', pages);
 await record('public', publicReads);
-await login();
+try { await login(); } catch (e) { console.log('admin sign-in failed:', e.message, '(admin reads recorded signed out)'); }
 await record('admin', adminReads);
 writeFileSync(`${out}/_index.json`, JSON.stringify(index, null, 1));
 const by = index.reduce((m, x) => ((m[x.group] = (m[x.group] ?? 0) + 1), m), {});

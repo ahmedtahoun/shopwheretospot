@@ -1,0 +1,26 @@
+# Never served as files: server code, data, notes and tooling.
+.git
+.github
+.gitignore
+.assetsignore
+.htaccess
+**/.htaccess
+.cpanel.yml
+.wrangler
+node_modules
+api
+data
+markets
+uploads
+tools
+tests
+docs
+worker
+wrangler.jsonc
+package.json
+package-lock.json
+tsconfig.json
+*.md
+DEPLOY-UAE.md
+shop-admin.dc.html
+shop-product.dc.html

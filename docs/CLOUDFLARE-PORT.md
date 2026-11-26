@@ -96,3 +96,13 @@ Some answers depend on today's date ("last 30 days"), so compare against a recor
 | `api/wa-file.php` | 19 |  |
 | `api/whatsapp-webhook.php` | 54 |  |
 | `api/whatsapp.php` | 898 |  |
+
+## Running the Cloudflare version
+
+- **Test address:** https://shop.wheretospot.workers.dev (`STAGING=1`: every answer carries `X-Robots-Tag: noindex`). `/__health` shows the database counts.
+- **Deploy:** `npx wrangler deploy` (static files come from this repo, filtered by `.assetsignore`; the Worker is `worker/index.ts`).
+- **Database:** D1 `shop`. Load a copy of the live SQLite with `tools/d1/import.sh <shop.sqlite> --remote` (replaces everything in D1; `--local` for wrangler's local copy).
+- **Compare with PHP:** `tools/golden/record.sh <data-dir>` (PHP, same day), then
+  `node tools/golden/record.mjs https://shop.wheretospot.workers.dev <data-dir>/shop.sqlite ../_shop-golden/worker` and
+  `node tools/golden/compare.mjs ../_shop-golden/php ../_shop-golden/worker --show 5`.
+- **Not ported yet** answers `501` with the old path, so the comparison lists exactly what's left.

@@ -1,0 +1,25 @@
+// Cloudflare: the shop as the Worker "shop" (test address first, shop.wheretospot.com on switch day).
+// Static files come from the repo itself (assets, filtered by .assetsignore); the Worker (worker/index.ts) answers
+// everything the PHP in api/ used to answer, at the same addresses.
+// Secrets (never in git) are set with `npx wrangler secret put NAME`, see docs/CLOUDFLARE-PORT.md.
+{
+  "name": "shop",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    "run_worker_first": true
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "shop", "database_id": "3a5ade1d-7866-4dc6-83cb-18299eb75244" }],
+  "vars": {
+    "SITE_URL": "https://shop.wheretospot.com",
+    "STAGING": "1"
+  }
+}
