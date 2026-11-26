@@ -10,3 +10,6 @@ uploads/thumbs/
 # made by the server from the catalog (api/seo-lib.php)
 /sitemap.xml
 /llms.txt
+
+# Golden snapshots contain real customer data: kept on this Mac only, never committed
+tests/golden/
