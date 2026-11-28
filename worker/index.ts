@@ -3,17 +3,38 @@
 // is answered here, at the same addresses, as each part gets ported (docs/CLOUDFLARE-PORT.md).
 // Apache rules from the .htaccess files are reproduced in `routeRewrites` below.
 
+import { handlePublic } from './api/public';
+import { productPage, categoryPage, arPage, trackScript, seoFile, withHomeBlock } from './api/pages';
+import { qrPage, handleQr } from './api/qr';
+import type { Ctx } from './lib/seo';
+
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   SITE_URL: string;
   STAGING?: string;
+  META_PIXEL_ID?: string;
+  GA4_ID?: string;
+  PAYMOB_SECRET_KEY?: string;
+  PAYMOB_CARD_INTEGRATION_ID?: string;
+  PAYMOB_WALLET_INTEGRATION_ID?: string;
 }
 
 type Handler = (request: Request, env: Env, url: URL, ctx: ExecutionContext) => Promise<Response> | Response;
 
+const seoCtx = (env: Env): Ctx => ({ db: env.DB, base: env.SITE_URL });
+
 // Ported PHP entry points, by their old path. Filled in phase by phase.
-const API: Record<string, Handler> = {};
+const API: Record<string, Handler> = {
+  '/api/public.php': (r, env, url) => handlePublic(r, env, url, seoCtx(env)),
+  '/api/product-page.php': (r, env, url) => productPage(r, env, url, seoCtx(env)),
+  '/api/category-page.php': (r, env, url) => categoryPage(r, env, url, seoCtx(env)),
+  '/api/page.php': (r, env, url) => arPage(r, env, url, seoCtx(env)),
+  '/api/qr-page.php': (r, env, url, ctx) => qrPage(r, env, url, ctx),
+  '/api/qr.php': (r, env, url) => handleQr(r, env, url),
+  '/api/track.php': (_r, env) => trackScript(env),
+  '/api/seo.php': (_r, env, url) => seoFile(url.searchParams.get('f') ?? 'sitemap', seoCtx(env)),
+};
 
 // Short links and rewrites from the .htaccess files (root, p/, c/, b/, r/, rate/, img/).
 // Returns the API path (plus extra query parameters) that answers the request, or null.
@@ -85,6 +106,18 @@ async function handle(request: Request, env: Env, ctx: ExecutionContext): Promis
   // Server-only folders were blocked by Apache ("Require all denied").
   if (/^\/(data|markets|api\/lib)(\/|$)/.test(url.pathname)) return new Response('Forbidden', { status: 403 });
   if (url.pathname.startsWith('/uploads/')) return notPorted('/uploads/*');
+
+  // Files PHP regenerated from the database: now built on each request.
+  if (url.pathname === '/sitemap.xml') return seoFile('sitemap', seoCtx(env));
+  if (url.pathname === '/llms.txt') return seoFile('llms', seoCtx(env));
+  if (url.pathname === '/' || url.pathname === '/index.html') {
+    const res = await serveStatic(request, env, url);
+    if (res.status !== 200) return res;
+    const out = new Response(await withHomeBlock(await res.text(), seoCtx(env)), res);
+    out.headers.delete('ETag');
+    out.headers.delete('Content-Length');
+    return out;
+  }
 
   return serveStatic(request, env, url);
 }

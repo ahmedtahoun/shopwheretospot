@@ -106,3 +106,14 @@ Some answers depend on today's date ("last 30 days"), so compare against a recor
   `node tools/golden/record.mjs https://shop.wheretospot.workers.dev <data-dir>/shop.sqlite ../_shop-golden/worker` and
   `node tools/golden/compare.mjs ../_shop-golden/php ../_shop-golden/worker --show 5`.
 - **Not ported yet** answers `501` with the old path, so the comparison lists exactly what's left.
+
+## Phase 2 notes (read-only pages)
+
+- `worker/api/public.ts` (public reads), `pages.ts` (product, category/brand, `?lang=ar` pages, track.js, SEO files,
+  homepage catalogue), `qr.ts` (`/r/<slug>` and `qr.php?action=me`); helpers in `worker/lib/` behave like the PHP
+  functions they replace (`php.ts`: mb_*, round, number_format, htmlspecialchars, json_encode).
+- `sitemap.xml`, `llms.txt` and the `<!--seo:home-->` block of `index.html` are built from D1 on each request; the
+  copies in the repo are no longer read. `record.sh` refreshes them in PHP first so both sides start from the same data.
+- Bosta areas are bundled (`worker/data/bosta-*.json`); a scheduled refresh comes with the Bosta phase.
+- `track.js` reads `META_PIXEL_ID` / `GA4_ID` (set as vars on switch day); Paymob reads `PAYMOB_*` secrets.
+- Snapshots hold day-relative data: record PHP and the Worker on the same day.

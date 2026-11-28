@@ -12,6 +12,9 @@ trap cleanup EXIT
 # with live URLs, and no keys are set, so Paymob, Bosta, WhatsApp, Meta, Telegram and Claude stay off.
 printf '<?php return [\x27site_url\x27 => \x27http://localhost:8099\x27];\n' > api/config.local.php
 tools/golden/prepare-data.sh "$SRC" "$WORK/data" >/dev/null
+# The shop rewrites sitemap.xml, llms.txt and the homepage catalogue from the database now and then; do it now so
+# the snapshot matches the data (the Worker builds them on each request).
+WTS_DATA_DIR="$WORK/data" php -d display_errors=0 -r 'require "api/bootstrap.php"; seo_publish();'
 printf '#!/bin/sh\ncat > /dev/null\n' > "$WORK/sendmail"; chmod +x "$WORK/sendmail"   # emails go nowhere
 WTS_DATA_DIR="$WORK/data" php -d sendmail_path="$WORK/sendmail" -d display_errors=0 -S 127.0.0.1:8099 -t . ../.claude/router.php >"$WORK/php.log" 2>&1 &
 PHP=$!; sleep 1.5
