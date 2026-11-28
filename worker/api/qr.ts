@@ -1,9 +1,14 @@
 // The review-link tool: its business pages (/r/<slug>, port of api/qr-page.php) and the account read
 // (api/qr.php?action=me). Helpers are ports of api/qrtool.php; the writes come with the checkout phase.
-import { esc, mbSubstr, rawurlencode, phpJson } from '../lib/php';
+import { esc, mbSubstr, rawurlencode, phpJsonU, phpInt, phpFloat, phpTrim } from '../lib/php';
 import { type Row } from '../lib/catalog';
-import { jsonOut, currentCustomer, paymobVisible } from './public';
+import { jsonOut } from './public';
 import { isPreviewBot } from './pages';
+import { type Shop, ShopError, makeShop, readBody, strIn, tooManyAttempts, recordAttempt, logActivity, opsError, orderNumber } from '../lib/shop';
+import { currentCustomer, customerSendCode, customerVerify, customerLogout } from '../lib/customers';
+import { paymobVisible, paymobCheckoutUrl } from '../lib/paymob';
+import { setOrderStatus } from '../lib/orders';
+import { randomHex } from '../lib/php';
 import type { Env } from '../index';
 
 export const QR_FREE = 2;
@@ -74,26 +79,136 @@ export function qrBusinessOut(env: Env, b: Row): Row {
 }
 
 // The balance; an account's free codes are added the first time it's read (as in PHP).
-async function qrBalance(env: Env, customerId: number): Promise<number> {
-  const has = await env.DB.prepare("SELECT 1 AS x FROM qr_ledger WHERE customer_id = ? AND reason = 'free'").bind(customerId).first();
-  if (!has) await env.DB.prepare("INSERT INTO qr_ledger (customer_id, delta, reason) VALUES (?, ?, 'free')").bind(customerId, QR_FREE).run();
-  const r = await env.DB.prepare('SELECT COALESCE(SUM(delta), 0) AS n FROM qr_ledger WHERE customer_id = ?').bind(customerId).first<Row>();
+async function qrBalance(s: Shop, customerId: number): Promise<number> {
+  const has = await s.db.prepare("SELECT 1 AS x FROM qr_ledger WHERE customer_id = ? AND reason = 'free'").bind(customerId).first();
+  if (!has) await s.db.prepare("INSERT INTO qr_ledger (customer_id, delta, reason) VALUES (?, ?, 'free')").bind(customerId, QR_FREE).run();
+  const r = await s.db.prepare('SELECT COALESCE(SUM(delta), 0) AS n FROM qr_ledger WHERE customer_id = ?').bind(customerId).first<Row>();
   return Math.trunc(Number(r?.n ?? 0));
 }
 
-export async function qrMe(request: Request, env: Env, c: Row | null): Promise<Row> {
+const businesses = async (s: Shop, customerId: number) =>
+  (await s.db.prepare('SELECT * FROM qr_businesses WHERE customer_id = ? ORDER BY id DESC').bind(customerId).all<Row>()).results.map((b) => qrBusinessOut(s.env, b));
+
+export async function qrMe(s: Shop, c: Row | null): Promise<Row> {
   const packs = Object.entries(QR_PACKS).map(([k, p]) => ({ id: k, credits: p.credits, price: p.price, en: p.en, ar: p.ar }));
-  let businesses: Row[] = [];
-  if (c) businesses = (await env.DB.prepare('SELECT * FROM qr_businesses WHERE customer_id = ? ORDER BY id DESC').bind(Math.trunc(Number(c.id))).all<Row>()).results.map((b) => qrBusinessOut(env, b));
-  return { email: c ? c.email : null, balance: c ? await qrBalance(env, Math.trunc(Number(c.id))) : null, free: QR_FREE,
-    businesses, packs, payMethods: Object.keys(paymobVisible(request, env)), colors: QR_COLORS };
+  return { email: c ? c.email : null, balance: c ? await qrBalance(s, phpInt(c.id)) : null, free: QR_FREE,
+    businesses: c ? await businesses(s, phpInt(c.id)) : [], packs, payMethods: Object.keys(paymobVisible(s)), colors: QR_COLORS };
 }
 
-export async function handleQr(request: Request, env: Env, url: URL): Promise<Response> {
+const validReviewLink = (link: string): boolean => /^https:\/\/(g\.page\/r\/[A-Za-z0-9_-]{10,40}\/review|search\.google\.com\/local\/writereview\?placeid=[A-Za-z0-9_-]{10,300})$/.test(link);
+
+// A slug from the name (ASCII), with a random ending; iconv's transliteration is approximated by dropping accents.
+async function qrSlug(s: Shop, name: string): Promise<string> {
+  const ascii = name.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7f]/g, '');
+  const base = ascii.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'business';
+  for (let i = 0; i < 20; i++) {
+    const slug = base + '-' + randomHex(3).slice(0, 4);
+    if (!(await s.db.prepare('SELECT 1 AS x FROM qr_businesses WHERE slug = ?').bind(slug).first())) return slug;
+  }
+  return base + '-' + randomHex(6);
+}
+
+async function qrBusinessRow(s: Shop, customerId: number, id: number): Promise<Row> {
+  const b = await s.db.prepare('SELECT * FROM qr_businesses WHERE id = ? AND customer_id = ?').bind(id, customerId).first<Row>();
+  if (!b) throw new ShopError('QR code not found.', 404);
+  return qrBusinessOut(s.env, b);
+}
+
+async function qrCreate(s: Shop, c: Row, input: Row): Promise<Row> {
+  const link = phpTrim(String(input.link ?? ''));
+  if (!validReviewLink(link)) throw new ShopError('That isn’t a Google review link. Make the link with the tool first.');
+  const cid = phpInt(c.id);
+  const ex = await s.db.prepare('SELECT * FROM qr_businesses WHERE customer_id = ? AND review_link = ?').bind(cid, link).first<Row>();
+  if (ex) return qrBusinessOut(s.env, ex);
+  if (await qrBalance(s, cid) < 1) throw new ShopError('You’ve used all your QR codes. Buy a pack to make more.', 402);
+  const name = strIn(input.name, 80);
+  const lang = ['ar', 'en', 'both'].includes(input.card_lang) ? input.card_lang : 'both';
+  const page: Row = { lang: /\p{Script=Arabic}/u.test(name) ? 'ar' : 'en', color: QR_COLORS[0], links: [] };
+  if (input.maps && /^https:\/\/(maps\.google\.com|www\.google\.com\/maps)\//.test(String(input.maps))) page.links.push({ type: 'location', value: String(input.maps) });
+  const num = (v: unknown) => (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) ? phpFloat(v) : null);
+  const [ins] = await s.db.batch([
+    s.db.prepare('INSERT INTO qr_businesses (customer_id, slug, name, review_link, cid, place_id, maps, lat, lng, target, card_lang, page) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+      .bind(cid, await qrSlug(s, name), name, link, String(input.cid ?? '').replace(/\D/g, ''), strIn(input.place_id, 300), strIn(input.maps, 300), num(input.lat), num(input.lng),
+        input.target === 'page' ? 'page' : 'review', lang, phpJsonU(page)),
+    s.db.prepare("INSERT INTO qr_ledger (customer_id, delta, reason, business_id) VALUES (?, -1, 'qr', last_insert_rowid())").bind(cid),
+  ]);
+  const id = Number((ins.results[0] as Row).id);
+  await logActivity(s, null, 'QR tool: new business', name + ' · ' + c.email);
+  return qrBusinessRow(s, cid, id);
+}
+
+async function qrUpdate(s: Shop, c: Row, input: Row): Promise<Row> {
+  const b = await qrBusinessRow(s, phpInt(c.id), phpInt(input.id ?? 0));
+  const name = input.name !== undefined && input.name !== null ? strIn(input.name, 80) : b.name;
+  const target = input.target !== undefined && input.target !== null ? (input.target === 'page' ? 'page' : 'review') : b.target;
+  const lang = ['ar', 'en', 'both'].includes(input.card_lang) ? input.card_lang : b.cardLang;
+  const page = input.page && typeof input.page === 'object' ? qrPageClean(input.page) : b.page;
+  await s.db.prepare("UPDATE qr_businesses SET name = ?, target = ?, card_lang = ?, page = ?, updated_at = datetime('now') WHERE id = ? AND customer_id = ?")
+    .bind(name, target, lang, phpJsonU(page), b.id, phpInt(c.id)).run();
+  return qrBusinessRow(s, phpInt(c.id), b.id);
+}
+
+async function qrBuy(s: Shop, c: Row, pack: string, method: string): Promise<string> {
+  if (!(pack in QR_PACKS)) throw new ShopError('Choose a pack.');
+  const methods = paymobVisible(s);
+  if (!Object.keys(methods).length) throw new ShopError('Online payment isn’t available right now. Message us on WhatsApp to buy QR codes.');
+  if (!(method in methods)) method = Object.keys(methods)[0];
+  const p = QR_PACKS[pack];
+  const item = { id: 'custom', name: 'Google review QR codes — ' + p.en + ' pack (' + p.credits + ')', qty: 1, price: p.price, total: p.price, cat: 'services', qr_pack: pack, qr_credits: p.credits };
+  const r = await s.db.prepare(`INSERT INTO orders (customer, email, phone, address, city, items, subtotal, discount, shipping, total, promo, payment, source, status, notes, customer_id)
+    VALUES (?, ?, ?, '', '', ?, ?, 0, 0, ?, '', ?, 'QR tool', 'Awaiting payment', ?, ?) RETURNING id`)
+    .bind(phpTrim(String(c.name ?? '')) !== '' ? c.name : c.email, c.email, String(c.phone ?? ''), phpJsonU([item]), p.price, p.price, method,
+      'Digital: QR codes are added to the customer’s account when paid.', phpInt(c.id)).first<Row>();
+  return paymobCheckoutUrl(s, Number(r!.id), method);
+}
+
+// Paymob confirmed a fully paid order: a QR pack adds its codes (once) and is marked Delivered.
+export async function qrOrderPaid(s: Shop, orderId: number): Promise<void> {
+  const o = await s.db.prepare("SELECT * FROM orders WHERE id = ? AND source = 'QR tool'").bind(orderId).first<Row>();
+  if (!o || !o.customer_id) return;
+  if (await s.db.prepare('SELECT 1 AS x FROM qr_ledger WHERE order_id = ?').bind(orderId).first()) return;
+  let items: Row[] = []; try { items = JSON.parse(String(o.items)) || []; } catch { /* none */ }
+  let credits = 0;
+  for (const i of items) credits += phpInt(i.qr_credits ?? 0) * Math.max(1, phpInt(i.qty ?? 1));
+  if (credits < 1) return;
+  await qrBalance(s, phpInt(o.customer_id));
+  await s.db.prepare("INSERT INTO qr_ledger (customer_id, delta, reason, order_id) VALUES (?, ?, 'pack', ?)").bind(phpInt(o.customer_id), credits, orderId).run();
+  if (o.status !== 'Delivered') await setOrderStatus(s, orderId, 'Delivered');
+  await logActivity(s, null, 'QR tool: pack paid', orderNumber(orderId) + ' · ' + credits + ' QR · ' + o.email);
+}
+
+export async function handleQr(request: Request, env: Env, url: URL, ec: ExecutionContext): Promise<Response> {
+  const s = makeShop(request, env, ec);
   const action = url.searchParams.get('action') ?? '';
-  if (action === 'me' && request.method === 'GET') return jsonOut(await qrMe(request, env, await currentCustomer(request, env)));
-  if (request.method !== 'POST') return jsonOut({ error: 'Not found' }, 404);
-  return new Response(JSON.stringify({ error: 'Not available on the test shop yet', path: '/api/qr.php', action }), { status: 501, headers: { 'Content-Type': 'application/json' } });
+  const ok = (d: unknown, code = 200) => jsonOut(d, code, 0, s);
+  try {
+    if (action === 'me' && request.method === 'GET') return ok(await qrMe(s, await currentCustomer(s)));
+    if (request.method !== 'POST') return ok({ error: 'Not found' }, 404);
+    const b = await readBody(s);
+    if (action === 'code') { await customerSendCode(s, strIn(b.email, 160), b.lang === 'ar' ? 'ar' : 'en'); return ok({ ok: true }); }
+    if (action === 'verify') return ok(await qrMe(s, await customerVerify(s, strIn(b.email, 160), strIn(b.code, 12))));
+    if (action === 'logout') { await customerLogout(s); return ok(await qrMe(s, null)); }
+    const c = await currentCustomer(s);
+    if (!c) return ok({ error: 'Please sign in first.' }, 401);
+    if (action === 'create') {
+      if (await tooManyAttempts(s, 'qrmake', 60, 3600)) return ok({ error: 'Too many requests. Please wait a while.' }, 429);
+      await recordAttempt(s, 'qrmake');
+      const biz = await qrCreate(s, c, b);
+      return ok({ business: biz, ...(await qrMe(s, c)) });
+    }
+    if (action === 'update') { const biz = await qrUpdate(s, c, b); return ok({ business: biz, ...(await qrMe(s, c)) }); }
+    if (action === 'logo') return ok({ error: 'Uploads are not available on the test shop yet', path: '/api/qr.php', action }, 501);
+    if (action === 'buy') {
+      if (await tooManyAttempts(s, 'qrbuy', 15, 3600)) return ok({ error: 'Too many attempts. Please wait a while.' }, 429);
+      await recordAttempt(s, 'qrbuy');
+      return ok({ payUrl: await qrBuy(s, c, strIn(b.pack, 20), strIn(b.method, 20)) });
+    }
+    return ok({ error: 'Not found' }, 404);
+  } catch (e) {
+    if (e instanceof ShopError) return ok({ error: e.message }, [401, 402, 404, 429].includes(e.code) ? e.code : 400);
+    await opsError(s, 'Server', 'QR tool error (' + action + ')', e);
+    return ok({ error: 'Something went wrong. Please try again.' }, 500);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------

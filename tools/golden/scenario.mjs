@@ -3,6 +3,7 @@
 // Usage: node scenario.mjs <baseUrl> <sqliteFile> <outFile>      (run through write-test.sh)
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createHmac } from 'node:crypto';
 
 const [base, db, outFile] = process.argv.slice(2);
 const MOCK = 'http://127.0.0.1:8098';
@@ -14,7 +15,7 @@ async function call(step) {
   const headers = { 'Content-Type': 'application/json', 'User-Agent': step.ua ?? 'Mozilla/5.0 write-test' };
   const cookies = Object.entries(jar).map(([k, v]) => k + '=' + v).join('; ');
   if (cookies) headers.Cookie = cookies;
-  const r = await fetch(base + step.path, { method: step.body === undefined ? 'GET' : 'POST', headers, redirect: 'manual',
+  const r = await fetch(base + (step.pathFn ? step.pathFn() : step.path), { method: step.body === undefined ? 'GET' : 'POST', headers, redirect: 'manual',
     body: step.body === undefined ? undefined : JSON.stringify(typeof step.body === 'function' ? step.body() : step.body) });
   for (const c of r.headers.getSetCookie?.() ?? []) {
     const [kv] = c.split(';'); const [k, ...v] = kv.split('=');
@@ -35,6 +36,29 @@ const codeFromMail = async (email) => {
   lastCode = (mails.at(-1)?.subject.match(/\d{6}/) ?? [''])[0];
   return lastCode;
 };
+
+// Paymob callbacks, signed like Paymob signs them (the test HMAC secret is "mock-hmac").
+const one = (sql) => { const t = execFileSync('sqlite3', ['-json', db, sql], { encoding: 'utf8' }).trim(); return t ? JSON.parse(t)[0] : null; };
+const refOf = (n) => (one(`SELECT pay_refs FROM orders WHERE id = ${n - 1000}`)?.pay_refs ?? '').trim().split(/\s+/)[0];
+const totalOf = (n) => Math.round(one(`SELECT total FROM orders WHERE id = ${n - 1000}`).total * 100);
+const v = (x) => (typeof x === 'boolean' ? String(x) : x === undefined || x === null ? '' : String(x));
+const hmacOf = (f) => createHmac('sha512', 'mock-hmac').update(f.map(v).join('')).digest('hex');
+const txn = (n, id) => ({ id, amount_cents: totalOf(n), created_at: '2026-11-28T10:00:00.000000', currency: 'EGP', error_occured: false, has_parent_transaction: false,
+  integration_id: 111, is_3d_secure: true, is_auth: false, is_capture: false, is_refunded: false, is_standalone_payment: true, is_voided: false,
+  order: { id: 777000 + id, merchant_order_id: refOf(n) }, owner: 4242, pending: false, source_data: { pan: '2346', sub_type: 'MasterCard', type: 'card' }, success: true, data: { message: 'Approved' } });
+const hookHmac = (t) => hmacOf([t.amount_cents, t.created_at, t.currency, t.error_occured, t.has_parent_transaction, t.id, t.integration_id, t.is_3d_secure, t.is_auth, t.is_capture,
+  t.is_refunded, t.is_standalone_payment, t.is_voided, t.order.id, t.owner, t.pending, t.source_data.pan, t.source_data.sub_type, t.source_data.type, t.success]);
+let hook = null, hookN = 0;
+const returnQuery = (n, id) => {
+  const t = txn(n, id);
+  const q = { amount_cents: t.amount_cents, created_at: t.created_at, currency: 'EGP', error_occured: 'false', has_parent_transaction: 'false', id: String(id), integration_id: '111',
+    is_3d_secure: 'true', is_auth: 'false', is_capture: 'false', is_refunded: 'false', is_standalone_payment: 'true', is_voided: 'false', order: String(t.order.id), owner: '4242',
+    pending: 'false', source_data_pan: '2346', source_data_sub_type: 'MasterCard', source_data_type: 'card', success: 'true', merchant_order_id: t.order.merchant_order_id };
+  q.hmac = hmacOf([q.amount_cents, q.created_at, q.currency, q.error_occured, q.has_parent_transaction, q.id, q.integration_id, q.is_3d_secure, q.is_auth, q.is_capture, q.is_refunded,
+    q.is_standalone_payment, q.is_voided, q.order, q.owner, q.pending, q.source_data_pan, q.source_data_sub_type, q.source_data_type, q.success]);
+  return new URLSearchParams(q).toString();
+};
+let qrId = 0, rateIds = [];
 
 // ---- the steps ------------------------------------------------------------------------------------------
 const P = '/api/public.php?action=';
@@ -87,9 +111,42 @@ const steps = [
   { name: 'review not bought', path: P + 'review_save', body: { product: 'nfc3', rating: 5, text: 'Great' } },
   { name: 'reviews me', path: P + 'reviews&product=nfc3' },
   { name: 'qr me signed in', path: '/api/qr.php?action=me' },
+  { name: 'qr create bad link', path: '/api/qr.php?action=create', body: { link: 'https://example.com', name: 'Bad' } },
+  { name: 'qr create', path: '/api/qr.php?action=create', body: { link: 'https://g.page/r/CTestTest1234/review', name: 'Cafe Mona', card_lang: 'ar', target: 'page', maps: 'https://maps.google.com/?cid=1', lat: '30.1', lng: 31.2 } },
+  { name: 'qr create same link', path: '/api/qr.php?action=create', body: { link: 'https://g.page/r/CTestTest1234/review', name: 'Again' } },
+  { name: 'qr update', path: '/api/qr.php?action=update', before: () => { qrId = one("SELECT id FROM qr_businesses ORDER BY id DESC LIMIT 1").id; },
+    body: () => ({ id: qrId, name: 'Cafe Mona 2', target: 'review', page: { lang: 'ar', color: '#2C5DA8', tagline: ' Best coffee ', links: [{ type: 'whatsapp', value: '01001234567' },
+      { type: 'instagram', value: '@mona.cafe' }, { type: 'website', value: 'mona.example' }, { type: 'email', value: 'bad' }, { type: 'nope', value: 'x' }] } }) },
+  { name: 'qr page', path: '/r/', before: () => {}, pathFn: () => '/r/' + one("SELECT slug FROM qr_businesses ORDER BY id DESC LIMIT 1").slug },
+  { name: 'qr buy', path: '/api/qr.php?action=buy', body: { pack: 'starter', method: 'paymob_wallet' } },
+  { name: 'qr buy bad pack', path: '/api/qr.php?action=buy', body: { pack: 'nope' } },
   { name: 'logout', path: P + 'account_logout', body: {} },
   { name: 'account after logout', path: P + 'account' },
   { name: 'review signed out', path: P + 'review_save', body: { product: 'nfc3', rating: 5 } },
+  // Online payment (Paymob, mocked).
+  { name: 'order online', path: P + 'order', body: { ...cust, name: 'Online Payer', email: 'online.test@example.test', phone: '01005550001', payment: 'paymob_card', items: [{ id: 'nfc4', qty: 1 }] } },
+  { name: 'pay retry wrong contact', path: P + 'pay', body: { number: 'WTS-1072', contact: 'x@example.test' } },
+  { name: 'pay retry', path: P + 'pay', body: { number: 'WTS-1072', contact: '01005550001', method: 'paymob_wallet' } },
+  { name: 'webhook not post', path: '/api/paymob-webhook.php' },
+  { name: 'webhook ignored', path: '/api/paymob-webhook.php?hmac=x', body: { type: 'TOKEN', obj: {} } },
+  { name: 'webhook bad hmac', path: '/api/paymob-webhook.php?hmac=bad', body: () => ({ type: 'TRANSACTION', obj: txn(1072, 9001) }) },
+  { name: 'webhook paid', before: () => { hook = txn(1072, 9002); }, path: '/api/paymob-webhook.php', pathFn: () => '/api/paymob-webhook.php?hmac=' + hookHmac(hook), body: () => ({ type: 'TRANSACTION', obj: hook }) },
+  { name: 'webhook again', path: '/api/paymob-webhook.php', pathFn: () => '/api/paymob-webhook.php?hmac=' + hookHmac(hook), body: () => ({ type: 'TRANSACTION', obj: hook }) },
+  { name: 'return paid', path: '/api/paymob-return.php', pathFn: () => '/api/paymob-return.php?' + returnQuery(1072, 9002) },
+  { name: 'return bad', path: '/api/paymob-return.php?merchant_order_id=WTS-1072-abcdef&success=true&hmac=nope' },
+  { name: 'pay already confirmed', path: P + 'pay_cod', body: { number: 'WTS-1072', contact: 'online.test@example.test' } },
+  { name: 'order online 2', path: P + 'order', body: { ...cust, name: 'Cash Later', email: 'later.test@example.test', phone: '01005550002', payment: 'paymob_wallet', items: [{ id: 'nfc5', qty: 2 }] } },
+  { name: 'switch to cash', path: P + 'pay_cod', body: { number: 'WTS-1073', contact: 'later.test@example.test' } },
+  { name: 'pay link bad', path: '/api/pay.php?o=72&k=nope' },
+  // The review link sent after delivery.
+  { name: 'rate bad token', path: '/rate/000000000000000000000000' },
+  { name: 'rate page', path: '/rate/bc15a8b7f7d82295299f31bb' },
+  { name: 'rate page en', path: '/rate/bc15a8b7f7d82295299f31bb?lang=en' },
+  { name: 'rate save nothing', path: P + 'review_token_save', body: { t: 'bc15a8b7f7d82295299f31bb', reviews: [] } },
+  { name: 'rate save bad token', path: P + 'review_token_save', body: { t: 'nope', reviews: [{ product_id: 'x', rating: 5 }] } },
+  { name: 'rate save', path: P + 'review_token_save', before: () => { const o = one('SELECT items FROM orders WHERE id = 2'); rateIds = JSON.parse(o.items).map((i) => i.id); },
+    body: () => ({ t: 'bc15a8b7f7d82295299f31bb', name: 'Happy Buyer', reviews: rateIds.map((id, i) => ({ product_id: id, rating: 5 - i, text: i ? '' : 'Lovely quality' })).concat([{ product_id: 'not-in-order', rating: 5 }]) }) },
+  { name: 'rate page after', path: '/rate/bc15a8b7f7d82295299f31bb?lang=en' },
   { name: 'unknown action', path: P + 'nothing', body: {} },
   { name: 'get on post action', path: P + 'order' },
 ];
@@ -111,7 +168,8 @@ const tables = {
   sessions: 'SELECT customer_id, count(*) AS n FROM customer_sessions GROUP BY customer_id ORDER BY customer_id',
   codes: 'SELECT email, tries, sends FROM customer_codes ORDER BY email',
   stock: 'SELECT id, stock, variants FROM products ORDER BY id', ops_errors: 'SELECT area, message, count FROM ops_errors ORDER BY id',
-  reviews: 'SELECT * FROM product_reviews ORDER BY id', qr_ledger: 'SELECT customer_id, delta, reason, business_id FROM qr_ledger ORDER BY id',
+  reviews: 'SELECT * FROM product_reviews ORDER BY id', qr: 'SELECT id, customer_id, name, review_link, cid, place_id, maps, lat, lng, target, card_lang, page, views FROM qr_businesses ORDER BY id',
+  qr_ledger: 'SELECT customer_id, delta, reason, business_id, order_id FROM qr_ledger ORDER BY id',
 };
 const saved = Object.fromEntries(Object.entries(tables).map(([k, sql]) => [k, q(sql)]));
 const sent = (await mockLog()).sort((a, b) => JSON.stringify([a.kind, a.to ?? a.path, a.subject ?? '']).localeCompare(JSON.stringify([b.kind, b.to ?? b.path, b.subject ?? ''])));

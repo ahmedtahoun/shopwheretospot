@@ -6,6 +6,11 @@
 import { handlePublic } from './api/public';
 import { productPage, categoryPage, arPage, trackScript, seoFile, withHomeBlock } from './api/pages';
 import { qrPage, handleQr } from './api/qr';
+import { reviewPage } from './api/review';
+import { paymobWebhook, paymobReturn, payLink } from './api/paymob';
+import { makeShop } from './lib/shop';
+import { abandonedDue } from './lib/drafts';
+import { expireUnpaidOrders } from './lib/orders';
 import type { Ctx } from './lib/seo';
 
 export interface Env {
@@ -15,9 +20,25 @@ export interface Env {
   STAGING?: string;
   META_PIXEL_ID?: string;
   GA4_ID?: string;
+  // Paymob (secrets: PAYMOB_SECRET_KEY, PAYMOB_PUBLIC_KEY, PAYMOB_HMAC_SECRET)
   PAYMOB_SECRET_KEY?: string;
+  PAYMOB_PUBLIC_KEY?: string;
+  PAYMOB_HMAC_SECRET?: string;
   PAYMOB_CARD_INTEGRATION_ID?: string;
   PAYMOB_WALLET_INTEGRATION_ID?: string;
+  PAYMOB_BASE_URL?: string;
+  // Meta Conversions API (secret: META_CAPI_TOKEN)
+  META_CAPI_TOKEN?: string;
+  META_TEST_CODE?: string;
+  META_GRAPH_URL?: string;
+  META_GRAPH_VERSION?: string;
+  // Email: Brevo (secret BREVO_API_KEY); extra alert addresses; write tests send mail to MAIL_CAPTURE_URL instead.
+  BREVO_API_KEY?: string;
+  ALERT_EMAILS?: string;
+  MAIL_CAPTURE_URL?: string;
+  // The live shop's SETUP_KEY (payment links), and our Google review link for the review page.
+  SETUP_KEY?: string;
+  GOOGLE_REVIEW_URL?: string;
 }
 
 type Handler = (request: Request, env: Env, url: URL, ctx: ExecutionContext) => Promise<Response> | Response;
@@ -26,12 +47,16 @@ const seoCtx = (env: Env): Ctx => ({ db: env.DB, base: env.SITE_URL });
 
 // Ported PHP entry points, by their old path. Filled in phase by phase.
 const API: Record<string, Handler> = {
-  '/api/public.php': (r, env, url) => handlePublic(r, env, url, seoCtx(env)),
+  '/api/public.php': (r, env, url, ctx) => handlePublic(r, env, url, seoCtx(env), ctx),
   '/api/product-page.php': (r, env, url) => productPage(r, env, url, seoCtx(env)),
   '/api/category-page.php': (r, env, url) => categoryPage(r, env, url, seoCtx(env)),
   '/api/page.php': (r, env, url) => arPage(r, env, url, seoCtx(env)),
   '/api/qr-page.php': (r, env, url, ctx) => qrPage(r, env, url, ctx),
-  '/api/qr.php': (r, env, url) => handleQr(r, env, url),
+  '/api/qr.php': (r, env, url, ctx) => handleQr(r, env, url, ctx),
+  '/api/review-page.php': reviewPage,
+  '/api/paymob-webhook.php': paymobWebhook,
+  '/api/paymob-return.php': paymobReturn,
+  '/api/pay.php': payLink,
   '/api/track.php': (_r, env) => trackScript(env),
   '/api/seo.php': (_r, env, url) => seoFile(url.searchParams.get('f') ?? 'sitemap', seoCtx(env)),
 };
@@ -130,5 +155,11 @@ export default {
     const out = new Response(res.body, res);
     out.headers.set('X-Robots-Tag', 'noindex, nofollow');
     return out;
+  },
+  // Every 15 minutes: unfinished checkouts become leads, unpaid online orders are released (PHP did this on visits).
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const s = makeShop(new Request(env.SITE_URL + '/__cron'), env, ctx);
+    await abandonedDue(s);
+    await expireUnpaidOrders(s);
   },
 } satisfies ExportedHandler<Env>;

@@ -8,6 +8,7 @@ const show = Number(process.argv[process.argv.indexOf('--show') + 1] || 30);
 
 const norm = (v) => v === undefined ? null : JSON.parse(JSON.stringify(v)
   .replace(/https?:\/\/(localhost|127\.0\.0\.1):\d+/g, '<site>')
+  .replace(/\b(localhost|127\.0\.0\.1):\d+/g, '<host>')
   .replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?/g, '<datetime>')
   .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '<date>')
   .replace(/\b1[6-9]\d{8}\b/g, '<unixtime>')
@@ -18,7 +19,8 @@ const norm = (v) => v === undefined ? null : JSON.parse(JSON.stringify(v)
   .replace(/(sign-in code: |كود الدخول: |letter-spacing:8px[^>]*>)\d{6}/g, '$1<code>')
   .replace(/(\\"ip\\":\\")[^\\]*(\\")/g, '$1<ip>$2')
   .replace(/"ip":"[^"]*"/g, '"ip":"<ip>"')
-  .replace(/mock_cs_\d+/g, 'mock_cs_<n>'));
+  .replace(/mock_cs_\d+/g, 'mock_cs_<n>')
+  .replace(/(\/r\/[a-z0-9-]+-|\\"slug\\":\\"[a-z0-9-]+-|"slug":"[a-z0-9-]+-)[a-f0-9]{4}\b/g, '$1<x>'));
 
 const diffs = [];
 const cmp = (where, x, y) => { const nx = JSON.stringify(norm(x)), ny = JSON.stringify(norm(y)); if (nx !== ny) diffs.push({ where, php: norm(x), worker: norm(y) }); };

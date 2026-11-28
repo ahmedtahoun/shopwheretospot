@@ -15,4 +15,7 @@ npx wrangler d1 execute shop $WHERE --json --command "SELECT name FROM sqlite_ma
   | python3 -c 'import sys,json; d=json.load(sys.stdin); print("PRAGMA defer_foreign_keys = on;"); [print("DROP TABLE IF EXISTS \"" + r["name"] + "\";") for r in d[0]["results"]]' > "$WORK/drop.sql"
 [ "$(wc -l < "$WORK/drop.sql")" -gt 1 ] && npx wrangler d1 execute shop $WHERE --file "$WORK/drop.sql" --yes >/dev/null
 npx wrangler d1 execute shop $WHERE --file "$WORK/data.sql" --yes 2>&1 | { grep -E "rows|Executed|ERROR|error" || true; } | tail -3
+# AUTOINCREMENT counters: a deleted row's id (e.g. a test order's number) must never come back.
+sqlite3 "$SRC" "SELECT 'DELETE FROM sqlite_sequence WHERE name = ''' || name || ''';' || char(10) || 'INSERT INTO sqlite_sequence (name, seq) VALUES (''' || name || ''', ' || seq || ');' FROM sqlite_sequence" > "$WORK/seq.sql"
+[ -s "$WORK/seq.sql" ] && npx wrangler d1 execute shop $WHERE --file "$WORK/seq.sql" --yes >/dev/null
 npx wrangler d1 execute shop $WHERE --json --command "SELECT (SELECT count(*) FROM orders) AS orders, (SELECT count(*) FROM products) AS products, (SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%') AS tables" | python3 -c 'import sys,json; print("D1 now:", json.load(sys.stdin)[0]["results"][0])'

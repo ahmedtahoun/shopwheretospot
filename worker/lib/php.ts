@@ -59,3 +59,52 @@ export function jsonArray(s: unknown): any[] | Record<string, any> {
   if (typeof s !== 'string' || s === '') return [];
   try { const v = JSON.parse(s); return v && typeof v === 'object' ? v : []; } catch { return []; }
 }
+
+// trim(): only " \t\n\r\0\x0B" (JS .trim() also strips Unicode spaces).
+export const phpTrim = (s: string, chars = ' \t\n\r\0\x0B'): string => {
+  let a = 0, b = s.length;
+  while (a < b && chars.includes(s[a])) a++;
+  while (b > a && chars.includes(s[b - 1])) b--;
+  return s.slice(a, b);
+};
+
+// (int) and (float) casts: numeric prefix of a string, booleans as 0/1, everything else 0.
+export function phpInt(v: unknown): number {
+  if (typeof v === 'number') return Number.isFinite(v) ? Math.trunc(v) : 0;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'string') { const m = phpTrim(v, ' \t\n\r\x0B\f').match(/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?/); return m ? Math.trunc(Number(m[0])) || 0 : 0; }
+  return 0;
+}
+export function phpFloat(v: unknown): number {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'string') { const m = phpTrim(v, ' \t\n\r\x0B\f').match(/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?/); return m ? Number(m[0]) : 0; }
+  return 0;
+}
+// (string) cast as the shop uses it on request values.
+export const phpStr = (v: unknown): string => (v === null || v === undefined || v === false ? '' : v === true ? '1' : typeof v === 'object' ? 'Array' : String(v));
+
+// filter_var($e, FILTER_VALIDATE_EMAIL) for the addresses people type (ASCII local part and domain).
+export const validEmail = (v: unknown): boolean => {
+  const s = typeof v === 'string' ? v : '';
+  if (s.length > 320 || !/^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(s)) return false;
+  return s.split('@')[0].length <= 64;
+};
+
+// json_encode($d, JSON_UNESCAPED_UNICODE): like phpJson, but "/" is escaped as "\/".
+export const phpJsonU = (data: unknown): string => phpJson(data).replace(/\//g, '\\/');
+// json_encode($d) with no flags: also every non-ASCII character as \uXXXX.
+export const phpJsonPlain = (data: unknown): string =>
+  phpJsonU(data).replace(/[\u0080-￿]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+
+// Hex of random bytes (bin2hex(random_bytes(n))).
+export const randomHex = (bytes: number): string => [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+export async function sha256Hex(s: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+export async function sha1Hex(s: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s)));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}

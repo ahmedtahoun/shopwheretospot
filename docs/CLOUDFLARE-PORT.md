@@ -117,3 +117,21 @@ Some answers depend on today's date ("last 30 days"), so compare against a recor
 - Bosta areas are bundled (`worker/data/bosta-*.json`); a scheduled refresh comes with the Bosta phase.
 - `track.js` reads `META_PIXEL_ID` / `GA4_ID` (set as vars on switch day); Paymob reads `PAYMOB_*` secrets.
 - Snapshots hold day-relative data: record PHP and the Worker on the same day.
+
+## Phase 3 notes (checkout)
+
+- **Write tests:** `tools/golden/write-test.sh <data-dir>` places the same orders, leads, sign-ins, Paymob payments
+  (webhook and return page), QR-tool actions and review-link reviews on the PHP shop and on the Worker (`wrangler dev`,
+  local D1 outside the repo), each on a fresh copy of the same data. `tools/golden/mock.mjs` stands in for Paymob,
+  Meta, Telegram and email, so nothing real is called. `compare-writes.mjs` compares answers, every saved row and
+  every email / outside call. Result on 2026-11-28: **75 steps, 555 rows, 21 emails and calls, 0 differences.**
+- Code: `worker/lib/shop.ts` (orders, pricing, stock, leads, promos, alerts), `customers.ts`, `drafts.ts`, `meta.ts`,
+  `paymob.ts`, `orders.ts` (status changes), `mail.ts`; endpoints in `worker/api/public.ts`, `qr.ts`, `review.ts`, `paymob.ts`.
+- **Stock without transactions:** D1 has no open transactions, so an order and its stock changes go in one atomic batch
+  that first checks the products are unchanged since they were read; if another order got in between, it reads again.
+- **Email** goes through Brevo's API (secret `BREVO_API_KEY`); without it, emails are logged and skipped.
+- **Cron** every 15 minutes: abandoned checkouts become leads, unpaid online orders are released (PHP did this on visits).
+- **Switch day:** copy the live `data/SETUP_KEY.txt` into the secret `SETUP_KEY` (payment links already sent keep working),
+  and the Paymob / Meta keys into secrets. `tools/d1/import.sh` now keeps the id counters, so order numbers never repeat.
+- Not yet (later phases): logo and "sell with us" uploads (R2), WhatsApp / Telegram messages on payment, review requests
+  after delivery, IndexNow pings.
