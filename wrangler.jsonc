@@ -1,5 +1,5 @@
 // Cloudflare: the shop as the Worker "shop" (test address first, shop.wheretospot.com on switch day).
-// Static files come from the repo itself (assets, filtered by .assetsignore); the Worker (worker/index.ts) answers
+// Static files: the repo's public files, copied into dist/ by `npm run build` (filtered by .assetsignore); the Worker (worker/index.ts) answers
 // everything the PHP in api/ used to answer, at the same addresses.
 // Secrets (never in git) are set with `npx wrangler secret put NAME`, see docs/CLOUDFLARE-PORT.md.
 {
@@ -10,8 +10,10 @@
   "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true },
+  // Runs before every `wrangler dev` and `wrangler deploy`: fills dist/ with the public files.
+  "build": { "command": "node tools/build/assets.mjs", "watch_dir": "worker" },
   "assets": {
-    "directory": ".",
+    "directory": "dist",
     "binding": "ASSETS",
     "html_handling": "none",
     "not_found_handling": "none",

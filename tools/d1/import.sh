@@ -5,6 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 SRC=$1; WHERE=${2:---local}
+# Local only: WRANGLER_PERSIST=<dir> keeps the local copy there instead of .wrangler/state.
+[ "$WHERE" = --local ] && [ -n "${WRANGLER_PERSIST:-}" ] && WHERE="--local --persist-to $WRANGLER_PERSIST"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 # D1 doesn't accept transactions, PRAGMAs or writes to sqlite_sequence in an import file.
 sqlite3 "$SRC" ".dump --newlines --nosys" | grep -vE '^(PRAGMA|BEGIN TRANSACTION;|COMMIT;)' | grep -vE '^(DELETE FROM|INSERT INTO) "?sqlite_sequence' > "$WORK/data.sql"

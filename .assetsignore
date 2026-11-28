@@ -24,3 +24,7 @@ tsconfig.json
 DEPLOY-UAE.md
 shop-admin.dc.html
 shop-product.dc.html
+dist
+# built from the database on each request now (worker/api/pages.ts)
+sitemap.xml
+llms.txt

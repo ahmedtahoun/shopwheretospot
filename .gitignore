@@ -15,3 +15,6 @@ uploads/thumbs/
 tests/golden/
 node_modules/
 .wrangler/
+
+# static files for Cloudflare (npm run build)
+dist/
