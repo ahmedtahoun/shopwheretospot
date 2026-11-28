@@ -20,10 +20,16 @@ const norm = (v) => v === undefined ? null : JSON.parse(JSON.stringify(v)
   .replace(/(\\"ip\\":\\")[^\\]*(\\")/g, '$1<ip>$2')
   .replace(/"ip":"[^"]*"/g, '"ip":"<ip>"')
   .replace(/mock_cs_\d+/g, 'mock_cs_<n>')
+  .replace(/(\\?"csrf\\?":\\?")[a-f0-9]{32}/g, '$1<csrf>')
+  .replace(/\b[a-f0-9]{24}\b/g, '<token>')
+  .replace(/\bp[0-9a-z]{6}[0-9a-f]{4}\b/g, 'p<new>')
+  .replace(/(\\?"id\\?":\\?")[va][0-9a-f]{6}(\\?")/g, '$1<newid>$2')
   .replace(/(\/r\/[a-z0-9-]+-|\\"slug\\":\\"[a-z0-9-]+-|"slug":"[a-z0-9-]+-)[a-f0-9]{4}\b/g, '$1<x>'));
 
+// Known, deliberate differences: D1 keeps its own 30-day history, so the Worker lists no backup files.
+const known = (v) => { if (v && typeof v === 'object') { if ('lastBackup' in v) v.lastBackup = '<backup>'; for (const k in v) known(v[k]); } return v; };
 const diffs = [];
-const cmp = (where, x, y) => { const nx = JSON.stringify(norm(x)), ny = JSON.stringify(norm(y)); if (nx !== ny) diffs.push({ where, php: norm(x), worker: norm(y) }); };
+const cmp = (where, x, y) => { const nx = JSON.stringify(known(norm(x))), ny = JSON.stringify(known(norm(y))); if (nx !== ny) diffs.push({ where, php: norm(x), worker: norm(y) }); };
 
 a.answers.forEach((x, i) => cmp('answer · ' + x.step, x, b.answers[i]));
 for (const t of Object.keys(a.saved)) {

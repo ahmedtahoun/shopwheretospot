@@ -14,7 +14,8 @@ export class ShopError extends Error {
 
 // One request's context: the database, the site address, and work to finish after answering.
 export interface Shop { request: Request; env: Env; db: D1Database; site: string; later(p: Promise<unknown>): void;
-  cookies: string[]; customer?: Row | null; body?: Row }
+  cookies: string[]; customer?: Row | null; body?: Row;
+  session?: import('./team').Session; user?: Row | null; deviceId?: string }
 export const makeShop = (request: Request, env: Env, ctx: ExecutionContext): Shop =>
   ({ request, env, db: env.DB, site: env.SITE_URL.replace(/\/+$/, ''), later: (p) => ctx.waitUntil(p.catch((e) => console.error('[later]', e))), cookies: [] });
 

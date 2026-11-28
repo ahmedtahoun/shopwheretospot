@@ -7,10 +7,13 @@ import { handlePublic } from './api/public';
 import { productPage, categoryPage, arPage, trackScript, seoFile, withHomeBlock } from './api/pages';
 import { qrPage, handleQr } from './api/qr';
 import { reviewPage } from './api/review';
+import { handleAdmin } from './api/admin';
 import { paymobWebhook, paymobReturn, payLink } from './api/paymob';
 import { makeShop } from './lib/shop';
 import { abandonedDue } from './lib/drafts';
 import { expireUnpaidOrders } from './lib/orders';
+import { bostaWebhook, bostaSyncDue } from './lib/bosta';
+import { reviewsDue } from './api/review';
 import type { Ctx } from './lib/seo';
 
 export interface Env {
@@ -38,6 +41,15 @@ export interface Env {
   MAIL_CAPTURE_URL?: string;
   // The live shop's SETUP_KEY (payment links), and our Google review link for the review page.
   SETUP_KEY?: string;
+  IPINFO_TOKEN?: string;
+  // Bosta (secrets: BOSTA_API_KEY, BOSTA_WEBHOOK_SECRET)
+  BOSTA_API_KEY?: string;
+  BOSTA_WEBHOOK_SECRET?: string;
+  BOSTA_BASE_URL?: string;
+  BOSTA_LOCATION_ID?: string;
+  BOSTA_DEFAULT_SIZE?: string;
+  BOSTA_AWB_SIZE?: string;
+  BOSTA_AWB_LANG?: string;
   GOOGLE_REVIEW_URL?: string;
 }
 
@@ -54,7 +66,9 @@ const API: Record<string, Handler> = {
   '/api/qr-page.php': (r, env, url, ctx) => qrPage(r, env, url, ctx),
   '/api/qr.php': (r, env, url, ctx) => handleQr(r, env, url, ctx),
   '/api/review-page.php': reviewPage,
+  '/api/admin.php': (r, env, url, ctx) => handleAdmin(r, env, url, seoCtx(env), ctx),
   '/api/paymob-webhook.php': paymobWebhook,
+  '/api/bosta-webhook.php': (r, env, _url, ctx) => bostaWebhook(makeShop(r, env, ctx)),
   '/api/paymob-return.php': paymobReturn,
   '/api/pay.php': payLink,
   '/api/track.php': (_r, env) => trackScript(env),
@@ -161,5 +175,7 @@ export default {
     const s = makeShop(new Request(env.SITE_URL + '/__cron'), env, ctx);
     await abandonedDue(s);
     await expireUnpaidOrders(s);
+    await reviewsDue(s);
+    await bostaSyncDue(s);
   },
 } satisfies ExportedHandler<Env>;

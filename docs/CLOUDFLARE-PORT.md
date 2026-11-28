@@ -135,3 +135,23 @@ Some answers depend on today's date ("last 30 days"), so compare against a recor
   and the Paymob / Meta keys into secrets. `tools/d1/import.sh` now keeps the id counters, so order numbers never repeat.
 - Not yet (later phases): logo and "sell with us" uploads (R2), WhatsApp / Telegram messages on payment, review requests
   after delivery, IndexNow pings.
+
+## Phase 4 notes (team dashboard)
+
+- `worker/api/admin.ts` (session, dashboard, targets, expenses, team orders, products, reports) with
+  `admin-orders.ts` (orders, payments, invoices, customers, leads, quotes), `admin-brands.ts` (partner brands,
+  seller requests, promo codes, quote pages) and `admin-team.ts` (Bosta, order delete, search, settings checks,
+  backups, team). Libraries: `lib/team.ts` (sessions, roles, devices, working hours), `lib/reports.ts`,
+  `lib/products.ts`, `lib/bosta.ts`, `lib/time.ts` (Cairo days and months).
+- **Sessions** live in D1 (`team_sessions`, created on first use), keyed by a hash of the `wts_admin` cookie. On switch
+  day everyone signs in once more (PHP's session files don't move). **Passwords stay bcrypt** (`bcryptjs`): one check
+  is ~100 ms of CPU, which the free plan allows for an occasional sign-in (tested: 6 checks in one request passed).
+- **Bosta**: shipments, refresh, waybills, cancel, webhook (`/api/bosta-webhook.php`), and a sync from the cron at
+  most every 2 hours. Switch day: secrets `BOSTA_API_KEY` and `BOSTA_WEBHOOK_SECRET` (= live `data/bosta-webhook-secret.txt`).
+- **Review requests** after "Delivered" (email) and the 3-day reminder (cron and the orders list).
+- **Kept exactly as PHP did, on purpose** (feature freeze): status changes from the dashboard are logged as "Website";
+  a new supplier's returned id is the activity line's id; Team → Working hours without `?days` shows 0 days.
+- **Different on purpose:** no backup files (D1 Time Travel keeps 30 days: `wrangler d1 time-travel`); copies outside
+  Cloudflare come with R2. Photo and file uploads wait for R2. The WhatsApp inbox, Telegram, bot and insights are Phase 5.
+- Tests: `tools/golden/read-test-local.sh <data-dir>` (reads, local Worker: 139 match; the rest are the backup field and
+  Phase 5 reads) and `write-test.sh` (now 173 steps incl. the dashboard and a mocked Bosta: **0 differences**).

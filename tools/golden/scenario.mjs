@@ -13,6 +13,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function call(step) {
   const jar = (jars[step.as ?? 'a'] ??= {});
   const headers = { 'Content-Type': 'application/json', 'User-Agent': step.ua ?? 'Mozilla/5.0 write-test' };
+  if ((step.as ?? 'a') === 'adm' && csrf && !step.nocsrf) headers['X-CSRF-Token'] = csrf;
+  Object.assign(headers, step.headers ?? {});
   const cookies = Object.entries(jar).map(([k, v]) => k + '=' + v).join('; ');
   if (cookies) headers.Cookie = cookies;
   const r = await fetch(base + (step.pathFn ? step.pathFn() : step.path), { method: step.body === undefined ? 'GET' : 'POST', headers, redirect: 'manual',
@@ -58,7 +60,9 @@ const returnQuery = (n, id) => {
     q.is_standalone_payment, q.is_voided, q.order, q.owner, q.pending, q.source_data_pan, q.source_data_sub_type, q.source_data_type, q.success]);
   return new URLSearchParams(q).toString();
 };
-let qrId = 0, rateIds = [];
+let qrId = 0, rateIds = [], csrf = '';
+const AD = '/api/admin.php?action=';
+const adm = (name, action, body, extra = {}) => ({ name: 'admin ' + name, as: 'adm', path: AD + action, ...(body === undefined ? {} : { body }), ...extra });
 
 // ---- the steps ------------------------------------------------------------------------------------------
 const P = '/api/public.php?action=';
@@ -147,6 +151,108 @@ const steps = [
   { name: 'rate save', path: P + 'review_token_save', before: () => { const o = one('SELECT items FROM orders WHERE id = 2'); rateIds = JSON.parse(o.items).map((i) => i.id); },
     body: () => ({ t: 'bc15a8b7f7d82295299f31bb', name: 'Happy Buyer', reviews: rateIds.map((id, i) => ({ product_id: id, rating: 5 - i, text: i ? '' : 'Lovely quality' })).concat([{ product_id: 'not-in-order', rating: 5 }]) }) },
   { name: 'rate page after', path: '/rate/bc15a8b7f7d82295299f31bb?lang=en' },
+  // ---- the team dashboard ----
+  adm('session signed out', 'session'),
+  adm('dashboard signed out', 'dashboard'),
+  adm('login wrong', 'login', { email: 'golden@example.test', password: 'nope' }),
+  adm('login', 'login', { email: 'golden@example.test', password: 'golden-local' }),
+  adm('session', 'session', undefined, { after: (r) => { csrf = r.body?.csrf ?? ''; } }),
+  adm('no csrf', 'targets_save', { month: '2026-11', targets: [] }, { nocsrf: true }),
+  adm('targets save', 'targets_save', { month: '2026-11', targets: [{ user_id: 2, orders: 20, revenue: 15000 }, { user_id: 3, orders: '7', revenue: '4000.5' }] }),
+  adm('targets', 'targets&month=2026-11'),
+  adm('commission rate', 'commission_rate', { month: '2026-11', user_id: 2, pct: 5, salary: 3000 }),
+  adm('commission bad user', 'commission_rate', { month: '2026-11', user_id: 99, pct: 5 }),
+  adm('supplier save', 'supplier_save', { name: 'Print House', phone: '0100', makes: 'Stands', notes: 'Fast' }),
+  adm('expense bad', 'expense_save', { amount: 0, category: 'Ads' }),
+  adm('expense supplier bill', 'expense_save', { amount: 1200, category: 'Supplier / production', supplier_id: 3, paid_now: 500, on: '2026-11-20', note: 'Stands batch', order: 'WTS-1066' }),
+  adm('expense ads', 'expense_save', { amount: 350.5, category: 'Ads', on: '2026-11-27' }),
+  adm('supplier pay', 'supplier_pay', { supplier_id: 3, amount: 200, note: 'Cash' }),
+  adm('expenses', 'expenses&month=2026-11'),
+  adm('expense delete', 'expense_delete', { id: 5 }),
+  adm('order create team', 'order_create', { name: 'Team Buyer', email: '', phone: '01112223334', address: '5 Team Street, Maadi', city: 'Cairo', city_id: 'FceDyHXwpSYYF9zGW', district_id: 'i8XARRIMA8ypnLPDIY5Wz',
+    items: [{ id: 'nfc1', qty: 3, note: 'Gold print' }, { custom: 1, name: '30 mixed stands', price: 233.33, qty: 30, ship: 1 }], source: 'WhatsApp', payment: 'cod', status: 'Confirmed', discount: 100, shipping: '', paid_now: 500, deposit_method: 'wallet', notes: 'Call first', prep_notes: 'Fragile', business_name: 'Team Co' }),
+  adm('order create bad', 'order_create', { name: 'X', phone: '', items: [{ id: 'nfc1', qty: 1 }] }),
+  adm('order catalog', 'order_catalog'),
+  adm('customer lookup', 'customer_lookup&q=0111222'),
+  adm('order update shipped', 'order_update', { id: 74, status: 'Shipped', notes: 'Out today' }),
+  adm('order update delivered', 'order_update', { id: 74, status: 'Delivered', prep_notes: 'Done', business_name: 'Team Co 2', review_link: '', links: '', design_notes: 'ok' }),
+  adm('payment add', 'payment_add', { order_id: 74, amount: 100, method: 'bank', note: 'Transfer' }),
+  adm('payment refund', 'payment_add', { order_id: 74, amount: -50, method: 'cash', note: 'Refund' }),
+  adm('order payments', 'order_payments&id=74'),
+  adm('payment delete', 'payment_delete', { id: 46 }),
+  adm('order doc', 'order_doc&id=74'),
+  adm('orders list', 'orders'),
+  adm('orders due', 'orders&due=1'),
+  adm('orders search', 'orders&q=Team'),
+  adm('orders csv', 'orders&format=csv&q=Team'),
+  adm('bosta info', 'bosta_info'),
+  adm('bosta create', 'bosta_create', { id: 66, size: 'MEDIUM', notes: 'Call before', building: '4', floor: '2', prep_notes: 'Wrap well' }),
+  adm('bosta create again', 'bosta_create', { id: 66 }),
+  adm('bosta refresh', 'bosta_refresh', { id: 66 }),
+  { name: 'bosta webhook bad', path: '/api/bosta-webhook.php', body: { trackingNumber: 'TRK1001', state: 41 } },
+  { name: 'bosta webhook', path: '/api/bosta-webhook.php', headers: { Authorization: 'Bearer mock-bosta-secret' }, body: () => ({ trackingNumber: one('SELECT tracking_number FROM orders WHERE id = 66').tracking_number, state: 45, numberOfAttempts: 1 }) },
+  adm('bosta cancel', 'bosta_cancel', { id: 66 }),
+  adm('products', 'products'),
+  adm('product save new', 'product_save', { name: 'Test Mug', cat: 'stands', price: 0, cost: 40, status: 'Active', sub: 'Ceramic', desc: 'A mug', features: ['Dishwasher safe', ''],
+    variants: [{ id: 'small', label: 'Small', stock: 5, price: 120, tiers: [{ min: 10, price: 100 }] }, { label: 'Large', stock: 3, ratio: 1.5 }], addons: [{ group: 'Print', options: [{ id: 'std', label: 'Standard', price: 0 }, { id: 'gold', label: 'Gold', price: 30, per: 'unit' }] }] }),
+  adm('product save bad', 'product_save', { name: 'No cat', cat: 'nope', price: 10 }),
+  adm('product update', 'product_save', { id: 'nfc5', name: 'Display Stand NFC + QR Code — 10×15cm', cat: 'nfc', price: 310, stock: 20, status: 'Active', discountPct: 5, seoTitle: 'Custom title' }),
+  adm('category save', 'category_save', { label: 'Mugs & Cups', descr: 'All mugs', sort: 7, label_ar: 'أكواب' }),
+  adm('category delete used', 'category_delete', { key: 'nfc' }),
+  adm('category delete', 'category_delete', { key: 'mugs-cups' }),
+  adm('leads', 'leads'),
+  adm('lead save new', 'lead_save', { name: 'Admin Lead', contact: '01223334445', cat: 'nfc', status: 'Contacted', follow_up: '2026-11-30', assigned_to: 2, notes: 'Called once' }),
+  adm('lead save dupe', 'lead_save', { name: 'Again', contact: '+20 122 333 4445' }),
+  adm('lead update contact', 'lead_save', { id: 322, status: 'Quoted', notes: 'Updated', name: 'Lead Person Renamed', contact: '01009998888 · lead.new@example.test', cat: 'stands' }),
+  adm('lead move', 'lead_move', { id: 322, status: 'Won' }),
+  adm('lead move clear', 'lead_move', { id: 322, follow_up: '' }),
+  adm('quote save', 'quote_save', { name: 'Quote Customer', phone: '01001112223', email: 'quote@example.test', items: [{ id: 'nfc-qr-stand', variant: 's12', qty: 4, note: 'Logo' }, { custom: 1, name: 'Design work', price: 500, qty: 1, ship: 0 }],
+    discount: 50, valid_until: '2026-12-15', terms: 'Half upfront', lead_id: 0 }),
+  adm('quote update', 'quote_save', { id: 12, name: 'Quote Customer', phone: '01001112223', email: 'quote@example.test', items: [{ id: 'nfc-qr-stand', variant: 's12', qty: 5 }], shipping: 0, valid_until: '2026-12-20' }),
+  adm('quote status', 'quote_status', { id: 12, status: 'Sent' }),
+  adm('quote text', 'quote_text', { id: 12, terms: 'Full upfront', notes: 'Blue' }),
+  adm('quotes', 'quotes'),
+  adm('order from quote', 'order_create', { name: 'Quote Customer', email: 'quote@example.test', phone: '01001112223', address: '9 Quote Road, Giza', items: [{ id: 'nfc-qr-stand', variant: 's12', qty: 5 }], quote_id: 12, source: 'Phone', business_name: 'QC' }),
+  adm('quote delete accepted', 'quote_delete', { id: 12 }),
+  adm('quote delete', 'quote_delete', { id: 11 }),
+  adm('promo save', 'promo_save', { code: 'Winter25', kind: 'percent', value: 25, min_order: 500, max_uses: 10, starts_at: '2026-11-01', expires_at: '2026-12-31', active: 1, note: 'Winter' }),
+  adm('promo dupe', 'promo_save', { code: 'winter25', kind: 'fixed', value: 50, active: 1 }),
+  adm('promo delete used', 'promo_delete', { id: 1 }),
+  adm('promos', 'promos'),
+  adm('brand save new', 'brand_save', { name: 'Nile Crafts', nameAr: 'حرف النيل', commission: 15, margin: 20, active: 1, link: 'nilecrafts.example', orderEmails: 'orders@nilecrafts.example, x@nilecrafts.example', orderWhatsapp: '+20 100 000 0000' }),
+  adm('brand save bad b2b', 'brand_save', { name: 'Bad', commissionB2b: 5 }),
+  adm('brand update margin', 'brand_save', { id: 1, name: 'Bonds Coffee Roasters', commission: 10, margin: 30, active: 1 }),
+  adm('brands', 'brands&month=2026-11'),
+  adm('brand statement', 'brand_statement&id=1&month=2026-11'),
+  adm('brand payout', 'brand_payout', { brand_id: 1, amount: 750.25, on: '2026-11-25', note: 'Nov part' }),
+  adm('brand delete with products', 'brand_delete', { id: 1 }),
+  adm('seller requests', 'seller_requests'),
+  adm('seller status', 'seller_status', { id: 1, status: 'Contacted', note: 'Called' }),
+  adm('seller approve', 'seller_approve', { id: 1, commission: 12, cat: 'gift', brand: 'Ostora sneakers' }),
+  adm('reviews list', 'reviews_list'),
+  adm('review hide', 'review_set', { id: 1, hidden: 1 }),
+  adm('search', 'search&q=Team'),
+  adm('customers', 'customers', undefined, { after: (r) => { r.body?.customers?.sort((x, y) => String(x.key).localeCompare(String(y.key))); } }),
+  adm('customer', 'customer&key=112223334'),
+  adm('team save new', 'team_save', { name: 'New Seller', email: 'seller.test@example.test', password: 'longpassword', role: 'sales', ref_code: 'ns-1', active: 1, notify: 0 }),
+  adm('team save self demote', 'team_save', { id: 5, name: 'Golden Recorder', email: 'golden@example.test', role: 'sales', active: 1 }),
+  adm('team security', 'team_security', { ask_location: 1 }),
+  adm('login location', 'login_location', { lat: 30.0444, lng: 31.2357, acc: 12.6 }),
+  adm('team', 'team'),
+  adm('team hours', 'team_hours&days=14'),
+  adm('device hints', 'device_hints', { model: 'SM-A546E', platform: 'Android', platformVersion: '14.0.0', screen: '412x915' }),
+  adm('password wrong', 'password', { current: 'x', new: 'newpassword1' }),
+  adm('password', 'password', { current: 'golden-local', new: 'golden-local-2' }),
+  adm('ops errors', 'ops_errors'),
+  adm('meta status', 'meta_status'),
+  adm('reports', 'reports'),
+  adm('report month', 'report_month&month=2026-11'),
+  adm('dashboard', 'dashboard&period=month'),
+  adm('commissions', 'commissions&month=2026-11'),
+  adm('order delete', 'order_delete', { ids: [73] }),
+  adm('activity', 'activity'),
+  adm('logout', 'logout', {}),
+  adm('dashboard after logout', 'dashboard'),
   { name: 'unknown action', path: P + 'nothing', body: {} },
   { name: 'get on post action', path: P + 'order' },
 ];
@@ -154,7 +260,9 @@ const steps = [
 const out = [];
 for (const s of steps) {
   if (s.before) await s.before();
-  out.push(await call(s));
+  const r = await call(s);
+  if (s.after) s.after(r);
+  out.push(r);
 }
 await sleep(1500); // the Worker sends emails and outside calls after answering
 
@@ -167,7 +275,17 @@ const tables = {
   drafts: 'SELECT * FROM checkout_drafts ORDER BY id', customers: 'SELECT * FROM customers ORDER BY id',
   sessions: 'SELECT customer_id, count(*) AS n FROM customer_sessions GROUP BY customer_id ORDER BY customer_id',
   codes: 'SELECT email, tries, sends FROM customer_codes ORDER BY email',
-  stock: 'SELECT id, stock, variants FROM products ORDER BY id', ops_errors: 'SELECT area, message, count FROM ops_errors ORDER BY id',
+  stock: 'SELECT id, stock, variants FROM products ORDER BY id',
+  products: 'SELECT id, sku, name, cat, price, cost, stock, discount_pct, status, sub, descr, features, variants, tiers, addons, personalized, brand_id, brand_price, margin_pct, seo_title, sort FROM products ORDER BY id',
+  categories: 'SELECT * FROM categories ORDER BY key', brands: 'SELECT * FROM brands ORDER BY id', brand_payouts: 'SELECT brand_id, amount, paid_on, note, created_by FROM brand_payouts ORDER BY id',
+  targets: 'SELECT * FROM targets ORDER BY user_id, month', expenses: 'SELECT * FROM expenses ORDER BY id', suppliers: 'SELECT * FROM suppliers ORDER BY id',
+  supplier_payments: 'SELECT * FROM supplier_payments ORDER BY id', quotes: 'SELECT * FROM quotes ORDER BY id', promos: 'SELECT * FROM promos ORDER BY id',
+  sellers: 'SELECT * FROM seller_requests ORDER BY id', product_images: 'SELECT * FROM product_images ORDER BY id',
+  users: 'SELECT id, name, email, phone, role, ref_code, active, notify, length(password_hash) AS pw FROM users ORDER BY id',
+  user_devices: 'SELECT user_id, ua, model, platform, platform_version, screen, label, logins, revoked FROM user_devices ORDER BY id',
+  user_logins: 'SELECT user_id, ip, city, isp, new_device, lat, lng, acc, loc_status FROM user_logins ORDER BY id',
+  user_days: 'SELECT user_id, day FROM user_days ORDER BY user_id, day', kv: "SELECT key, value FROM kv WHERE key LIKE 'team.%' ORDER BY key",
+  month_reports: 'SELECT month FROM month_reports ORDER BY month', ops_errors: 'SELECT area, message, count FROM ops_errors ORDER BY id',
   reviews: 'SELECT * FROM product_reviews ORDER BY id', qr: 'SELECT id, customer_id, name, review_link, cid, place_id, maps, lat, lng, target, card_lang, page, views FROM qr_businesses ORDER BY id',
   qr_ledger: 'SELECT customer_id, delta, reason, business_id, order_id FROM qr_ledger ORDER BY id',
 };

@@ -133,3 +133,43 @@ export async function reviewPage(request: Request, env: Env, url: URL, ec: Execu
   h += '</div>\n' + (d ? reviewJs(t, T) : '') + '</body>\n</html>\n';
   return new Response(h, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' } });
 }
+
+// ---------- review requests after delivery (api/review-requests.php) ----------
+// The email goes out here; the WhatsApp message (when the customer's chat is open) comes with the messaging port.
+const REVIEW_REMIND_DAYS = 3;
+export async function reviewRequestSend(s: Shop, orderId: number, reminder: boolean): Promise<boolean> {
+  const o = await s.db.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first<Row>();
+  if (!o || o.status !== 'Delivered' || !reviewOrderProducts(o).length) return false;
+  if (!reminder && o.review_asked_at) return false;
+  const { reviewUrl } = await import('./admin');
+  const url = await reviewUrl(s, o);
+  const first = phpTrim(String(o.customer ?? '')).split(/\s+/u)[0] ?? '';
+  const ar = o.lang !== 'en';
+  let sent = false;
+  if (validEmail(String(o.email ?? ''))) {
+    const { sendMailLater, emailShell, btn, h } = await import('../lib/mail');
+    const n = orderNumber(orderId);
+    const title = reminder ? (ar ? 'رأيك يهمنا في طلب ' + n : 'How was order ' + n + '?') : (ar ? 'وصلك طلبك؟ قيّمه في دقيقة ⭐' : 'Your order arrived — how is it? ⭐');
+    const names = reviewOrderProducts(o).map((p) => p.name).join('، ');
+    const inner = '<p style="font-size:15px;line-height:1.7">' + (ar
+      ? 'أهلًا ' + h(first) + ' 👋<br>' + (reminder ? 'لسه ممكن تقيّم طلبك. ' : 'نتمنى يكون طلبك وصل وعجبك. ') + 'رأيك في <b>' + h(names) + '</b> بيساعد عملاء تانيين يختاروا، وبياخد أقل من دقيقة.'
+      : 'Hi ' + h(first) + ' 👋<br>' + (reminder ? 'There’s still time to rate your order. ' : 'We hope your order arrived and you love it. ') + 'Your opinion of <b>' + h(names) + '</b> helps other customers choose, and takes less than a minute.')
+      + '</p><p style="text-align:center;margin:22px 0">' + btn(url, ar ? '⭐ قيّم طلبك' : '⭐ Rate your order') + '</p>'
+      + '<p style="font-size:13px;color:#6B6660">' + (ar ? 'طلب ' : 'Order ') + h(n) + '</p>';
+    sendMailLater(s, [String(o.email)], title, emailShell(s, ar ? 'قيّم طلبك' : 'Rate your order', inner, 'customer'), (ar ? 'قيّم طلبك: ' : 'Rate your order: ') + url);
+    sent = true;
+  }
+  if (sent) await s.db.prepare('UPDATE orders SET ' + (reminder ? 'review_reminded_at' : 'review_asked_at') + " = datetime('now') WHERE id = ?").bind(orderId).run();
+  else if (!reminder) await s.db.prepare("UPDATE orders SET review_asked_at = datetime('now'), review_reminded_at = datetime('now') WHERE id = ?").bind(orderId).run();
+  return sent;
+}
+export async function reviewsDue(s: Shop): Promise<void> {
+  const { results } = await s.db.prepare(`SELECT o.id FROM orders o WHERE o.status = 'Delivered' AND o.review_asked_at IS NOT NULL AND o.review_reminded_at IS NULL
+    AND o.review_asked_at < datetime('now', '-${REVIEW_REMIND_DAYS} days') AND o.review_asked_at > datetime('now', '-30 days')
+    AND NOT EXISTS (SELECT 1 FROM product_reviews r WHERE r.order_id = o.id) LIMIT 20`).all<Row>();
+  for (const r of results) {
+    try { await reviewRequestSend(s, phpInt(r.id), true); }
+    catch (e) { const { opsError } = await import('../lib/shop'); await opsError(s, 'Reviews', 'A review reminder could not be sent', e); }
+    await s.db.prepare("UPDATE orders SET review_reminded_at = COALESCE(review_reminded_at, datetime('now')) WHERE id = ?").bind(phpInt(r.id)).run();
+  }
+}

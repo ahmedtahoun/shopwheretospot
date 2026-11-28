@@ -29,6 +29,12 @@ createServer(async (req, res) => {
   if (url.pathname === '/v1/intention/') return reply(201, { client_secret: 'mock_cs_' + (++n), id: 'pi_mock_' + n });
   // Meta Conversions API.
   if (/\/events$/.test(url.pathname)) return reply(200, { events_received: Array.isArray(body?.data) ? body.data.length : 1 });
+  // Bosta.
+  if (url.pathname === '/bosta/pickup-locations') return reply(200, { success: true, data: { list: [{ _id: 'loc1', locationName: 'MQR warehouse', isDefault: true, address: { city: { name: 'Giza' } } }] } });
+  if (url.pathname === '/bosta/deliveries' && req.method === 'POST') { n++; return reply(201, { success: true, data: { _id: 'bosta' + n, trackingNumber: 'TRK' + (1000 + n), state: { code: 10 } } }); }
+  if (url.pathname.startsWith('/bosta/deliveries/business/') && url.pathname.endsWith('/terminate')) return reply(200, { success: true });
+  if (url.pathname.startsWith('/bosta/deliveries/business/')) return reply(200, { success: true, data: { trackingNumber: url.pathname.split('/').pop(), state: { code: 24 } } });
+  if (url.pathname === '/bosta/deliveries/mass-awb') return reply(200, { success: true, data: Buffer.from('%PDF-1.4 mock waybill').toString('base64') });
   // Telegram Bot API.
   if (url.pathname.startsWith('/bot')) return reply(200, { ok: true, result: { message_id: ++n } });
   return reply(200, { ok: true });

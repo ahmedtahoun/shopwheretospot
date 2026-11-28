@@ -8,7 +8,7 @@ import { type Shop, ShopError, ORDER_STATUSES, stockAfter, orderPaid, paymentStm
 import { UNPAID_EXPIRED_NOTE } from './customers';
 import { metaPurchase } from './meta';
 
-export async function setOrderStatus(s: Shop, id: number, status: string, notes: string | null = null, user: Row | null = null): Promise<Row> {
+export async function setOrderStatus(s: Shop, id: number, status: string, notes: string | null = null, user: Row | null = null, quiet = false): Promise<Row> {
   const o = await s.db.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first<Row>();
   if (!o) throw new ShopError('Order not found.');
   if (!ORDER_STATUSES.includes(status)) status = o.status;
@@ -40,6 +40,13 @@ export async function setOrderStatus(s: Shop, id: number, status: string, notes:
   }
   if (!isOpen && wasOpen) stmts.push(s.db.prepare("DELETE FROM payments WHERE order_id = ? AND method = 'cod' AND note = 'Collected on delivery' AND created_by IS NULL").bind(id));
   await s.db.batch(stmts);
+  // Delivered: ask the customer for a review after answering (the WhatsApp shipped/delivered message comes with the messaging port).
+  if (!quiet && status === 'Delivered' && o.status !== 'Delivered') {
+    s.later((async () => {
+      const { reviewRequestSend } = await import('../api/review');
+      try { await reviewRequestSend(s, id, false); } catch (e) { await opsError(s, 'Reviews', 'The review request for ' + orderNumber(id) + ' could not be sent', e); }
+    })());
+  }
   if (status !== o.status) await logActivity(s, user, 'Order ' + status, orderNumber(id));
   return o;
 }
